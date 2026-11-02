@@ -16,7 +16,7 @@ final class DeveloperMatching
 {
     public function __construct(private readonly AiGateway $ai, private readonly ProjectAudience $audience) {}
 
-    /** @return array{results: list<array{wish: BuyerPreference, score: ?float, reason: string, unit: ?ProjectUnit}>, ai: array<string, mixed>} */
+    /** @return array{results: list<array{wish: BuyerPreference, score: ?float, unit: ?ProjectUnit}>, ai: array<string, mixed>} */
     public function searchers(Project $project, Customer $developer): array
     {
         $units = $project->units()->where('available_count', '>', 0)->limit(100)->get()->keyBy('id');
@@ -37,13 +37,13 @@ final class DeveloperMatching
             'limit' => (int) config('zon.ai.results'),
         ], check: fn (array $out) => ['results' => array_map(
             fn (array $r) => [...$r, 'unit_id' => isset($r['unit_id']) && $units->has((int) $r['unit_id']) ? (int) $r['unit_id'] : null],   // an invented unit becomes none
-            AiGateway::ranked($out['results'] ?? [], $byId->keys()->all()),
+            AiGateway::ranked($out['results'] ?? [], $byId->keys()->all(), extra: ['unit_id']),
         )], customer: $developer);
 
         $ranked = $result->output['results'] ?? null;
         $rows = $ranked === null
-            ? $wishes->take((int) config('zon.ai.results'))->map(fn ($w) => ['wish' => $w, 'score' => null, 'reason' => '', 'unit' => null])->values()->all()
-            : array_map(fn (array $r) => ['wish' => $byId[$r['id']], 'score' => $r['score'], 'reason' => $r['reason'], 'unit' => $r['unit_id'] === null ? null : $units[$r['unit_id']]], $ranked);
+            ? $wishes->take((int) config('zon.ai.results'))->map(fn ($w) => ['wish' => $w, 'score' => null, 'unit' => null])->values()->all()
+            : array_map(fn (array $r) => ['wish' => $byId[$r['id']], 'score' => $r['score'], 'unit' => $r['unit_id'] === null ? null : $units[$r['unit_id']]], $ranked);
 
         return ['results' => $rows, 'ai' => $result->meta()];
     }

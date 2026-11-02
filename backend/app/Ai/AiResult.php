@@ -15,15 +15,15 @@ final readonly class AiResult
         return $this->output !== null;
     }
 
-    /** `meta.ai` of the API answer: {status, reasons} — reasons only come from a full model answer. */
+    /** `meta.ai` of the API answer: {status} — how the answer was obtained. */
     public function meta(): array
     {
-        return ['status' => $this->status->value, 'reasons' => in_array($this->status, [AiCallStatus::Ok, AiCallStatus::Cached], true)];
+        return ['status' => $this->status->value];
     }
 
     /** `meta.ai` when no call was needed (no candidates, out of scope…). */
     public static function skipped(): array
     {
-        return ['status' => 'skipped', 'reasons' => false];
+        return ['status' => 'skipped'];
     }
 }

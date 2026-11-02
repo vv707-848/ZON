@@ -1,4 +1,6 @@
-"""Ranking agents: candidates only, reasons of twelve words, and the degraded answer."""
+"""Ranking agents: candidates only, an id and a score each — nothing written — and the degraded answer."""
+
+from typing import Any
 
 import httpx
 from fastapi.testclient import TestClient
@@ -26,23 +28,51 @@ def test_the_model_orders_the_candidates_and_nothing_else_comes_through(
     _indexed(client)
     model.answers["search_listings"] = {
         "results": [
-            {"id": 3, "score": 0.9, "reason": "قريبة من المدارس كما طلبت وضمن الميزانية تماماً بلا أي مشكلة أبداً والله"},
-            {"id": 99, "score": 0.8, "reason": "عرض مختلق"},
-            {"id": 1, "score": 0.7, "reason": "دور أرضي — اتصل 0551234567"},
-            {"id": 3, "score": 0.6, "reason": "تكرار"},
-        ],
-        "query_understood": "شقة · النرجس",
+            {"id": 3, "score": 0.9},
+            {"id": 99, "score": 0.8},  # not a candidate
+            {"id": 1, "score": 0.7, "reason": "دور أرضي — اتصل 0551234567"},  # a key nobody asked for
+            {"id": 3, "score": 0.6},  # twice
+        ]
     }
 
     body = call(
         client, "search_listings", {"need": {**NEED, "free_text": "دور أرضي"}, "candidates": _candidates(1, 2, 3)}
     )
 
-    results = body["output"]["results"]
-    assert [r["id"] for r in results] == [3, 1]
-    assert len(results[0]["reason"].split()) == 12
-    assert "0551234567" not in results[1]["reason"]
+    assert body["output"] == {"results": [{"id": 3, "score": 0.9}, {"id": 1, "score": 0.7}]}
     assert body["degraded"] is False
+
+
+def _properties(schema: Any) -> set[str]:
+    """Every property name anywhere in a JSON schema."""
+    if isinstance(schema, dict):
+        found = set(schema.get("properties", {})) if isinstance(schema.get("properties"), dict) else set()
+        return found.union(*(_properties(value) for value in schema.values()))
+    if isinstance(schema, list):
+        return set().union(*(_properties(value) for value in schema))
+    return set()
+
+
+def test_the_model_is_held_to_ids_and_scores(client: TestClient, model: ScriptedModel) -> None:
+    """What generation is constrained to (NativeOutput → SGLang): no field the model could write a sentence in."""
+    _indexed(client)
+    need = {**NEED, "free_text": "دور أرضي"}
+    model.answers["search_listings"] = {"results": [{"id": 1, "score": 0.5}]}
+    model.answers["search_requests"] = {"results": []}
+    model.answers["matching"] = {"matched": [], "broaden": []}
+    model.answers["match_searchers"] = {"results": []}
+
+    call(client, "search_listings", {"need": need, "candidates": _candidates(1)})
+    call(client, "search_requests", {"need": need, "candidates": [{"id": 5, "desc": "شقة"}]})
+    call(client, "matching", {"need": need, "matched": _candidates(1)})
+    call(client, "match_searchers", {"project": {}, "units": [{"id": 40}], "searchers": [{"id": 7}]})
+
+    assert {agent: _properties(schema) for agent, schema in model.schemas.items()} == {
+        "search_listings": {"results", "id", "score"},
+        "search_requests": {"results", "id", "score"},
+        "matching": {"matched", "broaden", "id", "score"},
+        "match_searchers": {"results", "id", "score", "unit_id"},
+    }
 
 
 def test_without_the_model_the_hybrid_order_answers_without_reasons(client: TestClient, model: ScriptedModel) -> None:
@@ -57,7 +87,7 @@ def test_without_the_model_the_hybrid_order_answers_without_reasons(client: Test
 
     assert body["degraded"] is True
     assert body["output"]["results"][0]["id"] == 1  # the description that shares the words comes first
-    assert {r["reason"] for r in body["output"]["results"]} == {""}
+    assert all(set(r) == {"id", "score"} for r in body["output"]["results"])
 
 
 def test_a_broken_answer_is_tried_once_more_at_a_low_temperature(client: TestClient, model: ScriptedModel) -> None:
@@ -82,7 +112,7 @@ def test_when_the_embedding_server_is_down_laravel_takes_its_fallback(
     assert response.status_code == 503
 
 
-def test_matching_keeps_two_separate_lists_and_ranks_units_without_reasons(
+def test_matching_keeps_two_separate_lists_and_ranks_units_by_their_descriptions(
     client: TestClient, model: ScriptedModel
 ) -> None:
     _indexed(client)
@@ -90,10 +120,10 @@ def test_matching_keeps_two_separate_lists_and_ranks_units_without_reasons(
     index(client, "project_unit", 40, {**unit, "desc_clean": "نموذج بحوش ومدخل خاص"})
     model.answers["matching"] = {
         "matched": [
-            {"id": 1, "score": 0.9, "reason": "دور أرضي بمدخلين"},
-            {"id": 2, "score": 0.4, "reason": "من القائمة الأخرى"},
+            {"id": 1, "score": 0.9},
+            {"id": 2, "score": 0.4},  # from the other list
         ],
-        "broaden": [{"id": 2, "score": 0.6, "reason": "نوع آخر ضمن ميزانيتك"}],
+        "broaden": [{"id": 2, "score": 0.6}],
     }
     payload = {
         "need": {**NEED, "free_text": "حوش ومدخل"},
@@ -104,9 +134,9 @@ def test_matching_keeps_two_separate_lists_and_ranks_units_without_reasons(
 
     output = call(client, "matching", payload)["output"]
 
-    assert [r["id"] for r in output["matched"]] == [1]
-    assert [r["id"] for r in output["broaden"]] == [2]
-    assert output["units"][0]["id"] == 40 and "reason" not in output["units"][0]
+    assert output["matched"] == [{"id": 1, "score": 0.9}]
+    assert output["broaden"] == [{"id": 2, "score": 0.6}]
+    assert output["units"][0]["id"] == 40 and set(output["units"][0]) == {"id", "score"}
 
 
 def test_no_candidate_means_no_model_call(client: TestClient, model: ScriptedModel) -> None:
@@ -127,7 +157,7 @@ def test_the_developer_gets_searchers_with_one_of_his_own_unit_models(client: Te
     ]
     model.answers["match_searchers"] = {
         "results": [
-            {"id": 7, "score": 0.8, "reason": "ميزانيته تناسب النموذج", "unit_id": 999},
+            {"id": 7, "score": 0.8, "unit_id": 999},  # not one of his models
             {"id": 70, "score": 0.5},
         ]
     }
@@ -136,7 +166,7 @@ def test_the_developer_gets_searchers_with_one_of_his_own_unit_models(client: Te
         client, "match_searchers", {"project": {"type": "apartment"}, "units": units, "searchers": searchers}
     )["output"]
 
-    assert output["results"] == [{"id": 7, "score": 0.8, "reason": "ميزانيته تناسب النموذج", "unit_id": None}]
+    assert output["results"] == [{"id": 7, "score": 0.8, "unit_id": None}]
 
     model.answers["match_searchers"] = httpx.ConnectError("down")
     degraded = call(client, "match_searchers", {"project": {}, "units": units, "searchers": searchers})
@@ -147,7 +177,7 @@ def test_the_developer_gets_searchers_with_one_of_his_own_unit_models(client: Te
 def test_brokers_search_requests_in_their_own_collection(client: TestClient, model: ScriptedModel) -> None:
     request = {"city": "الرياض", "neighborhoods": ["النرجس"], "property_types": ["villa"], "desc": "فيلا بمسبح"}
     index(client, "request", 77, request)
-    model.answers["search_requests"] = {"results": [{"id": 77, "score": 0.7, "reason": "يطلب فيلا بمسبح"}]}
+    model.answers["search_requests"] = {"results": [{"id": 77, "score": 0.7}]}
     candidates = [{"id": 77, "types": ["villa"], "neighborhoods": ["النرجس"], "desc": "فيلا بمسبح"}]
 
     output = call(client, "search_requests", {"need": {**NEED, "free_text": "مسبح"}, "candidates": candidates})[

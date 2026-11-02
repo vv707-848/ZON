@@ -10,8 +10,7 @@ from pydantic import BaseModel, Field
 
 from zon_agents.schemas.common import Id, Payload, Place, PType, Score
 
-MAX_RESULTS = 10  # architecture §7.5: ten results with a reason, not twenty-five
-Reason = Annotated[str, Field(max_length=160)]
+MAX_RESULTS = 10  # architecture §7.5: the most results one answer carries
 
 # ── ranking ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -120,14 +119,15 @@ class MatchSearchersInput(Payload):
 
 
 class Ranked(BaseModel):
+    """An id and a score, nothing written: the app shows no explanation under a result, and each one cost the
+    model a dozen words per result after its place was already decided."""
+
     id: int
     score: Score
-    reason: Reason = ""
 
 
 class SearchAnswer(BaseModel):
     results: list[Ranked]
-    query_understood: Annotated[str, Field(max_length=160)] = ""
 
 
 class MatchingAnswer(BaseModel):

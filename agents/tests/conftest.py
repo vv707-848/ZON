@@ -79,13 +79,15 @@ Answer = dict[str, Any] | Exception | Callable[[dict[str, Any]], dict[str, Any] 
 
 class ScriptedModel:
     """Answers each agent with what the test put in `answers[agent]` (a dict, an exception, or a function of the
-    payload, called once per attempt). Every call is kept in `calls` as (agent, payload, temperature)."""
+    payload, called once per attempt). Every call is kept in `calls` as (agent, payload, temperature), and the
+    JSON schema each agent's answer was held to in `schemas[agent]`."""
 
     def __init__(self) -> None:
         self.prompts = load_prompts()
         self._agents = {prompt.text: name for name, prompt in self.prompts.items()}
         self.answers: dict[str, Answer | list[Answer]] = {}
         self.calls: list[tuple[str, dict[str, Any], float | None]] = []
+        self.schemas: dict[str, dict[str, Any]] = {}
 
     def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
         request = next(m for m in messages if isinstance(m, ModelRequest))
@@ -94,6 +96,8 @@ class ScriptedModel:
         payload = json.loads(str(prompt.content))
         temperature = (info.model_settings or {}).get("temperature")
         self.calls.append((agent, payload, temperature))
+        if info.model_request_parameters.output_object is not None:
+            self.schemas[agent] = info.model_request_parameters.output_object.json_schema
         scripted = self.answers[agent]
         if isinstance(scripted, list):  # one answer per attempt
             scripted = scripted.pop(0)

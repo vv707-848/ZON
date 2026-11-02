@@ -44,8 +44,9 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
- * The AI services of the app. Each answer carries meta.ai = {status, reasons}: ok/cached = ranked by the model
- * with reasons; degraded/fallback/timeout/rejected = the SQL order without reasons; skipped = no call was needed.
+ * The AI services of the app. Each answer carries meta.ai = {status}: ok/cached = ranked by the model; degraded =
+ * the agents' hybrid order without the model; fallback/timeout/rejected = the SQL order; skipped = no call was
+ * needed. A result is a record and its score — the app shows no explanation under it.
  */
 class AiController extends Controller
 {
@@ -69,8 +70,7 @@ class AiController extends Controller
         $out = $search->listings($this->need($request), $request->user('api'));
 
         return Api::ok([
-            'understood' => $out['understood'],
-            'results' => array_map(fn (array $r) => ['listing' => new ListingResource($r['model']), 'score' => $r['score'], 'reason' => $r['reason']], $out['results']),
+            'results' => array_map(fn (array $r) => ['listing' => new ListingResource($r['model']), 'score' => $r['score']], $out['results']),
         ], ['ai' => $out['ai']]);
     }
 
@@ -84,8 +84,7 @@ class AiController extends Controller
         $out = $search->requests($this->need($request), $broker);
 
         return Api::ok([
-            'understood' => $out['understood'],
-            'results' => array_map(fn (array $r) => ['request' => new SearchRequestResource($r['model']), 'score' => $r['score'], 'reason' => $r['reason']], $out['results']),
+            'results' => array_map(fn (array $r) => ['request' => new SearchRequestResource($r['model']), 'score' => $r['score']], $out['results']),
         ], ['ai' => $out['ai']]);
     }
 
@@ -110,7 +109,7 @@ class AiController extends Controller
             $projects[$unit->project_id]['units'][] = ['unit' => new UnitResource($unit), 'score' => $row['score']];
         }
         $projects = array_values($projects);
-        $listing = fn (array $r) => ['listing' => new ListingResource($r['model']), 'score' => $r['score'], 'reason' => $r['reason']];
+        $listing = fn (array $r) => ['listing' => new ListingResource($r['model']), 'score' => $r['score']];
 
         return Api::ok([
             'matched' => array_map($listing, $out['matched']),
@@ -132,7 +131,6 @@ class AiController extends Controller
                 'budget_max' => $r['wish']->budget_max === null ? null : (float) $r['wish']->budget_max,
                 'notes' => $r['wish']->notes === null ? null : AiMasking::text($r['wish']->notes)],   // what he wants, not how to reach him
             'score' => $r['score'],
-            'reason' => $r['reason'],
             'unit' => $r['unit'] === null ? null : ['id' => $r['unit']->id, 'model_name' => $r['unit']->model_name],
         ], $out['results']), ['ai' => $out['ai']]);
     }

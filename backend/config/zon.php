@@ -32,7 +32,6 @@ return [
     'ai' => [
         'cache_minutes' => 15,
         'results' => 10,
-        'reason_max_words' => 12,
         'candidates_limit' => 300,
         'free_text_max' => 1000,
         'quota_connection' => 'quota',

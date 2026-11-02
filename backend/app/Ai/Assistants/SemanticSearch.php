@@ -15,8 +15,8 @@ use App\Models\SearchRequest;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
- * «البحث الدلالي»: SQL candidates → the model ranks and explains (≤ 10) → only ids we offered come back.
- * Without the model: the SQL order (closest price, newest), no reasons.
+ * «البحث الدلالي»: SQL candidates → the model ranks them (≤ 10) → only ids we offered come back, each with its
+ * score. Without the model: the SQL order (closest price, newest).
  */
 final class SemanticSearch
 {
@@ -27,7 +27,7 @@ final class SemanticSearch
         private readonly QueryExpander $expander,
     ) {}
 
-    /** @return array{results: list<array{model: Listing, score: ?float, reason: string}>, understood: string, ai: array<string, mixed>} */
+    /** @return array{results: list<array{model: Listing, score: ?float}>, ai: array<string, mixed>} */
     public function listings(Need $need, Customer $customer): array
     {
         $candidates = $this->listings->matched($need, $customer);
@@ -35,7 +35,7 @@ final class SemanticSearch
         return $this->rank(AiAgent::SearchListings, $need, $customer, $candidates, fn (Listing $l) => ListingCandidates::toAgent($l), 'search');
     }
 
-    /** @return array{results: list<array{model: SearchRequest, score: ?float, reason: string}>, understood: string, ai: array<string, mixed>} */
+    /** @return array{results: list<array{model: SearchRequest, score: ?float}>, ai: array<string, mixed>} */
     public function requests(Need $need, Customer $broker): array
     {
         $candidates = $this->requests->for($need, $broker);
@@ -48,14 +48,14 @@ final class SemanticSearch
      *
      * @param  Collection<int, T>  $candidates
      * @param  callable(T): array<string, mixed>  $toAgent
-     * @return array{results: list<array{model: T, score: ?float, reason: string}>, understood: string, ai: array<string, mixed>}
+     * @return array{results: list<array{model: T, score: ?float}>, ai: array<string, mixed>}
      */
     private function rank(AiAgent $agent, Need $need, Customer $customer, Collection $candidates, callable $toAgent, string $context): array
     {
         if ($candidates->isEmpty()) {
             SearchMisses::record($context, $need, $customer);
 
-            return ['results' => [], 'understood' => '', 'ai' => AiResult::skipped()];
+            return ['results' => [], 'ai' => AiResult::skipped()];
         }
 
         $byId = $candidates->keyBy('id');
@@ -64,14 +64,14 @@ final class SemanticSearch
             'terms' => $this->expander->terms($need->freeText),
             'candidates' => $candidates->map($toAgent)->values()->all(),
             'limit' => (int) config('zon.ai.results'),
-        ], check: fn (array $out) => ['results' => AiGateway::ranked($out['results'] ?? [], $byId->keys()->all()), 'understood' => mb_substr((string) ($out['query_understood'] ?? ''), 0, 160)],
+        ], check: fn (array $out) => ['results' => AiGateway::ranked($out['results'] ?? [], $byId->keys()->all())],
             customer: $customer);
 
         $ranked = $result->output['results'] ?? null;
         $rows = $ranked === null
-            ? $candidates->take((int) config('zon.ai.results'))->map(fn ($m) => ['model' => $m, 'score' => null, 'reason' => ''])->values()->all()
-            : array_map(fn (array $r) => ['model' => $byId[$r['id']], 'score' => $r['score'], 'reason' => $r['reason']], $ranked);
+            ? $candidates->take((int) config('zon.ai.results'))->map(fn ($m) => ['model' => $m, 'score' => null])->values()->all()
+            : array_map(fn (array $r) => ['model' => $byId[$r['id']], 'score' => $r['score']], $ranked);
 
-        return ['results' => $rows, 'understood' => (string) ($result->output['understood'] ?? ''), 'ai' => $result->meta()];
+        return ['results' => $rows, 'ai' => $result->meta()];
     }
 }

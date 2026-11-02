@@ -34,7 +34,7 @@ def build_mcp(ctx: Ctx) -> MCPServer:
     async def semantic_search_requests(request: SearchRequestsInput) -> dict[str, Any]:
         return (await ranking.search_requests(ctx, request.model_dump())).output
 
-    @mcp.tool(name="match_to_listings", description="A wish against listings: matched + broaden, with reasons.")
+    @mcp.tool(name="match_to_listings", description="A wish against listings: matched + broaden, ranked.")
     async def match_to_listings(request: MatchingInput) -> dict[str, Any]:
         result = await ranking.matching(ctx, {**request.model_dump(), "units": []})
         return {"matched": result.output["matched"], "broaden": result.output["broaden"]}

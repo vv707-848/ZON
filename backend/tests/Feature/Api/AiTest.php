@@ -19,7 +19,7 @@ use Illuminate\Http\Client\Request as Sent;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-/** Every AI service through AiGateway: SQL candidates, masking, ids checked, reasons clipped, quota, cache, fallback. */
+/** Every AI service through AiGateway: SQL candidates, masking, ids checked, quota, cache, fallback — a result is a record and its score. */
 class AiTest extends TestCase
 {
     private function agent(array $output, int $status = 200, bool $degraded = false): void
@@ -36,22 +36,22 @@ class AiTest extends TestCase
         return $this->signIn($seeker);
     }
 
-    public function test_search_ranks_only_offered_ids_clips_reasons_and_charges_on_a_full_answer(): void
+    public function test_search_ranks_only_offered_ids_and_charges_on_a_full_answer(): void
     {
         $near = Listing::factory()->published()->create(['price' => 880000]);
         $far = Listing::factory()->published()->create(['price' => 2000000]);
-        $this->agent(['results' => [
-            ['id' => $far->id, 'score' => 0.9, 'reason' => 'واحد اثنان ثلاثة أربعة خمسة ستة سبعة ثمانية تسعة عشرة أحد عشر اثنا عشر ثلاثة عشر'],
-            ['id' => 999999, 'score' => 0.8, 'reason' => 'مخترع'],
+        $this->agent(['results' => [   // as an older agents build answered: with words nobody shows
+            ['id' => $far->id, 'score' => 0.9],
+            ['id' => 999999, 'score' => 0.8],
             ['id' => $near->id, 'score' => 1.7, 'reason' => 'قريب من الميزانية'],
         ], 'query_understood' => 'شقة · النرجس']);
         $this->seeker();
 
         $response = $this->postJson('/api/v1/ai/search', ['city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 900000, 'query' => 'فيها حوش، كلمني 0551234567'], ['X-Device-Id' => 'device-1'])
-            ->assertOk()->assertJsonPath('meta.ai', ['status' => 'ok', 'reasons' => true])->assertHeader('X-AI-Limit', '30')->assertHeader('X-AI-Remaining', '29');
+            ->assertOk()->assertJsonPath('meta.ai', ['status' => 'ok'])->assertHeader('X-AI-Limit', '30')->assertHeader('X-AI-Remaining', '29');
 
         $this->assertSame([$far->id, $near->id], array_column(array_column($response->json('data.results'), 'listing'), 'id'), 'the invented id is dropped');
-        $this->assertSame(12, count(explode(' ', $response->json('data.results.0.reason'))));
+        $this->assertSame([['results'], ['listing', 'score']], [array_keys($response->json('data')), array_keys($response->json('data.results.1'))], 'the record and its score, nothing written');
         $this->assertEquals(1, $response->json('data.results.1.score'), 'scores are kept within 0–1');
         Http::assertSent(fn (Sent $r) => str_ends_with($r->url(), '/agents/search_listings')
             && ! str_contains($r->body(), '0551234567') && in_array('فناء', $r['terms'], true)
@@ -78,7 +78,7 @@ class AiTest extends TestCase
         $this->seeker();
 
         $this->postJson('/api/v1/ai/search', ['city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 900000])
-            ->assertOk()->assertJsonPath('meta.ai', ['status' => 'fallback', 'reasons' => false])
+            ->assertOk()->assertJsonPath('meta.ai', ['status' => 'fallback'])
             ->assertJsonPath('data.results.0.listing.id', $closest->id)->assertHeader('X-AI-Remaining', '30');
     }
 
@@ -99,7 +99,7 @@ class AiTest extends TestCase
     public function test_the_same_question_within_fifteen_minutes_is_answered_from_the_cache_for_free(): void
     {
         $listing = Listing::factory()->published()->create();
-        $this->agent(['results' => [['id' => $listing->id, 'score' => 0.7, 'reason' => 'مناسب']]]);
+        $this->agent(['results' => [['id' => $listing->id, 'score' => 0.7]]]);
         $this->seeker();
         $form = ['city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment'];
 
@@ -111,7 +111,7 @@ class AiTest extends TestCase
     public function test_quota_layers_and_upgrade_offers(): void
     {
         $listing = Listing::factory()->published()->create();
-        $this->agent(['results' => [['id' => $listing->id, 'score' => 0.7, 'reason' => 'مناسب']]]);
+        $this->agent(['results' => [['id' => $listing->id, 'score' => 0.7]]]);
         $form = fn (int $i) => ['city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'query' => "طلب {$i}"];
 
         $free = Customer::factory()->seeker()->create();
@@ -140,7 +140,7 @@ class AiTest extends TestCase
         $listing = Listing::factory()->published()->create(['price' => 850000]);
         $project = Project::factory()->published()->create(['neighborhood' => 'النرجس']);
         $unit = ProjectUnit::factory()->create(['project_id' => $project->id, 'property_type' => 'apartment', 'price' => 870000]);
-        $this->agent(['matched' => [['id' => $listing->id, 'score' => 0.8, 'reason' => 'ضمن الميزانية']], 'broaden' => [], 'units' => [['id' => $unit->id, 'score' => 0.6]]]);
+        $this->agent(['matched' => [['id' => $listing->id, 'score' => 0.8]], 'broaden' => [], 'units' => [['id' => $unit->id, 'score' => 0.6]]]);
         $this->seeker();
 
         $this->postJson('/api/v1/ai/matching')->assertOk()
@@ -190,19 +190,21 @@ class AiTest extends TestCase
     {
         $developer = $this->signIn(Customer::factory()->developer()->create());
         $project = Project::factory()->published()->create(['developer_id' => $developer->id, 'neighborhood' => 'النرجس']);
-        ProjectUnit::factory()->create(['project_id' => $project->id, 'property_type' => 'villa']);
+        $villa = ProjectUnit::factory()->create(['project_id' => $project->id, 'property_type' => 'villa']);
         $wish = BuyerPreference::factory()->create(['neighborhoods' => ['النرجس'], 'property_types' => ['villa'], 'notes' => 'قرب مدرسة']);
-        $this->agent(['results' => [['id' => $wish->id, 'score' => 0.9, 'reason' => 'يطابق الميزانية', 'unit_id' => 424242]]]);
+        $other = BuyerPreference::factory()->create(['neighborhoods' => ['النرجس'], 'property_types' => ['villa']]);
+        $this->agent(['results' => [['id' => $wish->id, 'score' => 0.9, 'unit_id' => 424242], ['id' => $other->id, 'score' => 0.7, 'unit_id' => $villa->id]]]);
 
         $this->postJson("/api/v1/ai/matching/projects/{$project->id}/searchers")->assertOk()
-            ->assertJsonPath('data.0.seeker.username', $wish->customer->username)->assertJsonPath('data.0.unit', null);
+            ->assertJsonPath('data.0.seeker.username', $wish->customer->username)->assertJsonPath('data.0.unit', null)
+            ->assertJsonPath('data.1.unit.id', $villa->id);
         Http::assertSent(fn (Sent $r) => ! str_contains($r->body(), $wish->customer->name) && ! str_contains($r->body(), $wish->customer->phone));
     }
 
     public function test_a_broker_searches_requests_only_on_a_plan_that_includes_it(): void
     {
         $wanted = SearchRequest::factory()->create(['neighborhoods' => ['النرجس'], 'property_types' => ['apartment'], 'budget_max' => 900000]);
-        $this->agent(['results' => [['id' => $wanted->id, 'score' => 0.8, 'reason' => 'نفس الحي والميزانية']], 'query_understood' => 'شقة · النرجس']);
+        $this->agent(['results' => [['id' => $wanted->id, 'score' => 0.8]]]);
         $broker = $this->signIn(Customer::factory()->broker()->create());
         $need = ['city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 880000];
 
