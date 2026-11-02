@@ -1,4 +1,4 @@
-# /etc/mysql/mysql.conf.d/zon.cnf — data node (10.10.0.20), MySQL 8.4 LTS.
+# /etc/mysql/mysql.conf.d/zon.cnf — data node (10.10.0.20), MySQL 9.7 LTS.
 # Private address only: no public port. Accounts are bound to the app node's address (mysql/users.sql).
 [mysqld]
 bind-address            = 10.10.0.20

@@ -1,5 +1,5 @@
-# The Flutter app: format, analysis (0 issues), tests — on every push that touches it. The SDK is the latest
-# stable Flutter (docs/versions.md); the run prints its exact version.
+# The Flutter app: format, analysis (0 issues), tests — on every push that touches it. The SDK is pinned to
+# the latest stable at the last audit (docs/versions.md); the run prints its exact version.
 name: App
 
 on:
@@ -39,6 +39,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: 3.47.9
           channel: stable
           cache: true
 

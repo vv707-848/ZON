@@ -7,7 +7,7 @@
 | العقدة | ما عليها |
 |---|---|
 | **التطبيق — جدة** (Oracle · ‏10.10.0.10) | Nginx · ‏PHP-FPM + Laravel (‏`/var/www/zon/backend`) · العمّال وReverb وخدمة الوكلاء عبر Supervisor · ‏Dragonfly · ‏MinIO |
-| **البيانات — جدة** (Oracle · ‏10.10.0.20) | MySQL 8.4 · ‏Qdrant 1.19 — بلا منفذ عام |
+| **البيانات — جدة** (Oracle · ‏10.10.0.20) | MySQL 9.7 LTS · ‏Qdrant 1.20 — بلا منفذ عام |
 | **الذكاء — RunPod** (A40 · Pod ثابت) | SGLang + Escha · خادم التضمين bge-m3 — بلا منفذ وارد، ونفق SSH صادر منها إلى عقدة التطبيق |
 
 ## الملفات

@@ -1,6 +1,6 @@
 # الباك إند — زون
 
-Laravel 12 (PHP 8.3) يخدم طرفين من موضع واحد:
+Laravel 13 (PHP 8.5) يخدم طرفين من موضع واحد:
 - واجهة التطبيق `/api/v1`.
 - لوحة الإدارة `/admin` (Filament 5).
 
@@ -35,7 +35,7 @@ Laravel 12 (PHP 8.3) يخدم طرفين من موضع واحد:
 
 ## التشغيل المحلي
 
-يتطلب PHP 8.3 بامتدادات Laravel المعتادة، ومعها pdo_mysql · redis (phpredis) · gd · intl · zip، وMySQL 8، وRedis.
+يتطلب PHP 8.5 بامتدادات Laravel المعتادة، ومعها pdo_mysql · redis (phpredis) · gd · intl · zip، وMySQL 9.7 LTS، وRedis. الإصدارات كلها وسببها: [`docs/versions.md`](../docs/versions.md).
 
 ```bash
 composer install

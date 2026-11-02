@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\DeletionRequest;
 use App\Models\Listing;
 use Illuminate\Testing\TestResponse;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 /** Sign-up (form → code → account), sign-in by username or phone, forgotten password, and the app gates. */
@@ -140,6 +141,18 @@ class AuthTest extends TestCase
 
         $tester = Customer::factory()->create(['is_tester' => true]);
         $this->withToken($tester->createToken('t')->plainTextToken)->getJson('/api/v1/catalog', $headers)->assertOk();
+    }
+
+    public function test_a_profile_edit_is_audited_by_the_fields_it_changed(): void
+    {
+        $me = $this->signIn();
+
+        $this->patchJson('/api/v1/me', ['name' => 'اسم جديد'], ['X-Request-Id' => 'app-trace-0002'])
+            ->assertOk()->assertJsonPath('data.name', 'اسم جديد');
+
+        $entry = Activity::query()->where('event', 'profile_updated')->sole();
+        $this->assertSame($me->id, $entry->subject_id);
+        $this->assertSame(['fields' => ['name'], 'trace_id' => 'app-trace-0002'], $entry->properties->all());
     }
 
     public function test_a_seeker_without_a_wish_is_sent_to_the_wish_form(): void

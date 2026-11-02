@@ -214,4 +214,16 @@ return [
 
     'partitioned' => env('SESSION_PARTITIONED_COOKIE', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Session Serialization
+    |--------------------------------------------------------------------------
+    |
+    | JSON, not PHP serialization (Laravel 13 default): session data cannot carry PHP objects, so a leaked
+    | APP_KEY cannot become a gadget chain.
+    |
+    */
+
+    'serialization' => 'json',
+
 ];
