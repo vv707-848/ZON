@@ -39,8 +39,9 @@ enum Setting: string
     case PreferenceActiveDays = 'preferences.active_days';
     case MatchNotifyMax = 'preferences.match_notify_max';
 
-    // ── Accounts
+    // ── Accounts and support
     case DeletionGraceDays = 'accounts.deletion_grace_days';
+    case SupportResponseHours = 'support.response_hours';
 
     // ── The chat «زون»
     case ChatMaxChars = 'chat.max_chars';
@@ -72,6 +73,7 @@ enum Setting: string
             self::PreferenceActiveDays => 90,
             self::MatchNotifyMax => 5,
             self::DeletionGraceDays => 30,
+            self::SupportResponseHours => 48,
             self::ChatMaxChars => 500,
             self::ChatBlockedTerms => [],
             self::MarketReportMinRequests => 5,
@@ -116,6 +118,7 @@ enum Setting: string
             self::PreferenceActiveDays => 'تتوقف إشعارات الرغبة بلا تحديث بعد (يوم)',
             self::MatchNotifyMax => 'أقصى عدد عروض في إشعار المطابقة الواحد',
             self::DeletionGraceDays => 'مهلة حذف الحساب (يوم)',
+            self::SupportResponseHours => 'مدة الرد المعلنة على الشكاوى والتذاكر (ساعة)',
             self::ChatMaxChars => 'أقصى طول لرسالة الشات (حرف)',
             self::ChatBlockedTerms => 'كلمات المنع في الشات (سطر لكل كلمة)',
             self::MarketReportMinRequests => 'الحد الأدنى للطلبات في تقرير السوق (لا يُخفض تحت 5)',
@@ -131,7 +134,7 @@ enum Setting: string
             'boosts', 'requests' => 'التمييز والطلبات',
             'owners', 'brokers' => 'المالك والعمولات',
             'tax' => 'الضريبة والفواتير',
-            'preferences', 'accounts' => 'الرغبات والحسابات',
+            'preferences', 'accounts', 'support' => 'الرغبات والحسابات والدعم',
             default => 'الذكاء والتقارير',
         };
     }
@@ -141,7 +144,7 @@ enum Setting: string
     {
         return match ($this) {
             self::MarketReportMinRequests => 5,
-            self::ReportsToAutoHide, self::ListingPhotosMax, self::BoostDays, self::DeletionGraceDays => 1,
+            self::ReportsToAutoHide, self::ListingPhotosMax, self::BoostDays, self::DeletionGraceDays, self::SupportResponseHours => 1,
             self::ChatMaxChars => 50,
             default => $this->type() === 'int' || $this->type() === 'money' ? 0 : null,
         };

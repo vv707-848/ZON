@@ -54,7 +54,7 @@
 | 502 | `INTEGRATION_FAILED` | تعذّر الاتصال بالجهة المختصة، حاول لاحقاً. |
 | 500 | `SERVER_ERROR` | حدث خطأ غير متوقع. |
 
-## نقاط الواجهة (136)
+## نقاط الواجهة (138)
 
 الصلاحية: `عام` بلا دخول · 🔒 رمز مميِّز · الدور · `رغبة` = الباحث يحتاج رغبة فعّالة (428) · `حصة` = رصيد الذكاء اليومي. العمود الأخير موضع الكود في `app/Http/Controllers/Api/V1`.
 
@@ -65,7 +65,7 @@
 | `GET` | `/app/config` | عام | قيم الإقلاع: إصدار المنصة (`X-App-Platform`) والصيانة، رابط المشاركة، رقم نسخة المرجع، حدود الصور والشات | `AppController@config` |
 | `GET` | `/catalog` | عام | المرجع: المدن وأحياؤها، أنواع العقار وحقول كل نوع، وقوائم الاختيار (الغرض، الأدوار، الإشغال، فئات الملاحظات، أسباب البلاغ، تفضيلات الإشعار) | `AppController@catalog` |
 | `GET` | `/legal/{slug}` | عام | صفحة سياسة بنصها ورقم نسختها (terms · privacy · …) كما تحرَّر من اللوحة | `AppController@legal` |
-| `POST` | `/support-tickets` | عام · reports: 20/س | تذكرة دعم (للزائر والمسجّل)؛ تُرجع رقم القيد، والرد من اللوحة | `SupportController@store` |
+| `POST` | `/support-tickets` | عام · reports: 20/س | شكوى · اقتراح · استفسار (للزائر والمسجّل)، وعرض تخصه إن وُجد؛ تُرجع رقم القيد ومدة الرد المعلنة | `SupportController@store` |
 
 ### ٢. التسجيل والدخول
 
@@ -101,7 +101,9 @@
 | `POST` | `/preferences` | 🔒 | إضافة رغبة: المدينة، الأحياء، الأنواع، الميزانية، الملاحظات، ومشاركتها في التقارير | `PreferenceController@store` |
 | `PUT|PATCH` | `/preferences/{preference}` | 🔒 | تعديل رغبة؛ إعادة تفعيلها تُحسب من حد الباقة | `PreferenceController@update` |
 | `DELETE` | `/preferences/{preference}` | 🔒 | حذف رغبة | `PreferenceController@destroy` |
-| `GET` | `/support-tickets` | 🔒 | تذاكري وردود الدعم | `SupportController@index` |
+| `GET` | `/support-tickets` | 🔒 | مراسلاتي مع «فريق زون»: آخر رسالة وما لم أقرأه | `SupportController@index` |
+| `GET` | `/support-tickets/{ticket}` | 🔒 | المراسلة كاملة (الفريق باسم «فريق زون» دون أسماء الموظفين)، وتُعلَّم مقروءة | `SupportController@show` |
+| `POST` | `/support-tickets/{ticket}/messages` | 🔒 · messages: 30/د | ردّي في المراسلة؛ المغلقة تُفتح من جديد | `SupportController@reply` |
 
 ### ٤. التصفح العام
 

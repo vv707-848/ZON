@@ -69,7 +69,8 @@
 | `notifications` | Laravel | إشعارات التطبيق (`AppNotice`) |
 | `favorites` · `follows` · `ratings` · `user_blocks` | `Favorite` · `Follow` · `Rating` · `UserBlock` | المفضلة، المتابعة، التقييم بالنجوم، الحظر |
 | `content_reports` | `ContentReport` | البلاغات وقرار الموظف |
-| `support_tickets` | `SupportTicket` | تذاكر الدعم برقم قيد والرد |
+| `support_tickets` | `SupportTicket` | المراسلة مع «فريق زون»: شكوى · اقتراح · استفسار · رسالة من الفريق، برقم قيد، وما تخص (عرض)، والحالة (دور من)، والإجراء المتخذ عند الإغلاق، وآخر ما قرأه كل طرف |
+| `support_messages` | `SupportMessage` | رسائل المراسلة من الطرفين؛ الموظف يظهر للمستخدم «فريق زون» |
 | `announcements` | `Announcement` | الإشعارات العامة وجمهورها وعدد مستلميها |
 
 ## المكتب (خاص بصاحبه)

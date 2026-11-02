@@ -22,7 +22,7 @@
 |---|---|
 | `php artisan zon:doctor` | أول خطوة عند أي شكوى. يفحص 13 بنداً (الإعدادات، القاعدة، الترحيلات، Redis، المجدول، الطوابير، المهام الفاشلة، الوكلاء، الفهرس، اتصال الوكيل الأعلى، التخزين، Reverb، التكاملات)، ولكل بند فاشل «أين تنظر أولاً». الصفحة نفسها في اللوحة: «صحة النظام» |
 | `php artisan zon:reindex [listing\|project_unit\|request\|kb_document] [--force]` | بعد فهرس فارغ أو أُعيد بناؤه (`zon-agents bootstrap --recreate`): مع `--force`. دونه يُرسل ما تغيّر نصه فقط |
-| `php artisan zon:create-superadmin <email>` | أول تشغيل: المشرف العام (كلمة سر 12+ تُطلب سراً، ثم المصادقة الثنائية عند أول دخول) |
+| `php artisan zon:create-superadmin <email>` | أول تشغيل: المدير العام (كلمة سر 12+ تُطلب سراً، ثم المصادقة الثنائية عند أول دخول) |
 | `php artisan queue:failed` · `queue:retry <id>` | بعد تنبيه «المهام الفاشلة» |
 | `php artisan schedule:list` | للتأكد من جدولة مهمة |
 

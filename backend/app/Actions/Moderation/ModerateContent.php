@@ -4,6 +4,7 @@ namespace App\Actions\Moderation;
 
 use App\Actions\Listings\ChangeListingStatus;
 use App\Actions\Projects\ChangeProjectStatus;
+use App\Actions\Support\SupportDesk;
 use App\Enums\ListingStatus;
 use App\Enums\RequestStatus;
 use App\Filament\Support\Audit;
@@ -12,13 +13,43 @@ use App\Indexing\IndexSync;
 use App\Models\Listing;
 use App\Models\Project;
 use App\Models\SearchRequest;
+use App\Models\SupportTicket;
 use App\Notifications\Notices;
 use App\Support\Actor;
 
-/** Staff decisions on content: hide, put back, reject — through the state machine, audited, the advertiser told. */
+/** Staff decisions on content: hide, put back, reject, «غير نشط» and back — through the state machine, audited, the advertiser told. */
 final class ModerateContent
 {
-    public function __construct(private readonly ChangeListingStatus $listings, private readonly ChangeProjectStatus $projects, private readonly IndexSync $index) {}
+    public function __construct(
+        private readonly ChangeListingStatus $listings,
+        private readonly ChangeProjectStatus $projects,
+        private readonly IndexSync $index,
+        private readonly SupportDesk $desk,
+    ) {}
+
+    /**
+     * «غير نشط» for a problem: the advertiser gets the reason as a message of «فريق زون», answers it in the
+     * thread, and an update of the listing brings it back (as after two weeks without one).
+     */
+    public function deactivate(Listing $listing, string $reason): SupportTicket
+    {
+        ($this->listings)($listing, ListingStatus::Inactive, Actor::staff(Staff::user()));
+        Audit::log('listing_deactivated', 'تحويل عرض إلى غير نشط', $listing, ['reason' => $reason]);
+
+        return $this->desk->message($listing->customer, Staff::user(), "عرضك «{$listing->title}» صار غير نشط", $reason, $listing);
+    }
+
+    /** Back to «نشط» — or to «منتهي الترخيص» if its licence has ended (ChangeListingStatus). */
+    public function activate(Listing $listing, ?string $note): ListingStatus
+    {
+        ($this->listings)($listing, ListingStatus::Published, Actor::staff(Staff::user()));
+        Audit::log('listing_activated', 'تنشيط عرض', $listing, ['note' => $note, 'status' => $listing->status->value]);
+        if ($note !== null && $note !== '' && $listing->status === ListingStatus::Published) {
+            $this->desk->message($listing->customer, Staff::user(), "عرضك «{$listing->title}» عاد نشطاً", $note, $listing);
+        }
+
+        return $listing->status;
+    }
 
     public function listing(Listing $listing, ListingStatus $to, string $reason): void
     {

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Listings;
 
 use App\Actions\Billing\ApplyBoost;
 use App\Actions\Moderation\ModerateContent;
+use App\Actions\Support\SupportDesk;
 use App\Enums\BoostKind;
 use App\Enums\ListingStatus;
 use App\Enums\PropertyType;
@@ -24,6 +25,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -155,7 +157,7 @@ class ListingResource extends Resource
             ->recordActions([ViewAction::make()]);
     }
 
-    /** @return list<Action> hide · put back · reject · grant a boost */
+    /** @return list<Action> «غير نشط» and back · message the advertiser · hide · put back · reject · grant a boost */
     public static function moderationActions(): array
     {
         $reason = [Textarea::make('reason')->label('السبب (يُسجَّل في التدقيق)')->required()->maxLength(500)];
@@ -169,6 +171,34 @@ class ListingResource extends Resource
             });
 
         return [
+            Action::make('deactivate')->label('تحويل إلى غير نشط')->color('warning')->icon('heroicon-o-pause-circle')
+                ->visible(fn (Listing $record) => Staff::can(Permission::ActivateListings) && ! $record->trashed() && $record->status === ListingStatus::Published)
+                ->schema([Textarea::make('reason')->label('السبب (يصل للمعلن رسالةً من «فريق زون»)')->required()->maxLength(1000)])
+                ->requiresConfirmation()
+                ->action(function (Listing $record, array $data) {
+                    $ticket = app(ModerateContent::class)->deactivate($record, $data['reason']);
+                    Notification::make()->title("صار غير نشط ووصلت الرسالة للمعلن · {$ticket->reference}")->success()->send();
+                }),
+            Action::make('activate')->label('تنشيط')->color('success')->icon('heroicon-o-play-circle')
+                ->visible(fn (Listing $record) => Staff::can(Permission::ActivateListings) && ! $record->trashed() && $record->status === ListingStatus::Inactive)
+                ->schema([Textarea::make('note')->label('رسالة للمعلن (اختيارية)')->maxLength(1000)])
+                ->action(function (Listing $record, array $data) {
+                    $status = app(ModerateContent::class)->activate($record, $data['note'] ?? null);
+                    $status === ListingStatus::Published
+                        ? Notification::make()->title('عاد العرض نشطاً')->success()->send()
+                        : Notification::make()->title('رخصة العرض منتهية: صار «منتهي الترخيص» حتى يجددها المعلن')->warning()->send();
+                }),
+            Action::make('message_advertiser')->label('مراسلة المعلن')->icon('heroicon-o-envelope')
+                ->visible(fn (Listing $record) => Staff::can(Permission::MessageCustomers) && $record->customer->anonymized_at === null)
+                ->fillForm(fn (Listing $record) => ['subject' => "بخصوص عرضك «{$record->title}»"])
+                ->schema([
+                    TextInput::make('subject')->label('الموضوع')->required()->maxLength(160),
+                    Textarea::make('body')->label('الرسالة (تصل باسم «فريق زون»)')->required()->maxLength(2000)->rows(5),
+                ])
+                ->action(function (Listing $record, array $data) {
+                    $ticket = app(SupportDesk::class)->message($record->customer, Staff::user(), $data['subject'], $data['body'], $record);
+                    Notification::make()->title("وصلت الرسالة · {$ticket->reference}")->success()->send();
+                }),
             $move('hide', 'إخفاء', 'danger', ListingStatus::Hidden),
             $move('restore', 'إرجاع للنشر', 'success', ListingStatus::Published),
             $move('reject', 'رفض', 'danger', ListingStatus::Rejected),

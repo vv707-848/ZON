@@ -12,6 +12,8 @@ use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\SearchRequests\SearchRequestResource;
 use App\Filament\Resources\Staff\StaffResource;
+use App\Filament\Resources\SupportTickets\SupportTicketResource;
+use App\Filament\Support\Staff;
 use App\Filament\Widgets\MismatchReasons;
 use App\Filament\Widgets\TopSearchMisses;
 use App\Models\AiRequest;
@@ -89,16 +91,28 @@ class PanelSmokeTest extends AdminTestCase
         Livewire::test(MismatchReasons::class)->assertSee('بعيد عن المدارس');
     }
 
-    public function test_a_content_moderator_sees_content_but_no_money_settings_or_staff(): void
+    public function test_a_supervisor_sees_reports_complaints_and_listings_but_no_money_settings_staff_or_the_super_agent(): void
     {
-        $this->signInStaff(...Permission::contentModerator());
+        $this->signInStaff(...Permission::supervisor());
 
         $this->get(ListingResource::getUrl('index'))->assertOk();
         $this->get(ContentReportResource::getUrl('index'))->assertOk();
+        $this->get(SupportTicketResource::getUrl('index'))->assertOk();
         $this->get(PaymentResource::getUrl('index'))->assertForbidden();
         $this->get(ManageSettings::getUrl())->assertForbidden();
         $this->get(StaffResource::getUrl('index'))->assertForbidden();
         $this->get(SuperAgent::getUrl())->assertForbidden();
+    }
+
+    public function test_no_role_carries_what_belongs_to_the_superadmin(): void
+    {
+        $this->signInStaff(...Permission::cases());
+
+        $this->get(ManageSettings::getUrl())->assertForbidden();
+        $this->get(PaymentResource::getUrl('index'))->assertOk();                // viewing payments may be delegated
+        $this->assertFalse(Staff::can(Permission::ManagePayments));
+        $this->assertFalse(Staff::can(Permission::ViewCrmContent));
+        $this->assertTrue(Staff::can(Permission::HandleSupport));
     }
 
     public function test_the_panel_requires_an_authenticator_and_the_allowed_addresses(): void

@@ -63,6 +63,8 @@ Route::middleware('throttle:api')->group(function () {
         Route::get('notifications', [V1\NotificationController::class, 'index']);
         Route::post('notifications/read', [V1\NotificationController::class, 'read']);
         Route::get('support-tickets', [V1\SupportController::class, 'index']);
+        Route::get('support-tickets/{ticket:reference}', [V1\SupportController::class, 'show']);
+        Route::post('support-tickets/{ticket:reference}/messages', [V1\SupportController::class, 'reply'])->middleware('throttle:messages');
 
         // ── … and, for a seeker, with a wish ──────────────────────────────────────────────────────────────
         Route::middleware('preference')->group(function () {

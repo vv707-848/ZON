@@ -52,7 +52,7 @@ class AdminActionsTest extends AdminTestCase
 {
     public function test_suspending_an_account_signs_it_out_and_is_audited(): void
     {
-        $this->signInStaff(Permission::ViewCustomers, Permission::ManageCustomers);
+        $this->signInStaff(Permission::ViewCustomers, Permission::SuspendCustomers);
         $customer = Customer::factory()->create();
         $customer->createToken('phone');
 
@@ -125,7 +125,7 @@ class AdminActionsTest extends AdminTestCase
             'amount_halalas' => 10000, 'provider' => 'fake', 'provider_ref' => 'fake_x', 'status' => 'paid', 'paid_at' => now()]);
         app(ApplyBoost::class)($listing->customer, $listing, BoostKind::Featured, $payment);
         $this->assertTrue($listing->fresh()->isFeatured());
-        $this->signInStaff(Permission::ViewPayments, Permission::ManagePayments);
+        $this->signInSuperadmin();
 
         Livewire::test(ListPayments::class)->callTableAction('refund', $payment, ['reason' => 'طلب العميل'])->assertHasNoTableActionErrors();
 
@@ -135,7 +135,7 @@ class AdminActionsTest extends AdminTestCase
 
     public function test_settings_are_saved_in_riyals_and_audited(): void
     {
-        $this->signInStaff(Permission::ManageSettings);
+        $this->signInSuperadmin();
 
         Livewire::test(ManageSettings::class)->fillForm(['boosts__featured_price' => '150', 'chat__blocked_terms' => "كلمة\nأخرى"])->call('save')->assertHasNoFormErrors();
         $this->assertSame(15000, Settings::int(Setting::FeaturedPrice));
@@ -181,7 +181,10 @@ class AdminActionsTest extends AdminTestCase
         $this->signInStaff(Permission::HandleReports);
         Livewire::test(ListConversations::class)->assertTableActionHidden('content', $conversation);
 
-        $this->signInStaff(Permission::HandleReports, Permission::ViewConversationContent);
+        $this->signInStaff(Permission::HandleReports, Permission::ViewConversationContent);      // an old role carrying it
+        Livewire::test(ListConversations::class)->assertTableActionHidden('content', $conversation);
+
+        $this->signInSuperadmin();
         Livewire::test(ListConversations::class)->mountTableAction('content', $conversation)->assertMountedActionModalSee('رسالة مسيئة');
         $this->assertSame(1, Activity::query()->where('event', 'conversation_viewed')->count());
     }
@@ -189,7 +192,7 @@ class AdminActionsTest extends AdminTestCase
     public function test_granting_a_plan_from_the_account_page(): void
     {
         $broker = Customer::factory()->broker()->create();
-        $this->signInStaff(Permission::ViewCustomers, Permission::ManagePayments);
+        $this->signInSuperadmin();
 
         Livewire::test(ViewCustomer::class, ['record' => $broker->getRouteKey()])
             ->callAction('grant', ['package_id' => Package::query()->where('code', 'broker-year')->value('id'), 'days' => 30, 'reason' => 'تعويض'])
@@ -231,15 +234,15 @@ class AdminActionsTest extends AdminTestCase
     public function test_who_may_enter_the_panel_and_with_what_is_always_in_the_audit(): void
     {
         $this->signInSuperadmin();
-        $role = Role::query()->where('name', 'مشرف المحتوى')->sole();
+        $role = Role::query()->where('name', 'مشرف')->sole();
         Livewire::test(CreateStaff::class)->fillForm(['name' => 'نورة', 'email' => 'noura@zon.test', 'password' => 'a-long-secret-123', 'type' => 'admin', 'roles' => [$role->id]])
             ->call('create')->assertHasNoFormErrors();
         Livewire::test(EditRole::class, ['record' => $role->getRouteKey()])->fillForm(['permissions' => []])->call('save')->assertHasNoFormErrors();
 
         $created = Activity::query()->where('event', 'staff_created')->sole();
-        $this->assertSame(['noura@zon.test', ['مشرف المحتوى']], [$created->properties['email'], $created->properties['roles']]);
+        $this->assertSame(['noura@zon.test', ['مشرف']], [$created->properties['email'], $created->properties['roles']]);
         $this->assertStringNotContainsString('a-long-secret-123', (string) json_encode(Activity::query()->get()->toArray()));
         $this->assertSame([], Activity::query()->where('event', 'role_updated')->sole()->properties['permissions']);
-        $this->assertTrue(User::query()->where('email', 'noura@zon.test')->sole()->hasRole('مشرف المحتوى'));
+        $this->assertTrue(User::query()->where('email', 'noura@zon.test')->sole()->hasRole('مشرف'));
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Support;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -10,10 +11,13 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class Audit
 {
-    /** @param array<string, mixed> $properties */
-    public static function log(string $event, string $description, ?Model $subject = null, array $properties = []): void
+    /**
+     * @param  array<string, mixed>  $properties
+     * @param  ?User  $by  the member of staff, when the caller knows him (otherwise the one signed in to the panel)
+     */
+    public static function log(string $event, string $description, ?Model $subject = null, array $properties = [], ?User $by = null): void
     {
-        $entry = activity('admin')->causedBy(Staff::user())->event($event)->withProperties($properties);
+        $entry = activity('admin')->causedBy($by ?? Staff::user())->event($event)->withProperties($properties);
         if ($subject !== null) {
             $entry->performedOn($subject);
         }

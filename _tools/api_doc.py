@@ -42,7 +42,7 @@ DESCRIPTIONS = {
     ),
     "GET legal/{slug}": ("app", "صفحة سياسة بنصها ورقم نسختها (terms · privacy · …) كما تحرَّر من اللوحة"),
     "GET packages": ("billing", "الباقات الفعّالة بأسعارها وأرصدتها وميزاتها وهل تُشترى، وأسعار الخدمات المفردة (تمييز، عاجل…)"),
-    "POST support-tickets": ("app", "تذكرة دعم (للزائر والمسجّل)؛ تُرجع رقم القيد، والرد من اللوحة"),
+    "POST support-tickets": ("app", "شكوى · اقتراح · استفسار (للزائر والمسجّل)، وعرض تخصه إن وُجد؛ تُرجع رقم القيد ومدة الرد المعلنة"),
     "GET|POST broadcasting/auth": ("social", "توثيق القنوات الخاصة لـ Reverb: `customers.{id}` و`conversations.{id}`"),
     "POST payments/webhook/{provider}": ("billing", "إشعار مزوّد الدفع؛ لا يُصدَّق محتواه — يُقرأ الدفع من المزوّد ثم يُطبَّق (ConfirmPayment)"),
     # ── auth ──
@@ -72,7 +72,9 @@ DESCRIPTIONS = {
     "DELETE preferences/{preference}": ("me", "حذف رغبة"),
     "GET notifications": ("me", "الإشعارات (صفحات)، و`meta.unread`"),
     "POST notifications/read": ("me", "تعليم إشعارات أو كلها كمقروءة"),
-    "GET support-tickets": ("me", "تذاكري وردود الدعم"),
+    "GET support-tickets": ("me", "مراسلاتي مع «فريق زون»: آخر رسالة وما لم أقرأه"),
+    "GET support-tickets/{ticket}": ("me", "المراسلة كاملة (الفريق باسم «فريق زون» دون أسماء الموظفين)، وتُعلَّم مقروءة"),
+    "POST support-tickets/{ticket}/messages": ("me", "ردّي في المراسلة؛ المغلقة تُفتح من جديد"),
     "GET me/followers": ("social", "من يتابعني"),
     "GET me/following": ("social", "من أتابع"),
     # ── browse ──

@@ -13,7 +13,10 @@ use App\Models\Project;
 use App\Models\ProjectUnit;
 use App\Models\SearchRequest;
 use App\Models\Subscription;
+use App\Models\SupportMessage;
+use App\Models\SupportTicket;
 use App\Models\Task;
+use Illuminate\Support\Str;
 
 /** Every notice the platform sends, with its text and where a tap leads in the app (router.dart). */
 final class Notices
@@ -141,9 +144,17 @@ final class Notices
         return new AppNotice(NoteKind::Plan, 'تم تفعيل حسابك', 'تستطيع الآن نشر مشاريعك على زون.', '/account');
     }
 
-    public static function supportReplied(string $reference): AppNotice
+    /** Staff wrote in a support thread — a reply, or the first message of «فريق زون». Always sent. */
+    public static function supportMessage(SupportTicket $ticket, SupportMessage $message): AppNotice
     {
-        return new AppNotice(NoteKind::Plan, 'رد على تذكرة الدعم', "التذكرة {$reference}", '/account/settings', null, "ticket:{$reference}");
+        return new AppNotice(NoteKind::Message, 'رسالة من فريق زون', Str::limit($message->body, 120),
+            "/support/{$ticket->reference}", null, "support:{$ticket->reference}:{$message->id}");
+    }
+
+    public static function supportClosed(SupportTicket $ticket): AppNotice
+    {
+        return new AppNotice(NoteKind::Message, "أُغلقت التذكرة {$ticket->reference}", Str::limit((string) $ticket->resolution, 120),
+            "/support/{$ticket->reference}", null, "support-closed:{$ticket->reference}");
     }
 
     public static function announcement(string $title, string $body, ?string $target): AppNotice
