@@ -26,6 +26,7 @@ class ContentOverview extends StatsOverviewWidget
             Stat::make('بانتظار قرار المعلن', (int) ($byStatus[ListingStatus::PendingReview->value] ?? 0)),
             Stat::make('غير نشطة / متوقفة', (int) ($byStatus[ListingStatus::Inactive->value] ?? 0) + (int) ($byStatus[ListingStatus::Paused->value] ?? 0)),
             Stat::make('مخفية للإشراف', (int) ($byStatus[ListingStatus::Hidden->value] ?? 0))->color('danger'),
+            Stat::make('منتهية الترخيص', (int) ($byStatus[ListingStatus::LicenceExpired->value] ?? 0))->color('warning'),
             Stat::make('تم البيع', (int) ($byStatus[ListingStatus::Sold->value] ?? 0)),
             Stat::make('مشاريع منشورة', Project::query()->published()->count()),
             Stat::make('طلبات مفتوحة', SearchRequest::query()->where('status', 'published')->count())

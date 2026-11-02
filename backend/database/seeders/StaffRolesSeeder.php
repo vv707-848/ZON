@@ -8,12 +8,10 @@ use Spatie\Permission\Models\Permission as PermissionModel;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
-/** The panel's permissions and its two first roles (more are made in «الأدوار والصلاحيات»). */
+/** The panel's permissions and the supervisor's role (the superadmin makes more in «الأدوار والصلاحيات»). */
 class StaffRolesSeeder extends Seeder
 {
-    public const ADMIN = 'مشرف عام';
-
-    public const CONTENT = 'مشرف المحتوى';
+    public const SUPERVISOR = 'مشرف';
 
     public function run(): void
     {
@@ -22,7 +20,6 @@ class StaffRolesSeeder extends Seeder
             PermissionModel::findOrCreate($permission->value, 'web');
         }
 
-        Role::findOrCreate(self::ADMIN, 'web')->syncPermissions(array_map(fn (Permission $p) => $p->value, Permission::cases()));
-        Role::findOrCreate(self::CONTENT, 'web')->syncPermissions(array_map(fn (Permission $p) => $p->value, Permission::contentModerator()));
+        Role::findOrCreate(self::SUPERVISOR, 'web')->syncPermissions(array_map(fn (Permission $p) => $p->value, Permission::supervisor()));
     }
 }

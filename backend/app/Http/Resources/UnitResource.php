@@ -38,7 +38,8 @@ class UnitResource extends JsonResource
             'payment_method' => $this->payment_method,
             'description' => $this->publicDescription(),
             'licence' => $this->relationLoaded('licence') && $this->licence !== null
-                ? ['number' => $this->licence->licence_number, 'qr_url' => $this->licence->qr_url, 'verified' => $this->licence->isValid()] : null,
+                ? ['number' => $this->licence->licence_number, 'qr_url' => $this->licence->qr_url, 'expires_at' => $this->licence->expires_at?->toDateString(),
+                    'verified' => $this->licence->isValid()] : null,
             'photos' => $this->relationLoaded('media') ? MediaResource::collection($this->media) : [],
             $this->mergeWhen($mine, fn () => [
                 'desc_raw' => $this->desc_raw,

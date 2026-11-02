@@ -8,6 +8,7 @@ use App\Actions\Projects\SellUnits;
 use App\Enums\ErrorCode;
 use App\Enums\LicenceSource;
 use App\Enums\LicenceStatus;
+use App\Enums\ListingStatus;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Projects\UnitRequest;
@@ -67,8 +68,8 @@ class ProjectUnitController extends Controller
         return Api::ok(UnitResource::collection($project->units()->with(['licence', 'media', 'project'])->get()));
     }
 
-    /** A ready project's licence per unit model, verified with REGA (L01). */
-    public function licence(Request $request, Project $project, ProjectUnit $unit, RegaGateway $rega): JsonResponse
+    /** A ready project's licence per unit model, verified with REGA (L01) — also its renewal: the latest licence counts. */
+    public function licence(Request $request, Project $project, ProjectUnit $unit, RegaGateway $rega, IndexSync $index): JsonResponse
     {
         $this->own($request, $project, $unit);
         $number = (string) $request->validate(['licence_number' => ['required', 'regex:/^\d{6,12}$/']])['licence_number'];
@@ -78,8 +79,11 @@ class ProjectUnitController extends Controller
         }
         AdLicense::query()->create([
             'project_unit_id' => $unit->id, 'customer_id' => $project->developer_id, 'licence_number' => $number, 'qr_url' => $check->qrUrl,
-            'source' => LicenceSource::Entered, 'status' => LicenceStatus::Valid, 'verified_at' => now(), 'expires_at' => $check->expiresAt,
+            'source' => LicenceSource::Entered, 'status' => LicenceStatus::Valid, 'verified_at' => now(), 'expires_at' => $check->expiry(),
         ]);
+        if ($project->status === ListingStatus::Published) {
+            $index->unit($unit->setRelation('project', $project)->unsetRelation('licence'));   // a renewal brings it back
+        }
 
         return Api::ok(new UnitResource($unit->setRelation('project', $project)->load(['licence', 'media'])));
     }

@@ -18,12 +18,15 @@ class AdvertiserResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
+        $falVerified = $this->role === CustomerRole::Broker && $this->fal_status === FalStatus::Valid;
+
         return [
             'id' => $this->id,
             'username' => $this->username,
             'name' => $this->name,
             'role' => $this->role->value,
-            'fal_verified' => $this->role === CustomerRole::Broker && $this->fal_status === FalStatus::Valid,
+            'fal_verified' => $falVerified,
+            'fal_number' => $falVerified ? $this->fal_number : null,     // a public licence, shown on the broker's ads
         ];
     }
 }

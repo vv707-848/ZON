@@ -68,6 +68,7 @@ class ListingResource extends JsonResource
                 'licence' => $this->licence === null ? null : [
                     'number' => $this->licence->licence_number,
                     'qr_url' => $this->licence->qr_url,
+                    'expires_at' => $this->licence->expires_at?->toDateString(),
                     'verified' => $this->licence->isValid(),
                 ],
                 'phones' => $viewer instanceof Customer ? array_map([Phone::class, 'local'], $this->phones ?: [$this->customer->phone]) : null,

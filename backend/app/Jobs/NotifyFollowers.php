@@ -24,7 +24,7 @@ class NotifyFollowers implements ShouldQueue
     public function handle(): void
     {
         $listing = Listing::query()->with('customer')->find($this->listingId);
-        if ($listing === null || ! $listing->status->isPublic()) {
+        if ($listing === null || ! $listing->isLive()) {
             return;
         }
         $hidden = Blocks::hiddenFor($listing->customer);

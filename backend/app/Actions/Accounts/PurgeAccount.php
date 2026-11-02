@@ -6,6 +6,8 @@ use App\Models\ChatMessage;
 use App\Models\DeletionRequest;
 use App\Models\Message;
 use App\Models\NoteSummary;
+use App\Models\SupportMessage;
+use App\Models\SupportTicket;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -35,6 +37,10 @@ final class PurgeAccount
             $customer->listings()->withTrashed()->update(['phones' => null]);
             $customer->projects()->withTrashed()->update(['phones' => null]);
             Message::query()->where('sender_id', $customer->id)->update(['body' => '—']);
+            // Support threads keep their record (number, dates, what was done), not his words or his number.
+            SupportMessage::query()->where('author', 'customer')
+                ->whereIn('support_ticket_id', SupportTicket::query()->where('customer_id', $customer->id)->select('id'))->update(['body' => '—']);
+            SupportTicket::query()->where('customer_id', $customer->id)->update(['name' => 'حساب محذوف', 'phone' => null]);
             DB::table('favorites')->where('customer_id', $customer->id)->delete();
             DB::table('follows')->where('follower_id', $customer->id)->orWhere('followed_id', $customer->id)->delete();
             DB::table('user_blocks')->where('blocker_id', $customer->id)->orWhere('blocked_id', $customer->id)->delete();

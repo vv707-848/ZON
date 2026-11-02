@@ -106,5 +106,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('uploads', fn (Request $request) => Limit::perMinute(40)->by('uploads:'.$who($request)));
         // Saving a text sends it to the wording agents (free for the advertiser, not for the platform).
         RateLimiter::for('wording', fn (Request $request) => Limit::perHour(60)->by('wording:'.$who($request)));
+        // Each one asks REGA.
+        RateLimiter::for('licence', fn (Request $request) => Limit::perHour(20)->by('licence:'.$who($request)));
     }
 }

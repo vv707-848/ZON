@@ -5,10 +5,12 @@ namespace App\Filament\Resources\Customers\Pages;
 use App\Actions\Accounts\CancelDeletion;
 use App\Actions\Admin\GrantSubscription;
 use App\Actions\Admin\ModerateAccount;
+use App\Actions\Support\SupportDesk;
 use App\Enums\AccountStatus;
 use App\Enums\CustomerRole;
 use App\Enums\NafathStatus;
 use App\Filament\Resources\Customers\CustomerResource;
+use App\Filament\Resources\SupportTickets\SupportTicketResource;
 use App\Filament\Support\Audit;
 use App\Filament\Support\Record;
 use App\Filament\Support\Staff;
@@ -36,19 +38,31 @@ class ViewCustomer extends ViewRecord
     {
         $customer = fn (): Customer => Record::as($this->getRecord(), Customer::class);
         $manage = fn () => Staff::can(Permission::ManageCustomers);
+        $suspend = fn () => Staff::can(Permission::SuspendCustomers);
 
         return [
             EditAction::make(),
+            Action::make('message')->label('مراسلة')->icon('heroicon-o-envelope')
+                ->visible(fn () => Staff::can(Permission::MessageCustomers) && $customer()->anonymized_at === null)
+                ->schema([
+                    TextInput::make('subject')->label('الموضوع')->required()->maxLength(160),
+                    Textarea::make('body')->label('الرسالة (تصل باسم «فريق زون»، ويرد عليها من التطبيق)')->required()->maxLength(2000)->rows(5),
+                ])
+                ->action(function (array $data) use ($customer) {
+                    $ticket = app(SupportDesk::class)->message($customer(), Staff::user(), $data['subject'], $data['body']);
+                    Notification::make()->title("وصلت الرسالة · {$ticket->reference}")->success()
+                        ->actions([Action::make('open')->label('فتح المراسلة')->url(SupportTicketResource::getUrl('view', ['record' => $ticket]))])->send();
+                }),
             Action::make('suspend')->label('إيقاف الحساب')->color('danger')->icon('heroicon-o-no-symbol')
-                ->visible(fn () => $manage() && $customer()->status !== AccountStatus::Suspended)
+                ->visible(fn () => $suspend() && $customer()->status !== AccountStatus::Suspended)
                 ->schema([Textarea::make('reason')->label('السبب (يُسجَّل في التدقيق)')->required()->maxLength(255)])
                 ->requiresConfirmation()
                 ->action(function (array $data) use ($customer) {
                     app(ModerateAccount::class)->suspend($customer(), $data['reason']);
                     Notification::make()->title('أُوقف الحساب وخرج من كل الأجهزة')->success()->send();
                 }),
-            Action::make('activate')->label('تفعيل الحساب')->color('success')->icon('heroicon-o-check-circle')
-                ->visible(fn () => $manage() && $customer()->status === AccountStatus::Suspended)
+            Action::make('activate')->label('فك الإيقاف')->color('success')->icon('heroicon-o-check-circle')
+                ->visible(fn () => $suspend() && $customer()->status === AccountStatus::Suspended)
                 ->requiresConfirmation()
                 ->action(fn () => app(ModerateAccount::class)->activate($customer())),
             ActionGroup::make([

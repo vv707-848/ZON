@@ -5,7 +5,6 @@ namespace App\Actions\Billing;
 use App\Enums\BoostKind;
 use App\Enums\BoostVia;
 use App\Enums\ErrorCode;
-use App\Enums\ListingStatus;
 use App\Enums\PaymentPurpose;
 use App\Enums\RequestStatus;
 use App\Exceptions\ApiException;
@@ -101,7 +100,7 @@ final class ApplyBoost
     private function assertTarget(Model $target, BoostKind $kind): void
     {
         $ok = match ($kind) {
-            BoostKind::Featured, BoostKind::UrgentListing => $target instanceof Listing && $target->status === ListingStatus::Published,
+            BoostKind::Featured, BoostKind::UrgentListing => $target instanceof Listing && $target->isLive(),
             BoostKind::UrgentRequest => $target instanceof SearchRequest && $target->status === RequestStatus::Published,
         };
         if (! $ok) {

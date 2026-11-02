@@ -36,7 +36,7 @@ final class IndexSync
 
     public function listing(Listing $listing): ?IndexEvent
     {
-        $public = $listing->status === ListingStatus::Published && ! $listing->trashed();
+        $public = ! $listing->trashed() && $listing->isLive();
 
         return $this->signal(IndexEntity::Listing, $listing, $public ? IndexPayloads::listing($listing) : null);
     }

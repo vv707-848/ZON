@@ -409,8 +409,9 @@ search_listings · search_requests · matching · match_searchers · chat · sum
 
 ### الأدوار والصلاحيات
 
-- الدوران الأوليان: «مشرف عام» (كل الصلاحيات) و«مشرف المحتوى».
-- الصلاحيات (`Permission` enum): dashboard.view · customers.view/manage · developers.create/activate · listings.view/moderate · requests.view/moderate · reports.handle · packages.manage · payments.view/manage · knowledge.manage · search_terms.manage · ai.view · index.manage · health.view · app_config.manage · settings.manage · reference.manage · announcements.send · audit.view.
+- الدور الأولي: «مشرف» (`Permission::supervisor()`): البلاغات، والشكاوى والمراسلات، ومراسلة المستخدمين باسم «فريق زون»، وتحويل العرض بين «نشط» و«غير نشط» بسبب، وإيقاف الحسابات وفك إيقافها.
+- صلاحيات للمدير العام وحده لا يحملها أي دور (`Permission::superadminOnly()`): محتوى المستخدمين الخاص (المحادثات وإدارة العملاء)، والمال والأسعار، وإعدادات المنصة، وسجل التدقيق.
+- الصلاحيات (`Permission` enum): dashboard.view · customers.view/manage/suspend/message · developers.create/activate · listings.view/moderate/activate · requests.view/moderate · reports.handle · packages.manage · payments.view/manage · knowledge.manage · search_terms.manage · ai.view · index.manage · health.view · app_config.manage · settings.manage · reference.manage · announcements.send · audit.view.
 - خارج أي دور، للـ superadmin وحده: الوكيل الأعلى، وتقارير السوق، وحسابات الموظفين، والأدوار.
 
 ### الأقسام والشاشات

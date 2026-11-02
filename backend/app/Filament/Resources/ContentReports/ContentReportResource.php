@@ -16,12 +16,14 @@ use App\Filament\Resources\SearchRequests\SearchRequestResource;
 use App\Filament\Support\Columns;
 use App\Filament\Support\Staff;
 use App\Models\ContentReport;
+use App\Models\Message;
 use App\Support\Permissions\Permission;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
@@ -100,6 +102,10 @@ class ContentReportResource extends Resource
                 Action::make('decide')->label('القرار')->icon('heroicon-o-scale')
                     ->visible(fn (ContentReport $r) => in_array($r->status, [ReportStatus::New, ReportStatus::Reviewing], true) && Staff::can(Permission::HandleReports))
                     ->schema([
+                        // Only the reported message — never the conversation (that is the superadmin's, audited).
+                        TextEntry::make('reported_message')->label('الرسالة المبلّغ عنها')
+                            ->visible(fn (ContentReport $record) => $record->target instanceof Message)
+                            ->state(fn (ContentReport $record) => $record->target instanceof Message ? $record->target->body : null),
                         // Word keys, not '1'/'0': PHP turns numeric array keys into integers, and the choice is then never === '1'.
                         Radio::make('decision')->label('البلاغ')->options(['accept' => 'صحيح', 'reject' => 'غير صحيح (يُعاد ما أخفته البلاغات آلياً)'])->required()->live(),
                         Select::make('action')->label('الإجراء')->options(ReportAction::options())->required(fn (Get $get) => $get('decision') === 'accept')

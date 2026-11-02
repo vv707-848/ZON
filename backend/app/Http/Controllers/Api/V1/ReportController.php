@@ -65,7 +65,8 @@ class ReportController extends Controller
     {
         return match (true) {
             $target instanceof Customer => $target->id !== $me->id && $target->anonymized_at === null,
-            $target instanceof Listing, $target instanceof Project => $target->status->isPublic(),
+            $target instanceof Listing => $target->isLive(),
+            $target instanceof Project => $target->status->isPublic(),
             $target instanceof SearchRequest => $target->status === RequestStatus::Published,
             $target instanceof Rating => $target->hidden_at === null,
             $target instanceof Message => $target->sender_id !== $me->id

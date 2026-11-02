@@ -10,9 +10,13 @@ use App\Models\Listing;
 use App\Models\OwnerCase;
 use App\Models\Package;
 use App\Models\Project;
+use App\Models\ProjectUnit;
 use App\Models\SearchRequest;
 use App\Models\Subscription;
+use App\Models\SupportMessage;
+use App\Models\SupportTicket;
 use App\Models\Task;
+use Illuminate\Support\Str;
 
 /** Every notice the platform sends, with its text and where a tap leads in the app (router.dart). */
 final class Notices
@@ -40,6 +44,35 @@ final class Notices
     public static function listingHidden(Listing $listing): AppNotice
     {
         return new AppNotice(NoteKind::Listing, 'أُخفي عرضك للمراجعة', $listing->title, "/account/listings/{$listing->id}", null, "hidden:{$listing->id}");
+    }
+
+    /** A week and a day before the licence's last day — whatever the switches say: the listing is about to leave. */
+    public static function licenceExpiring(Listing $listing, int $daysLeft, int $stage): AppNotice
+    {
+        return new AppNotice(NoteKind::Listing, 'رخصة إعلانك قاربت على الانتهاء',
+            "رخصة «{$listing->title}» ".self::endsIn($daysLeft).'. جدّدها لدى الهيئة ثم حدّث رقمها في العرض.',
+            "/account/listings/{$listing->id}", null, "licence-expiring:{$listing->id}:{$stage}");
+    }
+
+    public static function licenceExpired(Listing $listing): AppNotice
+    {
+        return new AppNotice(NoteKind::Listing, 'انتهت رخصة إعلانك',
+            "«{$listing->title}» خرج من النتائج. جدّد الرخصة لدى الهيئة ثم حدّث رقمها في العرض ليعود.",
+            "/account/listings/{$listing->id}", null, "licence-expired:{$listing->id}");
+    }
+
+    public static function unitLicenceExpiring(ProjectUnit $unit, int $daysLeft, int $stage): AppNotice
+    {
+        return new AppNotice(NoteKind::Listing, 'رخصة وحدة في مشروعك قاربت على الانتهاء',
+            "رخصة النموذج «{$unit->model_name}» في «{$unit->project->title}» ".self::endsIn($daysLeft).'. جدّدها لدى الهيئة ثم حدّث رقمها في الوحدة.',
+            "/account/listings/{$unit->project_id}", null, "unit-licence-expiring:{$unit->id}:{$stage}");
+    }
+
+    public static function unitLicenceExpired(ProjectUnit $unit): AppNotice
+    {
+        return new AppNotice(NoteKind::Listing, 'انتهت رخصة وحدة في مشروعك',
+            "النموذج «{$unit->model_name}» في «{$unit->project->title}» خرج من النتائج. جدّد رخصته لدى الهيئة ثم حدّث رقمها في الوحدة.",
+            "/account/listings/{$unit->project_id}", null, "unit-licence-expired:{$unit->id}");
     }
 
     public static function boostEnded(Listing $listing, BoostKind $kind): AppNotice
@@ -111,13 +144,31 @@ final class Notices
         return new AppNotice(NoteKind::Plan, 'تم تفعيل حسابك', 'تستطيع الآن نشر مشاريعك على زون.', '/account');
     }
 
-    public static function supportReplied(string $reference): AppNotice
+    /** Staff wrote in a support thread — a reply, or the first message of «فريق زون». Always sent. */
+    public static function supportMessage(SupportTicket $ticket, SupportMessage $message): AppNotice
     {
-        return new AppNotice(NoteKind::Plan, 'رد على تذكرة الدعم', "التذكرة {$reference}", '/account/settings', null, "ticket:{$reference}");
+        return new AppNotice(NoteKind::Message, 'رسالة من فريق زون', Str::limit($message->body, 120),
+            "/support/{$ticket->reference}", null, "support:{$ticket->reference}:{$message->id}");
+    }
+
+    public static function supportClosed(SupportTicket $ticket): AppNotice
+    {
+        return new AppNotice(NoteKind::Message, "أُغلقت التذكرة {$ticket->reference}", Str::limit((string) $ticket->resolution, 120),
+            "/support/{$ticket->reference}", null, "support-closed:{$ticket->reference}");
     }
 
     public static function announcement(string $title, string $body, ?string $target): AppNotice
     {
         return new AppNotice(NoteKind::Plan, $title, $body, $target ?: '/notifications');
+    }
+
+    private static function endsIn(int $daysLeft): string
+    {
+        return match (true) {
+            $daysLeft <= 0 => 'تنتهي اليوم',
+            $daysLeft === 1 => 'تنتهي غداً',
+            $daysLeft === 2 => 'تنتهي بعد يومين',
+            default => "تنتهي خلال {$daysLeft} أيام",
+        };
     }
 }

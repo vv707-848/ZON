@@ -32,7 +32,7 @@ class ProfileController extends Controller
             'my_rating' => $viewer ? Rating::query()->where('rater_id', $viewer->id)->where('rated_id', $customer->id)->value('stars') : null,
             'followers_count' => Follow::query()->where('followed_id', $customer->id)->count(),
             'following_count' => Follow::query()->where('follower_id', $customer->id)->count(),
-            'listings_count' => $customer->listings()->published()->count(),
+            'listings_count' => $customer->listings()->live()->count(),
             'is_following' => $viewer !== null && Follow::query()->where('follower_id', $viewer->id)->where('followed_id', $customer->id)->exists(),
         ]);
     }
@@ -40,7 +40,7 @@ class ProfileController extends Controller
     public function listings(Request $request, Customer $customer): JsonResponse
     {
         $this->visible($request, $customer);
-        $page = $customer->listings()->published()->with(['customer', 'media' => fn ($q) => $q->where('is_cover', true)])->latest('published_at')->paginate(20);
+        $page = $customer->listings()->live()->with(['customer', 'media' => fn ($q) => $q->where('is_cover', true)])->latest('published_at')->paginate(20);
 
         return Api::page($page, ListingResource::class);
     }

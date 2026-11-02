@@ -14,6 +14,10 @@ use Illuminate\Support\Facades\DB;
 /**
  * The only way a listing changes status: the state machine (ListingStatus::canBecome), the history row and the
  * index signal, in one transaction. A move the machine does not allow is INVALID_TRANSITION.
+ *
+ * No listing becomes public without a current advertising licence: whoever asks for «published» (the advertiser
+ * resuming, an update, a job, staff), a listing whose licence has ended goes to «منتهي الترخيص» instead, and a
+ * renewal (ListingController::renewLicence) publishes it.
  */
 final class ChangeListingStatus
 {
@@ -22,6 +26,9 @@ final class ChangeListingStatus
     /** @param array<string, mixed> $also other columns saved with the change (paused_until, …) */
     public function __invoke(Listing $listing, ListingStatus $to, Actor $actor, array $also = []): Listing
     {
+        if ($to === ListingStatus::Published && ! $listing->hasCurrentLicence()) {
+            $to = ListingStatus::LicenceExpired;
+        }
         $from = $listing->status;
         if ($from === $to && $also === []) {
             return $listing;

@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Validator;
  */
 class CreateSuperadmin extends Command
 {
-    protected $signature = 'zon:create-superadmin {email} {--name=المشرف العام}';
+    protected $signature = 'zon:create-superadmin {email} {--name=المدير العام}';
 
     protected $description = 'Creates the superadmin of the admin panel';
 

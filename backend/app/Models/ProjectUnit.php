@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\Delivery;
 use App\Enums\LandUse;
-use App\Enums\LicenceStatus;
 use App\Enums\PropertyType;
 use App\Enums\TextReview;
 use App\Models\Concerns\HasDescriptionReview;
@@ -69,8 +68,7 @@ class ProjectUnit extends Model
     public function scopeAdvertisable(Builder $query): void
     {
         $query->where(fn (Builder $q) => $q->whereHas('project', fn (Builder $p) => $p->where('delivery', '!=', Delivery::Ready))
-            ->orWhereHas('licence', fn (Builder $l) => $l->where('status', LicenceStatus::Valid)
-                ->where(fn (Builder $e) => $e->whereNull('expires_at')->orWhere('expires_at', '>', now()))));
+            ->orWhereHas('licence', fn (Builder $l) => AdLicense::whereCurrent($l)));
     }
 
     /** Searchable: advertisable, a decided text and at least one unit left (the index is told when this changes). */

@@ -59,7 +59,7 @@ class Reindex extends Command
     private function visible(IndexEntity $entity): Builder
     {
         return match ($entity) {
-            IndexEntity::Listing => Listing::query()->published(),
+            IndexEntity::Listing => Listing::query()->live(),
             IndexEntity::ProjectUnit => ProjectUnit::query()->with('project')
                 ->whereHas('project', fn (Builder $q) => $q->where('status', ListingStatus::Published)),
             IndexEntity::Request => SearchRequest::query()->where('status', RequestStatus::Published),

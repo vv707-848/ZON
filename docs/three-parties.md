@@ -45,7 +45,7 @@ flowchart LR
 | Push | Laravel ← FCM ← الجوال | حساب خدمة Firebase | `app/Notifications/PushChannel.php` · `app/Integrations/Push` | جرس التطبيق (`notifications`) يبقى |
 | الذكاء: الوكلاء | Laravel ← `POST /agents/{agent}`، مهلة 20 ث وإعادة سريعة واحدة | `X-Internal-Key` + `X-Request-Id` | `app/Ai/AiGateway.php` ← `AgentsClient.php` ↔ `agents/zon_agents/main.py` · `pipelines/` | ترتيب SQL بلا أسباب (`meta.ai.status = fallback`) ولا خصم |
 | الذكاء: الفهرسة | Laravel ← `POST /index/{entity}` من طابور `index` | HMAC (`X-Timestamp` · `X-Signature`) بمفتاح `INDEX_SHARED_SECRET` | `app/Indexing/IndexSync.php` ← `app/Jobs/PushIndexEvent.php` ↔ `agents/zon_agents/indexing.py` | الإشارة تبقى في `index_events` وتُعاد كل 15 دقيقة |
-| الوكيل الأعلى | اللوحة ← `report_select` ← SQL معتمد على `ai_v_*` ← `report_write` | المشرف العام وحده | `app/SuperAgent` ↔ `agents/zon_agents/pipelines/reports.py` | الصفوف تُحفظ، والتحليل يُسقط إن ذكر رقماً ليس في الصفوف |
+| الوكيل الأعلى | اللوحة ← `report_select` ← SQL معتمد على `ai_v_*` ← `report_write` | المدير العام وحده | `app/SuperAgent` ↔ `agents/zon_agents/pipelines/reports.py` | الصفوف تُحفظ، والتحليل يُسقط إن ذكر رقماً ليس في الصفوف |
 
 العقد التفصيلي بين Laravel والوكلاء: `docs/contracts/agents-api.md`. فحص الحمولات الفعلية: `docs/operations.md` ← «عقد Laravel ↔ الوكلاء».
 
@@ -100,7 +100,7 @@ flowchart LR
 |---|---|---|
 | العروض والإشراف | تذكير المعلن بمراجعة الصياغة بعد (ساعة) | 24 |
 | | النشر بالنص الأصلي إن لم يقرر المعلن بعد (ساعة) | 72 |
-| | يصير العرض غير نشط بلا تحديث بعد (يوم) | 14 |
+| | يصير عرض الوسيط غير نشط بلا تحديث بعد (يوم) | 14 |
 | | أقصى عدد للصور في العرض | 12 |
 | | التحقق عبر نفاذ شرط للنشر | نعم |
 | | عدد المبلّغين المختلفين للإخفاء الآلي | 3 |

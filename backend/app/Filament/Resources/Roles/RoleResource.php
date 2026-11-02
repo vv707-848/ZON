@@ -48,8 +48,10 @@ class RoleResource extends Resource
         return $schema->components([
             TextInput::make('name')->label('اسم الدور')->required()->maxLength(80)->unique(ignoreRecord: true),
             Hidden::make('guard_name')->default('web'),
-            CheckboxList::make('permissions')->label('الصلاحيات')->relationship('permissions', 'name')
-                ->getOptionLabelFromRecordUsing(fn ($record) => $options[$record->name] ?? $record->name)->columns(2)->bulkToggleable(),
+            CheckboxList::make('permissions')->label('الصلاحيات')
+                ->relationship('permissions', 'name', fn ($query) => $query->whereNotIn('name', array_map(fn (Permission $p) => $p->value, Permission::superadminOnly())))
+                ->getOptionLabelFromRecordUsing(fn ($record) => $options[$record->name] ?? $record->name)->columns(2)->bulkToggleable()
+                ->helperText('لا تظهر هنا صلاحيات المدير العام وحده: محتوى المستخدمين الخاص، والمال والأسعار، وإعدادات المنصة، وسجل التدقيق.'),
         ]);
     }
 
