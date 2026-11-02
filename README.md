@@ -1,8 +1,13 @@
 # منصة زون العقارية
 
+[![Platform](https://github.com/vv707-848/ZON/actions/workflows/platform.yml/badge.svg)](https://github.com/vv707-848/ZON/actions/workflows/platform.yml)
+[![App](https://github.com/vv707-848/ZON/actions/workflows/app.yml/badge.svg)](https://github.com/vv707-848/ZON/actions/workflows/app.yml)
+
 المرجعان الحاكمان:
 - تطبيق Flutter **3.1.2** (المعتمد): كل شاشة فيه لها واجهتها هنا.
 - وثيقة المعمارية **v1.4**.
+
+قبل أي عمل: [`docs/rules.md`](docs/rules.md) — قواعد العمل، والفحص الآلي الذي يمر عليه كل رفع.
 
 | المجلد | الطرف | المرجع |
 |---|---|---|
@@ -17,7 +22,9 @@
 
 | الملف | متى تقرؤه |
 |---|---|
-| `docs/three-parties.md` | أولاً: كيف يترابط التطبيق والباك إند واللوحة والذكاء، ومن يملك الحقيقة، وما تتحكم به اللوحة |
+| `docs/rules.md` | قبل كل شيء: قواعد العمل والفحص الآلي |
+| `docs/versions.md` | إصدار كل أداة ومكتبة، وآخر إصدار مستقر، والقرار |
+| `docs/three-parties.md` | كيف يترابط التطبيق والباك إند واللوحة والذكاء، ومن يملك الحقيقة، وما تتحكم به اللوحة |
 | `docs/api.md` | لمطوّر التطبيق: كل مسار وصلاحيته ورموز الأخطاء (مولَّد من المسارات الفعلية) |
 | `docs/app-coverage.md` | كل شاشة في التطبيق ← واجهتها ← شاشتها في اللوحة |
 | `docs/data-model.md` | الجداول والاتفاقات (المال، الجوال، الفهرسة، الحذف، التتبع) |

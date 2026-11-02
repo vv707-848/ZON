@@ -1,0 +1,56 @@
+# Rule 2 of docs/rules.md (latest stable versions) kept alive: a weekly pull request per part, minor and patch
+# updates grouped; majors arrive one by one. CI must be green before merging any of them.
+version: 2
+
+updates:
+  - package-ecosystem: composer
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: sunday
+      time: "06:00"
+      timezone: Asia/Riyadh
+    groups:
+      backend:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps(backend)
+
+  - package-ecosystem: uv
+    directory: /agents
+    schedule:
+      interval: weekly
+      day: sunday
+      time: "06:00"
+      timezone: Asia/Riyadh
+    groups:
+      agents:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps(agents)
+
+  - package-ecosystem: pub
+    directory: /app
+    schedule:
+      interval: weekly
+      day: sunday
+      time: "06:00"
+      timezone: Asia/Riyadh
+    groups:
+      app:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps(app)
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+      time: "06:00"
+      timezone: Asia/Riyadh
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: deps(ci)
