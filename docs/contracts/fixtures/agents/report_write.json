@@ -1,0 +1,50 @@
+[
+    {
+        "question": "وين الطلب أعلى في الرياض؟",
+        "report": "top_demand_by_neighborhood",
+        "columns": {
+            "neighborhood": "الحي",
+            "requests": "الطلبات",
+            "urgent": "العاجل",
+            "avg_budget_max": "متوسط أعلى ميزانية"
+        },
+        "rows": [
+            {
+                "neighborhood": "النرجس",
+                "requests": 3,
+                "urgent": 0,
+                "avg_budget_max": 2200000
+            },
+            {
+                "neighborhood": "الملقا",
+                "requests": 1,
+                "urgent": 0,
+                "avg_budget_max": 2200000
+            }
+        ]
+    },
+    {
+        "question": "كيف الطلب؟",
+        "report": "top_demand_by_neighborhood",
+        "columns": {
+            "neighborhood": "الحي",
+            "requests": "الطلبات",
+            "urgent": "العاجل",
+            "avg_budget_max": "متوسط أعلى ميزانية"
+        },
+        "rows": [
+            {
+                "neighborhood": "النرجس",
+                "requests": 3,
+                "urgent": 0,
+                "avg_budget_max": 2200000
+            },
+            {
+                "neighborhood": "الملقا",
+                "requests": 1,
+                "urgent": 0,
+                "avg_budget_max": 2200000
+            }
+        ]
+    }
+]

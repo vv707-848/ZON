@@ -1,0 +1,85 @@
+# خدمة الوكلاء — زون
+
+الطرف الثالث من المنصة: الخدمة الوحيدة التي تستعمل النموذج اللغوي والتضمين والبحث المتجهي.
+
+- يستدعيها Laravel وحده على `127.0.0.1:8100`، وفق العقد [`docs/contracts/agents-api.md`](../docs/contracts/agents-api.md).
+- كل ما يصلها مُخفى الهوية مسبقاً.
+- لا تسجّل نص أي طلب.
+
+| المسار | الوظيفة | المصادقة |
+|---|---|---|
+| `POST /agents/{agent}` | الوكلاء الاثنا عشر: بحث، مطابقة، شات، تلخيص، تنقية، الوكيل الأعلى | `X-Internal-Key` |
+| `POST /index/{entity}` | إشارات الفهرسة إلى Qdrant | HMAC، وفرق التوقيت ≤ 300 ث |
+| `POST /media/phash` | بصمة إدراكية للصورة (اختيارية) | `X-Internal-Key` |
+| `GET /agents/health` | حالة النموذج والتضمين وQdrant | بلا |
+| `/mcp/` | خادم MCP يكشف الأدوات نفسها | `X-Internal-Key` |
+
+```
+zon_agents/
+  main.py            مسارات HTTP، وسطر سجل JSON لكل طلب بـ request_id = رقم تتبّع Laravel
+  pipelines/         مسار كل وكيل: ranking · chat · text (تلخيص وتنقية) · reports (الوكيل الأعلى)
+                     الكود يختار الاسترجاع، والنموذج يرتّب ويصوغ فقط
+  tools/retrieval.py الاستعلام بمتجهاته الثلاثة، والبحث الهجين داخل المرشحين، ومكتبة المعرفة
+  mcp_server.py      الأدوات نفسها عبر MCP — تعريف واحد لا كود ثانٍ
+  llm.py             PydanticAI ← SGLang: المعاملات، وإعادة واحدة بحرارة 0.1، وحد التزامن 8، والميزانية
+  embeddings.py      عميل خادم bge-m3
+  store.py           مجموعات Qdrant والاستعلام الهجين
+  indexing.py        إشارات الفهرسة ونسخها، وتقطيع مستندات المعرفة
+  schemas/           مخططات المدخل والمخرج لكل وكيل (العقد §3–§4)
+  prompts/*.md       برومبت عربي لكل وكيل، أوله `version: N` ويُراجَع كالكود
+```
+
+## أين تبحث عند العطل
+
+| ما يظهر | السبب المرجّح | المكان |
+|---|---|---|
+| `degraded: true` في الرد | النموذج لم يجب أو كسر المخطط مرتين | سطر الطلب في السجل: `"llm": "timeout" \| "unavailable" \| "invalid"` |
+| 503 من `/agents/*` | التضمين أو Qdrant متوقف (والنموذج لوكلاء النص) | `GET /agents/health` |
+| 401 من `/index/*` | المفتاح المشترك مختلف، أو ساعتا الخادمين متباعدتان أكثر من 5 دقائق | `INDEX_SHARED_SECRET` في الطرفين، وNTP |
+| `ignored_stale` | نسخة أقدم من المفهرسة — سلوك صحيح | — |
+
+كل سطر سجل يحمل `request_id`، وهو رقم التتبع نفسه في Laravel (`X-Request-Id`):
+
+```bash
+grep '"request_id": "<الرقم>"' /var/log/zon/agents.log
+```
+
+## التشغيل
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements.lock && .venv/bin/pip install --no-deps -e .
+cp .env.example .env              # ثم القيم الحقيقية (المفتاحان بنفس قيم backend/.env)
+.venv/bin/zon-agents bootstrap    # ينشئ المجموعات الأربع وفهارسها — آمن للتكرار
+.venv/bin/zon-agents serve        # عامل واحد على HOST:PORT (supervisor: zon-agents)
+```
+
+بصمات الصور اختيارية: `pip install -e ".[phash]"` (idealo/imagededup على المعالج). وبدونها يرد `/media/phash` بـ 501، ويبقى Laravel على `IMAGE_HASH_DRIVER=gd`.
+
+## Qdrant
+
+`zon-agents bootstrap` ينشئ المجموعات الأربع (`listings` · `project_units` · `requests` · `knowledge`) وفهارس حقول التصفية:
+
+| المتجه | الإعداد |
+|---|---|
+| كثيف | 1024، ‏cosine، مكمّم TurboQuant ‏`bits4` ومثبّت في الذاكرة |
+| متناثر | — |
+| ColBERT | ‏MaxSim، ‏`hnsw m=0`، على القرص، int8. في كل المجموعات عدا `knowledge` |
+
+**تبديل ColBERT أو تغيير الإعداد:**
+
+1. `zon-agents bootstrap --recreate`.
+2. في الباك إند: `php artisan zon:reindex --force`.
+
+## الاختبارات
+
+```bash
+.venv/bin/pip install -e ".[dev]"
+.venv/bin/pytest
+.venv/bin/ruff check . && .venv/bin/ruff format --check . && .venv/bin/mypy
+```
+
+- النموذج في الاختبارات هو `FunctionModel` من PydanticAI، يجيب بما يكتبه كل اختبار.
+- التضمين حتمي من كلمات النص.
+- Qdrant في الذاكرة (الوضع المحلي).
+- لا اتصال بشبكة.

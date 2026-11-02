@@ -1,0 +1,4 @@
+# /etc/zon/backup.cnf — mode 600, owner root. The password of 'zon_backup'@'localhost' (mysql/users.sql).
+[client]
+user=zon_backup
+password=***

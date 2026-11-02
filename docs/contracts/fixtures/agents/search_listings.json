@@ -1,0 +1,177 @@
+[
+    {
+        "need": {
+            "city": "الرياض",
+            "neighborhood": "النرجس",
+            "property_type": "apartment",
+            "purpose": null,
+            "budget_min": null,
+            "budget_max": 900000,
+            "bedrooms": null,
+            "free_text": "فيها حوش، كلمني [رقم]"
+        },
+        "terms": [
+            "فناء",
+            "حديقة داخلية",
+            "ساحة"
+        ],
+        "candidates": [
+            {
+                "id": 7,
+                "type": "apartment",
+                "neighborhood": "النرجس",
+                "price": 880000,
+                "area": 150,
+                "bedrooms": 3,
+                "bathrooms": 2,
+                "age": 4,
+                "deed": true,
+                "bank": true,
+                "desc": "شقة واسعة قريبة من الخدمات، مع موقف خاص."
+            },
+            {
+                "id": 8,
+                "type": "apartment",
+                "neighborhood": "النرجس",
+                "price": 2000000,
+                "area": 150,
+                "bedrooms": 3,
+                "bathrooms": 2,
+                "age": 4,
+                "deed": true,
+                "bank": true,
+                "desc": "شقة واسعة قريبة من الخدمات، مع موقف خاص."
+            }
+        ],
+        "limit": 10
+    },
+    {
+        "need": {
+            "city": "الرياض",
+            "neighborhood": "النرجس",
+            "property_type": "apartment",
+            "purpose": null,
+            "budget_min": null,
+            "budget_max": 900000,
+            "bedrooms": null,
+            "free_text": ""
+        },
+        "terms": [],
+        "candidates": [
+            {
+                "id": 10,
+                "type": "apartment",
+                "neighborhood": "النرجس",
+                "price": 905000,
+                "area": 150,
+                "bedrooms": 3,
+                "bathrooms": 2,
+                "age": 4,
+                "deed": true,
+                "bank": true,
+                "desc": "شقة واسعة قريبة من الخدمات، مع موقف خاص."
+            },
+            {
+                "id": 9,
+                "type": "apartment",
+                "neighborhood": "النرجس",
+                "price": 2000000,
+                "area": 150,
+                "bedrooms": 3,
+                "bathrooms": 2,
+                "age": 4,
+                "deed": true,
+                "bank": true,
+                "desc": "شقة واسعة قريبة من الخدمات، مع موقف خاص."
+            }
+        ],
+        "limit": 10
+    },
+    {
+        "need": {
+            "city": "الرياض",
+            "neighborhood": "النرجس",
+            "property_type": "apartment",
+            "purpose": null,
+            "budget_min": null,
+            "budget_max": null,
+            "bedrooms": null,
+            "free_text": ""
+        },
+        "terms": [],
+        "candidates": [
+            {
+                "id": 11,
+                "type": "apartment",
+                "neighborhood": "النرجس",
+                "price": 880000,
+                "area": 150,
+                "bedrooms": 3,
+                "bathrooms": 2,
+                "age": 4,
+                "deed": true,
+                "bank": true,
+                "desc": "شقة واسعة قريبة من الخدمات، مع موقف خاص."
+            }
+        ],
+        "limit": 10
+    },
+    {
+        "need": {
+            "city": "الرياض",
+            "neighborhood": "النرجس",
+            "property_type": "apartment",
+            "purpose": null,
+            "budget_min": null,
+            "budget_max": null,
+            "bedrooms": null,
+            "free_text": ""
+        },
+        "terms": [],
+        "candidates": [
+            {
+                "id": 12,
+                "type": "apartment",
+                "neighborhood": "النرجس",
+                "price": 880000,
+                "area": 150,
+                "bedrooms": 3,
+                "bathrooms": 2,
+                "age": 4,
+                "deed": true,
+                "bank": true,
+                "desc": "شقة واسعة قريبة من الخدمات، مع موقف خاص."
+            }
+        ],
+        "limit": 10
+    },
+    {
+        "need": {
+            "city": "الرياض",
+            "neighborhood": "النرجس",
+            "property_type": "apartment",
+            "purpose": null,
+            "budget_min": null,
+            "budget_max": null,
+            "bedrooms": null,
+            "free_text": "طلب 1"
+        },
+        "terms": [],
+        "candidates": [
+            {
+                "id": 13,
+                "type": "apartment",
+                "neighborhood": "النرجس",
+                "price": 880000,
+                "area": 150,
+                "bedrooms": 3,
+                "bathrooms": 2,
+                "age": 4,
+                "deed": true,
+                "bank": true,
+                "desc": "شقة واسعة قريبة من الخدمات، مع موقف خاص."
+            }
+        ],
+        "limit": 10
+    }
+]

@@ -1,0 +1,12 @@
+# /etc/mysql/mysql.conf.d/zon.cnf — data node (10.10.0.20), MySQL 8.4 LTS.
+# Private address only: no public port. Accounts are bound to the app node's address (mysql/users.sql).
+[mysqld]
+bind-address            = 10.10.0.20
+mysqlx                  = OFF
+character-set-server    = utf8mb4
+collation-server        = utf8mb4_unicode_ci
+max_connections         = 300
+# The data node shares 24 GB between MySQL and Qdrant.
+innodb_buffer_pool_size = 8G
+slow_query_log          = ON
+long_query_time         = 0.5

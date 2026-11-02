@@ -1,0 +1,3 @@
+# /etc/cron.d/zon-backup — data node.
+SHELL=/bin/bash
+0 3 * * * root /usr/local/bin/zon-backup.sh >> /var/log/zon-backup.log 2>&1

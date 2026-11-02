@@ -1,0 +1,14 @@
+[
+    {
+        "project_type": "villa",
+        "units": [
+            {
+                "id": 4,
+                "model": "C1",
+                "type": "villa",
+                "bedrooms": 5,
+                "text": "نموذج بخمس غرف ومجلس مستقل"
+            }
+        ]
+    }
+]

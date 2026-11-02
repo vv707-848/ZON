@@ -1,0 +1,31 @@
+[
+    {
+        "project": {
+            "type": "villa",
+            "neighborhood": "النرجس",
+            "context": "فلل حديثة بتشطيب فاخر، قريبة من طريق الملك سلمان."
+        },
+        "units": [
+            {
+                "id": 3,
+                "model": "a8",
+                "type": "villa",
+                "area": 380,
+                "bedrooms": 5,
+                "price": 1950000,
+                "desc": "نموذج بخمس غرف ومجلس مستقل."
+            }
+        ],
+        "searchers": [
+            {
+                "id": 12,
+                "type": "villa",
+                "budget_min": null,
+                "budget_max": 900000,
+                "bedrooms": null,
+                "notes": "قرب مدرسة"
+            }
+        ],
+        "limit": 10
+    }
+]

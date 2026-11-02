@@ -1,0 +1,30 @@
+[
+    {
+        "type": "apartment",
+        "city": "الرياض",
+        "neighborhood": "النرجس",
+        "text": "شقة واسعة جداً للتواصل [رقم] قريبة من الخدمات",
+        "fields": {
+            "area_built": "150.00",
+            "bedrooms": 3,
+            "bathrooms": 2,
+            "floor_level": "ground"
+        }
+    },
+    {
+        "type": "villa",
+        "city": "الرياض",
+        "neighborhood": "الملقا",
+        "text": "فيلا واسعة بحديقة خلفية"
+    },
+    {
+        "type": "apartment",
+        "city": "الرياض",
+        "neighborhood": "الياسمين",
+        "text": "شقة مخزون جديدة",
+        "fields": {
+            "area_built": "140.00",
+            "bedrooms": 3
+        }
+    }
+]

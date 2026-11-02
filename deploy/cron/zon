@@ -1,0 +1,9 @@
+# /etc/cron.d/zon — app node.
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+
+# Laravel scheduler: the table of jobs is backend/routes/console.php (`php artisan schedule:list`).
+* * * * * www-data cd /var/www/zon/backend && php artisan schedule:run >> /dev/null 2>&1
+
+# Health every 5 minutes: the latest report in /var/log/zon/doctor.json; a failure (exit 1) also goes to syslog.
+*/5 * * * * www-data cd /var/www/zon/backend && php artisan zon:doctor --json > /var/log/zon/doctor.json 2>&1 || logger -t zon-doctor "zon:doctor found a failure: /var/log/zon/doctor.json"

@@ -1,0 +1,27 @@
+[
+    {
+        "entity": "kb_document",
+        "entity_id": 7,
+        "action": "create",
+        "version": 1,
+        "occurred_at": "2026-11-02T15:01:29Z",
+        "payload": {
+            "body": "يصدر ترخيص الإعلان العقاري من منصة الهيئة قبل نشر العرض.",
+            "lang": "ar",
+            "title": "رسوم ترخيص الإعلان",
+            "source": "الهيئة العامة للعقار",
+            "version": "2",
+            "category": "licences",
+            "next_review": "2027-02-02",
+            "review_owner": "فريق المحتوى",
+            "effective_date": "2026-11-02"
+        }
+    },
+    {
+        "entity": "kb_document",
+        "entity_id": 7,
+        "action": "delete",
+        "version": 2,
+        "occurred_at": "2026-11-02T15:01:29Z"
+    }
+]

@@ -1,0 +1,36 @@
+# App node: the AI node's tunnel (architecture §13 «نفق عقدة الذكاء»). Three parts, in this order.
+# Keep the current admin session open until a NEW login succeeds — a mistake in AllowUsers locks the server.
+
+# ── (أ) /etc/ssh/sshd_config — global settings, BEFORE any Match block ─────────────────────────
+# The first value read wins: check what is in force with `sshd -T`.
+# ubuntu = the default admin user of Ubuntu images on Oracle.
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AllowUsers ubuntu zon-tunnel
+MaxAuthTries 3
+LoginGraceTime 20
+
+# ── (ب) /etc/ssh/sshd_config — at the END of the file ──────────────────────────────────────────
+Match User zon-tunnel
+    AllowTcpForwarding remote
+    AllowStreamLocalForwarding no
+    PermitListen 127.0.0.1:30000 127.0.0.1:18080
+    GatewayPorts no
+    PermitTTY no
+    X11Forwarding no
+    MaxSessions 0
+    ClientAliveInterval 15
+    ClientAliveCountMax 3
+# then: sshd -t && systemctl reload ssh
+
+# ── (ج) shell commands on the app node — NOT for sshd_config ───────────────────────────────────
+#   useradd -m -s /usr/sbin/nologin zon-tunnel
+#   install -d -m 700 -o zon-tunnel -g zon-tunnel /home/zon-tunnel/.ssh
+#   apt-get install -y fail2ban
+#
+# ── (د) /home/zon-tunnel/.ssh/authorized_keys — one line · mode 600 · owner zon-tunnel ─────────
+#   restrict,port-forwarding,permitlisten="127.0.0.1:30000",permitlisten="127.0.0.1:18080" ssh-ed25519 AAAA… zon-ai-node
+#   (the public key is /workspace/keys/tunnel_ed25519.pub on the AI node — deploy/ai-node/install.sh)
+#
+# Check from the app node: `ss -ltn` shows 127.0.0.1:30000 and 127.0.0.1:18080 — and nothing on 0.0.0.0.

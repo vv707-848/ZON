@@ -1,0 +1,117 @@
+[
+    {
+        "entity": "listing",
+        "entity_id": 1,
+        "action": "create",
+        "version": 1,
+        "occurred_at": "2026-11-02T15:01:26Z",
+        "payload": {
+            "age": 4,
+            "bank": true,
+            "city": "الرياض",
+            "deed": true,
+            "price": 880000,
+            "status": "published",
+            "purpose": "sale",
+            "bedrooms": 3,
+            "area_land": null,
+            "bathrooms": 2,
+            "area_built": 150,
+            "desc_clean": "شقة واسعة قريبة من الخدمات، مع موقف خاص.",
+            "neighborhood": "النرجس",
+            "property_type": "apartment"
+        }
+    },
+    {
+        "entity": "listing",
+        "entity_id": 3,
+        "action": "create",
+        "version": 1,
+        "occurred_at": "2026-11-02T15:01:28Z",
+        "payload": {
+            "age": 4,
+            "bank": true,
+            "city": "الرياض",
+            "deed": true,
+            "price": 880000,
+            "status": "published",
+            "purpose": "sale",
+            "bedrooms": 3,
+            "area_land": null,
+            "bathrooms": 2,
+            "area_built": 150,
+            "desc_clean": "شقة واسعة قريبة من الخدمات، مع موقف خاص.",
+            "neighborhood": "النرجس",
+            "property_type": "apartment"
+        }
+    },
+    {
+        "entity": "listing",
+        "entity_id": 15,
+        "action": "create",
+        "version": 1,
+        "occurred_at": "2026-11-02T15:01:38Z",
+        "payload": {
+            "age": 4,
+            "bank": true,
+            "city": "الرياض",
+            "deed": true,
+            "price": 880000,
+            "status": "published",
+            "purpose": "sale",
+            "bedrooms": 3,
+            "area_land": null,
+            "bathrooms": 2,
+            "area_built": 150,
+            "desc_clean": "شقة واسعة قريبة من الخدمات، مع موقف خاص.",
+            "neighborhood": "النرجس",
+            "property_type": "apartment"
+        }
+    },
+    {
+        "entity": "listing",
+        "entity_id": 16,
+        "action": "create",
+        "version": 1,
+        "occurred_at": "2026-11-02T15:01:38Z",
+        "payload": {
+            "age": null,
+            "bank": false,
+            "city": "الرياض",
+            "deed": true,
+            "price": 880000,
+            "status": "published",
+            "purpose": "sale",
+            "bedrooms": 3,
+            "area_land": null,
+            "bathrooms": 2,
+            "area_built": 150,
+            "desc_clean": "شقة واسعة قريبة من الخدمات.",
+            "neighborhood": "النرجس",
+            "property_type": "apartment"
+        }
+    },
+    {
+        "entity": "listing",
+        "entity_id": 17,
+        "action": "create",
+        "version": 1,
+        "occurred_at": "2026-11-02T15:01:38Z",
+        "payload": {
+            "age": null,
+            "bank": false,
+            "city": "الرياض",
+            "deed": true,
+            "price": 880000,
+            "status": "published",
+            "purpose": "sale",
+            "bedrooms": 3,
+            "area_land": null,
+            "bathrooms": 2,
+            "area_built": 150,
+            "desc_clean": "شقة واسعة جداً للتواصل [رقم] قريبة من الخدمات",
+            "neighborhood": "النرجس",
+            "property_type": "apartment"
+        }
+    }
+]

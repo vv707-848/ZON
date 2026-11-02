@@ -1,0 +1,65 @@
+[
+    {
+        "entity": "project_unit",
+        "entity_id": 4,
+        "action": "create",
+        "version": 1,
+        "occurred_at": "2026-11-02T15:01:39Z",
+        "payload": {
+            "area": 380,
+            "city": "الرياض",
+            "halls": null,
+            "model": "C1",
+            "price": 1950000,
+            "bedrooms": 5,
+            "bathrooms": null,
+            "desc_clean": "نموذج C1 المصقول.",
+            "project_id": 5,
+            "neighborhood": "النرجس",
+            "property_type": "villa",
+            "project_context": "فلل حديثة بتشطيب فاخر."
+        }
+    },
+    {
+        "entity": "project_unit",
+        "entity_id": 5,
+        "action": "create",
+        "version": 1,
+        "occurred_at": "2026-11-02T15:01:39Z",
+        "payload": {
+            "area": 380,
+            "city": "الرياض",
+            "halls": 2,
+            "model": "x9",
+            "price": 1950000,
+            "bedrooms": 5,
+            "bathrooms": 4,
+            "desc_clean": "نموذج بخمس غرف ومجلس مستقل.",
+            "project_id": 6,
+            "neighborhood": "النرجس",
+            "property_type": "villa",
+            "project_context": "فلل حديثة بتشطيب فاخر قريبة من طريق الملك سلمان."
+        }
+    },
+    {
+        "entity": "project_unit",
+        "entity_id": 7,
+        "action": "create",
+        "version": 1,
+        "occurred_at": "2026-11-02T15:01:39Z",
+        "payload": {
+            "area": 380,
+            "city": "الرياض",
+            "halls": 2,
+            "model": "r8",
+            "price": 1950000,
+            "bedrooms": 5,
+            "bathrooms": 4,
+            "desc_clean": "نموذج بخمس غرف ومجلس مستقل.",
+            "project_id": 9,
+            "neighborhood": "النرجس",
+            "property_type": "villa",
+            "project_context": "فلل حديثة بتشطيب فاخر، قريبة من طريق الملك سلمان."
+        }
+    }
+]

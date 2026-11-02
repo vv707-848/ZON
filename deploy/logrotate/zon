@@ -1,0 +1,10 @@
+# /etc/logrotate.d/zon — app node: workers, Reverb and the agents service (Laravel rotates its own daily files).
+/var/log/zon/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

@@ -1,0 +1,50 @@
+[
+    {
+        "need": {
+            "city": "الرياض",
+            "neighborhood": "النرجس",
+            "property_type": "apartment",
+            "purpose": "sale",
+            "budget_min": null,
+            "budget_max": 900000,
+            "bedrooms": null,
+            "free_text": "حوش واسع للتواصل [رقم]"
+        },
+        "terms": [
+            "فناء",
+            "حديقة داخلية",
+            "ساحة"
+        ],
+        "matched": [
+            {
+                "id": 14,
+                "type": "apartment",
+                "neighborhood": "النرجس",
+                "price": 850000,
+                "area": 150,
+                "bedrooms": 3,
+                "bathrooms": 2,
+                "age": 4,
+                "deed": true,
+                "bank": true,
+                "desc": "شقة واسعة قريبة من الخدمات، مع موقف خاص."
+            }
+        ],
+        "broaden": [],
+        "units": [
+            {
+                "id": 2,
+                "type": "apartment",
+                "neighborhood": "النرجس",
+                "price": 870000,
+                "area": 380,
+                "bedrooms": 5,
+                "bathrooms": 4,
+                "desc": "نموذج بخمس غرف ومجلس مستقل.",
+                "model": "o6",
+                "project_id": 3
+            }
+        ],
+        "limit": 10
+    }
+]

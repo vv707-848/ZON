@@ -1,0 +1,5 @@
+# Each part keeps its own rules (backend/.gitignore · agents/.gitignore · app/.gitignore).
+.DS_Store
+Thumbs.db
+.idea/
+*.swp

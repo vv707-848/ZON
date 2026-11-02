@@ -1,0 +1,33 @@
+[
+    {
+        "need": {
+            "city": "الرياض",
+            "neighborhood": "النرجس",
+            "property_type": "apartment",
+            "purpose": null,
+            "budget_min": null,
+            "budget_max": 880000,
+            "bedrooms": null,
+            "free_text": ""
+        },
+        "terms": [],
+        "candidates": [
+            {
+                "id": 19,
+                "types": [
+                    "apartment"
+                ],
+                "neighborhoods": [
+                    "النرجس"
+                ],
+                "budget_min": 1500000,
+                "budget_max": 900000,
+                "rooms_min": 4,
+                "area_min": null,
+                "urgent": false,
+                "desc": "فيلا بمجلس مستقل وحوش."
+            }
+        ],
+        "limit": 10
+    }
+]

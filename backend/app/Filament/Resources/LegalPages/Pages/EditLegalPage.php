@@ -1,0 +1,32 @@
+<?php
+
+namespace App\Filament\Resources\LegalPages\Pages;
+
+use App\Filament\Resources\LegalPages\LegalPageResource;
+use App\Filament\Support\Audit;
+use App\Filament\Support\Record;
+use App\Filament\Support\Staff;
+use App\Models\LegalPage;
+use Filament\Resources\Pages\EditRecord;
+
+/** Every save publishes a new version of the policy. */
+class EditLegalPage extends EditRecord
+{
+    protected static string $resource = LegalPageResource::class;
+
+    /** @param array<string, mixed> $data @return array<string, mixed> */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        return $data + ['version' => (string) ((int) $this->page()->version + 1), 'published_at' => now(), 'updated_by' => Staff::user()->id];
+    }
+
+    protected function afterSave(): void
+    {
+        Audit::log('legal_published', 'نشر نسخة سياسة', $this->page(), ['version' => $this->page()->version]);
+    }
+
+    private function page(): LegalPage
+    {
+        return Record::as($this->getRecord(), LegalPage::class);
+    }
+}
