@@ -1,0 +1,267 @@
+// `/` — الرئيسية: header, the filter card and the feed of listings and
+// projects (sorted, filtered, 18 at a time).
+
+import 'package:flutter/material.dart';
+
+import 'package:zon/app/router.dart';
+import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/layout/app_shell.dart';
+import 'package:zon/core/theme/theme.dart';
+import 'package:zon/core/utils/clock.dart';
+import 'package:zon/core/utils/sort.dart';
+import 'package:zon/core/widgets/widgets.dart';
+import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/notifications/notification_center.dart';
+import 'package:zon/data/store.dart';
+import 'package:zon/shared/widgets/lens.dart';
+import 'package:zon/shared/widgets/listing_card.dart';
+
+/// `/` — الرئيسية
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String purpose = 'all';
+  String city = 'all';
+  String hood = 'all';
+  String source = 'all';
+  String ptype = 'all';
+  String sort = 'new';
+  bool sortOpen = false;
+  int limit = 18;
+
+  List<Listing> _list(List<Listing> seed) {
+    final now = appNow();
+    final rows = seed.where((l) {
+      if (purpose != 'all' && l.purpose != purpose) return false;
+      if (purpose == 'rent' && l.kind == 'project') return false;
+      if (city != 'all' && l.city != city) return false;
+      if (hood != 'all' && l.neighborhood != hood) return false;
+      if (source != 'all' && l.source != source) return false;
+      if (ptype != 'all' && l.propertyType != ptype) return false;
+      if (sort == 'feat' && !l.featuredAt(now)) return false;
+      return true;
+    }).toList();
+    double area(Listing x) => x.area ?? x.builtArea ?? x.landArea ?? 0;
+    int cmp(Listing a, Listing b) {
+      if (sort == 'new' || sort == 'old' || sort == 'feat') {
+        final prem = (b.featuredAt(now) ? 1 : 0) - (a.featuredAt(now) ? 1 : 0);
+        if (prem != 0) return prem;
+      }
+      if (sort == 'price-asc') return fromPrice(a).compareTo(fromPrice(b));
+      if (sort == 'price-desc') return fromPrice(b).compareTo(fromPrice(a));
+      if (sort == 'area-asc') return area(a).compareTo(area(b));
+      if (sort == 'area-desc') return area(b).compareTo(area(a));
+      if (sort == 'old') return compareIds(a.id, b.id);
+      return compareIds(b.id, a.id);
+    }
+
+    return stableSort(rows, cmp);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = store.readSession();
+    final hoods = city == 'all' ? const <String>[] : (kCities[city] ?? const <String>[]);
+    return AppShell(
+      child: ListenableBuilder(
+        listenable: store,
+        builder: (context, _) {
+          final list = _list(store.allListings());
+          final shown = list.take(limit).toList();
+          // unread notifications of the signed-in account (bell badge)
+          final alerts = user != null ? notifications.unreadCount() : 0;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              // header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                child: Row(
+                  children: <Widget>[
+                    const ZonLogo(size: 44),
+                    const SizedBox(width: 12),
+                    Tx('زون', style: ts(24, w: 700, lh: 24, c: AppColors.ink)),
+                    const Spacer(),
+                    Tap(
+                      onTap: () => Nav.go(context, user != null ? '/notifications' : '/login'),
+                      child: SizedBox(
+                        key: const ValueKey<String>('home-bell'),
+                        width: 44,
+                        height: 44,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: <Widget>[
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: const BoxDecoration(color: Color(0x0D121214), shape: BoxShape.circle),
+                              alignment: Alignment.center,
+                              child: const LucideIcon(Lu.bell, size: 20, strokeWidth: 1.7, color: AppColors.ink),
+                            ),
+                            if (user != null && alerts > 0)
+                              PositionedDirectional(
+                                top: 6,
+                                start: 6,
+                                child: Container(
+                                  constraints: const BoxConstraints(minWidth: 16),
+                                  height: 16,
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  decoration: BoxDecoration(color: const Color(0xFFC24B28), borderRadius: BorderRadius.circular(8)),
+                                  alignment: Alignment.center,
+                                  child: Tx(alerts > 9 ? '9+' : '$alerts', style: ts(11, w: 700, lh: 16.5, c: AppColors.white)),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // filters
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                child: Lens(
+                  mode: LensMode(
+                    buttons: <LensModeButton>[
+                      LensModeButton(
+                        label: 'للبيع',
+                        icon: Lu.house,
+                        on: purpose == 'sale',
+                        onTap: () => setState(() => purpose = purpose == 'sale' ? 'all' : 'sale'),
+                      ),
+                      LensModeButton(
+                        label: 'للإيجار',
+                        icon: Lu.keyRound,
+                        on: purpose == 'rent',
+                        onTap: () => setState(() => purpose = purpose == 'rent' ? 'all' : 'rent'),
+                      ),
+                    ],
+                  ),
+                  fields: <LensField>[
+                    LensField(
+                      label: 'المدينة',
+                      value: city,
+                      options: <Opt>[const Opt('all', 'الكل'), ...optsOf(kCities.keys)],
+                      onChanged: (v) => setState(() {
+                        city = v;
+                        hood = 'all';
+                      }),
+                    ),
+                    LensField(
+                      label: 'الحي',
+                      value: hood,
+                      options: <Opt>[const Opt('all', 'الكل'), ...optsOf(hoods)],
+                      onChanged: (v) => setState(() => hood = v),
+                    ),
+                    LensField(
+                      label: 'المصدر',
+                      value: source,
+                      options: <Opt>[
+                        const Opt('all', 'الكل'),
+                        Opt('broker', kSourceLabel['broker']!),
+                        Opt('developer', kSourceLabel['developer']!),
+                        Opt('owner', kSourceLabel['owner']!),
+                      ],
+                      onChanged: (v) => setState(() => source = v),
+                    ),
+                    LensField(
+                      label: 'النوع',
+                      value: ptype,
+                      options: <Opt>[const Opt('all', 'الكل'), for (final t in kPropertyTypes) Opt(t, kTypeLabel[t]!)],
+                      onChanged: (v) => setState(() => ptype = v),
+                    ),
+                  ],
+                  sort: LensSort(
+                    buttons: <LensSortButton>[
+                      LensSortButton(
+                        label: 'الأحدث',
+                        on: sort == 'new',
+                        onTap: () => setState(() {
+                          sort = 'new';
+                          sortOpen = false;
+                        }),
+                      ),
+                      LensSortButton(
+                        label: 'الأقدم',
+                        on: sort == 'old',
+                        onTap: () => setState(() {
+                          sort = 'old';
+                          sortOpen = false;
+                        }),
+                      ),
+                      LensSortButton(
+                        label: 'المميز',
+                        on: sort == 'feat',
+                        onTap: () => setState(() {
+                          sort = 'feat';
+                          sortOpen = false;
+                        }),
+                      ),
+                    ],
+                    metricOn: !(sort == 'new' || sort == 'old' || sort == 'feat'),
+                    metricOpen: sortOpen,
+                    onMetric: () => setState(() => sortOpen = !sortOpen),
+                    menu: <PickItem>[
+                      for (final e in const <List<String>>[
+                        <String>['price-desc', 'أعلى سعر'],
+                        <String>['price-asc', 'أقل سعر'],
+                        <String>['area-desc', 'أعلى مساحة'],
+                        <String>['area-asc', 'أقل مساحة'],
+                      ])
+                        PickItem(
+                          label: e[1],
+                          on: sort == e[0],
+                          onTap: () => setState(() {
+                            sort = e[0];
+                            sortOpen = false;
+                          }),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              // feed
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    if (shown.isNotEmpty)
+                      for (var i = 0; i < shown.length; i++) ...<Widget>[if (i > 0) const SizedBox(height: 18), ListingCard(listing: shown[i])]
+                    else
+                      EmptyBox(
+                        title: 'لا نتائج بهذا الفلتر',
+                        text: 'وسّع البحث أو ارفع طلب بحث ليصلك الوسطاء.',
+                        textStyle: emptyTextStyle(),
+                        action: 'ارفع طلب بحث',
+                        onAction: () => Nav.go(context, user != null ? '/add' : '/login'),
+                      ),
+                  ],
+                ),
+              ),
+              if (list.length > limit)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                  child: Tap(
+                    onTap: () => setState(() => limit = (limit + 18) > 80 ? 80 : limit + 18),
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(color: const Color(0x0D121214), borderRadius: BorderRadius.circular(999)),
+                      alignment: Alignment.center,
+                      child: Tx('عرض المزيد', style: ts(15, w: 600, lh: 21.5, c: AppColors.ink)),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}

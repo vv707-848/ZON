@@ -1,0 +1,42 @@
+name: zon
+description: "زون — منصة العقار السعودية: عروض ومشاريع وطلبات بحث وأدوات للوسيط."
+publish_to: 'none'
+version: 1.2.1+4
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.47.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # Local key/value storage (the app keeps its data on the device).
+  shared_preferences: ^2.5.3
+  # Opening maps / external links and phone calls.
+  url_launcher: ^6.3.2
+  # Picking listing photos from the gallery / camera.
+  image_picker: ^1.2.0
+  # The app's own support folder, where picked photos are kept (QA F05).
+  path_provider: ^2.1.5
+  # Dictation (speech → text) in the description fields, through the phone's
+  # own speech recognition service.
+  speech_to_text: ^7.5.0
+  # Salted password hashes of the local account registry (data/auth).
+  crypto: ^3.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+
+  # No font file: the app uses the phone's system font — San Francisco
+  # (SF Pro + SF Arabic) on iPhone, the system font on Android. See
+  # lib/core/theme/typography.dart and docs/DESIGN_SYSTEM.md.

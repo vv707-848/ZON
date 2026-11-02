@@ -1,0 +1,28 @@
+# Static analysis for the زون app.
+# Run `flutter analyze` before every commit — the project must stay at 0 issues.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    # the screenshot harness is a separate tool package (see its README)
+    - tool/**
+  language:
+    strict-raw-types: true
+
+linter:
+  rules:
+    # Imports: always `package:zon/...`, sorted (dart → flutter → packages → zon).
+    always_use_package_imports: true
+    directives_ordering: true
+    # Style kept consistent across the codebase.
+    avoid_print: true
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_final_fields: true
+    prefer_single_quotes: true
+    sort_child_properties_last: true
+    unawaited_futures: true
+
+formatter:
+  page_width: 150

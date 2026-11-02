@@ -1,0 +1,11 @@
+name: zon_shots
+description: Screenshot harness for the zon app (not shipped, not part of the app).
+publish_to: 'none'
+environment:
+  sdk: ^3.11.0
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.5.3
+  zon:
+    path: ../..
