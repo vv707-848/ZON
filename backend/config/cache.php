@@ -34,9 +34,11 @@ return [
 
     'stores' => [
 
+        // The tests' store: serialized like Redis, so a test fails on anything Redis would refuse to give back
+        // (see serializable_classes below).
         'array' => [
             'driver' => 'array',
-            'serialize' => false,
+            'serialize' => true,
         ],
 
         'database' => [
@@ -113,5 +115,17 @@ return [
     */
 
     'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-cache-'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Serializable Classes
+    |--------------------------------------------------------------------------
+    |
+    | No PHP object is ever unserialized from the cache (Laravel 13 default): a leaked APP_KEY or a written
+    | cache entry cannot become a gadget chain. Cache scalars and arrays only.
+    |
+    */
+
+    'serializable_classes' => false,
 
 ];

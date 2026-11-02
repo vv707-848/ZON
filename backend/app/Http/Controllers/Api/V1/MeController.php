@@ -33,7 +33,8 @@ class MeController extends Controller
     {
         $me = $request->customer();
         $me->fill($request->validated())->save();
-        activity('accounts')->performedOn($me)->causedBy($me)->event('profile_updated')->withProperties(array_keys($request->validated()))->log('تعديل معلوماتي');
+        activity('accounts')->performedOn($me)->causedBy($me)->event('profile_updated')
+            ->withProperties(['fields' => array_keys($request->validated())])->log('تعديل معلوماتي');
 
         return Api::ok(new MeResource($me));
     }

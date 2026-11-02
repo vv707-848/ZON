@@ -46,15 +46,18 @@ grep '"request_id": "<الرقم>"' /var/log/zon/agents.log
 
 ## التشغيل
 
+الحزم بأداة [uv](https://docs.astral.sh/uv/): `uv.lock` يثبّت كل حزمة بإصدارها لكل المنصات (خادم ARM وأجهزة الفحص x86 معاً). Python المعتمد 3.14 ([`docs/versions.md`](../docs/versions.md)).
+
 ```bash
-python3.12 -m venv .venv
-.venv/bin/pip install -r requirements.lock && .venv/bin/pip install --no-deps -e .
+uv sync --locked --no-dev --python 3.14   # .venv من uv.lock حرفياً، بلا أدوات التطوير
 cp .env.example .env              # ثم القيم الحقيقية (المفتاحان بنفس قيم backend/.env)
 .venv/bin/zon-agents bootstrap    # ينشئ المجموعات الأربع وفهارسها — آمن للتكرار
 .venv/bin/zon-agents serve        # عامل واحد على HOST:PORT (supervisor: zon-agents)
 ```
 
-بصمات الصور اختيارية: `pip install -e ".[phash]"` (idealo/imagededup على المعالج). وبدونها يرد `/media/phash` بـ 501، ويبقى Laravel على `IMAGE_HASH_DRIVER=gd`.
+بصمات الصور اختيارية: `uv sync --locked --no-dev --extra phash` (idealo/imagededup على المعالج). وبدونها يرد `/media/phash` بـ 501، ويبقى Laravel على `IMAGE_HASH_DRIVER=gd`.
+
+تحديث حزمة: غيّر رقمها في `pyproject.toml`، ثم `uv lock`، ثم الاختبارات. Dependabot يفتح هذه الطلبات أسبوعياً.
 
 ## Qdrant
 
@@ -74,7 +77,7 @@ cp .env.example .env              # ثم القيم الحقيقية (المفت
 ## الاختبارات
 
 ```bash
-.venv/bin/pip install -e ".[dev]"
+uv sync --locked                  # مع أدوات التطوير (مجموعة dev)
 .venv/bin/pytest
 .venv/bin/ruff check . && .venv/bin/ruff format --check . && .venv/bin/mypy
 ```

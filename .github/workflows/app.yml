@@ -1,0 +1,100 @@
+# The Flutter app: format, analysis (0 issues), tests — on every push that touches it. The SDK is pinned to
+# the latest stable at the last audit (docs/versions.md); the run prints its exact version.
+name: App
+
+on:
+  push:
+    paths:
+      - app/**
+      - .github/workflows/app.yml
+      - .github/scripts/**
+  pull_request:
+    paths:
+      - app/**
+      - .github/workflows/app.yml
+      - .github/scripts/**
+  workflow_dispatch:
+
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  app:
+    name: App · Flutter stable
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.9
+          channel: stable
+          cache: true
+
+      - name: SDK version
+        run: |
+          flutter --version 2>&1 | tee "$RUNNER_TEMP/version.log"
+          ../.github/scripts/annotate.sh notice "Flutter SDK" "$RUNNER_TEMP/version.log" 10
+
+      - name: Packages
+        id: packages
+        run: flutter pub get 2>&1 | tee "$RUNNER_TEMP/packages.log"
+
+      - name: Explain a packages failure
+        if: failure() && steps.packages.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "flutter pub get" "$RUNNER_TEMP/packages.log" 60
+
+      - name: Format
+        id: format
+        if: ${{ !cancelled() && steps.packages.outcome == 'success' }}
+        run: dart format --output=none --set-exit-if-changed lib test 2>&1 | tee "$RUNNER_TEMP/format.log"
+
+      - name: Explain a format failure
+        if: failure() && steps.format.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "dart format" "$RUNNER_TEMP/format.log" 60
+
+      - name: Analyze
+        id: analyze
+        if: ${{ !cancelled() && steps.packages.outcome == 'success' }}
+        run: flutter analyze 2>&1 | tee "$RUNNER_TEMP/analyze.log"
+
+      - name: Explain an analysis failure
+        if: failure() && steps.analyze.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "flutter analyze" "$RUNNER_TEMP/analyze.log" 120
+
+      - name: Tests
+        id: tests
+        if: ${{ !cancelled() && steps.packages.outcome == 'success' }}
+        run: |
+          flutter test 2>&1 | tee "$RUNNER_TEMP/tests.log"
+          flutter test --dart-define=ZON_SIMULATIONS=false test/no_simulations_test.dart 2>&1 | tee -a "$RUNNER_TEMP/tests.log"
+
+      - name: Explain a test failure
+        if: failure() && steps.tests.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "flutter test" "$RUNNER_TEMP/tests.log" 120
+
+      - name: Outdated packages (report only)
+        if: ${{ !cancelled() && steps.packages.outcome == 'success' }}
+        run: |
+          flutter pub outdated 2>&1 | tee "$RUNNER_TEMP/outdated.log" || true
+          ../.github/scripts/annotate.sh notice "App outdated packages" "$RUNNER_TEMP/outdated.log" 60
+
+      # Applications commit their lock file; this run's resolution is kept so it can be committed.
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() && steps.packages.outcome == 'success' }}
+        with:
+          name: app-pubspec-lock
+          path: app/pubspec.lock
+          retention-days: 7

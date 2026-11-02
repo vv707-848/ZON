@@ -1,0 +1,202 @@
+# Backend (API + admin panel) and agents: tests, static analysis, style, security advisories, and the contract
+# between them — on every push that touches either side. Versions follow docs/versions.md.
+name: Platform
+
+on:
+  push:
+    paths:
+      - backend/**
+      - agents/**
+      - docs/contracts/**
+      - .github/workflows/platform.yml
+      - .github/scripts/**
+  pull_request:
+    paths:
+      - backend/**
+      - agents/**
+      - docs/contracts/**
+      - .github/workflows/platform.yml
+      - .github/scripts/**
+  workflow_dispatch:
+
+concurrency:
+  group: platform-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  backend:
+    name: Backend · PHP 8.5 · MySQL 9.7 · Redis 8
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:9.7
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: zon_test
+          MYSQL_USER: zon
+          MYSQL_PASSWORD: zon-local
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+      redis:
+        image: redis:8
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USERNAME: zon
+      DB_PASSWORD: zon-local
+      REDIS_HOST: 127.0.0.1
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          extensions: bcmath, exif, gd, intl, mbstring, pcntl, pdo_mysql, redis, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Composer cache path
+        id: composer
+        run: echo "cache=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v5
+        with:
+          path: ${{ steps.composer.outputs.cache }}
+          key: composer-php8.5-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-php8.5-
+
+      - name: Install
+        id: install
+        run: |
+          cp .env.example .env
+          composer install --no-interaction --no-progress --prefer-dist 2>&1 | tee "$RUNNER_TEMP/install.log"
+          php artisan key:generate --ansi
+
+      - name: Explain an install failure
+        if: failure() && steps.install.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "Backend install" "$RUNNER_TEMP/install.log" 60
+
+      # The suite also records what it sends to the agents; the contract step below checks those payloads.
+      - name: Tests
+        id: tests
+        env:
+          ZON_CONTRACT_DIR: ${{ github.workspace }}/docs/contracts/fixtures
+        run: php artisan test --compact 2>&1 | tee "$RUNNER_TEMP/tests.log"
+
+      - name: Explain a test failure
+        if: failure() && steps.tests.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "Backend tests" "$RUNNER_TEMP/tests.log" 120
+
+      - name: Static analysis (Larastan)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: vendor/bin/phpstan analyse --memory-limit=2G --no-progress --error-format=github
+
+      - name: Code style (Pint)
+        id: pint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: vendor/bin/pint --test 2>&1 | tee "$RUNNER_TEMP/pint.log"
+
+      - name: Explain a style failure
+        if: failure() && steps.pint.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "Pint" "$RUNNER_TEMP/pint.log" 40
+
+      - name: Security advisories
+        id: audit
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: composer audit --locked 2>&1 | tee "$RUNNER_TEMP/audit.log"
+
+      - name: Explain an advisory
+        if: failure() && steps.audit.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "Composer audit" "$RUNNER_TEMP/audit.log" 60
+
+      - name: Outdated packages (report only)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          composer outdated --direct --no-interaction 2>&1 | tee "$RUNNER_TEMP/outdated.log" || true
+          ../.github/scripts/annotate.sh notice "Backend outdated packages" "$RUNNER_TEMP/outdated.log" 60
+
+      - uses: astral-sh/setup-uv@v7
+        if: ${{ !cancelled() && steps.tests.outcome == 'success' }}
+        with:
+          python-version: "3.14"
+          enable-cache: true
+          cache-dependency-glob: agents/uv.lock
+
+      - name: Contract — this run's payloads against the agents' input models
+        id: contract
+        if: ${{ !cancelled() && steps.tests.outcome == 'success' }}
+        working-directory: agents
+        run: uv run --locked pytest -q tests/test_backend_contract.py 2>&1 | tee "$RUNNER_TEMP/contract.log"
+
+      - name: Explain a contract failure
+        if: failure() && steps.contract.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "Contract" "$RUNNER_TEMP/contract.log" 80
+
+  agents:
+    name: Agents · Python 3.14
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: agents
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+          enable-cache: true
+          cache-dependency-glob: agents/uv.lock
+
+      - name: Install
+        id: install
+        run: uv sync --locked
+
+      - name: Lint (Ruff)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: uv run --locked ruff check --output-format=github .
+
+      - name: Format (Ruff)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: uv run --locked ruff format --check .
+
+      - name: Types (mypy)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: uv run --locked mypy
+
+      - name: Tests
+        id: tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: uv run --locked pytest -q 2>&1 | tee "$RUNNER_TEMP/tests.log"
+
+      - name: Explain a test failure
+        if: failure() && steps.tests.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "Agents tests" "$RUNNER_TEMP/tests.log" 120
+
+      - name: Security advisories (pip-audit)
+        id: audit
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          uv export --locked --no-dev --no-emit-project --format requirements-txt > "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit --disable-pip --no-deps --requirement "$RUNNER_TEMP/requirements.txt" 2>&1 | tee "$RUNNER_TEMP/audit.log"
+
+      - name: Explain an advisory
+        if: failure() && steps.audit.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "pip-audit" "$RUNNER_TEMP/audit.log" 60

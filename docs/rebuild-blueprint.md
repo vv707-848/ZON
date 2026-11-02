@@ -17,10 +17,10 @@
 
 ## 1. المكدس
 
-- **الباك إند:** Laravel 12 (المثبَّت 12.69.2 في `composer.lock`؛ الترقية إلى 13 لاحقاً دون تغيير في البنية) · PHP 8.3 · MySQL 8.4 (الاختبارات على MySQL 8.0) · Dragonfly متوافق Redis (كاش، عدّادات، طوابير) · MinIO (قرص s3) · Reverb · Sanctum 4.
-- **لوحة الإدارة:** Filament 5.10 · Livewire 4 · spatie/laravel-permission · spatie/laravel-activitylog 4.12.
+- **الباك إند:** Laravel 13 · PHP 8.5 · MySQL 9.7 LTS (الإصدارات الحالية وسببها في [`versions.md`](versions.md)) · Dragonfly متوافق Redis (كاش، عدّادات، طوابير) · MinIO (قرص s3) · Reverb · Sanctum 4.
+- **لوحة الإدارة:** Filament 5 · Livewire 4 · spatie/laravel-permission · spatie/laravel-activitylog 5.
 - **أدوات الكود:** brick/math للمبالغ والنطاقات · Larastan مستوى 5 (`parseModelCastsMethod: true`) · Pint بإعداد laravel.
-- **خدمة الوكلاء:** Python 3.12 · FastAPI · pydantic-ai-slim 2.54 · mcp 2.3 (‏MCPServer · streamable HTTP · stateless · JSON) · qdrant-client 1.19.1 · httpx.
+- **خدمة الوكلاء:** Python 3.14 · FastAPI · pydantic-ai-slim · mcp (‏MCPServer · streamable HTTP · stateless · JSON) · qdrant-client · httpx — بإدارة uv.
   - أدوات الفحص: ruff · mypy · pytest.
 
 ## 2. تخطيط المستودع

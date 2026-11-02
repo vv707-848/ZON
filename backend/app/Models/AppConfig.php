@@ -24,10 +24,12 @@ class AppConfig extends Model
 
     public static function for(string $platform): ?self
     {
-        /** @var array<string, self> $all */
-        $all = Cache::rememberForever(self::CACHE_KEY, fn () => self::query()->get()->keyBy('platform')->all());
+        // The cache holds the raw columns: it never returns PHP objects (config/cache.php serializable_classes).
+        /** @var array<string, array<string, mixed>> $all */
+        $all = Cache::rememberForever(self::CACHE_KEY, fn () => self::query()->get()
+            ->mapWithKeys(fn (self $config) => [$config->platform => $config->getAttributes()])->all());
 
-        return $all[$platform] ?? null;
+        return isset($all[$platform]) ? (new self)->newFromBuilder($all[$platform]) : null;
     }
 
     public function inMaintenance(): bool

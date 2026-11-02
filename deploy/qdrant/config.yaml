@@ -1,4 +1,4 @@
-# /etc/qdrant/config.yaml — data node (10.10.0.20), Qdrant 1.19.
+# /etc/qdrant/config.yaml — data node (10.10.0.20), Qdrant 1.20.
 # HTTP 6333 on the private address only, no gRPC (6334), no telemetry. The API key comes from the
 # environment of the service: QDRANT__SERVICE__API_KEY (the same value as QDRANT_API_KEY of the agents service).
 service:
