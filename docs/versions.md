@@ -62,7 +62,7 @@
 
 ## الفحص الآلي
 
-`actions/checkout@v6` · `shivammathur/setup-php@v2` · `actions/cache@v5` · `astral-sh/setup-uv@v7` · `subosito/flutter-action@v2` · `actions/upload-artifact@v7`. وDependabot يحدّثها.
+الإصدارات في ملفات `.github/workflows/`، وDependabot يرفعها لآخر إصدار. أول طلب له رفع `actions/checkout` إلى 7 و`actions/cache` إلى 6، ودُمج بعد نجاح الفحص.
 
 ## التحديث
 
