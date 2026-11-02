@@ -10,6 +10,8 @@ use App\Actions\Listings\MarkListingSold;
 use App\Actions\Listings\UpdateListing;
 use App\Enums\BoostKind;
 use App\Enums\ErrorCode;
+use App\Enums\LicenceSource;
+use App\Enums\LicenceStatus;
 use App\Enums\ListingStatus;
 use App\Enums\ReviewDecision;
 use App\Exceptions\ApiException;
@@ -17,6 +19,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Listings\ListingRequest;
 use App\Http\Resources\ListingResource;
 use App\Indexing\IndexSync;
+use App\Integrations\Rega\RegaGateway;
+use App\Models\AdLicense;
 use App\Models\Customer;
 use App\Models\Favorite;
 use App\Models\Listing;
@@ -29,6 +33,7 @@ use App\Support\Settings\Settings;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /** Listings: the public feed and pages, and the advertiser's own (create · edit · wording · pause · sold · boost). */
@@ -53,7 +58,7 @@ class ListingController extends Controller
         ]);
         $viewer = $request->user('api');
 
-        $query = Listing::query()->published()->with(['customer', 'media' => fn ($q) => $q->where('is_cover', true)])
+        $query = Listing::query()->live()->with(['customer', 'media' => fn ($q) => $q->where('is_cover', true)])
             ->whereNotIn('customer_id', Blocks::hiddenFor($viewer instanceof Customer ? $viewer : null))
             ->when($filters['city'] ?? null, fn (Builder $q, $v) => $q->where('city', $v))
             ->when($filters['neighborhood'] ?? null, fn (Builder $q, $v) => $q->where('neighborhood', $v))
@@ -81,7 +86,7 @@ class ListingController extends Controller
     {
         $viewer = $request->user('api');
         $mine = $viewer instanceof Customer && $viewer->id === $listing->customer_id;
-        if (! $mine && (! $listing->status->isPublic() || ($viewer instanceof Customer && Blocks::between($viewer, $listing->customer)))) {
+        if (! $mine && (! $listing->isLive() || ($viewer instanceof Customer && Blocks::between($viewer, $listing->customer)))) {
             throw ApiException::of(ErrorCode::NotFound);
         }
         if (! $mine) {
@@ -187,6 +192,42 @@ class ListingController extends Controller
             throw ApiException::of(ErrorCode::InvalidTransition, ['from' => $listing->status->value, 'to' => ListingStatus::Published->value]);
         }
         $status($listing, ListingStatus::Published, Actor::customer($request->user('api')));
+
+        return Api::ok(ListingResource::detail($listing->load(['customer', 'media', 'licence'])));
+    }
+
+    /**
+     * «تحديث الرخصة»: the advertiser renewed at REGA (the same number or a new one). REGA is asked again, the
+     * listing gets the licence as a new row (the old one stays on record), and a listing that left because its
+     * licence ended comes back.
+     */
+    public function renewLicence(Request $request, Listing $listing, RegaGateway $rega, ChangeListingStatus $status): JsonResponse
+    {
+        $this->own($request, $listing);
+        if (in_array($listing->status, [ListingStatus::Sold, ListingStatus::Hidden, ListingStatus::Rejected], true)) {
+            throw ApiException::of(ErrorCode::InvalidTransition, ['from' => $listing->status->value]);
+        }
+        $number = (string) ($request->validate(['licence_number' => ['nullable', 'regex:/^\d{6,12}$/']])['licence_number']
+            ?? $listing->licence?->licence_number);
+        $check = $rega->verifyAdLicence($number);
+        if (! $check->valid || $check->expiry()->toDateString() < AdLicense::today()) {
+            throw ApiException::of(ErrorCode::ValidationFailed, ['fields' => ['licence_number' => [
+                $check->valid ? 'الرخصة منتهية لدى الهيئة. جدّدها لديها أولاً.' : 'رقم الترخيص الإعلاني غير صالح لدى الهيئة.',
+            ]]]);
+        }
+
+        DB::transaction(function () use ($request, $listing, $number, $check, $status) {
+            AdLicense::query()->create([
+                'listing_id' => $listing->id, 'customer_id' => $listing->customer_id, 'licence_number' => $number,
+                'qr_url' => $check->qrUrl, 'source' => LicenceSource::Entered, 'status' => LicenceStatus::Valid,
+                'verified_at' => now(), 'expires_at' => $check->expiry(),
+            ]);
+            if ($listing->status === ListingStatus::LicenceExpired) {
+                $status($listing, ListingStatus::Published, Actor::customer($request->user('api')));
+            } else {
+                $listing->forceFill(['last_activity_at' => now()])->save();
+            }
+        });
 
         return Api::ok(ListingResource::detail($listing->load(['customer', 'media', 'licence'])));
     }

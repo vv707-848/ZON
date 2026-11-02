@@ -5,11 +5,13 @@ use App\Jobs\Scheduled\ComputeDailyAreaStats;
 use App\Jobs\Scheduled\ComputeDailyMetrics;
 use App\Jobs\Scheduled\EndBoosts;
 use App\Jobs\Scheduled\ExpireKnowledgeReviews;
+use App\Jobs\Scheduled\ExpireLicences;
 use App\Jobs\Scheduled\InactivateStaleListings;
 use App\Jobs\Scheduled\NotifyWishMatches;
 use App\Jobs\Scheduled\PruneOrphanMedia;
 use App\Jobs\Scheduled\PurgeDueAccounts;
 use App\Jobs\Scheduled\RecheckBrokerLicenses;
+use App\Jobs\Scheduled\RemindLicenceExpiry;
 use App\Jobs\Scheduled\RemindPendingReviews;
 use App\Jobs\Scheduled\RemindSubscriptionRenewals;
 use App\Jobs\Scheduled\ResumePausedListings;
@@ -47,7 +49,9 @@ $at(Schedule::job(new SendTaskReminders)->everyFiveMinutes());
 $at(Schedule::job(new NotifyWishMatches)->twiceDaily(9, 18));
 $at(Schedule::job(new RemindSubscriptionRenewals)->dailyAt('10:00'));
 
-// REGA
+// REGA — a licence ends at midnight in Riyadh (Listing::live); the job records it five minutes later.
+$at(Schedule::job(new ExpireLicences)->dailyAt('00:05'));
+$at(Schedule::job(new RemindLicenceExpiry)->dailyAt('10:00'));
 $at(Schedule::job(new SyncOwnerContracts)->everyTenMinutes());
 $at(Schedule::job(new RecheckBrokerLicenses)->dailyAt('04:00'));
 

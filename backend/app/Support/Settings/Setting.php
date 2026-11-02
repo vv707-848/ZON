@@ -97,7 +97,7 @@ enum Setting: string
         return match ($this) {
             self::ReviewReminderHours => 'تذكير المعلن بمراجعة الصياغة بعد (ساعة)',
             self::ReviewAutoPublishHours => 'النشر بالنص الأصلي إن لم يقرر المعلن بعد (ساعة)',
-            self::ListingInactiveDays => 'يصير العرض غير نشط بلا تحديث بعد (يوم)',
+            self::ListingInactiveDays => 'يصير عرض الوسيط غير نشط بلا تحديث بعد (يوم)',
             self::ListingPhotosMax => 'أقصى عدد للصور في العرض',
             self::RequireNafath => 'التحقق عبر نفاذ شرط للنشر',
             self::ReportsToAutoHide => 'عدد المبلّغين المختلفين للإخفاء الآلي',

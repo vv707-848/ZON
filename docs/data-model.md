@@ -19,6 +19,7 @@
 | الربط المتعدد | أسماء الأنواع في `morph_map` (`AppServiceProvider::MORPH_MAP`): `listing`، `project`، `request`، `customer`… لا أسماء أصناف PHP في القاعدة. |
 | الفهرسة | `index_version` في كل ما يُفهرس: يرتفع مع كل إشارة في `index_events`، فيتجاهل الوكيل أي إشارة أقدم. |
 | الحذف | `listings` و`projects` حذف ناعم (`deleted_at`). الحساب يُخفى ثم يُمحى بعد المهلة (`deletion_requests` ← `PurgeAccount`)، ومعه ملخصات ملاحظاته وأسئلته للشات. |
+| الرخصة الإعلانية | تاريخ انتهائها من الهيئة إلزامي (`LicenceCheck::expiry`: بدونه خطأ ربط، لا تاريخ مخترع)، وهي سارية طوال آخر يوم بتوقيت الرياض. ما يراه العموم منشور برخصة سارية (`Listing::live`)، فيخرج العرض لحظة انتهائها، و`ExpireLicences` يسجّله «منتهي الترخيص» (`licence_expired`) |
 | الإخفاء الآلي | `auto_hidden_at` في `listings` و`projects` و`requests`: أخفته البلاغات وحدها. وحده ما يُعاد عند رفض البلاغ، وأي قرار من موظف يمحو العلامة. |
 | التتبع | `trace_id` في `ai_requests` و`index_events` و`chat_messages` و`exec_reports` و`activity_log.properties`. |
 
@@ -41,7 +42,7 @@
 |---|---|---|
 | `listings` | `Listing` | العرض: الحقول حسب النوع، `desc_raw` (نص المعلن) · `desc_suggested` (الوكيل) · `desc_clean` (المعتمد) و`text_review`، التمييز والعاجل والإيقاف، `image_hash` لكشف التكرار |
 | `listing_history` | `ListingHistory` | كل تغيير حالة أو حقل مع فاعله (`customer:ID` · `staff:ID` · `system`) |
-| `ad_licenses` | `AdLicense` | الترخيص الإعلاني لعرض أو وحدة، ومصدره، وتاريخ التحقق |
+| `ad_licenses` | `AdLicense` | الترخيص الإعلاني لعرض أو وحدة، ومصدره، وتاريخ التحقق، وتاريخ انتهائه من الهيئة، وآخر تنبيه أُرسل قبله (`reminded_days`). كل تجديد صف جديد، والأحدث هو الرخصة |
 | `projects` | `Project` | مشروع المطوّر ووصفه بالمراحل الثلاث نفسها |
 | `project_units` | `ProjectUnit` | نماذج الوحدات: المتاح والسعر والوصف |
 | `marketing_contracts` | `MarketingContract` | عقد التسويق الذي يفعّل المطوّر، ونسبة العمولة |

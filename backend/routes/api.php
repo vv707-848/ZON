@@ -98,6 +98,7 @@ Route::middleware('throttle:api')->group(function () {
                 Route::post('listings/{listing}/review', 'decide')->whereNumber('listing');
                 Route::post('listings/{listing}/pause', 'pause')->whereNumber('listing');
                 Route::post('listings/{listing}/resume', 'resume')->whereNumber('listing');
+                Route::post('listings/{listing}/licence', 'renewLicence')->whereNumber('listing')->middleware('throttle:licence');
                 Route::post('listings/{listing}/sold', 'sold')->whereNumber('listing');
                 Route::post('listings/{listing}/boost', 'boost')->whereNumber('listing');
             });

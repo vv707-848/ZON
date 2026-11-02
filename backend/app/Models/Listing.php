@@ -65,10 +65,32 @@ class Listing extends Model
         ];
     }
 
-    /** @param Builder<Listing> $query */
+    /** @param Builder<Listing> $query the status only — what the advertiser calls «published» */
     public function scopePublished(Builder $query): void
     {
         $query->where('status', ListingStatus::Published);
+    }
+
+    /**
+     * What the public sees: published, with an advertising licence that has not passed its last day. A licence
+     * takes its listing out the minute it ends; App\Jobs\Scheduled\ExpireLicences records it later.
+     *
+     * @param  Builder<Listing>  $query
+     */
+    public function scopeLive(Builder $query): void
+    {
+        $query->where('status', ListingStatus::Published)->whereHas('licence', fn (Builder $l) => AdLicense::whereCurrent($l));
+    }
+
+    public function isLive(): bool
+    {
+        return $this->status === ListingStatus::Published && $this->hasCurrentLicence();
+    }
+
+    /** Asked to the database, never to a relation loaded before a renewal. */
+    public function hasCurrentLicence(): bool
+    {
+        return $this->licence()->current()->exists();
     }
 
     public function isFeatured(): bool

@@ -180,7 +180,7 @@ class ConversationController extends Controller
     {
         $mineOrTheirs = fn (?int $ownerId) => $ownerId === $me->id || $ownerId === $other->id;
         $ok = match (true) {
-            isset($data['listing_id']) => ($l = Listing::query()->find($data['listing_id'])) !== null && $l->status->isPublic() && $mineOrTheirs($l->customer_id),
+            isset($data['listing_id']) => ($l = Listing::query()->find($data['listing_id'])) !== null && $l->isLive() && $mineOrTheirs($l->customer_id),
             isset($data['project_id']) => ($p = Project::query()->find($data['project_id'])) !== null && $p->status->isPublic() && $mineOrTheirs($p->developer_id),
             isset($data['request_id']) => ($r = SearchRequest::query()->find($data['request_id'])) !== null && $r->status === RequestStatus::Published && $mineOrTheirs($r->customer_id),
             default => true,

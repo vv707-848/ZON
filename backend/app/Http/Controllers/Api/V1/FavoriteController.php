@@ -24,7 +24,7 @@ class FavoriteController extends Controller
         $request->attributes->set('favorite_listing_ids', $ids('listing')->map(fn ($id) => (int) $id)->all());
 
         return Api::ok([
-            'listings' => ListingResource::collection(Listing::query()->published()->whereKey($ids('listing'))->with(['customer', 'media' => fn ($q) => $q->where('is_cover', true)])->get()),
+            'listings' => ListingResource::collection(Listing::query()->live()->whereKey($ids('listing'))->with(['customer', 'media' => fn ($q) => $q->where('is_cover', true)])->get()),
             'projects' => ProjectResource::collection(Project::query()->published()->whereKey($ids('project'))->with(['developer', 'media' => fn ($q) => $q->where('is_cover', true), 'units'])->get()),
         ]);
     }
@@ -32,7 +32,7 @@ class FavoriteController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate(['type' => ['required', 'in:listing,project'], 'id' => ['required', 'integer']]);
-        $model = $data['type'] === 'listing' ? Listing::query()->published()->find($data['id']) : Project::query()->published()->find($data['id']);
+        $model = $data['type'] === 'listing' ? Listing::query()->live()->find($data['id']) : Project::query()->published()->find($data['id']);
         if ($model === null) {
             throw ApiException::of(ErrorCode::NotFound);
         }

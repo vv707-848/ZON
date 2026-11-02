@@ -18,7 +18,7 @@ final class PublishListing
         $first = $listing->published_at === null;
         ($this->status)($listing, ListingStatus::Published, $actor);
 
-        if ($first) {
+        if ($first && $listing->status === ListingStatus::Published) {
             $listing->customer->notify(Notices::listingPublished($listing));
             NotifyFollowers::dispatch($listing->id)->afterCommit();
         }

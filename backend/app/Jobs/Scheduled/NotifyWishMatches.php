@@ -2,7 +2,6 @@
 
 namespace App\Jobs\Scheduled;
 
-use App\Enums\ListingStatus;
 use App\Jobs\ScheduledJob;
 use App\Models\BuyerPreference;
 use App\Models\Listing;
@@ -29,7 +28,7 @@ class NotifyWishMatches extends ScheduledJob
             ->chunkById(500, function ($wishes) {
                 foreach ($wishes as $wish) {
                     $since = max($wish->matches_seen_at->timestamp ?? 0, (int) Cache::get("wish-checked:{$wish->id}", $wish->created_at->timestamp ?? 0));
-                    $count = Listing::query()->where('status', ListingStatus::Published)->where('city', $wish->city)
+                    $count = Listing::query()->live()->where('city', $wish->city)
                         ->whereIn('neighborhood', $wish->neighborhoods)->where('customer_id', '!=', $wish->customer_id)
                         ->when($wish->property_types, fn ($q, $types) => $q->whereIn('property_type', $types))
                         ->when($wish->budget_max, fn ($q, $max) => $q->where('price', '<=', $max))

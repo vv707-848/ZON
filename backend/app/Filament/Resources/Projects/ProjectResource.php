@@ -104,7 +104,8 @@ class ProjectResource extends Resource
                 TextColumn::make('published_at')->label('النشر')->date(),
             ])
             ->filters([
-                SelectFilter::make('status')->label('الحالة')->options(ListingStatus::options()),
+                SelectFilter::make('status')->label('الحالة')   // a project has no licence of its own: its units do
+                    ->options(collect(ListingStatus::options())->except(ListingStatus::LicenceExpired->value)->all()),
                 SelectFilter::make('delivery')->label('التسليم')->options(Delivery::options()),
             ])
             ->recordActions([ViewAction::make()]);

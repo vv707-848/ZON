@@ -19,17 +19,19 @@ enum ListingStatus: string
     case Sold = 'sold';                       // final — the row stays: what sold through Zon is the revenue model
     case Hidden = 'hidden';                   // by moderation (three reports, staff, a deleted account)
     case Rejected = 'rejected';               // by staff
+    case LicenceExpired = 'licence_expired';  // its advertising licence passed its last day; a renewal brings it back
 
     /** from => the states it may go to */
     private const ALLOWED = [
         'draft' => ['indexing', 'pending_review', 'published'],
-        'indexing' => ['pending_review', 'published', 'draft'],
-        'pending_review' => ['published', 'draft', 'indexing'],
-        'published' => ['indexing', 'paused', 'inactive', 'sold', 'hidden', 'rejected'],
-        'paused' => ['published', 'sold', 'hidden', 'rejected'],
-        'inactive' => ['published', 'indexing', 'sold', 'hidden', 'rejected'],
-        'hidden' => ['published', 'paused', 'rejected'],
+        'indexing' => ['pending_review', 'published', 'draft', 'licence_expired'],
+        'pending_review' => ['published', 'draft', 'indexing', 'licence_expired'],
+        'published' => ['indexing', 'paused', 'inactive', 'sold', 'hidden', 'rejected', 'licence_expired'],
+        'paused' => ['published', 'sold', 'hidden', 'rejected', 'licence_expired'],
+        'inactive' => ['published', 'indexing', 'sold', 'hidden', 'rejected', 'licence_expired'],
+        'hidden' => ['published', 'paused', 'rejected', 'licence_expired'],
         'rejected' => ['published'],
+        'licence_expired' => ['published', 'sold', 'hidden', 'rejected'],
         'sold' => [],
     ];
 
@@ -45,6 +47,7 @@ enum ListingStatus: string
             self::Sold => 'تم البيع',
             self::Hidden => 'مخفي',
             self::Rejected => 'مرفوض',
+            self::LicenceExpired => 'منتهي الترخيص',
         };
     }
 

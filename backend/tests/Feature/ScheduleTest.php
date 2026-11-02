@@ -36,7 +36,7 @@ class ScheduleTest extends TestCase
 {
     private function pendingReview(int $hoursAgo): Listing
     {
-        $listing = Listing::factory()->create(['status' => ListingStatus::PendingReview, 'text_review' => TextReview::Ready, 'desc_suggested' => 'مقترح']);
+        $listing = Listing::factory()->licensed()->create(['status' => ListingStatus::PendingReview, 'text_review' => TextReview::Ready, 'desc_suggested' => 'مقترح']);
         ListingHistory::query()->create(['listing_id' => $listing->id, 'field' => 'status', 'old_value' => 'indexing', 'new_value' => 'pending_review', 'actor' => 'system', 'changed_at' => now()->subHours($hoursAgo)]);
 
         return $listing;

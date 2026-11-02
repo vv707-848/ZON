@@ -12,6 +12,7 @@ A route without a line in DESCRIPTIONS stops the build: a new endpoint is docume
 """
 
 import json
+import re
 import sys
 
 ROLES = {"seeker": "باحث", "broker": "وسيط", "owner": "مالك", "developer": "مطوّر"}
@@ -92,7 +93,8 @@ DESCRIPTIONS = {
     "GET listings/{listing}/review": ("listings", "الصياغة المقترحة مقابل النص الأصلي"),
     "POST listings/{listing}/review": ("listings", "قرار المعلن: `approve` المقترح · `edit` بنصه · `reject` فيبقى نصه الأصلي ← النشر"),
     "POST listings/{listing}/pause": ("listings", "إيقاف مؤقت (من «منشور» فقط)"),
-    "POST listings/{listing}/resume": ("listings", "استئناف ما أوقفه المعلن أو صار «غير نشط». المخفي والمرفوض يعيدهما الإشراف وحده"),
+    "POST listings/{listing}/resume": ("listings", "استئناف ما أوقفه المعلن أو صار «غير نشط». المخفي والمرفوض يعيدهما الإشراف وحده، ومنتهي الرخصة يعيده التجديد"),
+    "POST listings/{listing}/licence": ("listings", "تجديد الرخصة: رقمها (أو رقم جديد) يُفحص لدى الهيئة بتاريخ انتهائها، ويعود العرض «منتهي الترخيص» إلى النشر"),
     "POST listings/{listing}/sold": ("listings", "تم البيع (نهائي)؛ عرض المالك يُنشئ سعي زون المستحق من سعر البيع"),
     "POST listings/{listing}/boost": ("listings", "تمييز أو عاجل: من رصيد الباقة، وإلا عملية دفع"),
     "POST media": ("listings", "رفع صورة `photo` (jpg · png · webp حتى 8MB) إلى MinIO؛ تُربط بالعرض أو المشروع بمعرّفها"),
@@ -110,7 +112,7 @@ DESCRIPTIONS = {
     "POST projects/{project}/units/review": ("projects", "قرار المطوّر على أوصاف الوحدات دفعة واحدة"),
     "PATCH projects/{project}/units/{unit}": ("projects", "تعديل نموذج وحدة"),
     "DELETE projects/{project}/units/{unit}": ("projects", "حذف نموذج وحدة"),
-    "POST projects/{project}/units/{unit}/licence": ("projects", "التحقق من ترخيص الوحدة لدى الهيئة (REGA)"),
+    "POST projects/{project}/units/{unit}/licence": ("projects", "التحقق من ترخيص الوحدة لدى الهيئة (REGA)، وتجديده: الأحدث هو الرخصة"),
     "POST projects/{project}/units/{unit}/sold": ("projects", "بيع عدد من وحدات النموذج؛ عمولة العقد لكل وحدة"),
     # ── owner ──
     "GET owner-cases": ("owner", "ملفاتي كمالك"),
@@ -195,6 +197,7 @@ THROTTLES = {
     "reports": "reports: 20/س",
     "uploads": "uploads: 40/د",
     "wording": "wording: 60/س",
+    "licence": "licence: 20/س",
 }
 
 
@@ -224,7 +227,8 @@ def main(routes_path: str, errors_path: str, out_path: str) -> None:
     seen = set()
     for route in routes:
         method = route["method"].replace("|HEAD", "")
-        uri = route["uri"].removeprefix("api/v1/")
+        # Laravel 13 prints a binding field in the URI ({customer:username}); the key keeps the parameter only.
+        uri = re.sub(r"\{(\w+):\w+\}", r"{\1}", route["uri"].removeprefix("api/v1/"))
         key = f"{method} {uri}"
         seen.add(key)
         if key not in DESCRIPTIONS:

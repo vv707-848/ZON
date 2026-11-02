@@ -57,6 +57,7 @@
 | مهامي | الجميع | `/tasks` (إضافة، تعديل، إنجاز، حذف، تذكير) | — |
 | طلباتي + طلبات المنطقة للوسيط | الجميع | `GET /requests/mine` · `GET /requests/area` · `POST /requests/{id}/to-client` | الطلبات |
 | العروض والمشاريع: تمييز · عاجل · إيقاف · تم البيع | معلن | `POST /listings/{id}/boost` · `/pause` · `/resume` · `/sold` | استخدام التمييز، والمنح اليدوي |
+| رخصة العرض: تاريخ انتهائها، وتنبيه قبله بأسبوع وبيوم، و«تحديث الرخصة» بعد تجديدها لدى الهيئة | معلن | `licence.expires_at` في العرض · `POST /listings/{id}/licence` | حالة «منتهي الترخيص»، ورقم الرخصة وتاريخها |
 | الاشتراكات | باحث · وسيط · مالك | `GET /packages` · `POST /checkout` · `GET /payments/{public_id}` · `POST /payments/{public_id}/confirm` · `GET /subscription` · `GET /invoices` | الباقات: الأسعار والحدود من الجدول، والاشتراكات، والمنح، والمدفوعات والاسترداد، والفواتير |
 | المتابعون | الجميع | `GET /me/followers` · `GET /me/following` | — |
 | الإعدادات: تفضيلات الإشعارات · السياسات · تذكرة دعم · كلمة السر | الجميع | `PUT /me/notification-preferences` · `GET /legal/{slug}` · `POST/GET /support-tickets` · `PUT /me/password` | صفحات السياسات (نص ورقم نسخة)، وتذاكر الدعم برقم قيد وردّ |

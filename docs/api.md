@@ -54,7 +54,7 @@
 | 502 | `INTEGRATION_FAILED` | تعذّر الاتصال بالجهة المختصة، حاول لاحقاً. |
 | 500 | `SERVER_ERROR` | حدث خطأ غير متوقع. |
 
-## نقاط الواجهة (135)
+## نقاط الواجهة (136)
 
 الصلاحية: `عام` بلا دخول · 🔒 رمز مميِّز · الدور · `رغبة` = الباحث يحتاج رغبة فعّالة (428) · `حصة` = رصيد الذكاء اليومي. العمود الأخير موضع الكود في `app/Http/Controllers/Api/V1`.
 
@@ -126,8 +126,9 @@
 | `PATCH` | `/listings/{listing}` | 🔒 · رغبة · وسيط · مالك · مطوّر · wording: 60/س | تعديل عرضي؛ تغيير النص يعيده إلى مراجعة الصياغة | `ListingController@update` |
 | `DELETE` | `/listings/{listing}` | 🔒 · رغبة · وسيط · مالك · مطوّر | حذف عرضي (عدا المباع) وإخراجه من الفهرس | `ListingController@destroy` |
 | `POST` | `/listings/{listing}/boost` | 🔒 · رغبة · وسيط · مالك · مطوّر | تمييز أو عاجل: من رصيد الباقة، وإلا عملية دفع | `ListingController@boost` |
+| `POST` | `/listings/{listing}/licence` | 🔒 · رغبة · وسيط · مالك · مطوّر · licence: 20/س | تجديد الرخصة: رقمها (أو رقم جديد) يُفحص لدى الهيئة بتاريخ انتهائها، ويعود العرض «منتهي الترخيص» إلى النشر | `ListingController@renewLicence` |
 | `POST` | `/listings/{listing}/pause` | 🔒 · رغبة · وسيط · مالك · مطوّر | إيقاف مؤقت (من «منشور» فقط) | `ListingController@pause` |
-| `POST` | `/listings/{listing}/resume` | 🔒 · رغبة · وسيط · مالك · مطوّر | استئناف ما أوقفه المعلن أو صار «غير نشط». المخفي والمرفوض يعيدهما الإشراف وحده | `ListingController@resume` |
+| `POST` | `/listings/{listing}/resume` | 🔒 · رغبة · وسيط · مالك · مطوّر | استئناف ما أوقفه المعلن أو صار «غير نشط». المخفي والمرفوض يعيدهما الإشراف وحده، ومنتهي الرخصة يعيده التجديد | `ListingController@resume` |
 | `GET` | `/listings/{listing}/review` | 🔒 · رغبة · وسيط · مالك · مطوّر | الصياغة المقترحة مقابل النص الأصلي | `ListingController@review` |
 | `POST` | `/listings/{listing}/review` | 🔒 · رغبة · وسيط · مالك · مطوّر | قرار المعلن: `approve` المقترح · `edit` بنصه · `reject` فيبقى نصه الأصلي ← النشر | `ListingController@decide` |
 | `POST` | `/listings/{listing}/sold` | 🔒 · رغبة · وسيط · مالك · مطوّر | تم البيع (نهائي)؛ عرض المالك يُنشئ سعي زون المستحق من سعر البيع | `ListingController@sold` |
@@ -150,7 +151,7 @@
 | `POST` | `/projects/{project}/units/review` | 🔒 · رغبة · مطوّر | قرار المطوّر على أوصاف الوحدات دفعة واحدة | `ProjectUnitController@decide` |
 | `PATCH` | `/projects/{project}/units/{unit}` | 🔒 · رغبة · مطوّر · wording: 60/س | تعديل نموذج وحدة | `ProjectUnitController@update` |
 | `DELETE` | `/projects/{project}/units/{unit}` | 🔒 · رغبة · مطوّر | حذف نموذج وحدة | `ProjectUnitController@destroy` |
-| `POST` | `/projects/{project}/units/{unit}/licence` | 🔒 · رغبة · مطوّر | التحقق من ترخيص الوحدة لدى الهيئة (REGA) | `ProjectUnitController@licence` |
+| `POST` | `/projects/{project}/units/{unit}/licence` | 🔒 · رغبة · مطوّر | التحقق من ترخيص الوحدة لدى الهيئة (REGA)، وتجديده: الأحدث هو الرخصة | `ProjectUnitController@licence` |
 | `POST` | `/projects/{project}/units/{unit}/sold` | 🔒 · رغبة · مطوّر | بيع عدد من وحدات النموذج؛ عمولة العقد لكل وحدة | `ProjectUnitController@sold` |
 
 ### ٧. مسار المالك

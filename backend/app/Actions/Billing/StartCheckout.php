@@ -4,7 +4,6 @@ namespace App\Actions\Billing;
 
 use App\Enums\BoostKind;
 use App\Enums\ErrorCode;
-use App\Enums\ListingStatus;
 use App\Enums\OwnerCaseStage;
 use App\Enums\PaymentPurpose;
 use App\Enums\PaymentStatus;
@@ -78,7 +77,7 @@ final class StartCheckout
     {
         $listing = $this->owned($customer, $target, 'listing', Listing::class);
         $running = $kind === BoostKind::Featured ? $listing->isFeatured() : $listing->isUrgent();
-        if ($listing->status !== ListingStatus::Published || $running) {
+        if (! $listing->isLive() || $running) {
             throw ApiException::of($running ? ErrorCode::AlreadyActive : ErrorCode::InvalidTransition);
         }
 

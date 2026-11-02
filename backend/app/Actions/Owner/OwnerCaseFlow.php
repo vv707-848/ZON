@@ -91,7 +91,7 @@ final class OwnerCaseFlow
                 'status' => LicenceStatus::Valid,
                 'issued_at' => now(),
                 'verified_at' => now(),
-                'expires_at' => $issued->expiresAt,
+                'expires_at' => $issued->expiry(),
             ]);
             $case->forceFill(['ad_license_id' => $licence->id, 'stage' => OwnerCaseStage::Listing])->save();
             $case->customer->notify(Notices::ownerCase($case, 'صدر الترخيص الإعلاني', "أكمل تفاصيل عرضك للنشر — الترخيص {$licence->licence_number}"));

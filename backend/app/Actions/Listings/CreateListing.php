@@ -55,6 +55,7 @@ final class CreateListing
             if (! $check->valid) {
                 throw ApiException::of(ErrorCode::ValidationFailed, ['fields' => ['licence_number' => ['رقم الترخيص الإعلاني غير صالح لدى الهيئة.']]]);
             }
+            $check->expiry();   // REGA's date, before anything is saved
         }
 
         return DB::transaction(function () use ($customer, $columns, $mediaIds, $coverId, $case, $licenceNumber, $check) {
@@ -79,7 +80,7 @@ final class CreateListing
                     'source' => LicenceSource::Entered,
                     'status' => LicenceStatus::Valid,
                     'verified_at' => now(),
-                    'expires_at' => $check->expiresAt,
+                    'expires_at' => $check->expiry(),
                 ]);
             }
 

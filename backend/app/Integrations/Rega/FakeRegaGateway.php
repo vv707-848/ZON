@@ -10,7 +10,8 @@ use Illuminate\Support\Str;
  * SIMULATION of REGA until it grants API access. Deterministic rules, so the app can try every branch:
  * - a number of 6–12 digits is valid, unless it ends with 0000 (refused);
  * - a deed number ending with 0000 gets its contract rejected; any other is approved at the first check;
- * - links point to sim.zon.local, never to a government domain.
+ * - links point to sim.zon.local, never to a government domain;
+ * - a licence runs a year from today in Riyadh (REGA's dates are Saudi dates).
  */
 class FakeRegaGateway implements RegaGateway
 {
@@ -45,7 +46,7 @@ class FakeRegaGateway implements RegaGateway
     {
         $number = '71'.str_pad((string) (crc32($contractReference) % 100_000_000), 8, '0', STR_PAD_LEFT);
 
-        return new LicenceCheck(true, $number, CarbonImmutable::today()->addYear(), "https://sim.zon.local/rega/ad/{$number}");
+        return new LicenceCheck(true, $number, self::aYearFromToday(), "https://sim.zon.local/rega/ad/{$number}");
     }
 
     private function check(string $number): LicenceCheck
@@ -57,6 +58,11 @@ class FakeRegaGateway implements RegaGateway
             return new LicenceCheck(false, $number, reason: 'not_found');
         }
 
-        return new LicenceCheck(true, $number, CarbonImmutable::today()->addYear());
+        return new LicenceCheck(true, $number, self::aYearFromToday());
+    }
+
+    private static function aYearFromToday(): CarbonImmutable
+    {
+        return CarbonImmutable::now('Asia/Riyadh')->startOfDay()->addYear();
     }
 }
