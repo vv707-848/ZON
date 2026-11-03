@@ -26,6 +26,9 @@
         <env name="PRODUCTION_ALLOWS_FAKE" value=""/>
         <env name="SMS_DRIVER" value="fake"/>
         <env name="PAYMENTS_DRIVER" value="fake"/>
+        <env name="APP_STORE_DRIVER" value="fake"/>
+        <env name="GOOGLE_PLAY_DRIVER" value="fake"/>
+        <env name="STORE_NOTICES_KEY" value="test-notices-key"/>
         <env name="PUSH_DRIVER" value="fake"/>
         <env name="REGA_DRIVER" value="fake"/>
         <env name="NAFATH_DRIVER" value="fake"/>

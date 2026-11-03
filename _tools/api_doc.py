@@ -45,6 +45,7 @@ DESCRIPTIONS = {
     "POST support-tickets": ("app", "شكوى · اقتراح · استفسار (للزائر والمسجّل)، وعرض تخصه إن وُجد؛ تُرجع رقم القيد ومدة الرد المعلنة"),
     "GET|POST broadcasting/auth": ("social", "توثيق القنوات الخاصة لـ Reverb: `customers.{id}` و`conversations.{id}`"),
     "POST payments/webhook/{provider}": ("billing", "إشعار مزوّد الدفع؛ لا يُصدَّق محتواه — يُقرأ الدفع من المزوّد ثم يُطبَّق (ConfirmPayment)"),
+    "POST store/notices/{store}": ("billing", "إشعار المتجر (آبل V2 · Google RTDN) بمفتاح في الرابط؛ لا يُصدَّق محتواه — يُقرأ الشراء من المتجر: تجديد أو استرداد"),
     # ── auth ──
     "POST auth/register": ("auth", "بدء التسجيل: يحفظ النموذج مؤقتاً 15 دقيقة ويرسل رمز الجوال (202)"),
     "POST auth/otp/verify": ("auth", "تأكيد رمز التسجيل: ينشئ الحساب ويُرجع الرمز المميِّز وبيانات حسابي (201)"),
@@ -177,6 +178,9 @@ DESCRIPTIONS = {
     ),
     "GET payments/{payment}": ("billing", "حالة عملية دفع لي (المعرّف العام `public_id`)"),
     "POST payments/{payment}/confirm": ("billing", "تأكيد بعد الدفع في التطبيق: قراءة المزوّد ثم التطبيق مرة واحدة والفاتورة"),
+    "GET store/products": ("billing", "منتجات المتجر لدوري، ورمز حسابي الذي يُرفق بكل شراء"),
+    "POST store/check": ("billing", "قبل نافذة المتجر: هل يُشترى هذا الآن، لهذا العرض أو الطلب؟ (ردود الدفع نفسها)"),
+    "POST store/purchases": ("billing", "بعد نافذة المتجر: معرّف عملية آبل أو رمز شراء Google؛ يُطبَّق مرة واحدة بكلمة المتجر"),
     "GET invoices": ("billing", "فواتيري"),
     "GET invoices/{invoice}": ("billing", "فاتورة (رقم `ZON-YYYY-NNNNNN` المتسلسل)"),
     # ── ai ──
@@ -281,6 +285,7 @@ HEADER = """
 - **النجاح:** `{ "success": true, "data": …, "meta": { … } }`. الصفحات في `meta.page = {current, per_page, total, last}`.
 - **الخطأ:** `{ "success": false, "error": { "code", "message", "details", "trace_id" } }`.
   - أخطاء الحقول في `details.fields`.
+  - شراء لم يؤكده المتجر: `PURCHASE_NOT_VERIFIED` و`details.reason` (`unknown` · `other_account` · `pending` · `refunded` · `test_purchase` · `expired` · `product_mismatch`).
   - `trace_id` هو رقم التتبع نفسه في السجلات واللوحة («تتبّع طلب»).
 - **الأرقام:** الحقول الرقمية تقبل الأرقام العربية والفواصل (`٨٨٠,٠٠٠`)، والقيمة غير الصالحة تُرفض ولا تصير صفراً.
 - **الجوال:** يُقبل بأي صيغة سعودية ويُعاد `05XXXXXXXX`.

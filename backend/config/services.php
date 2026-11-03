@@ -30,6 +30,24 @@ return [
         ],
     ],
 
+    // In-app purchases in the apps (subscriptions and boosts): the store sells, our server reads the purchase back.
+    'app_store' => [
+        'driver' => env('APP_STORE_DRIVER', 'fake'),        // fake · apple
+        'issuer_id' => env('APP_STORE_ISSUER_ID'),
+        'key_id' => env('APP_STORE_KEY_ID'),
+        'private_key' => env('APP_STORE_PRIVATE_KEY'),       // path to the .p8 key of App Store Connect
+        'bundle_id' => env('APP_STORE_BUNDLE_ID', 'com.zon.app'),
+        'url' => env('APP_STORE_URL', 'https://api.storekit.apple.com'),
+        'sandbox_url' => env('APP_STORE_SANDBOX_URL', 'https://api.storekit-sandbox.apple.com'),
+    ],
+    'google_play' => [
+        'driver' => env('GOOGLE_PLAY_DRIVER', 'fake'),      // fake · google
+        'package' => env('GOOGLE_PLAY_PACKAGE', 'com.zon.app'),
+        'credentials' => env('GOOGLE_PLAY_CREDENTIALS'),     // path to the service-account JSON (Play Console access)
+    ],
+    // The stores' notices reach /api/v1/store/notices/{store}?key=… — the key keeps strangers' calls out.
+    'store_notices_key' => env('STORE_NOTICES_KEY'),
+
     'push' => [
         'driver' => env('PUSH_DRIVER', 'fake'),              // fake · fcm
         'fcm' => [

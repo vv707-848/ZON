@@ -13,6 +13,7 @@
 - **النجاح:** `{ "success": true, "data": …, "meta": { … } }`. الصفحات في `meta.page = {current, per_page, total, last}`.
 - **الخطأ:** `{ "success": false, "error": { "code", "message", "details", "trace_id" } }`.
   - أخطاء الحقول في `details.fields`.
+  - شراء لم يؤكده المتجر: `PURCHASE_NOT_VERIFIED` و`details.reason` (`unknown` · `other_account` · `pending` · `refunded` · `test_purchase` · `expired` · `product_mismatch`).
   - `trace_id` هو رقم التتبع نفسه في السجلات واللوحة («تتبّع طلب»).
 - **الأرقام:** الحقول الرقمية تقبل الأرقام العربية والفواصل (`٨٨٠,٠٠٠`)، والقيمة غير الصالحة تُرفض ولا تصير صفراً.
 - **الجوال:** يُقبل بأي صيغة سعودية ويُعاد `05XXXXXXXX`.
@@ -52,10 +53,11 @@
 | 403 | `USER_BLOCKED` | تعذّر إرسال الرسالة. |
 | 426 | `UPDATE_REQUIRED` | حدّث التطبيق للمتابعة. |
 | 503 | `MAINTENANCE_MODE` | المنصة تحت الصيانة، نعود قريباً. |
+| 422 | `PURCHASE_NOT_VERIFIED` | لم يؤكد المتجر هذا الشراء. |
 | 502 | `INTEGRATION_FAILED` | تعذّر الاتصال بالجهة المختصة، حاول لاحقاً. |
 | 500 | `SERVER_ERROR` | حدث خطأ غير متوقع. |
 
-## نقاط الواجهة (138)
+## نقاط الواجهة (142)
 
 الصلاحية: `عام` بلا دخول · 🔒 رمز مميِّز · الدور · `رغبة` = الباحث يحتاج رغبة فعّالة (428) · `حصة` = رصيد الذكاء اليومي. العمود الأخير موضع الكود في `app/Http/Controllers/Api/V1`.
 
@@ -240,6 +242,10 @@
 | `POST` | `/payments/webhook/{provider}` | عام | إشعار مزوّد الدفع؛ لا يُصدَّق محتواه — يُقرأ الدفع من المزوّد ثم يُطبَّق (ConfirmPayment) | `PaymentWebhookController@handle` |
 | `GET` | `/payments/{payment}` | 🔒 · رغبة | حالة عملية دفع لي (المعرّف العام `public_id`) | `BillingController@payment` |
 | `POST` | `/payments/{payment}/confirm` | 🔒 · رغبة | تأكيد بعد الدفع في التطبيق: قراءة المزوّد ثم التطبيق مرة واحدة والفاتورة | `BillingController@confirm` |
+| `POST` | `/store/check` | 🔒 · رغبة | قبل نافذة المتجر: هل يُشترى هذا الآن، لهذا العرض أو الطلب؟ (ردود الدفع نفسها) | `StoreController@check` |
+| `POST` | `/store/notices/{store}` | عام | إشعار المتجر (آبل V2 · Google RTDN) بمفتاح في الرابط؛ لا يُصدَّق محتواه — يُقرأ الشراء من المتجر: تجديد أو استرداد | `StoreNoticeController@handle` |
+| `GET` | `/store/products` | 🔒 · رغبة | منتجات المتجر لدوري، ورمز حسابي الذي يُرفق بكل شراء | `StoreController@products` |
+| `POST` | `/store/purchases` | 🔒 · رغبة | بعد نافذة المتجر: معرّف عملية آبل أو رمز شراء Google؛ يُطبَّق مرة واحدة بكلمة المتجر | `StoreController@purchase` |
 | `GET` | `/subscription` | 🔒 · رغبة | باقتي ومدتها وأرصدتها وحدودها | `BillingController@subscription` |
 
 ### ١٢. الذكاء

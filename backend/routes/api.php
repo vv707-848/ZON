@@ -18,6 +18,7 @@ Route::middleware('throttle:api')->group(function () {
     Route::get('legal/{slug}', [V1\AppController::class, 'legal']);
     Route::get('packages', [V1\BillingController::class, 'packages']);
     Route::post('payments/webhook/{provider}', [V1\PaymentWebhookController::class, 'handle'])->withoutMiddleware('throttle:api');
+    Route::post('store/notices/{store}', [V1\StoreNoticeController::class, 'handle'])->whereIn('store', ['apple', 'google'])->withoutMiddleware('throttle:api');
 
     Route::prefix('auth')->controller(V1\AuthController::class)->group(function () {
         Route::post('register', 'register')->middleware('throttle:otp');
@@ -164,6 +165,9 @@ Route::middleware('throttle:api')->group(function () {
             Route::post('checkout', [V1\BillingController::class, 'checkout']);
             Route::get('payments/{payment}', [V1\BillingController::class, 'payment']);
             Route::post('payments/{payment}/confirm', [V1\BillingController::class, 'confirm']);
+            Route::get('store/products', [V1\StoreController::class, 'products']);
+            Route::post('store/check', [V1\StoreController::class, 'check']);
+            Route::post('store/purchases', [V1\StoreController::class, 'purchase']);
             Route::get('invoices', [V1\BillingController::class, 'invoices']);
             Route::get('invoices/{invoice}', [V1\BillingController::class, 'invoice'])->whereNumber('invoice');
 

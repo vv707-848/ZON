@@ -13,11 +13,11 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Forced update (426 UPDATE_REQUIRED) and maintenance mode (503 MAINTENANCE_MODE) of the app, per platform,
  * from the admin panel («إصدار التطبيق ووضع الصيانة»). The app sends X-App-Platform and X-App-Version on every
- * call. Test accounts pass maintenance; /app/config and provider webhooks are always open.
+ * call. Test accounts pass maintenance; /app/config and the providers' and stores' notices are always open.
  */
 class CheckAppVersion
 {
-    private const ALWAYS_OPEN = ['api/v1/app/config', 'api/v1/payments/webhook/*'];
+    private const ALWAYS_OPEN = ['api/v1/app/config', 'api/v1/payments/webhook/*', 'api/v1/store/notices/*'];
 
     public function handle(Request $request, Closure $next): Response
     {
