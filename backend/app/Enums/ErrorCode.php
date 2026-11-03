@@ -30,6 +30,7 @@ enum ErrorCode: string
     case UserBlocked = 'USER_BLOCKED';
     case UpdateRequired = 'UPDATE_REQUIRED';
     case MaintenanceMode = 'MAINTENANCE_MODE';
+    case PurchaseNotVerified = 'PURCHASE_NOT_VERIFIED';
     case IntegrationFailed = 'INTEGRATION_FAILED';
     case ServerError = 'SERVER_ERROR';
 
@@ -41,7 +42,7 @@ enum ErrorCode: string
             self::AccountSuspended, self::AccountPending, self::RoleForbidden, self::FalRequired, self::NafathRequired, self::UserBlocked => 403,
             self::NotFound => 404,
             self::InvalidTransition, self::AlreadyActive, self::ProjectNoUnits, self::PlanLimitReached, self::LicenceRequired => 409,
-            self::ValidationFailed, self::OtpInvalid => 422,
+            self::ValidationFailed, self::OtpInvalid, self::PurchaseNotVerified => 422,
             self::UpdateRequired => 426,
             self::PreferenceRequired => 428,
             self::QuotaExceeded, self::TooManyRequests => 429,
@@ -76,6 +77,7 @@ enum ErrorCode: string
             self::UserBlocked => 'تعذّر إرسال الرسالة.',
             self::UpdateRequired => 'حدّث التطبيق للمتابعة.',
             self::MaintenanceMode => 'المنصة تحت الصيانة، نعود قريباً.',
+            self::PurchaseNotVerified => 'لم يؤكد المتجر هذا الشراء.',
             self::IntegrationFailed => 'تعذّر الاتصال بالجهة المختصة، حاول لاحقاً.',
             self::ServerError => 'حدث خطأ غير متوقع.',
         };

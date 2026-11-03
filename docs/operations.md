@@ -118,6 +118,9 @@ php artisan zon:doctor
 | عرض منشور لا يظهر في البحث الدلالي | «مراقبة الفهرسة»: إشارة معلّقة أو فاشلة (`last_error`) | «إعادة الإرسال» من الشاشة، أو `zon:reindex listing` | `app/Indexing/IndexSync.php` · `app/Jobs/PushIndexEvent.php` |
 | الصياغة لا تصل، والعرض عالق «قيد الصياغة» | `worker-ai.log`، ونداءات `clean_listing` | الطابور `ai` يعمل؟ (`zon:doctor` ← الطوابير) | `app/Jobs/CleanListingText.php` |
 | دفع ناجح لم يُفعِّل الباقة | «المدفوعات»: حالة `unapplied` وسببها | مطابقة المبلغ والعملة و`metadata.payment_id` لدى المزوّد | `app/Actions/Billing/ConfirmPayment.php` |
+| شراء من المتجر رُفض (`PURCHASE_NOT_VERIFIED`) | `details.reason`: `unknown` · `other_account` · `pending` · `refunded` · `test_purchase` · `expired` · `product_mismatch` | الشراء في App Store Connect أو Play Console، ورمز الحساب الذي أرفقه التطبيق | `app/Actions/Billing/ApplyStorePurchase.php` |
+| شراء من المتجر `unapplied` | «المدفوعات»: السبب (مثل `already_active`) | المتجر يسترده: آبل بطلب العميل، وGoogle من Play Console؛ إشعاره يُنهيه آلياً | `app/Actions/Billing/ApplyStorePurchase.php` |
+| تجديد من المتجر لم يصل | «المدفوعات»: آخر عملية للشراء (`store_chain`) | سجل إشعارات المتجر، ومفتاح `STORE_NOTICES_KEY` في الرابط | `app/Http/Controllers/Api/V1/StoreNoticeController.php` |
 | رمز التحقق لا يصل | «صحة النظام» ← التكاملات (`SMS_DRIVER`) | سجل Laravel برقم التتبع: `INTEGRATION_FAILED` | `app/Integrations/Sms` |
 | الإشعار لا يصل للجوال | جرس التطبيق يعمل؟ إذن المشكلة في Push | `PUSH_DRIVER` وملف حساب الخدمة، و`customer_devices` | `app/Notifications/PushChannel.php` · `app/Integrations/Push` |
 | الرسائل لا تظهر فوراً | «صحة النظام» ← Reverb | `reverb.log`، ومسار nginx `/app/` | `app/Events/MessageSent.php` · `routes/channels.php` |

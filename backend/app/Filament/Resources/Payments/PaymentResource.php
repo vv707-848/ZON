@@ -13,6 +13,7 @@ use App\Filament\Resources\Payments\Pages\ViewPayment;
 use App\Filament\Support\Columns;
 use App\Filament\Support\Filters;
 use App\Filament\Support\Staff;
+use App\Integrations\Stores\Stores;
 use App\Models\Payment;
 use App\Support\Permissions\Permission;
 use BackedEnum;
@@ -111,7 +112,7 @@ class PaymentResource extends Resource
     public static function refundAction(): Action
     {
         return Action::make('refund')->label('استرداد')->color('danger')->icon('heroicon-o-receipt-refund')
-            ->visible(fn (Payment $p) => in_array($p->status, [PaymentStatus::Paid, PaymentStatus::Unapplied], true) && Staff::can(Permission::ManagePayments))
+            ->visible(fn (Payment $p) => in_array($p->status, [PaymentStatus::Paid, PaymentStatus::Unapplied], true) && ! in_array($p->provider, Stores::NAMES, true) && Staff::can(Permission::ManagePayments))
             ->schema([Textarea::make('reason')->label('السبب (يُسجَّل)')->required()->maxLength(500)])
             ->requiresConfirmation()
             ->action(function (Payment $record, array $data) {

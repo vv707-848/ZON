@@ -18,6 +18,8 @@ final class Drivers
         'rega' => 'الهيئة العامة للعقار',
         'nafath' => 'نفاذ',
         'payments' => 'الدفع',
+        'app_store' => 'متجر آبل',
+        'google_play' => 'متجر Google Play',
         'push' => 'الإشعارات',
         'invoicing' => 'الفوترة',
         'image_hash' => 'بصمة الصور',

@@ -52,6 +52,17 @@ return [
 
     'payments' => ['reuse_pending_minutes' => 30],
 
+    // What the apps sell through the stores (the same product ids in App Store Connect and Play Console). The
+    // stores set the price the customer sees; the website and the advertising licence fee pay through Moyasar.
+    'store_products' => [
+        'com.zon.app.seeker.month' => ['purpose' => 'subscription', 'package' => 'seeker'],
+        'com.zon.app.broker.month' => ['purpose' => 'subscription', 'package' => 'broker-month'],
+        'com.zon.app.broker.year' => ['purpose' => 'subscription', 'package' => 'broker-year'],
+        'com.zon.app.featured' => ['purpose' => 'featured'],
+        'com.zon.app.urgent.listing' => ['purpose' => 'urgent_listing'],
+        'com.zon.app.urgent.request' => ['purpose' => 'urgent_request'],
+    ],
+
     // The SuperAgent's read-only connection (ai_reader on the ai_v_* views).
     'report_connection' => 'report',
 ];

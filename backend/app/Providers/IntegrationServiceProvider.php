@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Integrations\Drivers;
+use App\Integrations\Google\ServiceAccount;
 use App\Integrations\ImageHash\AgentsImageHasher;
 use App\Integrations\ImageHash\GdImageHasher;
 use App\Integrations\ImageHash\ImageHasher;
@@ -21,6 +22,10 @@ use App\Integrations\Rega\RegaGateway;
 use App\Integrations\Sms\FakeSmsGateway;
 use App\Integrations\Sms\SmsGateway;
 use App\Integrations\Sms\TaqnyatSmsGateway;
+use App\Integrations\Stores\AppleAppStore;
+use App\Integrations\Stores\FakeStore;
+use App\Integrations\Stores\GooglePlayStore;
+use App\Integrations\Stores\Stores;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 
@@ -46,6 +51,21 @@ class IntegrationServiceProvider extends ServiceProvider
                 (string) config('services.payments.moyasar.webhook_secret'),
                 (string) config('services.payments.moyasar.url'),
             ),
+        ]);
+        $this->driver(Stores::APPLE, 'app_store', [
+            'fake' => fn () => new FakeStore('apple'),
+            'apple' => fn () => new AppleAppStore(
+                (string) config('services.app_store.issuer_id'),
+                (string) config('services.app_store.key_id'),
+                (string) config('services.app_store.private_key'),
+                (string) config('services.app_store.bundle_id'),
+                (string) config('services.app_store.url'),
+                (string) config('services.app_store.sandbox_url'),
+            ),
+        ]);
+        $this->driver(Stores::GOOGLE, 'google_play', [
+            'fake' => fn () => new FakeStore('google'),
+            'google' => fn () => new GooglePlayStore(new ServiceAccount((string) config('services.google_play.credentials'), 'google_play'), (string) config('services.google_play.package')),
         ]);
         $this->driver(PushGateway::class, 'push', [
             'fake' => fn () => new FakePushGateway,

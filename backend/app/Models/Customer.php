@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -27,7 +28,7 @@ class Customer extends Authenticatable
 
     protected $guarded = ['id'];
 
-    protected $hidden = ['password', 'signup_device_hash', 'signup_ip_hash'];
+    protected $hidden = ['password', 'signup_device_hash', 'signup_ip_hash', 'store_token'];
 
     /** The table's defaults, so a new model reads them before it is reloaded. */
     protected $attributes = ['status' => 'active', 'fal_status' => 'none', 'nafath_status' => 'none', 'is_tester' => false];
@@ -59,6 +60,21 @@ class Customer extends Authenticatable
     public function isActive(): bool
     {
         return $this->status === AccountStatus::Active;
+    }
+
+    /**
+     * The token the app attaches to its store purchases (Apple's appAccountToken, Google's
+     * obfuscatedExternalAccountId): a purchase applies to the account whose token it carries. Made once, by
+     * the first request that asks — a second one at the same moment reads the same token.
+     */
+    public function storeToken(): string
+    {
+        if ($this->store_token === null) {
+            static::query()->whereKey($this->id)->whereNull('store_token')->update(['store_token' => (string) Str::uuid()]);
+            $this->store_token = static::query()->whereKey($this->id)->value('store_token');
+        }
+
+        return (string) $this->store_token;
     }
 
     /** A switch of the app's notification settings (on unless turned off). */

@@ -9,6 +9,7 @@ use App\Enums\BoostKind;
 use App\Enums\PaymentPurpose;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\PaymentResource;
 use App\Integrations\Payments\PaymentGateway;
 use App\Models\Invoice;
 use App\Models\Package;
@@ -114,17 +115,7 @@ class BillingController extends Controller
     /** @return array<string, mixed> */
     private function present(Payment $payment): array
     {
-        return [
-            'payment_id' => $payment->public_id,
-            'purpose' => $payment->purpose->value,
-            'status' => $payment->status->value,
-            'amount' => $payment->amount()->riyals(),
-            'vat' => (new Money($payment->vat_halalas))->riyals(),
-            'currency' => $payment->currency,
-            'provider' => $payment->provider,
-            'failure_reason' => $payment->failure_reason,
-            'paid_at' => $payment->paid_at?->toIso8601String(),
-        ];
+        return (new PaymentResource($payment))->resolve();
     }
 
     /** @return array<string, mixed> */

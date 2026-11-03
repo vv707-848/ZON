@@ -15,13 +15,15 @@
 |---|---|---|---|---|
 | رسائل التحقق | `Sms\SmsGateway` | لا يرسل شيئاً؛ النص في السجل، و`OTP_TEST_CODE` رمز ثابت للتطوير | `taqnyat` | مكتوب ومختبَر على شكل الطلب، **لم يُجرَّب بحساب حقيقي** |
 | الدفع | `Payments\PaymentGateway` | المرجع `fake_{public_id}` ينجح بالمبلغ نفسه، و`fake_{public_id}_fail` يُرفض | `moyasar` | مكتوب ومختبَر على شكل الطلب، **لم يُجرَّب بحساب حقيقي** |
+| شراء داخل التطبيق: آبل | `Stores\StoreGateway` | `sim:{رمز الحساب}:{معرّف}` مع علامات `:pending` · `:revoked` · `:test` · `:renewal-N` | `apple` (App Store Server API) | مكتوب ومختبَر على شكل الطلب، **لم يُجرَّب بحساب حقيقي** |
+| شراء داخل التطبيق: Google Play | `Stores\StoreGateway` | كالسابق | `google` (Play Developer API) | مكتوب ومختبَر على شكل الطلب، **لم يُجرَّب بحساب حقيقي** |
 | الإشعارات | `Push\PushGateway` | لا يصل شيء للجوال؛ جرس التطبيق يعمل | `fcm` (HTTP v1) | مكتوب ومختبَر على شكل الطلب، **لم يُجرَّب بمشروع Firebase حقيقي** |
 | الهيئة العامة للعقار | `Rega\RegaGateway` | قواعد ثابتة (أدناه) | — | لا سائق: ينتظر منح الهيئة واجهة برمجية |
 | نفاذ | `Nafath\NafathGateway` | أول فحص حالة يوثّق، إلا رقم هوية ينتهي بـ 0 | — | لا سائق: ينتظر العقد |
 | الفوترة | `Invoicing\InvoicingGateway` | — | `local`: QR المرحلة الأولى لهيئة الزكاة (TLV) | يعمل محلياً؛ المرحلة الثانية (الربط) سائق جديد |
 | بصمة الصور | `ImageHash\ImageHasher` | — | `gd` (محلي) · `agents` (خدمة الوكلاء) | يعملان |
 
-الشكل المختبَر لكل سائق حي في `backend/tests/Feature/Integrations/LiveDriversTest.php`.
+الشكل المختبَر لكل سائق حي في `backend/tests/Feature/Integrations/LiveDriversTest.php`، وللمتجرين في `StoreDriversTest.php`.
 
 ## قواعد محاكاة الهيئة (`FakeRegaGateway`)
 
@@ -65,6 +67,33 @@
 5. التحقق ببطاقات ميسّر التجريبية على مفاتيح الاختبار أولاً:
    - عملية ناجحة، ومرفوضة، ومبلغ معدَّل.
    - ثم ظهورها في اللوحة ← «المدفوعات» والفاتورة.
+
+### الشراء داخل التطبيق — آبل وGoogle Play
+
+ما يُشترى في التطبيقين: الباقات والتمييز والعاجل. المتجر يبيع ويحدد السعر الظاهر، والخادم يقرأ الشراء من المتجر ويطبّقه (`App\Actions\Billing\ApplyStorePurchase`). الموقع ورسوم الترخيص الإعلاني عبر ميسّر.
+
+1. **المنتجات:** المعرّفات نفسها في المتجرين، كما في `config/zon.php` ← `store_products`:
+   - اشتراكات تتجدد آلياً: `com.zon.app.seeker.month` · `com.zon.app.broker.month` · `com.zon.app.broker.year`.
+   - منتجات تُستهلك: `com.zon.app.featured` · `com.zon.app.urgent.listing` · `com.zon.app.urgent.request`.
+   - السعر في كل متجر يحدده المالك، ويُطابق سعر الباقة في اللوحة يدوياً.
+2. **آبل** (App Store Connect):
+   - مفتاح In-App Purchase من Users and Access ← Integrations: ملف `.p8` في `/etc/zon/app-store-key.p8` بقراءة لمستخدم التطبيق فقط.
+   - في `.env`: `APP_STORE_DRIVER=apple` · `APP_STORE_ISSUER_ID` · `APP_STORE_KEY_ID` · `APP_STORE_PRIVATE_KEY` · `APP_STORE_BUNDLE_ID`.
+   - App Store Server Notifications V2 (للإنتاج والتجربة): `https://api.zon.sa/api/v1/store/notices/apple?key=…` بقيمة `STORE_NOTICES_KEY`.
+3. **Google Play** (Play Console):
+   - حساب خدمة في Google Cloud، مدعو في Play Console بصلاحيتي «عرض البيانات المالية» و«إدارة الطلبات والاشتراكات». ملف JSON في `/etc/zon/google-play-service-account.json`.
+   - في `.env`: `GOOGLE_PLAY_DRIVER=google` · `GOOGLE_PLAY_PACKAGE` · `GOOGLE_PLAY_CREDENTIALS`.
+   - الإشعارات الفورية (RTDN): موضوع Pub/Sub باشتراك push إلى `https://api.zon.sa/api/v1/store/notices/google?key=…`.
+4. **قواعد لا تُكسر:**
+   - لا يُطبَّق شراء من كلام التطبيق ولا من الإشعار: الخادم يسأل المتجر.
+   - الشراء لحسابه فقط: رمز الحساب (`GET /store/products`) يرسله التطبيق مع كل شراء (`appAccountToken` · `obfuscatedAccountId`).
+   - شراء التجربة (sandbox أو بطاقة اختبار) يُقبل لحسابات المراجعة والاختبار فقط.
+   - Google يسترد ما لم يُؤكَّد خلال 3 أيام: التأكيد في مهمة تُعاد حتى يوم (`SettleStorePurchase`).
+5. **الاسترداد** من المتجر نفسه: آبل بطلب العميل، وGoogle من Play Console. يصلنا إشعاره فيتوقف ما اشتُري تلقائياً، ولا استرداد من اللوحة لمشتريات المتجر.
+6. **الضريبة والفاتورة:**
+   - آبل وكيل بالعمولة في السعودية، يجبي الضريبة ويوردها ([ملحق اتفاقية آبل](https://developer.apple.com/support/downloads/terms/exhibits/Exhibits-to-Schedule-2-and-3-20250821-English.pdf)). لا فاتورة من زون.
+   - Google يجبي ضريبة 15٪ ويوردها، إلا للمطوّر السعودي المسجّل الذي أعطى Google رقمه الضريبي ([مساعدة Play Console](https://support.google.com/googleplay/android-developer/answer/138000)). إن فعلت زون ذلك، فعّل «ضريبة مبيعات Google Play على زون» في الإعدادات: فاتورة زون لكل شراء من Google Play. **قرار للمالك مع المحاسب.**
+7. التحقق بحساب مراجعة: شراء تجربة من TestFlight وحساب sandbox، ومن Google Play بحساب مختبِر ترخيص. ثم ظهوره في «المدفوعات»، وتجديده، واسترداده.
 
 ### الإشعارات — Firebase
 1. مشروع Firebase يضم تطبيقي iOS (مع مفتاح APNs) وAndroid.

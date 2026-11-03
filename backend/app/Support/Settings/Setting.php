@@ -34,6 +34,7 @@ enum Setting: string
     case VatRate = 'tax.vat_rate';
     case VatNumber = 'tax.vat_number';
     case SellerName = 'tax.seller_name';
+    case GooglePlayVatByZon = 'tax.google_play_vat_by_zon';
 
     // ── Wishes and requests
     case PreferenceActiveDays = 'preferences.active_days';
@@ -70,6 +71,7 @@ enum Setting: string
             self::VatRate => '0.15',
             self::VatNumber => '',
             self::SellerName => 'منصة زون العقارية',
+            self::GooglePlayVatByZon => false,
             self::PreferenceActiveDays => 90,
             self::MatchNotifyMax => 5,
             self::DeletionGraceDays => 30,
@@ -85,7 +87,7 @@ enum Setting: string
     public function type(): string
     {
         return match ($this) {
-            self::RequireNafath, self::VatRegistered => 'bool',
+            self::RequireNafath, self::VatRegistered, self::GooglePlayVatByZon => 'bool',
             self::FeaturedPrice, self::UrgentListingPrice, self::UrgentRequestPrice, self::AdLicenceFee => 'money',
             self::OwnerCommissionPercent, self::BrokerFreeSharePercent, self::VatRate => 'decimal',
             self::VatNumber, self::SellerName => 'text',
@@ -115,6 +117,7 @@ enum Setting: string
             self::VatRate => 'نسبة الضريبة (0.15 = 15٪)',
             self::VatNumber => 'الرقم الضريبي',
             self::SellerName => 'اسم البائع في الفاتورة',
+            self::GooglePlayVatByZon => 'ضريبة مبيعات Google Play في السعودية على زون (رقمنا الضريبي مسجّل لدى Google): فاتورة زون لكل شراء من Google Play',
             self::PreferenceActiveDays => 'تتوقف إشعارات الرغبة بلا تحديث بعد (يوم)',
             self::MatchNotifyMax => 'أقصى عدد عروض في إشعار المطابقة الواحد',
             self::DeletionGraceDays => 'مهلة حذف الحساب (يوم)',
