@@ -35,7 +35,7 @@ final class DecideListingText
                 ReviewDecision::Reject => [null, TextReview::Rejected],
             };
             if ($decision === ReviewDecision::Edit) {
-                TrainingCapture::textEdit((string) $listing->desc_suggested, $clean);
+                TrainingCapture::textEdit((string) $listing->desc_suggested, $clean, $listing->customer);
             }
             $listing->forceFill(['desc_clean' => $clean, 'text_review' => $review, 'text_reviewed_at' => now()])->save();
 

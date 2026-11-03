@@ -241,6 +241,12 @@ deploy/                          nginx · supervisor · cron · ssh · mysql · 
   - المحظور لا يعلم.
   - رسائله تُرفض برسالة عامة.
   - ملف الحاظر يرد 404 للمحظور.
+- **حسابات المراجعة (`is_tester`) في عزل** (`Sandbox`):
+  - `Blocks::hiddenFor($viewer)` يضم حسابات المراجعة لكل مشاهد ليس منها (والزائر)، فكل استعلام يحترم الحظر يحترم العزل. `Blocks::hides($viewer, $owner)` للعنصر الواحد، و`Blocks::between` للحظر وحده (رفض الرسائل).
+  - إشعارات عن محتوى غيره (المتابعون، وسطاء المنطقة، تطابق الرغبات): `Sandbox::audience` يقصرها على حسابات المراجعة إن كان صاحب المحتوى منها.
+  - محادثته مع حساب حقيقي: صف الطرف الآخر مخفي من إنشائه (`hidden_at`)، ولا بث ولا إشعار. نجومه ومتابعاته لا تُحسب إلا لحسابات المراجعة. بلاغه لا يُحسب في الإخفاء الآلي. مشاهدته لا تُعد.
+  - لا تُسجَّل له عينة تدريب ولا «بحث بلا نتيجة» ولا «مطابق/غير مطابق». الأرقام اليومية ومشاهد الوكيل الأعلى تستبعده (`2026_11_03_000100`).
+  - يصنعه المدير العام وحده (`MakeReviewAccount`)، ولا يُعلَّم حساب حقيقي.
 
 ### حذف الحساب
 
@@ -419,7 +425,7 @@ search_listings · search_requests · matching · match_searchers · chat · sum
 - **أقسام القائمة:** الرئيسية · الحسابات · المحتوى · الإشراف · المالية · المعرفة والمرجع · التشغيل · الإدارة.
 - **الموارد:**
   - Activities (سجل التدقيق) · Announcements · AppConfigs · BoostUsages · Cities وأحياؤها · CommissionDues.
-  - Customers: إيقاف وتفعيل، وحسابات اختبار، وحالة فال ونفاذ.
+  - Customers: إيقاف وتفعيل، وحسابات المراجعة (إنشاء وكلمة سر جديدة، للمدير العام)، وحالة فال ونفاذ.
   - DeletionRequests · Developers (إنشاء وتفعيل بعقد) · IndexEvents (إعادة إرسال) · Invoices · KbDocuments · Listings · MarketingContracts · Packages.
   - Payments (استرداد) · Projects · Reports (البلاغات) · Roles · SearchRequests · SearchTerms · Subscriptions (منح).
   - Users (الموظفون؛ للـ superadmin) · AiRequests.

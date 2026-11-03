@@ -13,6 +13,7 @@ use App\Models\Listing;
 use App\Models\Project;
 use App\Models\SearchRequest;
 use App\Support\Actor;
+use App\Support\Sandbox;
 use Illuminate\Support\Facades\DB;
 
 /** Cancels a pending deletion (the owner signed in, or staff) and restores only what that request hid. */
@@ -50,6 +51,7 @@ final class CancelDeletion
             ConversationParticipant::query()
                 ->whereIn('conversation_id', ConversationParticipant::query()->where('customer_id', $customer->id)->pluck('conversation_id'))
                 ->where('customer_id', '!=', $customer->id)->where('hidden_at', $deletion->requested_at)
+                ->when($customer->is_tester, fn ($q) => $q->whereIn('customer_id', Sandbox::accounts()))   // a real side stays out of the sandbox
                 ->update(['hidden_at' => null]);
 
             $deletion->forceFill(['cancelled_at' => now(), 'cancelled_by' => $by])->save();

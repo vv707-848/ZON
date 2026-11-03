@@ -15,11 +15,12 @@ use App\Models\Rating;
 use App\Models\SearchRequest;
 use App\Notifications\Notices;
 use App\Support\Actor;
+use App\Support\Sandbox;
 use App\Support\Settings\Setting;
 use App\Support\Settings\Settings;
 use Illuminate\Database\Eloquent\Model;
 
-/** N open reports from N different accounts (Setting::ReportsToAutoHide) hide the content until staff decide. */
+/** N open reports from N different accounts (Setting::ReportsToAutoHide) hide the content until staff decide. A tester's report waits for staff: it never counts (Sandbox). */
 final class AutoHideReported
 {
     public function __construct(private readonly ChangeListingStatus $listings, private readonly ChangeProjectStatus $projects, private readonly IndexSync $index) {}
@@ -27,7 +28,7 @@ final class AutoHideReported
     public function __invoke(Model $target): void
     {
         $reporters = ContentReport::query()->where('target_type', $target->getMorphClass())->where('target_id', $target->getKey())
-            ->whereIn('status', [ReportStatus::New, ReportStatus::Reviewing])->distinct()->count('reporter_id');
+            ->whereIn('status', [ReportStatus::New, ReportStatus::Reviewing])->whereNotIn('reporter_id', Sandbox::accounts())->distinct()->count('reporter_id');
         if ($reporters < Settings::int(Setting::ReportsToAutoHide)) {
             return;
         }

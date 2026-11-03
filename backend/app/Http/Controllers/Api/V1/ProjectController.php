@@ -62,7 +62,9 @@ class ProjectController extends Controller
         $this->visible($request, $project);
         $project->load(self::WITH);
         if (! $this->isMine($request, $project)) {
-            $project->increment('views_count');
+            if (! $request->user('api')?->is_tester) {
+                $project->increment('views_count');     // a tester's look is not a view
+            }
             $this->publicUnits($project);
         }
 
@@ -171,7 +173,7 @@ class ProjectController extends Controller
     private function visible(Request $request, Project $project): void
     {
         $viewer = $request->user('api');
-        if (! $this->isMine($request, $project) && (! $project->status->isPublic() || ($viewer instanceof Customer && Blocks::between($viewer, $project->developer)))) {
+        if (! $this->isMine($request, $project) && (! $project->status->isPublic() || Blocks::hides($viewer instanceof Customer ? $viewer : null, $project->developer))) {
             throw ApiException::of(ErrorCode::NotFound);
         }
     }

@@ -12,12 +12,16 @@ use Illuminate\Support\Facades\DB;
  *   requests of the day (JSON_TABLE spreads each request over its neighbourhoods and types) ·
  *   the median budget of the last 30 days and the median price of what is published (window functions) ·
  *   the share of «غير مطابق» answers in the area over 30 days.
+ * What testers made is left out (Sandbox); their «مطابق/غير مطابق» marks are never recorded.
  */
 class ComputeDailyAreaStats extends ScheduledJob
 {
     private const SPREAD = "FROM requests r
         JOIN JSON_TABLE(r.neighborhoods, '$[*]' COLUMNS (neighborhood VARCHAR(80) PATH '$')) n
-        JOIN JSON_TABLE(r.property_types, '$[*]' COLUMNS (property_type VARCHAR(12) PATH '$')) t";
+        JOIN JSON_TABLE(r.property_types, '$[*]' COLUMNS (property_type VARCHAR(12) PATH '$')) t
+        WHERE r.customer_id NOT IN (SELECT id FROM customers WHERE is_tester = 1)";
+
+    private const REAL_LISTINGS = "status = 'published' AND deleted_at IS NULL AND customer_id NOT IN (SELECT id FROM customers WHERE is_tester = 1)";
 
     public function __construct(public readonly ?string $day = null) {}
 
@@ -34,17 +38,17 @@ class ComputeDailyAreaStats extends ScheduledJob
             $stats[$key][$field] = $value;
         };
 
-        foreach (DB::select('SELECT r.city, n.neighborhood, t.property_type, COUNT(*) AS c '.self::SPREAD.' WHERE r.created_at >= ? AND r.created_at < ? GROUP BY 1, 2, 3', [$from, $to]) as $r) {
+        foreach (DB::select('SELECT r.city, n.neighborhood, t.property_type, COUNT(*) AS c '.self::SPREAD.' AND r.created_at >= ? AND r.created_at < ? GROUP BY 1, 2, 3', [$from, $to]) as $r) {
             $set($r, 'requests_count', (int) $r->c);
         }
-        foreach ($this->medians('SELECT r.city, n.neighborhood, t.property_type, r.budget_max AS v '.self::SPREAD.' WHERE r.created_at >= ? AND r.created_at < ? AND r.budget_max IS NOT NULL', [$window, $to]) as $r) {
+        foreach ($this->medians('SELECT r.city, n.neighborhood, t.property_type, r.budget_max AS v '.self::SPREAD.' AND r.created_at >= ? AND r.created_at < ? AND r.budget_max IS NOT NULL', [$window, $to]) as $r) {
             $set($r, 'median_budget', $r->median);
         }
-        $listings = "SELECT city, neighborhood, property_type, price AS v FROM listings WHERE status = 'published' AND deleted_at IS NULL";
+        $listings = 'SELECT city, neighborhood, property_type, price AS v FROM listings WHERE '.self::REAL_LISTINGS;
         foreach ($this->medians($listings, []) as $r) {
             $set($r, 'median_price', $r->median);
         }
-        foreach (DB::select("SELECT city, neighborhood, property_type, COUNT(*) AS c FROM listings WHERE status = 'published' AND deleted_at IS NULL GROUP BY 1, 2, 3") as $r) {
+        foreach (DB::select('SELECT city, neighborhood, property_type, COUNT(*) AS c FROM listings WHERE '.self::REAL_LISTINGS.' GROUP BY 1, 2, 3') as $r) {
             $set($r, 'listings_count', (int) $r->c);
         }
         $rejections = DB::select("SELECT JSON_UNQUOTE(JSON_EXTRACT(query_snapshot, '$.city')) AS city, JSON_UNQUOTE(JSON_EXTRACT(query_snapshot, '$.neighborhood')) AS neighborhood,

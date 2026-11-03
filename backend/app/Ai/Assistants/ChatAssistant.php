@@ -127,7 +127,7 @@ final class ChatAssistant
             'trace_id' => Trace::id(),
             'created_at' => now(),
         ]);
-        TrainingCapture::note('chat', $masked, $intent->value);
+        TrainingCapture::note('chat', $masked, $intent->value, $customer);
 
         return [
             'answer' => $answer,

@@ -14,20 +14,25 @@ use App\Models\UserBlock;
 use App\Notifications\Notices;
 use App\Support\Api;
 use App\Support\Blocks;
+use App\Support\Sandbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/** Following, stars, blocking — between accounts; the blocked side is never told. */
+/** Following, stars, blocking — between accounts; the blocked side is never told. A tester's follows and stars reach testers only (Sandbox). */
 class SocialController extends Controller
 {
     public function followers(Request $request): JsonResponse
     {
-        return Api::ok(AdvertiserResource::collection($request->user('api')->followers()->whereNull('anonymized_at')->latest('follows.created_at')->limit(500)->get()));
+        $me = $request->user('api');
+
+        return Api::ok(AdvertiserResource::collection($me->followers()->whereNull('anonymized_at')->whereNotIn('customers.id', Sandbox::hiddenFrom($me))->latest('follows.created_at')->limit(500)->get()));
     }
 
     public function following(Request $request): JsonResponse
     {
-        return Api::ok(AdvertiserResource::collection($request->user('api')->following()->whereNull('anonymized_at')->latest('follows.created_at')->limit(500)->get()));
+        $me = $request->user('api');
+
+        return Api::ok(AdvertiserResource::collection($me->following()->whereNull('anonymized_at')->whereNotIn('customers.id', Sandbox::hiddenFrom($me))->latest('follows.created_at')->limit(500)->get()));
     }
 
     public function follow(Request $request, Customer $customer): JsonResponse
@@ -54,7 +59,7 @@ class SocialController extends Controller
         }
         $data = $request->validate(['stars' => ['required', 'integer', 'between:1,5'], 'comment' => ['nullable', 'string', 'max:500']]);
         $rating = Rating::query()->updateOrCreate(['rater_id' => $me->id, 'rated_id' => $customer->id], $data);
-        if ($rating->wasRecentlyCreated) {
+        if ($rating->wasRecentlyCreated && ! Sandbox::hides($customer, $me)) {
             $customer->notify(Notices::rated($customer, (int) $data['stars']));
         }
 
@@ -87,7 +92,7 @@ class SocialController extends Controller
     private function other(Request $request, Customer $customer): Customer
     {
         $me = $request->user('api');
-        if ($me->id === $customer->id || $customer->role === CustomerRole::Seeker || $customer->anonymized_at !== null || Blocks::between($me, $customer)) {
+        if ($me->id === $customer->id || $customer->role === CustomerRole::Seeker || $customer->anonymized_at !== null || Blocks::hides($me, $customer)) {
             throw ApiException::of(ErrorCode::NotFound);
         }
 

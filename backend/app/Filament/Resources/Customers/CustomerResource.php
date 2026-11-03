@@ -25,7 +25,6 @@ use BackedEnum;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -84,7 +83,7 @@ class CustomerResource extends Resource
             Section::make('بيانات الحساب')->columns(2)->schema([
                 TextInput::make('name')->label('الاسم')->required()->maxLength(120),
                 Select::make('city')->label('المدينة')->options(fn () => array_combine(array_keys(City::catalog()), array_keys(City::catalog())))->required(),
-                Toggle::make('is_tester')->label('حساب اختبار (يتجاوز وضع الصيانة)'),
+                // is_tester is not here: a review account is made as one («حساب مراجعة»), and a real account never becomes one.
             ]),
         ]);
     }
@@ -100,7 +99,7 @@ class CustomerResource extends Resource
                 Columns::enumEntry('status', 'الحالة'),
                 TextEntry::make('city')->label('المدينة'),
                 TextEntry::make('suspended_reason')->label('سبب الإيقاف')->placeholder('—'),
-                TextEntry::make('is_tester')->label('حساب اختبار')->formatStateUsing(fn (bool $state) => $state ? 'نعم' : 'لا'),
+                TextEntry::make('is_tester')->label('حساب مراجعة')->formatStateUsing(fn (bool $state) => $state ? 'نعم — معزول: لا يصل شيء منه للمستخدمين' : 'لا'),
                 TextEntry::make('created_at')->label('التسجيل')->dateTime(),
                 TextEntry::make('last_seen_at')->label('آخر نشاط')->since()->placeholder('—'),
             ]),
@@ -147,7 +146,7 @@ class CustomerResource extends Resource
                 TextColumn::make('city')->label('المدينة')->toggleable(),
                 Columns::enum('fal_status', 'فال', Columns::STATUS_COLORS)->toggleable(),
                 Columns::enum('nafath_status', 'نفاذ', Columns::STATUS_COLORS)->toggleable(isToggledHiddenByDefault: true),
-                IconColumn::make('is_tester')->label('اختبار')->boolean()->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('is_tester')->label('مراجعة')->boolean()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')->label('التسجيل')->date()->sortable(),
                 TextColumn::make('last_seen_at')->label('آخر نشاط')->since()->sortable()->toggleable(),
             ])
@@ -157,7 +156,7 @@ class CustomerResource extends Resource
                 SelectFilter::make('fal_status')->label('فال')->options(FalStatus::options()),
                 SelectFilter::make('nafath_status')->label('نفاذ')->options(NafathStatus::options()),
                 SelectFilter::make('city')->label('المدينة')->options(fn () => array_combine(array_keys(City::catalog()), array_keys(City::catalog()))),
-                TernaryFilter::make('is_tester')->label('حساب اختبار'),
+                TernaryFilter::make('is_tester')->label('حساب مراجعة'),
             ])
             ->recordActions([ViewAction::make()]);
     }

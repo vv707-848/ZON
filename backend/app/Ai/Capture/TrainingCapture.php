@@ -3,36 +3,41 @@
 namespace App\Ai\Capture;
 
 use App\Ai\Masking\AiMasking;
+use App\Models\Customer;
 use App\Models\TrainingSample;
 
 /**
  * The capture layer (§10.9): what will one day teach the local model — de-identified at the source (AiMasking)
- * and never linked to an account (no customer id is stored).
+ * and never linked to an account (no customer id is stored). Who wrote it is asked only to leave a tester's words
+ * out (Sandbox): a store reviewer's «تجربة» teaches nothing.
  */
 final class TrainingCapture
 {
-    public static function textEdit(string $suggested, string $edited): void
+    public static function textEdit(string $suggested, string $edited, ?Customer $from): void
     {
-        self::store('text_edit', "المقترح: {$suggested}\nالمعتمد: {$edited}", 'wording', 'edited');
+        self::store($from, 'text_edit', "المقترح: {$suggested}\nالمعتمد: {$edited}", 'wording', 'edited');
     }
 
-    public static function note(string $source, string $text, ?string $category): void
+    public static function note(string $source, string $text, ?string $category, ?Customer $from): void
     {
-        self::store($source, $text, $category, null);
+        self::store($from, $source, $text, $category, null);
     }
 
-    public static function searchMiss(string $text): void
+    public static function searchMiss(string $text, ?Customer $from): void
     {
-        self::store('search_miss', $text, 'search', 'no_results');
+        self::store($from, 'search_miss', $text, 'search', 'no_results');
     }
 
-    public static function feedback(string $reason, bool $isMatch): void
+    public static function feedback(string $reason, bool $isMatch, ?Customer $from): void
     {
-        self::store('feedback', $reason, 'matching', $isMatch ? 'match' : 'mismatch');
+        self::store($from, 'feedback', $reason, 'matching', $isMatch ? 'match' : 'mismatch');
     }
 
-    private static function store(string $source, string $text, ?string $intent, ?string $outcome): void
+    private static function store(?Customer $from, string $source, string $text, ?string $intent, ?string $outcome): void
     {
+        if ($from !== null && $from->is_tester) {
+            return;
+        }
         $text = trim(AiMasking::text($text));
         if ($text === '') {
             return;

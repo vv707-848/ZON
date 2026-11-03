@@ -12,6 +12,7 @@ use App\Models\Customer;
 use App\Models\Listing;
 use App\Models\SupportTicket;
 use App\Support\Api;
+use App\Support\Blocks;
 use App\Support\Phone;
 use App\Support\Settings\Setting;
 use App\Support\Settings\Settings;
@@ -49,7 +50,7 @@ class SupportController extends Controller
         $about = null;
         if (isset($data['listing_id'])) {
             $about = Listing::query()->find($data['listing_id']);
-            if ($about === null || (! $about->isLive() && $about->customer_id !== $me?->id)) {
+            if ($about === null || ($about->customer_id !== $me?->id && (! $about->isLive() || Blocks::hides($me, $about->customer)))) {
                 throw ApiException::of(ErrorCode::NotFound);
             }
         }

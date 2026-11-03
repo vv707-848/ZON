@@ -79,7 +79,7 @@ class ClientController extends Controller
         $data = $request->validate(['category' => ['required', Rule::enum(NoteCategory::class)], 'body' => ['required', 'string', 'max:2000']]);
         $note = $client->notes()->create($data);
         $client->touch();
-        TrainingCapture::note('client_note', AiMasking::text($data['body'], [$client->name]), $data['category']);
+        TrainingCapture::note('client_note', AiMasking::text($data['body'], [$client->name]), $data['category'], $request->user('api'));
 
         return Api::created(['id' => $note->id, 'category' => $note->category->value, 'body' => $note->body, 'at' => $note->created_at?->toIso8601String()]);
     }
