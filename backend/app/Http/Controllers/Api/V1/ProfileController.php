@@ -13,6 +13,7 @@ use App\Models\Follow;
 use App\Models\Rating;
 use App\Support\Api;
 use App\Support\Blocks;
+use App\Support\Sandbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -22,7 +23,8 @@ class ProfileController extends Controller
     public function show(Request $request, Customer $customer): JsonResponse
     {
         $viewer = $this->visible($request, $customer);
-        $ratings = Rating::query()->visible()->where('rated_id', $customer->id);
+        $sandbox = Sandbox::hiddenFrom($viewer);                 // a tester's stars and follows count for testers only
+        $ratings = Rating::query()->visible()->where('rated_id', $customer->id)->whereNotIn('rater_id', $sandbox);
 
         return Api::ok((new AdvertiserResource($customer))->resolve($request) + [
             'city' => $customer->city,
@@ -30,8 +32,8 @@ class ProfileController extends Controller
             'nafath_verified' => $customer->nafath_status->value === 'verified',
             'rating' => ['average' => round((float) (clone $ratings)->avg('stars'), 1), 'count' => (clone $ratings)->count()],
             'my_rating' => $viewer ? Rating::query()->where('rater_id', $viewer->id)->where('rated_id', $customer->id)->value('stars') : null,
-            'followers_count' => Follow::query()->where('followed_id', $customer->id)->count(),
-            'following_count' => Follow::query()->where('follower_id', $customer->id)->count(),
+            'followers_count' => Follow::query()->where('followed_id', $customer->id)->whereNotIn('follower_id', $sandbox)->count(),
+            'following_count' => Follow::query()->where('follower_id', $customer->id)->whereNotIn('followed_id', $sandbox)->count(),
             'listings_count' => $customer->listings()->live()->count(),
             'is_following' => $viewer !== null && Follow::query()->where('follower_id', $viewer->id)->where('followed_id', $customer->id)->exists(),
         ]);
@@ -50,7 +52,7 @@ class ProfileController extends Controller
         $viewer = $request->user('api');
         $viewer = $viewer instanceof Customer ? $viewer : null;
         if ($customer->role === CustomerRole::Seeker || $customer->anonymized_at !== null || ! $customer->isActive()
-            || ($viewer !== null && $viewer->id !== $customer->id && Blocks::between($viewer, $customer))) {
+            || ($viewer?->id !== $customer->id && Blocks::hides($viewer, $customer))) {
             throw ApiException::of(ErrorCode::NotFound);
         }
 

@@ -6,13 +6,15 @@ use App\Jobs\ScheduledJob;
 use App\Models\BuyerPreference;
 use App\Models\Listing;
 use App\Notifications\Notices;
+use App\Support\Blocks;
 use App\Support\Settings\Setting;
 use App\Support\Settings\Settings;
 use Illuminate\Support\Facades\Cache;
 
 /**
  * Twice a day (09:00 · 18:00): each live wish hears how many listings published since its last look match it —
- * same city, one of its neighbourhoods and types, within its budget's top. One notice per wish and run.
+ * same city, one of its neighbourhoods and types, within its budget's top, and none its owner may not see (a
+ * block, the sandbox). One notice per wish and run.
  */
 class NotifyWishMatches extends ScheduledJob
 {
@@ -30,6 +32,7 @@ class NotifyWishMatches extends ScheduledJob
                     $since = max($wish->matches_seen_at->timestamp ?? 0, (int) Cache::get("wish-checked:{$wish->id}", $wish->created_at->timestamp ?? 0));
                     $count = Listing::query()->live()->where('city', $wish->city)
                         ->whereIn('neighborhood', $wish->neighborhoods)->where('customer_id', '!=', $wish->customer_id)
+                        ->whereNotIn('customer_id', Blocks::hiddenFor($wish->customer))
                         ->when($wish->property_types, fn ($q, $types) => $q->whereIn('property_type', $types))
                         ->when($wish->budget_max, fn ($q, $max) => $q->where('price', '<=', $max))
                         ->where('purpose', $wish->purpose)->where('published_at', '>', date('Y-m-d H:i:s', $since))->count();

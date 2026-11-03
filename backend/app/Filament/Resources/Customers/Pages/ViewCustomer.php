@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Customers\Pages;
 
 use App\Actions\Accounts\CancelDeletion;
 use App\Actions\Admin\GrantSubscription;
+use App\Actions\Admin\MakeReviewAccount;
 use App\Actions\Admin\ModerateAccount;
 use App\Actions\Support\SupportDesk;
 use App\Enums\AccountStatus;
@@ -65,6 +66,15 @@ class ViewCustomer extends ViewRecord
                 ->visible(fn () => $suspend() && $customer()->status === AccountStatus::Suspended)
                 ->requiresConfirmation()
                 ->action(fn () => app(ModerateAccount::class)->activate($customer())),
+            Action::make('review_password')->label('كلمة سر جديدة')->icon('heroicon-o-key')->color('gray')
+                ->visible(fn () => Staff::isSuperadmin() && $customer()->is_tester && $customer()->anonymized_at === null)
+                ->requiresConfirmation()->modalDescription('تتوقف كلمة السر الحالية، ويخرج الحساب من كل الأجهزة. حدّثها بعدها في App Store Connect وGoogle Play Console.')
+                ->action(function () use ($customer) {
+                    abort_unless(Staff::isSuperadmin(), 403);
+                    $password = app(MakeReviewAccount::class)->newPassword($customer(), Staff::user());
+                    Notification::make()->title('كلمة السر الجديدة — انسخها الآن، لن تظهر مرة أخرى')->success()->persistent()
+                        ->body("اسم المستخدم: {$customer()->username}\nكلمة السر: {$password}")->send();
+                }),
             ActionGroup::make([
                 Action::make('recheck_fal')->label('إعادة فحص رخصة فال')->icon('heroicon-o-arrow-path')
                     ->visible(fn () => $manage() && $customer()->role === CustomerRole::Broker && $customer()->fal_number !== null)

@@ -41,8 +41,9 @@ class RequestController extends Controller
     public function show(Request $request, SearchRequest $searchRequest): JsonResponse
     {
         $viewer = $request->user('api');
-        $mine = $viewer instanceof Customer && $viewer->id === $searchRequest->customer_id;
-        if (! $mine && ($searchRequest->status !== RequestStatus::Published || ($viewer instanceof Customer && Blocks::between($viewer, $searchRequest->customer)))) {
+        $viewer = $viewer instanceof Customer ? $viewer : null;
+        $mine = $viewer !== null && $viewer->id === $searchRequest->customer_id;
+        if (! $mine && ($searchRequest->status !== RequestStatus::Published || Blocks::hides($viewer, $searchRequest->customer))) {
             throw ApiException::of(ErrorCode::NotFound);
         }
 
@@ -83,7 +84,7 @@ class RequestController extends Controller
     public function toClient(Request $request, SearchRequest $searchRequest): JsonResponse
     {
         $broker = $request->user('api');
-        if ($searchRequest->status !== RequestStatus::Published || $searchRequest->customer_id === $broker->id || Blocks::between($broker, $searchRequest->customer)) {
+        if ($searchRequest->status !== RequestStatus::Published || $searchRequest->customer_id === $broker->id || Blocks::hides($broker, $searchRequest->customer)) {
             throw ApiException::of(ErrorCode::NotFound);
         }
         if (SearchRequestResource::access($broker) !== AreaRequestsAccess::Full) {

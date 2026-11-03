@@ -176,7 +176,10 @@ class AiController extends Controller
         return Api::ok($summary->only(['summary', 'signals', 'recommended_action', 'confidence']) + ['updated_at' => $summary->updated_at?->toIso8601String()], ['ai' => $out['ai']]);
     }
 
-    /** «مطابق / غير مطابق» under a result; «غير مطابق» needs its reason (it teaches the matching). */
+    /**
+     * «مطابق / غير مطابق» under a result; «غير مطابق» needs its reason (it teaches the matching). A tester's mark
+     * is validated the same and kept nowhere: it would teach the matching a reviewer's «تجربة» (Sandbox).
+     */
     public function feedback(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -187,6 +190,9 @@ class AiController extends Controller
             'reason' => ['required_if:is_match,false', 'nullable', 'string', 'max:500'],
             'query' => ['nullable', 'array'],
         ]);
+        if ($request->user('api')->is_tester) {
+            return Api::created();
+        }
         SearchFeedback::query()->create([
             'customer_id' => $request->user('api')->id,
             'context' => $data['context'],
@@ -198,7 +204,7 @@ class AiController extends Controller
             'created_at' => now(),
         ]);
         if (! empty($data['reason'])) {
-            TrainingCapture::feedback($data['reason'], (bool) $data['is_match']);
+            TrainingCapture::feedback($data['reason'], (bool) $data['is_match'], $request->user('api'));
         }
 
         return Api::created();

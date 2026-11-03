@@ -67,7 +67,8 @@ final class ListingCandidates
         return Listing::query()->live()->with(['customer', 'media' => fn ($q) => $q->where('is_cover', true)])
             ->where('city', $need->city)->whereIn('neighborhood', $need->neighborhoods)
             ->when($need->purpose, fn (Builder $q, $purpose) => $q->where('purpose', $purpose))
-            ->when($viewer, fn (Builder $q) => $q->where('customer_id', '!=', $viewer->id)->whereNotIn('customer_id', Blocks::hiddenFor($viewer)))
+            ->whereNotIn('customer_id', Blocks::hiddenFor($viewer))
+            ->when($viewer, fn (Builder $q) => $q->where('customer_id', '!=', $viewer->id))
             ->when($target !== null, fn (Builder $q) => $q->orderByRaw('ABS(price - ?)', [$target]))
             ->orderByDesc('published_at');
     }

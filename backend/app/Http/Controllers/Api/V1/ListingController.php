@@ -85,12 +85,13 @@ class ListingController extends Controller
     public function show(Request $request, Listing $listing): JsonResponse
     {
         $viewer = $request->user('api');
-        $mine = $viewer instanceof Customer && $viewer->id === $listing->customer_id;
-        if (! $mine && (! $listing->isLive() || ($viewer instanceof Customer && Blocks::between($viewer, $listing->customer)))) {
+        $viewer = $viewer instanceof Customer ? $viewer : null;
+        $mine = $viewer !== null && $viewer->id === $listing->customer_id;
+        if (! $mine && (! $listing->isLive() || Blocks::hides($viewer, $listing->customer))) {
             throw ApiException::of(ErrorCode::NotFound);
         }
-        if (! $mine) {
-            $listing->increment('views_count');
+        if (! $mine && ! $viewer?->is_tester) {
+            $listing->increment('views_count');         // a tester's look is not a view
         }
         $listing->load(['customer', 'media', 'licence']);
         $this->markFavorites($request, [$listing->id]);

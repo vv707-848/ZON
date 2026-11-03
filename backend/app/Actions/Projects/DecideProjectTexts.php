@@ -55,7 +55,7 @@ final class DecideProjectTexts
             ReviewDecision::Reject => [null, TextReview::Rejected],
         };
         if ($decision === ReviewDecision::Edit) {
-            TrainingCapture::textEdit((string) $record->desc_suggested, $clean);
+            TrainingCapture::textEdit((string) $record->desc_suggested, $clean, $record instanceof Project ? $record->developer : $record->project->developer);
         }
         $record->forceFill(['desc_clean' => $clean, 'text_review' => $review] + ($record instanceof Project ? ['text_reviewed_at' => now()] : []))->save();
     }

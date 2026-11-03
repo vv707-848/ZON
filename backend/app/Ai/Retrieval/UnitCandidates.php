@@ -26,7 +26,7 @@ final class UnitCandidates
             ->where('available_count', '>', 0)
             ->whereIn('text_review', [TextReview::Approved, TextReview::Edited, TextReview::Rejected, TextReview::Auto])
             ->whereHas('project', fn (Builder $q) => $q->where('status', ListingStatus::Published)->where('city', $need->city)->whereIn('neighborhood', $need->neighborhoods)
-                ->when($viewer, fn (Builder $p) => $p->whereNotIn('developer_id', Blocks::hiddenFor($viewer))))
+                ->whereNotIn('developer_id', Blocks::hiddenFor($viewer)))
             ->when($need->types !== [], fn (Builder $q) => $q->whereIn('property_type', $need->types))
             ->when($target !== null, fn (Builder $q) => $q->orderByRaw('ABS(price - ?)', [$target]))
             ->limit((int) config('zon.ai.candidates_limit'))->get();

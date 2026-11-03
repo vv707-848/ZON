@@ -27,7 +27,7 @@
 
 | الجدول | النموذج | ما يحفظه |
 |---|---|---|
-| `customers` | `Customer` | مستخدمو التطبيق بأدوارهم الأربعة: الحالة، فال، نفاذ، `notification_prefs`، بصمات التسجيل المجزّأة، `is_tester` (يعبر الصيانة) |
+| `customers` | `Customer` | مستخدمو التطبيق بأدوارهم الأربعة: الحالة، فال، نفاذ، `notification_prefs`، بصمات التسجيل المجزّأة، `is_tester` (حساب مراجعة معزول: يعبر الصيانة، ولا يصل شيء منه للمستخدمين؛ يُصنع من اللوحة فقط) |
 | `customer_devices` | `CustomerDevice` | أجهزة الحساب ورموز Push وآخر ظهور |
 | `personal_access_tokens` | Sanctum | رموز الدخول (90 يوماً، والمنتهي يُحذف يومياً 03:15) |
 | `buyer_preferences` | `BuyerPreference` | رغبات الباحث؛ `share_in_reports` يحدد دخولها في تقارير السوق |

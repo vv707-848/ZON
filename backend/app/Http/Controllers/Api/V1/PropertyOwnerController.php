@@ -66,7 +66,7 @@ class PropertyOwnerController extends Controller
         $data = $request->validate(['category' => ['required', Rule::enum(NoteCategory::class)], 'body' => ['required', 'string', 'max:2000']]);
         $note = $owner->notes()->create($data);
         $owner->touch();
-        TrainingCapture::note('owner_note', AiMasking::text($data['body'], [$owner->name]), $data['category']);
+        TrainingCapture::note('owner_note', AiMasking::text($data['body'], [$owner->name]), $data['category'], $request->user('api'));
 
         return Api::created(['id' => $note->id, 'category' => $note->category->value, 'body' => $note->body, 'at' => $note->created_at?->toIso8601String()]);
     }

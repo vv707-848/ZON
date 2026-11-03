@@ -66,6 +66,12 @@ class CustomerFactory extends Factory
         return $this->state(['status' => AccountStatus::Pending]);
     }
 
+    /** A review or test account: it lives in the sandbox (App\Support\Sandbox). */
+    public function tester(): static
+    {
+        return $this->state(['is_tester' => true]);
+    }
+
     public function withoutNafath(): static
     {
         return $this->state(['nafath_status' => NafathStatus::None, 'nafath_verified_at' => null]);

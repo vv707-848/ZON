@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\Listing;
 use App\Notifications\Notices;
 use App\Support\Blocks;
+use App\Support\Sandbox;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -27,8 +28,8 @@ class NotifyFollowers implements ShouldQueue
         if ($listing === null || ! $listing->isLive()) {
             return;
         }
-        $hidden = Blocks::hiddenFor($listing->customer);
-        $listing->customer->followers()->whereNull('anonymized_at')->whereNotIn('customers.id', $hidden)
+        $followers = $listing->customer->followers()->whereNull('anonymized_at')->whereNotIn('customers.id', Blocks::blockedWith($listing->customer));
+        Sandbox::audience($followers, $listing->customer, 'customers.is_tester')
             ->chunkById(500, fn ($followers) => $followers->each(fn (Customer $f) => $f->notify(Notices::followedPublished($listing->customer, $listing))), 'customers.id', 'id');
     }
 }

@@ -18,6 +18,7 @@ use App\Models\SearchRequest;
 use App\Notifications\Notices;
 use App\Support\Api;
 use App\Support\Blocks;
+use App\Support\Sandbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * «المحادثات»: one conversation per pair and subject (a listing, a project, a request, or none), created under
  * a lock on both accounts so two first messages never open two conversations. Live on Reverb (MessageSent).
- * A block refuses messages with a general message — the blocked side never learns why.
+ * A block refuses messages with a general message — the blocked side never learns why. A tester's conversation
+ * with a real account stays on the tester's side (Sandbox): the other side never sees it, nor hears of it.
  */
 class ConversationController extends Controller
 {
@@ -89,7 +91,7 @@ class ConversationController extends Controller
         ]);
         $me = $request->user('api');
         $other = Customer::query()->where('username', $data['to'])->whereNull('anonymized_at')->first();
-        if ($other === null || $other->id === $me->id) {
+        if ($other === null || $other->id === $me->id || Sandbox::hides($me, $other)) {
             throw ApiException::of(ErrorCode::NotFound);
         }
         if (Blocks::between($me, $other)) {
@@ -111,7 +113,10 @@ class ConversationController extends Controller
                 return $existing;
             }
             $conversation = Conversation::query()->create($subject);
-            $conversation->participants()->createMany([['customer_id' => $me->id], ['customer_id' => $other->id]]);
+            $conversation->participants()->createMany([
+                ['customer_id' => $me->id],
+                ['customer_id' => $other->id, 'hidden_at' => Sandbox::hides($other, $me) ? now() : null],
+            ]);
 
             return $conversation;
         });
@@ -163,7 +168,7 @@ class ConversationController extends Controller
             return $message;
         });
 
-        $visible = $others->whereNull('hidden_at');
+        $visible = $others->whereNull('hidden_at')->reject(fn (ConversationParticipant $p) => Sandbox::hides($p->customer, $me));
         broadcast(new MessageSent($message, $visible->pluck('customer_id')->map(fn ($id) => (int) $id)->all()));
         $visible->each(fn (ConversationParticipant $p) => $p->customer->notify(Notices::newMessage($conversation->id, $me, $message->body)));
 
