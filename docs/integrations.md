@@ -19,7 +19,7 @@
 | شراء داخل التطبيق: Google Play | `Stores\StoreGateway` | كالسابق | `google` (Play Developer API) | مكتوب ومختبَر على شكل الطلب، **لم يُجرَّب بحساب حقيقي** |
 | الإشعارات | `Push\PushGateway` | لا يصل شيء للجوال؛ جرس التطبيق يعمل | `fcm` (HTTP v1) | مكتوب ومختبَر على شكل الطلب، **لم يُجرَّب بمشروع Firebase حقيقي** |
 | الهيئة العامة للعقار | `Rega\RegaGateway` | قواعد ثابتة (أدناه) | — | لا سائق: ينتظر منح الهيئة واجهة برمجية |
-| نفاذ | `Nafath\NafathGateway` | أول فحص حالة يوثّق، إلا رقم هوية ينتهي بـ 0 | — | لا سائق: ينتظر العقد |
+| نفاذ | `Nafath\NafathGateway` | أول فحص «بانتظار المستخدم»، والثاني يوثّق (أو يرفض رقم هوية ينتهي بـ 0)، والطلب ينتهي بعد 3 دقائق بلا جواب | — | لا سائق: ينتظر العقد |
 | الفوترة | `Invoicing\InvoicingGateway` | — | `local`: QR المرحلة الأولى لهيئة الزكاة (TLV) | يعمل محلياً؛ المرحلة الثانية (الربط) سائق جديد |
 | بصمة الصور | `ImageHash\ImageHasher` | — | `gd` (محلي) · `agents` (خدمة الوكلاء) | يعملان |
 
@@ -107,7 +107,8 @@
 ### الهيئة العامة للعقار ونفاذ (عند توفر الواجهة أو العقد)
 1. صنف جديد يطبّق العقد نفسه، مثل `Rega\RegaApiGateway`:
    - الدوال: `checkFal` · `verifyAdLicence` · `submitBrokerageContract` · `contractStatus` · `issueAdLicence`.
-   - لنفاذ: `start` · `status`.
+   - لنفاذ: `start` · `status` (يرجع `NafathAnswer`: waiting · completed · rejected · expired، بلغة نفاذ).
+   - ما يُتحقق منه في توثيق Elm عند العقد، لا من مصادر غير رسمية: عنوان البيئة، وأسماء الحقول، ومدة الطلب (`zon.nafath.request_seconds`)، وردّ نفاذ إلى الخادم (callback) وتوقيعه.
 2. سطره في `IntegrationServiceProvider`، ومفاتيحه في `config/services.php` و`.env.example`.
 3. اختبار لشكل الطلب في `LiveDriversTest` بـ `Http::fake`.
 4. حذف الجهة من `PRODUCTION_ALLOWS_FAKE`.

@@ -2,13 +2,13 @@
 
 namespace App\Integrations\Nafath;
 
-use App\Enums\NafathStatus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
- * SIMULATION of Nafath until the contract. The first status check answers: verified, or rejected when the
- * national id ends with 0. The id itself is never stored (only whether it ends with 0, for 10 minutes).
+ * SIMULATION of Nafath until the contract, with its request's life: the first status check answers «waiting»,
+ * the next «completed» — or «rejected» when the national id ends with 0 — and a request left unanswered expires
+ * (config zon.nafath.request_seconds). Only whether the id ends with 0 is kept, for the request's life.
  */
 class FakeNafathGateway implements NafathGateway
 {
@@ -20,19 +20,23 @@ class FakeNafathGateway implements NafathGateway
     public function start(string $nationalId): NafathChallenge
     {
         $transaction = (string) Str::uuid();
-        Cache::put("nafath.sim.{$transaction}", str_ends_with($nationalId, '0'), now()->addMinutes(10));
+        Cache::put("nafath.sim.{$transaction}", ['rejected' => str_ends_with($nationalId, '0'), 'polls' => 0], now()->addSeconds((int) config('zon.nafath.request_seconds')));
 
         return new NafathChallenge($transaction, (string) random_int(10, 99));
     }
 
-    public function status(string $transactionId): NafathStatus
+    public function status(string $transactionId): NafathAnswer
     {
-        $rejected = Cache::get("nafath.sim.{$transactionId}");
+        $request = Cache::get("nafath.sim.{$transactionId}");
+        if (! is_array($request)) {
+            return NafathAnswer::Expired;                              // unknown, or its time ran out
+        }
+        if ($request['polls'] === 0) {
+            Cache::put("nafath.sim.{$transactionId}", ['polls' => 1] + $request, now()->addSeconds((int) config('zon.nafath.request_seconds')));
 
-        return match ($rejected) {
-            null => NafathStatus::None,          // unknown or expired transaction
-            true => NafathStatus::Rejected,
-            default => NafathStatus::Verified,
-        };
+            return NafathAnswer::Waiting;
+        }
+
+        return $request['rejected'] ? NafathAnswer::Rejected : NafathAnswer::Completed;
     }
 }
