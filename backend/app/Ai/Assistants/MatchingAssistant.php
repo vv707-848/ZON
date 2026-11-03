@@ -28,7 +28,7 @@ final class MatchingAssistant
     ) {}
 
     /**
-     * @return array{matched: list<array{model: Listing, score: ?float, reason: string}>, broaden: list<array{model: Listing, score: ?float, reason: string}>,
+     * @return array{matched: list<array{model: Listing, score: ?float}>, broaden: list<array{model: Listing, score: ?float}>,
      *               units: list<array{model: ProjectUnit, score: ?float}>, suggest_request: bool, ai: array<string, mixed>}
      */
     public function match(Need $need, Customer $customer): array
@@ -62,8 +62,8 @@ final class MatchingAssistant
             $ranked = $result->output[$list] ?? null;
 
             return $ranked === null
-                ? $models->take($list === 'units' ? 30 : $limit)->map(fn ($m) => ['model' => $m, 'score' => null, 'reason' => ''])->values()->all()
-                : array_map(fn (array $r) => ['model' => $byId[$r['id']], 'score' => $r['score'], 'reason' => $r['reason']], $ranked);
+                ? $models->take($list === 'units' ? 30 : $limit)->map(fn ($m) => ['model' => $m, 'score' => null])->values()->all()
+                : array_map(fn (array $r) => ['model' => $byId[$r['id']], 'score' => $r['score']], $ranked);
         };
 
         return [

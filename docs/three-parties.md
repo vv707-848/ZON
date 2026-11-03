@@ -43,7 +43,7 @@ flowchart LR
 | التطبيق ← الواجهة | HTTPS JSON على `/api/v1` | Sanctum Bearer (90 يوماً) | `routes/api.php` · `app/Http/Controllers/Api/V1` ↔ طبقة الخدمات في التطبيق | رمز خطأ ثابت و`trace_id` (`docs/api.md`) |
 | الزمن الحي | WSS عبر nginx `/app/` إلى Reverb | `POST /api/v1/broadcasting/auth` | `routes/channels.php` · `app/Events/MessageSent.php` | الرسائل تبقى في `GET /conversations/{id}/messages` |
 | Push | Laravel ← FCM ← الجوال | حساب خدمة Firebase | `app/Notifications/PushChannel.php` · `app/Integrations/Push` | جرس التطبيق (`notifications`) يبقى |
-| الذكاء: الوكلاء | Laravel ← `POST /agents/{agent}`، مهلة 20 ث وإعادة سريعة واحدة | `X-Internal-Key` + `X-Request-Id` | `app/Ai/AiGateway.php` ← `AgentsClient.php` ↔ `agents/zon_agents/main.py` · `pipelines/` | ترتيب SQL بلا أسباب (`meta.ai.status = fallback`) ولا خصم |
+| الذكاء: الوكلاء | Laravel ← `POST /agents/{agent}`، مهلة 20 ث وإعادة سريعة واحدة | `X-Internal-Key` + `X-Request-Id` | `app/Ai/AiGateway.php` ← `AgentsClient.php` ↔ `agents/zon_agents/main.py` · `pipelines/` | ترتيب SQL (`meta.ai.status = fallback`) ولا خصم |
 | الذكاء: الفهرسة | Laravel ← `POST /index/{entity}` من طابور `index` | HMAC (`X-Timestamp` · `X-Signature`) بمفتاح `INDEX_SHARED_SECRET` | `app/Indexing/IndexSync.php` ← `app/Jobs/PushIndexEvent.php` ↔ `agents/zon_agents/indexing.py` | الإشارة تبقى في `index_events` وتُعاد كل 15 دقيقة |
 | الوكيل الأعلى | اللوحة ← `report_select` ← SQL معتمد على `ai_v_*` ← `report_write` | المدير العام وحده | `app/SuperAgent` ↔ `agents/zon_agents/pipelines/reports.py` | الصفوف تُحفظ، والتحليل يُسقط إن ذكر رقماً ليس في الصفوف |
 
@@ -68,7 +68,7 @@ flowchart LR
    4. تحقق المتصل من الجواب.
    5. الخصم من الحصة عند النجاح الكامل فقط.
    6. سطر في `ai_requests`.
-4. **الوكيل:** يرتّب المرشّحين المعطَين ويصوغ الأسباب. لا يضيف عنصراً من عنده: `AiGateway::ranked` يُسقط أي معرّف لم يُرسل، ويقص السبب إلى 12 كلمة.
+4. **الوكيل:** يرتّب المرشّحين المعطَين ويعطي كل واحد درجة، بلا نص. لا يضيف عنصراً من عنده: `AiGateway::ranked` يُسقط أي معرّف لم يُرسل، ولا يأخذ من النتيجة إلا المعرّف والدرجة.
 5. **الرد:** القائمة من MySQL (لا من حمولة الفهرس)، و`meta.ai` يقول ما حدث.
 
 ## من يملك الحقيقة

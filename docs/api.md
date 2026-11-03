@@ -17,10 +17,11 @@
 - **الأرقام:** الحقول الرقمية تقبل الأرقام العربية والفواصل (`٨٨٠,٠٠٠`)، والقيمة غير الصالحة تُرفض ولا تصير صفراً.
 - **الجوال:** يُقبل بأي صيغة سعودية ويُعاد `05XXXXXXXX`.
 - **حصة الذكاء:** ردود خدمات الذكاء تحمل `X-AI-Limit` و`X-AI-Remaining` و`X-AI-Resets-At`. النفاد: 429 `QUOTA_EXCEEDED`، والخدمة خارج الباقة: 402 `PAYMENT_REQUIRED`، ومع كليهما `details.upgrade`.
-- **حالة الذكاء في الرد:** `meta.ai = {status, reasons}`.
+- **حالة الذكاء في الرد:** `meta.ai = {status}`.
   - `status`: `ok` · `cached` (نفس السؤال خلال 15 دقيقة، بلا خصم) · `degraded` · `fallback` · `timeout` · `rejected` · `skipped` (لا مرشّحين، فلا نداء).
-  - الخصم من الرصيد مع `ok` وحده. `reasons = true` مع `ok` و`cached` فقط.
-  - مع `degraded` يُستخدم ترتيب الوكيل بلا أسباب، ومع `fallback` و`timeout` و`rejected` يعود ترتيب SQL.
+  - الخصم من الرصيد مع `ok` وحده.
+  - مع `degraded` يُستخدم ترتيب البحث الهجين في خدمة الوكلاء دون النموذج، ومع `fallback` و`timeout` و`rejected` يعود ترتيب SQL.
+  - نتيجة الترتيب السجلُّ ودرجته فقط، بلا شرح.
   - المحاولات نفسها محدودة: 3 أضعاف الحد اليومي لكل حساب وخدمة، مجاباً أو لا. بعدها 429 `TOO_MANY_REQUESTS` حتى التجديد.
 - **الحد العام:** 120 طلباً في الدقيقة لكل حساب أو عنوان، وحدود أخرى مذكورة في عمود الصلاحية.
 - **الزمن الحي:** Reverb على `wss://api.zon.sa/app/…`، والتوثيق عبر `POST /api/v1/broadcasting/auth`.
@@ -252,6 +253,6 @@
 | `GET` | `/ai/matching/projects/{project}/brokers` | 🔒 · رغبة · مطوّر | وسطاء مدينة المشروع بعدد عملائهم المطابقين — دون كشف العملاء | `AiController@brokers` |
 | `POST` | `/ai/matching/projects/{project}/searchers` | 🔒 · رغبة · مطوّر · حصة matching | باحثون تناسبهم وحدات مشروعي المنشور، مع الوحدة الأنسب | `AiController@searchers` |
 | `GET` | `/ai/quota` | 🔒 · رغبة | رصيدي اليومي لكل خدمة ذكاء ووقت التجديد | `AiController@quota` |
-| `POST` | `/ai/search` | 🔒 · رغبة · حصة search | البحث الدلالي في العروض: الخانات الإجبارية + نص حر؛ مرشّحو SQL ← ترتيب الوكيل ← أسباب ≤12 كلمة | `AiController@search` |
+| `POST` | `/ai/search` | 🔒 · رغبة · حصة search | البحث الدلالي في العروض: الخانات الإجبارية + نص حر؛ مرشّحو SQL ← ترتيب الوكيل ← كل نتيجة العرض ودرجته | `AiController@search` |
 | `POST` | `/ai/search/requests` | 🔒 · رغبة · وسيط · حصة search | بحث الوسيط في طلبات الباحثين (ميزة باقة: 402 بدونها) | `AiController@searchRequests` |
 | `POST` | `/ai/summaries` | 🔒 · رغبة · حصة summary | ملخص ملاحظات عميل أو مالك أو مهامي (نطاق مالكها فقط)، مخزَّن ويُعاد ما لم تتغير الملاحظات | `AiController@summarize` |

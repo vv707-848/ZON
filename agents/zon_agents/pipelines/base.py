@@ -12,8 +12,6 @@ from zon_agents.errors import InvalidPayload
 from zon_agents.llm import LLM
 from zon_agents.tools.retrieval import Retrieval
 
-REASON_WORDS = 12  # architecture §10.1 step 9: a reason of twelve words at most
-
 
 @dataclass(frozen=True)
 class Ctx:
@@ -63,8 +61,3 @@ def scrub(text: str) -> str:
     for pattern in (_URL, _EMAIL, _PHONE):
         text = pattern.sub("", text)
     return _SPACES.sub(" ", text).strip()
-
-
-def clip_words(text: str, words: int = REASON_WORDS) -> str:
-    parts = scrub(text).split()
-    return " ".join(parts[:words])

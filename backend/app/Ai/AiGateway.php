@@ -16,8 +16,8 @@ use Illuminate\Support\Facades\Log;
 /**
  * Every AI call of Laravel passes here, in this order:
  *   1 masking (AiMasking, on every string) · 2 fingerprint of the masked input · 3 cache (15 min) ·
- *   4 the call (AgentsClient, 20 s) · 5 the caller's check of the answer (ids from the candidates only, reasons
- *   clipped) · 6 the quota is consumed on a full answer only · 7 one ai_requests row · 8 null output → the
+ *   4 the call (AgentsClient, 20 s) · 5 the caller's check of the answer (ids from the candidates only, each
+ *   once) · 6 the quota is consumed on a full answer only · 7 one ai_requests row · 8 null output → the
  *   caller's fallback. Nothing personal is logged: the fingerprint, the status, the cost, the trace id.
  */
 final class AiGateway
@@ -76,13 +76,15 @@ final class AiGateway
     }
 
     /**
-     * Ranked results kept only when their id is one we offered, at most `limit`, reasons clipped to 12 words.
+     * Ranked results kept only when their id is one we offered, each once, at most `limit`: the id, a score between
+     * 0 and 1, and the `$extra` keys the caller reads. Anything else an agent sends stops here.
      *
      * @param  mixed  $results  the model's list
      * @param  list<int>  $allowed
-     * @return list<array{id: int, score: float, reason: string}>
+     * @param  list<string>  $extra
+     * @return list<array<string, mixed>&array{id: int, score: float}>
      */
-    public static function ranked(mixed $results, array $allowed, ?int $limit = null): array
+    public static function ranked(mixed $results, array $allowed, ?int $limit = null, array $extra = []): array
     {
         $allowed = array_flip($allowed);
         $kept = [];
@@ -91,17 +93,10 @@ final class AiGateway
             if (! isset($allowed[$id]) || isset($kept[$id])) {
                 continue;
             }
-            $kept[$id] = ['id' => $id, 'score' => max(0.0, min(1.0, (float) ($row['score'] ?? 0))), 'reason' => self::clip((string) ($row['reason'] ?? ''))] + array_diff_key($row, array_flip(['id', 'score', 'reason']));
+            $kept[$id] = ['id' => $id, 'score' => max(0.0, min(1.0, (float) ($row['score'] ?? 0)))] + array_intersect_key($row, array_flip($extra));
         }
 
         return array_slice(array_values($kept), 0, $limit ?? (int) config('zon.ai.results'));
-    }
-
-    public static function clip(string $reason): string
-    {
-        $words = preg_split('/\s+/u', trim($reason), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
-        return implode(' ', array_slice($words, 0, (int) config('zon.ai.reason_max_words')));
     }
 
     private function record(AiAgent $agent, AiCallStatus $status, string $hash, ?Customer $customer, ?User $staff, ?AgentReply $reply = null): void

@@ -2,12 +2,13 @@
 
 Laravel builds the candidates in SQL (mandatory city · neighbourhood · type; the budget only orders). Here:
 1. **Shortlist:** Qdrant ranks the candidates against the user's free text, never the whole collection.
-2. **Rank:** the model orders the shortlist, scores it and gives a reason of twelve words — and judges the wishes
-   (budget, rooms, area, age, deed, bank) from the fields and the cleaned descriptions.
+2. **Rank:** the model orders the shortlist and scores it, judging the wishes (budget, rooms, area, age, deed,
+   bank) from the fields and the cleaned descriptions. It writes nothing else: the app shows no explanation under
+   a result, so the model's whole answer is ids and scores.
 3. **Check:** every id must be a candidate; anything else is dropped silently.
 
-If the model fails, the answer is `degraded`: the hybrid order with its scores and no reasons. If the embedding
-server or Qdrant fails, the call fails (503) and Laravel answers with the SQL order (§7 «سياسة الفشل»).
+If the model fails, the answer is `degraded`: the hybrid order with its scores. If the embedding server or Qdrant
+fails, the call fails (503) and Laravel answers with the SQL order (§7 «سياسة الفشل»).
 """
 
 from collections.abc import Sequence
@@ -15,7 +16,7 @@ from typing import Any
 
 from zon_agents.embeddings import Embedding
 from zon_agents.llm import ModelFailed
-from zon_agents.pipelines.base import Ctx, Result, clip_words, parse
+from zon_agents.pipelines.base import Ctx, Result, parse
 from zon_agents.schemas.agents import (
     ListingCandidate,
     MatchingAnswer,
@@ -65,12 +66,12 @@ async def _shortlist[C: Candidate](
 def _checked(
     answer: Sequence[Ranked], shortlist: Sequence[tuple[Candidate, float]], limit: int
 ) -> list[dict[str, Any]]:
-    """Only candidates, each once, in the model's order; reasons cut to twelve words."""
+    """Only candidates, each once, in the model's order."""
     allowed = {c.id for c, _ in shortlist}
     out: list[dict[str, Any]] = []
     for item in answer:
         if item.id in allowed:
-            out.append({"id": item.id, "score": round(item.score, 3), "reason": clip_words(item.reason)})
+            out.append({"id": item.id, "score": round(item.score, 3)})
             allowed.discard(item.id)
         if len(out) == limit:
             break
@@ -78,8 +79,8 @@ def _checked(
 
 
 def _plain(shortlist: Sequence[tuple[Candidate, float]], limit: int) -> list[dict[str, Any]]:
-    """The degraded answer: hybrid order and scores, no reason."""
-    return [{"id": c.id, "score": score, "reason": ""} for c, score in shortlist[:limit]]
+    """The degraded answer: hybrid order and scores."""
+    return [{"id": c.id, "score": score} for c, score in shortlist[:limit]]
 
 
 def _context(shortlist: Sequence[tuple[Candidate, float]]) -> list[dict[str, Any]]:
@@ -102,24 +103,19 @@ async def _rank_one(
     ctx: Ctx, agent: str, need: Need, shortlist: Sequence[tuple[Candidate, float]], limit: int
 ) -> Result:
     if not shortlist:
-        return Result({"results": [], "query_understood": ""})
+        return Result({"results": []})
     payload = {"need": need.model_dump(exclude_none=True), "candidates": _context(shortlist), "limit": limit}
     try:
         answer = await ctx.llm.run(agent, payload, SearchAnswer, "json")
     except ModelFailed as exc:
-        return Result(
-            {"results": _plain(shortlist, limit), "query_understood": ""}, degraded=True, log={"llm": exc.reason}
-        )
-    output = {
-        "results": _checked(answer.output.results, shortlist, limit),
-        "query_understood": clip_words(answer.output.query_understood, 20),
-    }
+        return Result({"results": _plain(shortlist, limit)}, degraded=True, log={"llm": exc.reason})
+    output = {"results": _checked(answer.output.results, shortlist, limit)}
     return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
 
 
 async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
-    """Two listing lists that never overlap («مطابق» · «توسيع الإدراك») with reasons, and unit models ranked by
-    their own descriptions — Laravel shows the winners as project cards, without a reason (§10.3 path هـ)."""
+    """Two listing lists that never overlap («مطابق» · «توسيع الإدراك»), and unit models ranked by their own
+    descriptions — Laravel shows the winners as project cards (§10.3 path هـ)."""
     req = parse(MatchingInput, data)
     query = await _query(ctx, req.need, req.terms)
     matched_ids = {c.id for c in req.matched}
@@ -172,7 +168,7 @@ def _fit(searcher: Searcher, units: Sequence[UnitBrief]) -> tuple[float, int | N
 async def match_searchers(ctx: Ctx, data: dict[str, Any]) -> Result:
     """The developer's first tab (§10.3 path ب): searchers whose wish fits the project's available unit models.
     Wishes are not indexed — SQL lists the newest; a budget/rooms fit keeps the closest 60 for the model, which
-    reads what each searcher wrote and names the nearest model."""
+    reads what each searcher wrote and names the nearest unit model."""
     req = parse(MatchSearchersInput, data)
     if not req.searchers:
         return Result({"results": []})
@@ -188,7 +184,7 @@ async def match_searchers(ctx: Ctx, data: dict[str, Any]) -> Result:
         answer = await ctx.llm.run("match_searchers", payload, SearchersAnswer, "json")
     except ModelFailed as exc:
         plain = [
-            {"id": s.id, "score": round(1 / (1 + distance), 3), "reason": "", "unit_id": unit}
+            {"id": s.id, "score": round(1 / (1 + distance), 3), "unit_id": unit}
             for (distance, unit), s in fits[: req.limit]
         ]
         return Result({"results": plain}, degraded=True, log={"llm": exc.reason})
@@ -200,9 +196,7 @@ async def match_searchers(ctx: Ctx, data: dict[str, Any]) -> Result:
             continue
         allowed.discard(item.id)
         unit = item.unit_id if item.unit_id in unit_ids else None
-        results.append(
-            {"id": item.id, "score": round(item.score, 3), "reason": clip_words(item.reason), "unit_id": unit}
-        )
+        results.append({"id": item.id, "score": round(item.score, 3), "unit_id": unit})
         if len(results) == req.limit:
             break
     return Result({"results": results}, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)

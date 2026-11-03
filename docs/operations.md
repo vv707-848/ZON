@@ -89,7 +89,7 @@ php artisan zon:doctor
 
 | العرَض | انظر أولاً | ثم | الكود |
 |---|---|---|---|
-| الذكاء لا يرتّب، النتائج بلا أسباب | «مراقبة الذكاء»: نسبة `fallback`/`timeout` | `agents.log` ← النفق إلى عقدة الذكاء (`deploy/README.md` الخطوات 3–5) | `app/Ai/AiGateway.php` · `AgentsClient.php` |
+| الذكاء لا يرتّب (النتائج بترتيب SQL) | «مراقبة الذكاء»: نسبة `fallback`/`timeout` | `agents.log` ← النفق إلى عقدة الذكاء (`deploy/README.md` الخطوات 3–5) | `app/Ai/AiGateway.php` · `AgentsClient.php` |
 | عرض منشور لا يظهر في البحث الدلالي | «مراقبة الفهرسة»: إشارة معلّقة أو فاشلة (`last_error`) | «إعادة الإرسال» من الشاشة، أو `zon:reindex listing` | `app/Indexing/IndexSync.php` · `app/Jobs/PushIndexEvent.php` |
 | الصياغة لا تصل، والعرض عالق «قيد الصياغة» | `worker-ai.log`، ونداءات `clean_listing` | الطابور `ai` يعمل؟ (`zon:doctor` ← الطوابير) | `app/Jobs/CleanListingText.php` |
 | دفع ناجح لم يُفعِّل الباقة | «المدفوعات»: حالة `unapplied` وسببها | مطابقة المبلغ والعملة و`metadata.payment_id` لدى المزوّد | `app/Actions/Billing/ConfirmPayment.php` |
