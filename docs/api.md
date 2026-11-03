@@ -92,8 +92,8 @@
 | `GET` | `/me` | 🔒 | حسابي: الدور، الحالة، فال، نفاذ، الباقة وحدودها، تفضيلات الإشعار | `MeController@show` |
 | `PATCH` | `/me` | 🔒 | تعديل الاسم والمدينة | `MeController@update` |
 | `POST` | `/me/devices` | 🔒 | تسجيل رمز Push للجهاز (FCM) ومنصته | `MeController@registerDevice` |
-| `POST` | `/me/nafath` | 🔒 · otp: 3/10د للجوال · 10/س للعنوان | بدء التحقق عبر نفاذ: يُرجع الرقم الذي يختاره المستخدم في تطبيق نفاذ | `MeController@startNafath` |
-| `GET` | `/me/nafath` | 🔒 | حالة التحقق عبر نفاذ | `MeController@nafathStatus` |
+| `POST` | `/me/nafath` | 🔒 · otp: 3/10د للجوال · 10/س للعنوان | بدء التحقق عبر نفاذ: الرقم الذي يختاره المستخدم في تطبيق نفاذ ومهلته؛ طلب واحد في الوقت نفسه | `MeController@startNafath` |
+| `GET` | `/me/nafath` | 🔒 | حالة التحقق، و`attempt`: waiting · verified · rejected · expired (يبدأ من جديد) | `MeController@nafathStatus` |
 | `PUT` | `/me/notification-preferences` | 🔒 | مفاتيح الإشعارات الست: رسائل · نشر المتابَعين · طلبات المنطقة · حالة الإعلان · تقييمات · مطابقة | `MeController@notificationPrefs` |
 | `PUT` | `/me/password` | 🔒 · login: 5/د | تغيير كلمة السر (`current_password` مطلوبة)؛ تخرج الأجهزة الأخرى | `MeController@changePassword` |
 | `POST` | `/me/phone` | 🔒 · otp: 3/10د للجوال · 10/س للعنوان | طلب تغيير الجوال: رمز إلى الرقم الجديد | `MeController@changePhone` |

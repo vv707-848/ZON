@@ -10,6 +10,9 @@ return [
 
     'admin_allowed_ips' => array_values(array_filter(array_map('trim', explode(',', (string) env('ADMIN_ALLOWED_IPS', ''))))),
 
+    // A Nafath request lives about three minutes (to confirm with Elm's documentation at contract time).
+    'nafath' => ['request_seconds' => 180],
+
     'otp' => [
         'length' => 6,
         'ttl_minutes' => 5,
