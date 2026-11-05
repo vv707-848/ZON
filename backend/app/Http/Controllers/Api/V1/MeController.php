@@ -70,7 +70,7 @@ class MeController extends Controller
         return Api::ok();
     }
 
-    /** The six switches of the app's settings; a missing one keeps its value. */
+    /** The switches of the app's settings (the six, and «العروض والتسويق»); a missing one keeps its value. */
     public function notificationPrefs(Request $request): JsonResponse
     {
         $me = $request->user('api');

@@ -11,7 +11,8 @@ use Illuminate\Notifications\Notification;
 
 /**
  * One notice of the app: the bell (database, as the app's AppNotification {kind, title, body, target, key})
- * and a push to the account's phones. A notice tied to one of the six switches is not sent when it is off.
+ * and a push to the account's phones. A notice tied to a switch is not sent when it is off; a promotion goes to the
+ * bell always and to the phones only with «العروض والتسويق» on.
  * Every notice is built in App\Notifications\Notices.
  */
 class AppNotice extends Notification implements ShouldQueue
@@ -25,6 +26,7 @@ class AppNotice extends Notification implements ShouldQueue
         public readonly string $target,
         public readonly ?NoticePref $pref = null,
         public readonly ?string $key = null,
+        public readonly bool $promotion = false,
     ) {
         $this->onQueue('notify');
     }
@@ -34,6 +36,10 @@ class AppNotice extends Notification implements ShouldQueue
     {
         if ($notifiable->anonymized_at !== null || ($this->pref !== null && ! $notifiable->wants($this->pref))) {
             return [];
+        }
+
+        if ($this->promotion && ! $notifiable->wants(NoticePref::Marketing)) {
+            return ['database'];
         }
 
         return ['database', PushChannel::class];

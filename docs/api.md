@@ -94,7 +94,7 @@
 | `POST` | `/me/devices` | 🔒 | تسجيل رمز Push للجهاز (FCM) ومنصته — مربوط بجلسة هذا الجهاز | `MeController@registerDevice` |
 | `POST` | `/me/nafath` | 🔒 · otp: 3/10د للجوال · 10/س للعنوان | بدء التحقق عبر نفاذ: الرقم الذي يختاره المستخدم في تطبيق نفاذ ومهلته؛ طلب واحد في الوقت نفسه | `MeController@startNafath` |
 | `GET` | `/me/nafath` | 🔒 | حالة التحقق، و`attempt`: waiting · verified · rejected · expired (يبدأ من جديد) | `MeController@nafathStatus` |
-| `PUT` | `/me/notification-preferences` | 🔒 | مفاتيح الإشعارات الست: رسائل · نشر المتابَعين · طلبات المنطقة · حالة الإعلان · تقييمات · مطابقة | `MeController@notificationPrefs` |
+| `PUT` | `/me/notification-preferences` | 🔒 | مفاتيح الإشعارات: الست مفعّلة افتراضياً (رسائل · نشر المتابَعين · طلبات المنطقة · حالة الإعلان · تقييمات · مطابقة)، و`marketing` (العروض والتسويق) مطفأ حتى يوافق المستخدم | `MeController@notificationPrefs` |
 | `PUT` | `/me/password` | 🔒 · login: 5/د | تغيير كلمة السر (`current_password` مطلوبة)؛ تخرج الأجهزة الأخرى | `MeController@changePassword` |
 | `POST` | `/me/phone` | 🔒 · otp: 3/10د للجوال · 10/س للعنوان | طلب تغيير الجوال: رمز إلى الرقم الجديد | `MeController@changePhone` |
 | `POST` | `/me/phone/verify` | 🔒 | تأكيد الجوال الجديد بالرمز | `MeController@verifyPhone` |
