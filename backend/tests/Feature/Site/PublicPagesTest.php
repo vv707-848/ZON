@@ -164,7 +164,9 @@ class PublicPagesTest extends TestCase
         $this->get($this->site('sitemap.xml'))->assertOk()->assertHeader('Content-Type', 'application/xml; charset=UTF-8')
             ->assertSee('https://zon.sa/sitemaps/listings-1.xml');
         $this->get($this->site('sitemaps/listings-1.xml'))->assertOk()->assertSee("https://zon.sa/listings/{$live->id}<", false)->assertDontSee("listings/{$paused->id}<", false);
-        $this->get($this->site('sitemaps/pages.xml'))->assertOk()->assertSee('https://zon.sa/listings?city=%D8%A7%D9%84%D8%B1%D9%8A%D8%A7%D8%B6', false);
+        $this->get($this->site('sitemaps/pages.xml'))->assertOk()->assertSee('https://zon.sa/listings?city=%D8%A7%D9%84%D8%B1%D9%8A%D8%A7%D8%B6', false)
+            ->assertSee('https://zon.sa/packages<', false);
+        $this->get($this->site('robots.txt'))->assertSee('Disallow: /pay/')->assertSee('Disallow: /account');
         $this->get($this->site('sitemaps/users.xml'))->assertOk()->assertSee('https://zon.sa/users/');
     }
 
