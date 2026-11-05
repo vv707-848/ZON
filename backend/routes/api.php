@@ -52,6 +52,8 @@ Route::middleware('throttle:api')->group(function () {
             Route::put('password', 'changePassword')->middleware('throttle:login');
             Route::put('notification-preferences', 'notificationPrefs');
             Route::post('devices', 'registerDevice');
+            Route::get('sessions', 'sessions');
+            Route::delete('sessions/{session}', 'endSession')->whereNumber('session');
             Route::post('nafath', 'startNafath')->middleware('throttle:otp');
             Route::get('nafath', 'nafathStatus');
         });

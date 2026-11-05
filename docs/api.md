@@ -57,7 +57,7 @@
 | 502 | `INTEGRATION_FAILED` | تعذّر الاتصال بالجهة المختصة، حاول لاحقاً. |
 | 500 | `SERVER_ERROR` | حدث خطأ غير متوقع. |
 
-## نقاط الواجهة (142)
+## نقاط الواجهة (144)
 
 الصلاحية: `عام` بلا دخول · 🔒 رمز مميِّز · الدور · `رغبة` = الباحث يحتاج رغبة فعّالة (428) · `حصة` = رصيد الذكاء اليومي. العمود الأخير موضع الكود في `app/Http/Controllers/Api/V1`.
 
@@ -91,13 +91,15 @@
 | `POST` | `/account/legacy-claims` | 🔒 · reports: 20/س | طلب استعادة بيانات الإصدار السابق؛ تراجعه اللوحة يدوياً | `AccountController@legacyClaim` |
 | `GET` | `/me` | 🔒 | حسابي: الدور، الحالة، فال، نفاذ، الباقة وحدودها، تفضيلات الإشعار | `MeController@show` |
 | `PATCH` | `/me` | 🔒 | تعديل الاسم والمدينة | `MeController@update` |
-| `POST` | `/me/devices` | 🔒 | تسجيل رمز Push للجهاز (FCM) ومنصته | `MeController@registerDevice` |
+| `POST` | `/me/devices` | 🔒 | تسجيل رمز Push للجهاز (FCM) ومنصته — مربوط بجلسة هذا الجهاز | `MeController@registerDevice` |
 | `POST` | `/me/nafath` | 🔒 · otp: 3/10د للجوال · 10/س للعنوان | بدء التحقق عبر نفاذ: الرقم الذي يختاره المستخدم في تطبيق نفاذ ومهلته؛ طلب واحد في الوقت نفسه | `MeController@startNafath` |
 | `GET` | `/me/nafath` | 🔒 | حالة التحقق، و`attempt`: waiting · verified · rejected · expired (يبدأ من جديد) | `MeController@nafathStatus` |
 | `PUT` | `/me/notification-preferences` | 🔒 | مفاتيح الإشعارات الست: رسائل · نشر المتابَعين · طلبات المنطقة · حالة الإعلان · تقييمات · مطابقة | `MeController@notificationPrefs` |
 | `PUT` | `/me/password` | 🔒 · login: 5/د | تغيير كلمة السر (`current_password` مطلوبة)؛ تخرج الأجهزة الأخرى | `MeController@changePassword` |
 | `POST` | `/me/phone` | 🔒 · otp: 3/10د للجوال · 10/س للعنوان | طلب تغيير الجوال: رمز إلى الرقم الجديد | `MeController@changePhone` |
 | `POST` | `/me/phone/verify` | 🔒 | تأكيد الجوال الجديد بالرمز | `MeController@verifyPhone` |
+| `GET` | `/me/sessions` | 🔒 | أجهزتي: جلسة لكل جهاز (الاسم، المنصة، آخر استخدام، وهذا الجهاز) | `MeController@sessions` |
+| `DELETE` | `/me/sessions/{session}` | 🔒 | إنهاء جلسة جهاز: يخرج ويتوقف عنه الـ Push | `MeController@endSession` |
 | `GET` | `/notifications` | 🔒 | الإشعارات (صفحات)، و`meta.unread` | `NotificationController@index` |
 | `POST` | `/notifications/read` | 🔒 | تعليم إشعارات أو كلها كمقروءة | `NotificationController@read` |
 | `GET` | `/preferences` | 🔒 | رغباتي (الباحث) | `PreferenceController@index` |

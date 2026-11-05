@@ -15,6 +15,7 @@ use App\Filament\Resources\Customers\Pages\ListCustomers;
 use App\Filament\Resources\Customers\Pages\ViewCustomer;
 use App\Filament\Resources\Customers\RelationManagers\ListingsRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\PaymentsRelationManager;
+use App\Filament\Resources\Customers\RelationManagers\SessionsRelationManager;
 use App\Filament\Resources\Customers\RelationManagers\SubscriptionsRelationManager;
 use App\Filament\Support\Columns;
 use App\Models\City;
@@ -188,7 +189,7 @@ class CustomerResource extends Resource
 
     public static function getRelations(): array
     {
-        return [ListingsRelationManager::class, SubscriptionsRelationManager::class, PaymentsRelationManager::class];
+        return [ListingsRelationManager::class, SubscriptionsRelationManager::class, PaymentsRelationManager::class, SessionsRelationManager::class];
     }
 
     public static function getPages(): array
