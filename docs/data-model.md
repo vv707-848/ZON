@@ -117,6 +117,7 @@
 | `training_corpus` | `TrainingSample` | نصوص مقنَّعة عند المصدر لتدريب نموذج محلي لاحقاً |
 | `daily_metrics` · `daily_area_stats` | `DailyMetric` · `DailyAreaStat` | لقطات يومية للوحة الرئيسية ولتقارير السوق |
 | `exec_reports` | `ExecReport` | أرشيف الوكيل الأعلى: السؤال، القالب، المعاملات، الصفوف، التحليل، الحالة |
+| `model_evaluations` | `ModelEvaluation` | مختبر النماذج: جولة قياس لكل تقرير يُرفع (ملف النموذج، البطاقة، مجموعة الأسئلة ببصمتها، درجة كل وكيل، والتقرير كاملاً بأجوبته) |
 | `activity_log` | spatie | سجل التدقيق لكل إجراء موظف واطلاع حساس، مع `trace_id` |
 | `settings` | `SettingValue` | ما غيّرته اللوحة من القيم التجارية؛ الافتراضي في `App\Support\Settings\Setting` |
 | `cities` · `neighborhoods` | `City` · `Neighborhood` | المرجع الجغرافي |

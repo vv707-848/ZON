@@ -63,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
         'announcement' => Models\Announcement::class,
         'index_event' => Models\IndexEvent::class,
         'exec_report' => Models\ExecReport::class,
+        'model_evaluation' => Models\ModelEvaluation::class,
         'role' => Role::class,
         'permission' => Permission::class,
     ];
