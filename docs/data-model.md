@@ -120,7 +120,7 @@
 | `activity_log` | spatie | سجل التدقيق لكل إجراء موظف واطلاع حساس، مع `trace_id` |
 | `settings` | `SettingValue` | ما غيّرته اللوحة من القيم التجارية؛ الافتراضي في `App\Support\Settings\Setting` |
 | `cities` · `neighborhoods` | `City` · `Neighborhood` | المرجع الجغرافي |
-| `app_configs` · `legal_pages` | `AppConfig` · `LegalPage` | الإصدار الأدنى والصيانة لكل منصة، ونصوص السياسات بأرقام نسخها |
+| `app_configs` · `legal_pages` | `AppConfig` · `LegalPage` | الإصدار الأدنى والصيانة ورابط المتجر لكل منصة (فارغ حتى يُنشر التطبيق فيه). ونصوص السياسات بأرقام نسخها، وكل سياسة مسودة (`published_at` فارغ) حتى يحفظها صاحبها أول مرة |
 
 ## مشاهد التقارير `ai_v_*`
 

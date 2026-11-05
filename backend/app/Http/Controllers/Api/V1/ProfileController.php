@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\CustomerRole;
 use App\Enums\ErrorCode;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
@@ -12,7 +11,7 @@ use App\Models\Customer;
 use App\Models\Follow;
 use App\Models\Rating;
 use App\Support\Api;
-use App\Support\Blocks;
+use App\Support\PublicView;
 use App\Support\Sandbox;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,8 +50,7 @@ class ProfileController extends Controller
     {
         $viewer = $request->user('api');
         $viewer = $viewer instanceof Customer ? $viewer : null;
-        if ($customer->role === CustomerRole::Seeker || $customer->anonymized_at !== null || ! $customer->isActive()
-            || ($viewer?->id !== $customer->id && Blocks::hides($viewer, $customer))) {
+        if (! PublicView::profile($customer, $viewer)) {
             throw ApiException::of(ErrorCode::NotFound);
         }
 

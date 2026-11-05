@@ -3,13 +3,17 @@
 use App\Exceptions\ApiErrors;
 use App\Exceptions\ApiException;
 use App\Http\Middleware;
+use App\Support\Site\Site;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware as Stack;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Support\Facades\Route;
 
 // The three parties meet here: the app on /api/v1 (routes/api.php), the admin panel on /admin (Filament,
 // app/Providers/Filament), the AI service only through App\Ai\AiGateway. Every request gets a trace id first.
+// The website (routes/site.php) answers on its own host, config zon.deep_link_base (https://zon.sa).
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
@@ -17,6 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
         apiPrefix: 'api/v1',
+        // The website on its own host (zon.sa), before routes/web.php's catch-alls would answer for it.
+        then: fn () => Route::domain(Site::host())->group(base_path('routes/site.php')),
     )
     // Reverb's private channels, authorized with the app's token on /api/v1/broadcasting/auth.
     ->withBroadcasting(__DIR__.'/../routes/channels.php', ['prefix' => 'api/v1', 'middleware' => ['api', 'auth:api']])
@@ -31,6 +37,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'ai.quota' => Middleware\EnforceAiQuota::class,
         ]);
         $middleware->api(prepend: [Middleware\CheckAppVersion::class]);
+        // The website's reading pages: no session and no cookie (crawlers leave nothing), Arabic, security headers.
+        $middleware->group('site', [SubstituteBindings::class, Middleware\SiteHeaders::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReport([ApiException::class]);

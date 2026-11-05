@@ -37,6 +37,9 @@ return [
         'key_id' => env('APP_STORE_KEY_ID'),
         'private_key' => env('APP_STORE_PRIVATE_KEY'),       // path to the .p8 key of App Store Connect
         'bundle_id' => env('APP_STORE_BUNDLE_ID', 'com.zon.app'),
+        // The Team ID of the Apple developer account (Membership details): with the bundle id it names the app in
+        // apple-app-site-association, so zon.sa links open the app. Empty: the file is not served.
+        'team_id' => env('APPLE_TEAM_ID'),
         'url' => env('APP_STORE_URL', 'https://api.storekit.apple.com'),
         'sandbox_url' => env('APP_STORE_SANDBOX_URL', 'https://api.storekit-sandbox.apple.com'),
     ],
@@ -44,6 +47,9 @@ return [
         'driver' => env('GOOGLE_PLAY_DRIVER', 'fake'),      // fake · google
         'package' => env('GOOGLE_PLAY_PACKAGE', 'com.zon.app'),
         'credentials' => env('GOOGLE_PLAY_CREDENTIALS'),     // path to the service-account JSON (Play Console access)
+        // SHA-256 fingerprints of the app's signing certificates (Play Console → App integrity → App signing; and the
+        // upload key's for test builds), comma separated: assetlinks.json lets zon.sa links open the app. Empty: not served.
+        'cert_fingerprints' => array_values(array_filter(array_map('trim', explode(',', (string) env('ANDROID_CERT_SHA256', ''))))),
     ],
     // The stores' notices reach /api/v1/store/notices/{store}?key=… — the key keeps strangers' calls out.
     'store_notices_key' => env('STORE_NOTICES_KEY'),

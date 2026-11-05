@@ -28,6 +28,7 @@ use App\Support\Actor;
 use App\Support\Api;
 use App\Support\Blocks;
 use App\Support\Ownership;
+use App\Support\PublicView;
 use App\Support\Settings\Setting;
 use App\Support\Settings\Settings;
 use Illuminate\Database\Eloquent\Builder;
@@ -87,7 +88,7 @@ class ListingController extends Controller
         $viewer = $request->user('api');
         $viewer = $viewer instanceof Customer ? $viewer : null;
         $mine = $viewer !== null && $viewer->id === $listing->customer_id;
-        if (! $mine && (! $listing->isLive() || Blocks::hides($viewer, $listing->customer))) {
+        if (! PublicView::listing($listing, $viewer)) {
             throw ApiException::of(ErrorCode::NotFound);
         }
         if (! $mine && ! $viewer?->is_tester) {
