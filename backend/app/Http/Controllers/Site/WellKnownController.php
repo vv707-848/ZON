@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Site;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 
 /**
  * The files that let zon.sa links open the app where it is installed (the app's own paths: /listings/…, /projects/…,
@@ -26,6 +27,15 @@ class WellKnownController extends Controller
             'appIDs' => [$team.'.'.config('services.app_store.bundle_id')],
             'components' => array_map(fn (string $path) => ['/' => $path], self::APP_PATHS),
         ]]]])->setPublic()->setMaxAge(3600);
+    }
+
+    /** Apple Pay on the website: the domain file Moyasar's dashboard gives when zon.sa is registered (MOYASAR_APPLE_PAY_DOMAIN_FILE). */
+    public function applePay(): Response
+    {
+        $file = (string) config('services.payments.moyasar.apple_pay_domain_file');
+        abort_if($file === '' || ! is_file($file), 404);
+
+        return response((string) file_get_contents($file), 200, ['Content-Type' => 'text/plain'])->setPublic()->setMaxAge(3600);
     }
 
     public function android(): JsonResponse
