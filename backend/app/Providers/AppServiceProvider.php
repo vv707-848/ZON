@@ -108,5 +108,8 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('wording', fn (Request $request) => Limit::perHour(60)->by('wording:'.$who($request)));
         // Each one asks REGA.
         RateLimiter::for('licence', fn (Request $request) => Limit::perHour(20)->by('licence:'.$who($request)));
+        // The website's forms (complaints and replies) and looking a complaint up by its number and phone.
+        RateLimiter::for('site-forms', fn (Request $request) => Limit::perHour(10)->by('site-forms:'.$request->ip()));
+        RateLimiter::for('site-lookup', fn (Request $request) => Limit::perHour(20)->by('site-lookup:'.$request->ip()));
     }
 }

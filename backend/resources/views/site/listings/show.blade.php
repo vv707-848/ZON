@@ -123,6 +123,7 @@
             </div>
         @endif
 
+        <p class="small"><a class="muted" href="{{ Site::url('complaints') }}?listing={{ $listing->id }}"><x-site.icon name="Flag" :size="14" class="inline" /> بلّغ عن هذا الإعلان</a></p>
         <div class="cta">
             <h2>تواصل مع المعلن</h2>
             <p>أرقام المعلن والمحادثة معه في تطبيق زون، بعد تسجيل الدخول.</p>

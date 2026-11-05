@@ -30,12 +30,14 @@ class ViewSupportTicket extends ViewRecord
         $can = fn () => Staff::can(Permission::HandleSupport);
 
         return [
+            // A visitor of the website reads the reply on his complaint's page (its private link, or its number and phone).
             Action::make('reply')->label('رد')->icon('heroicon-o-chat-bubble-left-right')
-                ->visible(fn () => $can() && $this->ticket()->customer_id !== null)
-                ->schema([Textarea::make('body')->label('الرد (يصل للمستخدم من «فريق زون»)')->required()->maxLength(2000)->rows(5)])
+                ->visible(fn () => $can())
+                ->schema(fn () => [Textarea::make('body')->required()->maxLength(2000)->rows(5)
+                    ->label($this->ticket()->customer_id !== null ? 'الرد (يصل للمستخدم من «فريق زون»)' : 'الرد (يقرؤه الزائر في صفحة متابعة شكواه على الموقع، من «فريق زون»)')])
                 ->action(function (array $data) {
                     app(SupportDesk::class)->replyAsStaff($this->ticket(), Staff::user(), $data['body']);
-                    Notification::make()->title('وصل الرد للمستخدم')->success()->send();
+                    Notification::make()->title($this->ticket()->customer_id !== null ? 'وصل الرد للمستخدم' : 'أُضيف الرد إلى صفحة متابعة الشكوى')->success()->send();
                 }),
             Action::make('close')->label('إغلاق')->color('gray')->icon('heroicon-o-check')
                 ->visible(fn () => $can() && $this->ticket()->status !== TicketStatus::Closed)

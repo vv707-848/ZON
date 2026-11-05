@@ -35,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => Middleware\RequireRole::class,
             'preference' => Middleware\RequirePreference::class,
             'ai.quota' => Middleware\EnforceAiQuota::class,
+            'site.headers' => Middleware\SiteHeaders::class,      // the website's forms (routes/site.php)
         ]);
         $middleware->api(prepend: [Middleware\CheckAppVersion::class]);
         // The website's reading pages: no session and no cookie (crawlers leave nothing), Arabic, security headers.
