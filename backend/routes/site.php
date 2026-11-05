@@ -35,3 +35,15 @@ Route::middleware('site')->group(function () {
     Route::get('.well-known/apple-app-site-association', [Site\WellKnownController::class, 'apple']);
     Route::get('.well-known/assetlinks.json', [Site\WellKnownController::class, 'android']);
 });
+
+// Forms: a session and CSRF protection (group «web»), and the website's headers.
+Route::middleware(['web', 'site.headers'])->group(function () {
+    // REGA's rule (Art. 8(8) of the marketing and advertising regulation, 1 May 2026): a complaint form, its number
+    // and date, the actions taken and the processing time.
+    Route::get('complaints', [Site\ComplaintController::class, 'create'])->name('site.complaints');
+    Route::post('complaints', [Site\ComplaintController::class, 'store'])->middleware('throttle:site-forms');
+    Route::get('complaints/track', [Site\ComplaintController::class, 'lookup'])->name('site.complaints.track');
+    Route::post('complaints/track', [Site\ComplaintController::class, 'find'])->middleware('throttle:site-lookup');
+    Route::get('complaints/{ticket:reference}', [Site\ComplaintController::class, 'show'])->middleware('signed')->name('site.complaint');
+    Route::post('complaints/{ticket:reference}', [Site\ComplaintController::class, 'reply'])->middleware(['signed', 'throttle:site-forms'])->name('site.complaint.reply');
+});
