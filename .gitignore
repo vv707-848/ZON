@@ -1,5 +1,6 @@
-# Each part keeps its own rules (backend/.gitignore · agents/.gitignore · app/.gitignore).
+# Each part keeps its own rules (backend/.gitignore · agents/.gitignore · app/.gitignore); the scripts in _tools/ leave a cache.
 .DS_Store
 Thumbs.db
 .idea/
 *.swp
+_tools/__pycache__/

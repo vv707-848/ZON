@@ -7,9 +7,20 @@ Laravel sent (`terms` — «حوش» → «فناء»), because literal matching
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import date
+from typing import Protocol
 
 from zon_agents.embeddings import Embedder, Embedding
 from zon_agents.store import Hit, KnowledgeChunk, VectorStore
+
+
+class Retriever(Protocol):
+    """What the pipelines need from retrieval — Qdrant here, a fixed order in the model lab."""
+
+    async def query(self, text: str, terms: Sequence[str] = ()) -> Embedding: ...
+
+    async def rank(self, collection: str, query: Embedding, ids: Sequence[int], limit: int) -> list[Hit]: ...
+
+    async def knowledge(self, question: str, today: date) -> list[KnowledgeChunk]: ...
 
 
 class Retrieval:

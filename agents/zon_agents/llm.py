@@ -29,7 +29,6 @@ from pydantic_ai.profiles import InlineDefsJsonSchemaTransformer
 from pydantic_ai.profiles.openai import OpenAIModelProfile
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from zon_agents.config import Settings
 from zon_agents.errors import DependencyUnavailable
 from zon_agents.profiles import ModelProfile, Use
 
@@ -71,18 +70,19 @@ def load_prompts(directory: Path = PROMPTS_DIR) -> dict[str, Prompt]:
     return prompts
 
 
-def openai_model(settings: Settings) -> OpenAIChatModel:
+def openai_model(base_url: str, api_key: str, name: str, timeout: float) -> OpenAIChatModel:
+    """The engine's OpenAI-compatible endpoint; `name` is the name it serves the model under (zon-ai)."""
     client = AsyncOpenAI(
-        base_url=settings.llm_base_url,
-        api_key=settings.llm_api_key.get_secret_value(),
+        base_url=base_url,
+        api_key=api_key,
         max_retries=0,  # no retry after a timeout: under load a retry doubles the load
-        timeout=settings.request_budget_seconds,
+        timeout=timeout,
     )
     # PydanticAI's own «profile» of the endpoint (what it supports), not a Zon model profile.
     capabilities = OpenAIModelProfile(
         supports_json_schema_output=True, json_schema_transformer=InlineDefsJsonSchemaTransformer
     )
-    return OpenAIChatModel(settings.llm_model, provider=OpenAIProvider(openai_client=client), profile=capabilities)
+    return OpenAIChatModel(name, provider=OpenAIProvider(openai_client=client), profile=capabilities)
 
 
 class LLM:
