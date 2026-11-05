@@ -207,6 +207,10 @@ final class SystemHealth
         $parts = ['llm' => 'النموذج', 'embed' => 'التضمين', 'qdrant' => 'Qdrant'];
         $down = array_filter($parts, fn (string $key) => $response->json($key) !== true, ARRAY_FILTER_USE_KEY);
         $detail = implode(' · ', array_map(fn (string $key, string $name) => $name.' '.(isset($down[$key]) ? '✗' : '✓'), array_keys($parts), $parts));
+        $model = $response->json('model');
+        if (is_string($model) && $model !== '') {
+            $detail .= " · {$model}";                    // the model profile the AI node serves (agents' LLM_PROFILE)
+        }
         if ($down === []) {
             return [HealthStatus::Ok, $detail];
         }

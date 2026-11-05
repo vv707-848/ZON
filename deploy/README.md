@@ -8,7 +8,7 @@
 |---|---|
 | **التطبيق — جدة** (Oracle · ‏10.10.0.10) | Nginx · ‏PHP-FPM + Laravel (‏`/var/www/zon/backend`) · العمّال وReverb وخدمة الوكلاء عبر Supervisor · ‏Dragonfly · ‏MinIO |
 | **البيانات — جدة** (Oracle · ‏10.10.0.20) | MySQL 9.7 LTS · ‏Qdrant 1.20 — بلا منفذ عام |
-| **الذكاء — RunPod** (A40 · Pod ثابت) | SGLang + Escha · خادم التضمين bge-m3 — بلا منفذ وارد، ونفق SSH صادر منها إلى عقدة التطبيق |
+| **الذكاء — RunPod** (A40 · Pod ثابت) | محرك النموذج حسب ملفه (vLLM أو SGLang أو Escha) · خادم التضمين bge-m3 — بلا منفذ وارد، ونفق SSH صادر منها إلى عقدة التطبيق |
 
 ## الملفات
 
@@ -25,7 +25,20 @@
 | `qdrant/config.yaml` | `/etc/qdrant/config.yaml` | البيانات |
 | `backup/zon-backup.sh` · `backup/cron` · `backup/backup.cnf.example` | `/usr/local/bin/` · `/etc/cron.d/zon-backup` · `/etc/zon/backup.cnf` | البيانات |
 | `ai-node/install.sh` | يُشغَّل مرة من طرفية الـ Pod | الذكاء |
-| `ai-node/entrypoint.sh` · `ai-node/embed/server.py` | `/workspace/entrypoint.sh` · `/workspace/embed/server.py` | الذكاء |
+| `ai-node/entrypoint.sh` · `ai-node/serve.py` · `ai-node/embed/server.py` | `/workspace/entrypoint.sh` · `/workspace/serve.py` · `/workspace/embed/server.py` | الذكاء |
+| `agents/zon_agents/models/*.toml` (ملفات النماذج) | `/workspace/profiles/` | الذكاء |
+
+## إعدادات الـ Pod
+
+ثلاثة متغيرات، وغياب أي منها يوقف الإقلاع برسالة صريحة:
+
+| المتغير | القيمة |
+|---|---|
+| `APP_NODE_IP` | عنوان عقدة التطبيق (النفق) |
+| `LLM_API_KEY` | مفتاح المحرك — القيمة نفسها في `agents/.env` |
+| `ZON_PROFILE` | ملف النموذج الذي تخدمه البطاقة — الاسم نفسه في `LLM_PROFILE` بخدمة الوكلاء |
+
+تبديل النموذج: تثبيت ملفه بالخطوة ② من `install.sh`، ثم تغيير `ZON_PROFILE` و`LLM_PROFILE` معاً، ثم إعادة تشغيل الـ Pod وخدمة الوكلاء.
 
 ## ترتيب الإقلاع
 
@@ -37,7 +50,7 @@
 | 2 | أمر بدء الـ Pod: `bash /workspace/entrypoint.sh` | يفتح النفق، ثم يرفع التضمين، ثم النموذج |
 | 3 | النفق | `ss -ltn` على عقدة التطبيق يُظهر `127.0.0.1:30000` و`127.0.0.1:18080` |
 | 4 | خادم التضمين bge-m3 | يرجع 3 متجهات لنص تجريبي عبر `127.0.0.1:18080` |
-| 5 | SGLang + Escha | `curl /v1/models` بالمفتاح على `127.0.0.1:30000` |
+| 5 | محرك النموذج (`ZON_PROFILE`) | `curl /v1/models` بالمفتاح على `127.0.0.1:30000` يعرض `zon-ai` |
 | 6 | طبقة الوكلاء | `GET http://127.0.0.1:8100/agents/health` |
 | 7 | Laravel + عمّال الطوابير | طابور الفهرسة يستهلك المهام، و`php artisan zon:doctor` بلا عطل |
 | 8 | Nginx | الشهادة صالحة، وطلب تجريبي ناجح |

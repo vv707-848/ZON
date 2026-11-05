@@ -21,10 +21,12 @@ class Settings(BaseSettings):
     index_max_skew_seconds: int = 300
     index_state_path: Path = Path("var/index_state.sqlite3")
 
-    # LLM: SGLang OpenAI-compatible server reached through the SSH tunnel.
+    # LLM: the AI node's OpenAI-compatible server (SGLang or vLLM) reached through the SSH tunnel. The profile is the
+    # model it serves (zon_agents/models/<profile>.toml); "zon-ai" is the name it serves it under, whatever the model.
     llm_base_url: str = "http://127.0.0.1:30000/v1"
     llm_api_key: SecretStr
     llm_model: str = "zon-ai"
+    llm_profile: str = "qwen3.6-35b-a3b-escha-w2"
     llm_max_concurrency: int = Field(default=8, ge=1)  # = MAXREQ of the GPU node (architecture §7.5)
     # Budget of one agent call: the model step gives up at it, the whole call 2 s later; Laravel cuts at 20 s.
     request_budget_seconds: float = Field(default=15.0, gt=0, le=17)

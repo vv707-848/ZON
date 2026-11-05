@@ -1,0 +1,22 @@
+# Qwen3.6-35B-A3B بدقة FP8 للأوزان والتفعيلات (RedHatAI): 99–101% من النموذج الكامل في أغلب اختبارات بطاقته،
+# ونصف حجم 16-bit. وA40 (Ampere) بلا FP8 في عتادها، فيشغّله vLLM بنواة Marlin للأوزان — سرعته عليها تُقاس.
+# وأوزانه نحو 36GB من نحو 44GB تظهر في A40 مع ECC، ومعها خادم التضمين: الذاكرة الباقية للسياق ضيقة — تُقاس أيضاً.
+name = "qwen3.6-35b-a3b-fp8"
+weights = "RedHatAI/Qwen3.6-35B-A3B-FP8-dynamic"
+runtime = "vllm"
+licence = "Apache-2.0"
+
+# معاملات بطاقة Qwen3.6 لوضع بلا تفكير (0.7 · 0.8 · 20 · 1.5)، بحرارة أخفض لمخرجات JSON. ولا حرارة صفر أبداً:
+# البطاقة تنهى عن الترميز الجشع.
+[sampling]
+json = { temperature = 0.3, top_p = 0.8, max_tokens = 700 }
+summary = { temperature = 0.4, top_p = 0.8, max_tokens = 600 }
+report = { temperature = 0.4, top_p = 0.8, max_tokens = 900 }
+chat = { temperature = 0.7, top_p = 0.8, max_tokens = 500, presence_penalty = 1.5 }
+
+[request]
+top_k = 20
+chat_template_kwargs = { enable_thinking = false }
+
+[serve]
+args = ["--max-model-len", "32768", "--max-num-seqs", "8", "--gpu-memory-utilization", "0.90"]

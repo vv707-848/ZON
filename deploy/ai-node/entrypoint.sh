@@ -4,7 +4,8 @@
 set -euo pipefail
 
 # متغيّران يُضبطان في إعدادات الـ Pod — غيابهما يوقف الإقلاع برسالة صريحة
-: "${APP_NODE_IP:?}" "${SGLANG_API_KEY:?}"
+# ZON_PROFILE: ملف النموذج الذي تخدمه البطاقة — هو نفسه LLM_PROFILE في خدمة الوكلاء
+: "${APP_NODE_IP:?}" "${LLM_API_KEY:?}" "${ZON_PROFILE:?}"
 
 # ① النفق: البطاقة تفتح اتصالاً صادراً إلى عقدة التطبيق — لا منفذ وارد عليها
 # التضمين يصل هناك على 18080 لأن 8080 منفذ Laravel Reverb
@@ -35,11 +36,5 @@ for _ in $(seq 1 150); do
 done
 curl -sf http://127.0.0.1:8080/health >/dev/null || { echo "embedding server not ready" >&2; exit 1; }
 
-# ③ النموذج في الواجهة — سكربت المزوّد الرسمي بمتغيرات فقط
-export VENV=/workspace/venv
-export MODEL=/workspace/models/Qwen3.6-35B-A3B-Escha-W2
-export TRITON_CACHE_DIR=/workspace/cache/triton
-export SERVED_NAME=zon-ai HOST=127.0.0.1 PORT=30000 API_KEY="$SGLANG_API_KEY"
-export CTXLEN=32768 MAXREQ=8 MAXMAMBA=8 RADIX=0
-export GRAPHS=1 CUDA_GRAPH_BS="1 2 4 8" THINK=0 INT8=on MEM=0.75
-exec bash /workspace/escha/sglang/serve.sh
+# ③ النموذج: ملفه يحدد المحرك وخياراته (serve.py)، ويُخدَم دائماً باسم zon-ai على 127.0.0.1:30000
+exec python3 /workspace/serve.py "$ZON_PROFILE"

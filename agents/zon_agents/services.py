@@ -9,6 +9,7 @@ from zon_agents.embeddings import Embedder, HttpEmbedder
 from zon_agents.indexing import VersionStore
 from zon_agents.llm import LLM, load_prompts, openai_model
 from zon_agents.phash import Hasher, build_hasher
+from zon_agents.profiles import load_profile
 from zon_agents.store import VectorStore
 
 
@@ -42,6 +43,7 @@ def build_services(settings: Settings) -> Services:
     llm = LLM(
         openai_model(settings),
         load_prompts(),
+        profile=load_profile(settings.llm_profile),
         max_concurrency=settings.llm_max_concurrency,
         budget_seconds=settings.request_budget_seconds,
         health_url=settings.llm_base_url.rstrip("/") + "/models",

@@ -1,0 +1,20 @@
+# Qwen3.8-27B (أغسطس 2026): كثيف، أوزانه BF16 نحو 56GB — يُحمَّل بتكميم FP8 عند الإقلاع (نحو 28GB) ليدخل بطاقة 48GB.
+# كثافته تعني سرعة أقل من نماذج 3–4B نشطة على البطاقة نفسها — تُقاس.
+name = "qwen3.8-27b-fp8"
+weights = "Qwen/Qwen3.8-27B"
+runtime = "vllm"
+licence = "Apache-2.0"
+
+# معاملات Qwen3.8 لوضع بلا تفكير (0.7 · 0.8 · 20 · 1.5)، والتفكير مطفأ بـ reasoning_effort = none.
+[sampling]
+json = { temperature = 0.3, top_p = 0.8, max_tokens = 700 }
+summary = { temperature = 0.4, top_p = 0.8, max_tokens = 600 }
+report = { temperature = 0.4, top_p = 0.8, max_tokens = 900 }
+chat = { temperature = 0.7, top_p = 0.8, max_tokens = 500, presence_penalty = 1.5 }
+
+[request]
+top_k = 20
+chat_template_kwargs = { reasoning_effort = "none" }
+
+[serve]
+args = ["--quantization", "fp8", "--max-model-len", "32768", "--max-num-seqs", "8", "--gpu-memory-utilization", "0.80"]

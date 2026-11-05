@@ -27,6 +27,7 @@ from zon_agents.errors import DependencyUnavailable
 from zon_agents.indexing import VersionStore
 from zon_agents.llm import LLM, load_prompts
 from zon_agents.main import create_app
+from zon_agents.profiles import load_profile
 from zon_agents.services import Services
 from zon_agents.store import VectorStore
 
@@ -79,14 +80,15 @@ Answer = dict[str, Any] | Exception | Callable[[dict[str, Any]], dict[str, Any] 
 
 class ScriptedModel:
     """Answers each agent with what the test put in `answers[agent]` (a dict, an exception, or a function of the
-    payload, called once per attempt). Every call is kept in `calls` as (agent, payload, temperature), and the
-    JSON schema each agent's answer was held to in `schemas[agent]`."""
+    payload, called once per attempt). Every call is kept in `calls` as (agent, payload, temperature), its whole
+    model settings in `settings`, and the JSON schema each agent's answer was held to in `schemas[agent]`."""
 
     def __init__(self) -> None:
         self.prompts = load_prompts()
         self._agents = {prompt.text: name for name, prompt in self.prompts.items()}
         self.answers: dict[str, Answer | list[Answer]] = {}
         self.calls: list[tuple[str, dict[str, Any], float | None]] = []
+        self.settings: list[dict[str, Any]] = []
         self.schemas: dict[str, dict[str, Any]] = {}
 
     def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
@@ -96,6 +98,7 @@ class ScriptedModel:
         payload = json.loads(str(prompt.content))
         temperature = (info.model_settings or {}).get("temperature")
         self.calls.append((agent, payload, temperature))
+        self.settings.append(dict(info.model_settings or {}))
         if info.model_request_parameters.output_object is not None:
             self.schemas[agent] = info.model_request_parameters.output_object.json_schema
         scripted = self.answers[agent]
@@ -126,7 +129,8 @@ def embedder() -> FakeEmbedder:
 def services(model: ScriptedModel, embedder: FakeEmbedder) -> Services:
     store = VectorStore(AsyncQdrantClient(location=":memory:"), colbert=True, turbo_bits="bits4", prefetch_limit=100)
     asyncio.run(store.bootstrap())
-    llm = LLM(FunctionModel(model), model.prompts, max_concurrency=8, budget_seconds=5)
+    profile = load_profile(Settings.model_fields["llm_profile"].default)
+    llm = LLM(FunctionModel(model), model.prompts, profile=profile, max_concurrency=8, budget_seconds=5)
     return Services(llm, embedder, store, VersionStore(Path(":memory:")), hasher=None)
 
 

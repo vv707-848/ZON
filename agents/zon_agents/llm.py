@@ -1,8 +1,9 @@
-"""PydanticAI → SGLang (`zon-ai`, OpenAI-compatible) — the only place the model is called.
+"""PydanticAI → the AI node's OpenAI-compatible server (`zon-ai`) — the only place the model is called.
 
-- **Output:** NativeOutput, so a JSON schema constrains generation inside SGLang (ToolOutput only to choose a
-  SuperAgent report). The `zon-ai` name needs an explicit profile, or PydanticAI refuses NativeOutput.
-- **Parameters:** architecture §7 «معاملات التوليد»: no thinking flag, top_k through extra_body.
+- **Output:** NativeOutput for every agent: a JSON schema constrains generation inside the engine, the same way on
+  SGLang and vLLM and for every model family (no tool-call parser to match per model). The `zon-ai` name needs an
+  explicit profile, or PydanticAI refuses NativeOutput.
+- **Parameters:** the active model profile (`profiles.py`): the sampling of each use and the request extras.
 - **Failure policy:**
   - an output that breaks the schema is retried ONCE at temperature 0.1;
   - a timeout is never retried;
@@ -20,27 +21,20 @@ from typing import Any
 import httpx
 from openai import AsyncOpenAI
 from pydantic import BaseModel
-from pydantic_ai import Agent, NativeOutput, ToolOutput
+from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.exceptions import ModelAPIError, UnexpectedModelBehavior
 from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.profiles import InlineDefsJsonSchemaTransformer
 from pydantic_ai.profiles.openai import OpenAIModelProfile
 from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.settings import ModelSettings
 
 from zon_agents.config import Settings
 from zon_agents.errors import DependencyUnavailable
+from zon_agents.profiles import ModelProfile, Use
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
-# Architecture §7 — per use.
-GENERATION: dict[str, ModelSettings] = {
-    "json": ModelSettings(temperature=0.3, top_p=0.8, max_tokens=700, extra_body={"top_k": 20}),
-    "summary": ModelSettings(temperature=0.4, top_p=0.8, max_tokens=600, extra_body={"top_k": 20}),
-    "report": ModelSettings(temperature=0.4, top_p=0.8, max_tokens=900, extra_body={"top_k": 20}),
-    "chat": ModelSettings(temperature=0.7, top_p=0.8, max_tokens=500, presence_penalty=1.5, extra_body={"top_k": 20}),
-}
 RETRY_TEMPERATURE = 0.1
 
 
@@ -84,10 +78,11 @@ def openai_model(settings: Settings) -> OpenAIChatModel:
         max_retries=0,  # no retry after a timeout: under load a retry doubles the load
         timeout=settings.request_budget_seconds,
     )
-    profile = OpenAIModelProfile(
+    # PydanticAI's own «profile» of the endpoint (what it supports), not a Zon model profile.
+    capabilities = OpenAIModelProfile(
         supports_json_schema_output=True, json_schema_transformer=InlineDefsJsonSchemaTransformer
     )
-    return OpenAIChatModel(settings.llm_model, provider=OpenAIProvider(openai_client=client), profile=profile)
+    return OpenAIChatModel(settings.llm_model, provider=OpenAIProvider(openai_client=client), profile=capabilities)
 
 
 class LLM:
@@ -96,6 +91,7 @@ class LLM:
         model: Model,
         prompts: dict[str, Prompt],
         *,
+        profile: ModelProfile,
         max_concurrency: int,
         budget_seconds: float,
         health_url: str | None = None,
@@ -103,21 +99,21 @@ class LLM:
     ) -> None:
         self._model = model
         self.prompts = prompts
+        self.profile = profile
         self._slots = asyncio.Semaphore(max_concurrency)
         self._budget = budget_seconds
         self._health_url = health_url
         self._api_key = api_key
 
     async def run[T: BaseModel](
-        self, agent: str, payload: BaseModel | dict[str, Any], output: type[T], generation: str, *, tool: bool = False
+        self, agent: str, payload: BaseModel | dict[str, Any], output: type[T], use: Use
     ) -> LlmResult[T]:
         prompt = self.prompts[agent]
-        spec: Any = ToolOutput(output, name="choose") if tool else NativeOutput(output)
-        runner = Agent(self._model, output_type=spec, instructions=prompt.text, retries=0)
+        runner = Agent(self._model, output_type=NativeOutput(output), instructions=prompt.text, retries=0)
         message = (
             payload.model_dump_json() if isinstance(payload, BaseModel) else json.dumps(payload, ensure_ascii=False)
         )
-        settings = GENERATION[generation]
+        settings = self.profile.settings(use)
         deadline = time.monotonic() + self._budget
         async with self._slots:
             for attempt in (1, 2):
@@ -130,7 +126,7 @@ class LLM:
                 except UnexpectedModelBehavior as exc:
                     if attempt == 2:
                         raise ModelFailed("invalid") from exc
-                    settings = ModelSettings(**{**settings, "temperature": RETRY_TEMPERATURE})
+                    settings = self.profile.settings(use, temperature=RETRY_TEMPERATURE)
                     continue
                 except TimeoutError as exc:
                     raise ModelFailed("timeout") from exc
