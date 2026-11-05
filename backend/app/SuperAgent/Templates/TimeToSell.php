@@ -25,7 +25,7 @@ final class TimeToSell extends Template
 
     public function params(): array
     {
-        return ['city' => Param::city(required: false), 'days' => Param::days(90)];
+        return ['city' => Param::city(required: false), 'neighborhood' => Param::neighborhood(), 'days' => Param::days(90)];
     }
 
     public function columns(): array
@@ -36,7 +36,8 @@ final class TimeToSell extends Template
     public function query(array $params): array
     {
         return ["SELECT property_type, COUNT(*) AS sold, ROUND(AVG(DATEDIFF(sold_at, published_at)), 1) AS avg_days FROM ai_v_listings
-            WHERE status = 'sold' AND sold_at >= ? AND published_at IS NOT NULL AND (? IS NULL OR city = ?) GROUP BY property_type ORDER BY sold DESC",
-            [self::since($params['days']), $params['city'], $params['city']]];
+            WHERE status = 'sold' AND sold_at >= ? AND published_at IS NOT NULL AND (? IS NULL OR city = ?) AND (? IS NULL OR neighborhood = ?)
+            GROUP BY property_type ORDER BY sold DESC",
+            [self::since($params['days']), $params['city'], $params['city'], $params['neighborhood'], $params['neighborhood']]];
     }
 }

@@ -66,7 +66,7 @@ class SuperAgentTest extends AdminTestCase
 
         $this->assertSame(['ok', 'top_demand_by_neighborhood'], [$report->status, $report->report]);
         $this->assertSame(['النرجس', 3], [$report->rows[0]['neighborhood'], $report->rows[0]['requests']]);
-        Http::assertSent(fn (Sent $r) => str_ends_with($r->url(), '/agents/report_select') && count($r['catalog']) === 18
+        Http::assertSent(fn (Sent $r) => str_ends_with($r->url(), '/agents/report_select') && count($r['catalog']) === count(Catalog::all())
             && $r['catalog'][0]['params']['days'] === ['type' => 'integer', 'minimum' => 1, 'maximum' => 365, 'default' => 30]);
     }
 
@@ -101,7 +101,7 @@ class SuperAgentTest extends AdminTestCase
             $report = app(SuperAgent::class)->run($staff, $template, $params, $template->title(), analyse: false);
             $this->assertNotSame('failed', $report->status, "{$name} failed to run");
         }
-        $this->assertSame(18, ExecReport::query()->count());
+        $this->assertSame(count(Catalog::all()), ExecReport::query()->count());
     }
 
     public function test_market_reports_never_show_a_group_under_the_minimum(): void

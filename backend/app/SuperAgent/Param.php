@@ -12,7 +12,10 @@ use InvalidArgumentException;
  */
 final readonly class Param
 {
-    /** @param ?list<string> $enum */
+    /**
+     * @param  ?list<string>  $enum  the accepted values
+     * @param  bool  $listed  shown to the model; a long list (every neighbourhood) is checked here, not sent
+     */
     private function __construct(
         public string $type,
         public string $label,
@@ -21,11 +24,21 @@ final readonly class Param
         public ?array $enum = null,
         public ?int $min = null,
         public ?int $max = null,
+        public bool $listed = true,
+        public ?string $hint = null,
     ) {}
 
     public static function city(bool $required = true): self
     {
         return new self('string', 'المدينة', null, $required, array_keys(City::catalog()));
+    }
+
+    /** A neighbourhood of the reference (any city's); the model writes it as the question did. */
+    public static function neighborhood(): self
+    {
+        $names = array_values(array_unique(array_merge(...array_values(array_map('array_values', City::catalog())))));
+
+        return new self('string', 'الحي', null, false, $names, listed: false, hint: 'اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء');
     }
 
     public static function propertyType(bool $required = false): self
@@ -51,7 +64,8 @@ final readonly class Param
     /** @return array<string, mixed> JSON schema of the parameter (contract §3.5) */
     public function schema(): array
     {
-        return array_filter(['type' => $this->type, 'enum' => $this->enum, 'minimum' => $this->min, 'maximum' => $this->max, 'default' => $this->default], fn ($v) => $v !== null);
+        return array_filter(['type' => $this->type, 'enum' => $this->listed ? $this->enum : null, 'description' => $this->hint,
+            'minimum' => $this->min, 'maximum' => $this->max, 'default' => $this->default], fn ($v) => $v !== null);
     }
 
     public function check(string $name, mixed $value): mixed

@@ -18,15 +18,25 @@ final class ReportView
 
     private const HEAD = 'border:1px solid #e5e7eb;padding:6px 10px;text-align:start;background:#f3f4f6;font-weight:600;white-space:nowrap';
 
+    /** Reports that are not a template's: their title and columns. */
+    private const OWN = [
+        'crm_notes_digest' => ['title' => 'قراءة ملاحظات العملاء', 'columns' => ['theme' => 'الموضوع', 'share' => 'الحضور'],
+            'labels' => ['city' => 'المدينة', 'neighborhood' => 'الحي', 'property_type' => 'النوع', 'category' => 'التصنيف', 'days' => 'الأيام', 'notes' => 'الملاحظات المقروءة']],
+    ];
+
+    private const SHARES = ['high' => 'كثير', 'medium' => 'متوسط', 'low' => 'قليل'];
+
     public static function render(ExecReport $report): HtmlString
     {
         $template = Catalog::find($report->report);
-        $columns = $template?->columns() ?? array_combine(array_keys($report->rows[0] ?? []), array_keys($report->rows[0] ?? []));
+        $own = self::OWN[$report->report] ?? null;
+        $columns = $template?->columns() ?? $own['columns'] ?? array_combine(array_keys($report->rows[0] ?? []), array_keys($report->rows[0] ?? []));
         $status = ['ok' => 'تحليل موثّق', 'no_analysis' => 'بيانات بلا تحليل', 'failed' => 'تعذّر التقرير'][$report->status] ?? $report->status;
-        $params = collect($report->params)->map(fn ($value, $name) => e(($template?->params()[$name]->label ?? $name).': '.$value))->implode(' · ');
+        $params = collect($report->params)->reject(fn ($value) => $value === null || $value === '')
+            ->map(fn ($value, $name) => e(($template?->params()[$name]->label ?? $own['labels'][$name] ?? $name).': '.$value))->implode(' · ');
 
         $html = '<div style="display:flex;flex-direction:column;gap:12px;font-size:14px">';
-        $html .= '<p><strong>'.e($template?->title() ?? $report->report).'</strong> · '.e($status).($params === '' ? '' : ' · '.$params).'</p>';
+        $html .= '<p><strong>'.e($template?->title() ?? $own['title'] ?? $report->report).'</strong> · '.e($status).($params === '' ? '' : ' · '.$params).'</p>';
         if ($report->analysis) {
             $html .= '<p style="line-height:1.8">'.nl2br(e($report->analysis)).'</p>';
             if ($report->recommendations) {
@@ -37,7 +47,7 @@ final class ReportView
             $html .= '<div style="overflow-x:auto"><table style="'.self::TABLE.'"><thead><tr>'
                 .collect($columns)->map(fn ($label) => '<th style="'.self::HEAD.'">'.e($label).'</th>')->implode('').'</tr></thead><tbody>';
             foreach ($report->rows as $row) {
-                $html .= '<tr>'.collect(array_keys($columns))->map(fn ($key) => '<td style="'.self::CELL.'">'.e(self::value($row[$key] ?? null)).'</td>')->implode('').'</tr>';
+                $html .= '<tr>'.collect(array_keys($columns))->map(fn ($key) => '<td style="'.self::CELL.'">'.e($key === 'share' ? (self::SHARES[$row[$key] ?? ''] ?? '—') : self::value($row[$key] ?? null)).'</td>')->implode('').'</tr>';
             }
             $html .= '</tbody></table></div>';
         } elseif ($report->status !== 'failed') {
