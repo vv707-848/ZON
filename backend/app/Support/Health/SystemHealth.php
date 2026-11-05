@@ -57,6 +57,7 @@ final class SystemHealth
             $this->check('index', 'مزامنة الفهرس', 'لوحة الإدارة ← مراقبة الفهرسة (آخر خطأ وإعادة الإرسال) — والعامل zon-worker-index', $this->index(...)),
             $this->check('report_db', 'اتصال الوكيل الأعلى', 'deploy/mysql/ai_reader.sql وقيم REPORT_DB_* في .env', $this->reportDatabase(...)),
             $this->check('storage', 'تخزين الصور والمستندات', 'MEDIA_DISK وإعدادات MinIO (AWS_*) أو صلاحيات storage/app', $this->storage(...)),
+            $this->check('uploads', 'رفع الصور ومعالجتها', 'deploy/php/zon.ini في conf.d لـ PHP-FPM ولسطر الأوامر، ثم إعادة تشغيل php8.5-fpm — وامتدادا gd و exif', $this->uploads(...)),
             $this->check('websockets', 'المراسلة الفورية (Reverb)', 'supervisorctl status zon-reverb — وقيم REVERB_* في .env', $this->websockets(...)),
             $this->check('integrations', 'التكاملات الخارجية', 'config/services.php و docs/integrations.md — قيم *_DRIVER و PRODUCTION_ALLOWS_FAKE', $this->integrations(...)),
         ];
@@ -263,6 +264,49 @@ final class SystemHealth
         return $written
             ? [HealthStatus::Ok, "{$diskName} · كتابة وحذف {$ms} ms"]
             : [HealthStatus::Fail, "تعذّرت الكتابة على القرص {$diskName}"];
+    }
+
+    /**
+     * Photos are decoded and redrawn at upload (App\Support\Photos\Photos): GD with JPEG, EXIF for the camera's
+     * orientation, and PHP limits that let the largest accepted photo in (PHP's own default upload limit is 2 MB).
+     * zon:doctor reads the command line's php.ini; the panel page reads the web server's.
+     *
+     * @return array{HealthStatus, string}
+     */
+    private function uploads(): array
+    {
+        $bytes = function (string $key): int {
+            $value = trim((string) ini_get($key));
+            $number = (int) $value;
+
+            return match (strtolower(substr($value, -1))) {
+                'g' => $number * 1024 ** 3,
+                'm' => $number * 1024 ** 2,
+                'k' => $number * 1024,
+                default => $number,
+            };
+        };
+        $needed = (int) config('zon.media.max_kb') * 1024;
+        $memory = $bytes('memory_limit');
+        $problems = array_filter([
+            ! function_exists('imagecreatefromjpeg') ? 'امتداد gd بلا JPEG' : null,
+            $bytes('upload_max_filesize') < $needed ? 'upload_max_filesize = '.ini_get('upload_max_filesize').' أقل من '.((int) config('zon.media.max_kb') / 1024).'M' : null,
+            $bytes('post_max_size') < $needed ? 'post_max_size = '.ini_get('post_max_size').' أقل من حجم الصورة المسموح' : null,
+        ]);
+        if ($problems !== []) {
+            // On the command line these are the CLI's values, not the web server's: a hint, not a failure.
+            return PHP_SAPI === 'cli'
+                ? [HealthStatus::Warn, 'قيم سطر الأوامر: '.implode(' · ', $problems)]
+                : [HealthStatus::Fail, implode(' · ', $problems)];
+        }
+        $warnings = array_filter([
+            ! function_exists('exif_read_data') ? 'امتداد exif غائب: صور الجوال قد تظهر مقلوبة' : null,
+            $memory !== -1 && $memory < 256 * 1024 ** 2 ? 'memory_limit = '.ini_get('memory_limit').' أقل من 256M: الصور الكبيرة قد تفشل' : null,
+        ]);
+
+        return $warnings !== []
+            ? [HealthStatus::Warn, implode(' · ', $warnings)]
+            : [HealthStatus::Ok, 'حد الرفع '.ini_get('upload_max_filesize').' · الذاكرة '.ini_get('memory_limit').' · gd و exif'];
     }
 
     /** @return array{HealthStatus, string} */

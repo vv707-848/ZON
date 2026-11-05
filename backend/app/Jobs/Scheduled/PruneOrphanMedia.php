@@ -4,9 +4,8 @@ namespace App\Jobs\Scheduled;
 
 use App\Jobs\ScheduledJob;
 use App\Models\Media;
-use Illuminate\Support\Facades\Storage;
 
-/** Photos uploaded but never attached (or detached) for a day are deleted — the file only when no copy uses it. */
+/** Photos uploaded but never attached (or detached) for a day are deleted — the files only when no copy uses them. */
 class PruneOrphanMedia extends ScheduledJob
 {
     public function __construct()
@@ -18,11 +17,7 @@ class PruneOrphanMedia extends ScheduledJob
     {
         Media::query()->whereNull('mediable_id')->where('updated_at', '<', now()->subDay())->chunkById(200, function ($orphans) {
             foreach ($orphans as $media) {
-                $shared = Media::query()->where('path', $media->path)->whereKeyNot($media->id)->exists();
-                if (! $shared) {
-                    Storage::disk($media->disk)->delete($media->path);
-                }
-                $media->delete();
+                $media->deleteWithFiles();
             }
         });
     }

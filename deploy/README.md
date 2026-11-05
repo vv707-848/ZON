@@ -15,6 +15,7 @@
 | الملف | يُنسخ إلى | العقدة |
 |---|---|---|
 | `nginx/zon.conf` | `/etc/nginx/sites-available/zon.conf` | التطبيق |
+| `php/zon.ini` | `/etc/php/8.5/fpm/conf.d/99-zon.ini` و`/etc/php/8.5/cli/conf.d/99-zon.ini`، ثم `systemctl restart php8.5-fpm` | التطبيق |
 | `supervisor/zon.conf` | `/etc/supervisor/conf.d/zon.conf` | التطبيق |
 | `cron/zon` | `/etc/cron.d/zon` | التطبيق |
 | `logrotate/zon` | `/etc/logrotate.d/zon` | التطبيق |

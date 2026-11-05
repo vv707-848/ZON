@@ -47,7 +47,7 @@ class HealthAndTraceTest extends AdminTestCase
     {
         $checks = $this->doctor(0);
 
-        $this->assertSame(['app', 'database', 'migrations', 'redis', 'scheduler', 'queues', 'failed_jobs', 'agents', 'index', 'report_db', 'storage', 'websockets', 'integrations'], array_keys($checks));
+        $this->assertSame(['app', 'database', 'migrations', 'redis', 'scheduler', 'queues', 'failed_jobs', 'agents', 'index', 'report_db', 'storage', 'uploads', 'websockets', 'integrations'], array_keys($checks));
         foreach (['database', 'migrations', 'redis', 'scheduler', 'agents', 'index', 'storage'] as $key) {
             $this->assertSame('ok', $checks[$key]['status'], $key.': '.$checks[$key]['detail']);
             $this->assertNull($checks[$key]['hint']);
