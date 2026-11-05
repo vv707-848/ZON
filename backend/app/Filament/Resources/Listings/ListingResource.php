@@ -141,7 +141,7 @@ class ListingResource extends Resource
                 TextEntry::make('desc_clean')->label('النص المعتمد (المفهرس)')->placeholder('النص الأصلي'),
             ]),
             Section::make('الصور')->collapsed()->schema([
-                ImageEntry::make('photos')->label('')->state(fn (Listing $r) => $r->media->map(fn ($m) => $m->url())->all())->imageHeight(120),
+                ImageEntry::make('photos')->label('')->state(fn (Listing $r) => $r->media->map(fn ($m) => $m->url('card'))->all())->imageHeight(120),
             ]),
             Section::make('السجل')->collapsed()->schema([
                 RepeatableEntry::make('history')->label('')->columns(4)->schema([

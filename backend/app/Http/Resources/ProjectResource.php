@@ -48,7 +48,7 @@ class ProjectResource extends JsonResource
             'start_price' => $available->isEmpty() ? null : (float) $available->min('price'),
             'description' => $this->publicDescription(),
             'featured' => $this->featured_until?->isFuture() ?? false,
-            'cover_url' => $this->relationLoaded('media') ? $this->media->first()?->url() : null,
+            'cover_url' => $this->relationLoaded('media') ? $this->media->first()?->url('card') : null,
             'published_at' => $this->published_at?->toIso8601String(),
             'share_url' => rtrim((string) config('zon.deep_link_base'), '/')."/projects/{$this->id}",
             'developer' => $this->relationLoaded('developer') ? new AdvertiserResource($this->developer) : null,

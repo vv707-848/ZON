@@ -51,7 +51,9 @@ return [
     ],
 
     'media_disk' => env('MEDIA_DISK', 'minio'),
-    'media' => ['max_kb' => 8192, 'url_minutes' => 60],
+    // A photo is decoded whole before it is resized (width × height × 4 bytes): above this it is refused, so one
+    // upload stays inside PHP's memory_limit of 256M (deploy/php/zon.ini). The app sends photos already resized.
+    'media' => ['max_kb' => 8192, 'url_minutes' => 60, 'max_megapixels' => (float) env('MEDIA_MAX_MEGAPIXELS', 36)],
 
     'payments' => ['reuse_pending_minutes' => 30],
 

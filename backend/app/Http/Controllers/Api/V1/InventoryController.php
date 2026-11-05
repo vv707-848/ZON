@@ -118,7 +118,7 @@ class InventoryController extends Controller
             'id' => $item->id, 'purpose' => $item->purpose->value, 'property_type' => $item->property_type->value, 'title' => $item->title,
             'city' => $item->city, 'neighborhood' => $item->neighborhood, 'price' => $number($item->price), 'area_land' => $number($item->area_land),
             'area_built' => $number($item->area_built), 'bedrooms' => $item->bedrooms, 'bathrooms' => $item->bathrooms, 'description' => $item->description,
-            'cover_url' => $item->relationLoaded('media') ? $item->media->firstWhere('is_cover', true)?->url() : null,
+            'cover_url' => $item->relationLoaded('media') ? $item->media->firstWhere('is_cover', true)?->url('card') : null,
             'published_listing_id' => $item->published_listing_id, 'updated_at' => $item->updated_at?->toIso8601String(),
         ];
     }

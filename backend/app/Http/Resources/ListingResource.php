@@ -53,7 +53,7 @@ class ListingResource extends JsonResource
             'featured_until' => $this->featured_until?->toIso8601String(),
             'urgent' => $this->isUrgent(),
             'urgent_until' => $this->urgent_until?->toIso8601String(),
-            'cover_url' => $cover?->url(),
+            'cover_url' => $cover?->url('card'),
             'published_at' => $this->published_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'views_count' => $this->views_count,
