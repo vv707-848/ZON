@@ -31,7 +31,7 @@ class HealthAndTraceTest extends AdminTestCase
     {
         parent::setUp();
         Http::fake(fn (Request $r) => str_ends_with($r->url(), '/agents/health')
-            ? Http::response(['status' => 'ok', 'llm' => true, 'embed' => true, 'qdrant' => $this->qdrantUp]) : null);
+            ? Http::response(['status' => 'ok', 'llm' => true, 'embed' => true, 'qdrant' => $this->qdrantUp, 'model' => 'qwen3.6-35b-a3b-fp8']) : null);
         (new SchedulerHeartbeat)->handle();
     }
 
@@ -52,6 +52,7 @@ class HealthAndTraceTest extends AdminTestCase
             $this->assertSame('ok', $checks[$key]['status'], $key.': '.$checks[$key]['detail']);
             $this->assertNull($checks[$key]['hint']);
         }
+        $this->assertStringEndsWith('· qwen3.6-35b-a3b-fp8', $checks['agents']['detail'], 'the model the AI node serves');
     }
 
     public function test_a_stopped_scheduler_fails_the_doctor_with_the_fix(): void

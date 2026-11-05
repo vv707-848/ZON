@@ -1,0 +1,19 @@
+# الأوزان نفسها (Qwen3.6-35B-A3B بدقة FP8) على SGLang بدل vLLM: لمقارنة المحركين على الأسئلة نفسها. SGLang أسرع غالباً
+# حين تتكرر بداية الطلبات (البرومبت الثابت لكل وكيل)، وvLLM أنضج في الإنتاج — والمختبر يحكم.
+name = "qwen3.6-35b-a3b-fp8-sglang"
+weights = "RedHatAI/Qwen3.6-35B-A3B-FP8-dynamic"
+runtime = "sglang"
+licence = "Apache-2.0"
+
+[sampling]
+json = { temperature = 0.3, top_p = 0.8, max_tokens = 700 }
+summary = { temperature = 0.4, top_p = 0.8, max_tokens = 600 }
+report = { temperature = 0.4, top_p = 0.8, max_tokens = 900 }
+chat = { temperature = 0.7, top_p = 0.8, max_tokens = 500, presence_penalty = 1.5 }
+
+[request]
+top_k = 20
+chat_template_kwargs = { enable_thinking = false }
+
+[serve]
+args = ["--context-length", "32768", "--max-running-requests", "8", "--mem-fraction-static", "0.88"]

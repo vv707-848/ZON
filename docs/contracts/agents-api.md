@@ -12,7 +12,7 @@
 | `POST /agents/{agent}` | `X-Internal-Key` | الشكل في §2 |
 | `POST /index/{entity}` | HMAC — §4 | `{"status": "indexed" \| "deleted" \| "ignored_stale"}` |
 | `POST /media/phash` | `X-Internal-Key` · جسم الصورة الخام (≤ 20 MB) | `{"phash": "<16 hex>"}` |
-| `GET /agents/health` | بلا | `{"status":"ok","llm":bool,"embed":bool,"qdrant":bool}` بكاش 5 ثوانٍ |
+| `GET /agents/health` | بلا | `{"status":"ok","llm":bool,"embed":bool,"qdrant":bool,"model":"<ملف النموذج>"}` بكاش 5 ثوانٍ |
 | `/mcp/` | `X-Internal-Key` | خادم MCP يكشف الأدوات نفسها (§5) |
 
 - **ترويسة `X-Request-Id`:** رقم تتبّع طلب المستخدم (`App\Support\Trace`). الخدمة تعيده في ردها وتكتبه في سطر سجلها (`request_id`)، فيُتتبَّع الطلب نفسه في سجلات الطرفين وجدول `ai_requests`.
@@ -157,7 +157,7 @@
 
 **`report_select`**
 - المدخل: `{"question":"…","catalog":[{"report","description","params":{"city":{"type":"string","enum":[…]},"days":{"type":"integer","minimum":1,"maximum":365}}}]}`
-- المخرج: `{"report":"top_demand_by_neighborhood","params":{…}}`، عبر ToolOutput.
+- المخرج: `{"report":"top_demand_by_neighborhood","params":{…}}`، بمخطط JSON مقيّد كبقية الوكلاء: اسم التقرير من أسماء الكتالوج وحدها، فلا يحتاج المحرك محلّل أدوات خاصاً بعائلة النموذج.
 - الكتالوج يعلن **كل** معاملات القالب.
 - Laravel يتحقق من الاسم والمدى قبل أي تنفيذ.
 

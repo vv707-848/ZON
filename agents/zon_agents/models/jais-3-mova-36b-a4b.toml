@@ -1,0 +1,22 @@
+# Jais 3 MoVA-36B-A4B (IFM، 15 أكتوبر 2026): عربي أولاً، 36B منها 4B نشطة. أوزانه الرسمية BF16 فقط (نحو 72GB)،
+# فيحتاج بطاقة 96GB (RTX PRO 6000): بطاقة 80GB لا تبقي للسياق شيئاً. وهو نموذج تفكير: بطاقته توصي بالتفكير العالي
+# دائماً، وزمننا 15 ثانية للطلب — فيُقاس هنا بتفكير منخفض، وإن لم تصح دقته إلا بالتفكير الطويل فمكانه المهام الخلفية.
+name = "jais-3-mova-36b-a4b"
+weights = "inception42/Jais-3-MoVA-36B-A4B"
+runtime = "vllm"
+licence = "Apache-2.0"
+
+# معاملات بطاقة Jais 3 (حرارة 0.2 · top_p 0.95 · top_k 20؛ وللتفكير بالعربية 0.7). وmax_tokens يشمل توكنات التفكير.
+[sampling]
+json = { temperature = 0.2, top_p = 0.95, max_tokens = 1500 }
+summary = { temperature = 0.3, top_p = 0.95, max_tokens = 1500 }
+report = { temperature = 0.3, top_p = 0.95, max_tokens = 2000 }
+chat = { temperature = 0.7, top_p = 0.95, max_tokens = 1500 }
+
+[request]
+top_k = 20
+chat_template_kwargs = { reasoning_effort = "low" }
+
+# وصفة vLLM الرسمية للنموذج، على بطاقة واحدة.
+[serve]
+args = ["--trust-remote-code", "--dtype", "bfloat16", "--chat-template-content-format", "string", "--reasoning-parser", "k2_horizon", "--max-model-len", "32768", "--max-num-seqs", "8", "--gpu-memory-utilization", "0.85"]

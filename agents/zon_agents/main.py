@@ -61,7 +61,8 @@ class HealthCheck:
                 llm, embed, qdrant = await asyncio.gather(
                     self._probe(s.llm.healthy), self._probe(s.embedder.healthy), self._probe(s.store.healthy)
                 )
-                self._cached = {"status": "ok", "llm": llm, "embed": embed, "qdrant": qdrant}
+                model = s.llm.profile.name  # the profile the AI node serves (LLM_PROFILE)
+                self._cached = {"status": "ok", "llm": llm, "embed": embed, "qdrant": qdrant, "model": model}
                 self._at = time.monotonic()
             return self._cached
 

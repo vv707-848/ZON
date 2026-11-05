@@ -18,7 +18,7 @@ flowchart LR
     QDRANT[("Qdrant")]
   end
   subgraph AINODE["عقدة الذكاء — نفق SSH صادر"]
-    LLM["SGLang (النموذج)"]
+    LLM["محرك النموذج (vLLM / SGLang)"]
     EMB["bge-m3 (التضمين)"]
   end
   APP -->|HTTPS + Bearer| NGINX --> API

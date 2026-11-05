@@ -41,11 +41,24 @@ def test_the_callers_trace_id_comes_back_and_is_on_the_log_line(
 
 
 def test_health_reports_each_dependency(client: TestClient, embedder: FakeEmbedder) -> None:
-    assert client.get("/agents/health").json() == {"status": "ok", "llm": True, "embed": True, "qdrant": True}
+    model = "qwen3.6-35b-a3b-escha-w2"
+    assert client.get("/agents/health").json() == {
+        "status": "ok",
+        "llm": True,
+        "embed": True,
+        "qdrant": True,
+        "model": model,
+    }
 
     embedder.down = True
 
-    assert client.get("/agents/health").json() == {"status": "ok", "llm": True, "embed": False, "qdrant": True}
+    assert client.get("/agents/health").json() == {
+        "status": "ok",
+        "llm": True,
+        "embed": False,
+        "qdrant": True,
+        "model": model,
+    }
 
 
 def test_image_hashing_says_when_it_is_not_installed(client: TestClient) -> None:

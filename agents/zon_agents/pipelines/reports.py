@@ -18,7 +18,7 @@ from zon_agents.schemas.agents import BatchAnswer, BatchInput, ReportSelectInput
 
 
 def _choice_model(names: list[str]) -> type[BaseModel]:
-    """The tool's schema: the report must be one of the catalog's names (the constrained decoding enforces it)."""
+    """The answer's schema: the report must be one of the catalog's names (the constrained decoding enforces it)."""
     report_type: Any = Literal[tuple(names)]
     return create_model("ReportChoice", report=(report_type, ...), params=(dict[str, Any], {}))
 
@@ -27,7 +27,7 @@ async def report_select(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(ReportSelectInput, data)
     choice_model = _choice_model([entry.report for entry in req.catalog])
     try:
-        answer = await ctx.llm.run("report_select", req, choice_model, "json", tool=True)
+        answer = await ctx.llm.run("report_select", req, choice_model, "json")
     except ModelFailed as exc:
         raise model_unavailable(exc) from exc
     choice = answer.output.model_dump()

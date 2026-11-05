@@ -1,0 +1,19 @@
+# Jais 3 32B بدقة FP8 الرسمية (IFM): كثيف، نحو 32GB، فيدخل بطاقة 48GB. نموذج تفكير مثل أخيه MoVA: يُقاس بتفكير
+# منخفض. وكثافته تعني أن كل توكن يقرأ الأوزان كلها، فسرعته على A40 أبطأ كثيراً من نموذج 3–4B نشطة — تُقاس.
+name = "jais-3-32b-fp8"
+weights = "IFM/Jais-3-32B-FP8"
+runtime = "vllm"
+licence = "Apache-2.0"
+
+[sampling]
+json = { temperature = 0.2, top_p = 0.95, max_tokens = 1500 }
+summary = { temperature = 0.3, top_p = 0.95, max_tokens = 1500 }
+report = { temperature = 0.3, top_p = 0.95, max_tokens = 2000 }
+chat = { temperature = 0.7, top_p = 0.95, max_tokens = 1500 }
+
+[request]
+top_k = 20
+chat_template_kwargs = { reasoning_effort = "low" }
+
+[serve]
+args = ["--trust-remote-code", "--reasoning-parser", "k2_horizon", "--max-model-len", "32768", "--max-num-seqs", "8", "--gpu-memory-utilization", "0.85"]
