@@ -51,6 +51,7 @@
             @if (Route::has('site.packages'))<a href="{{ Site::url('packages') }}" @if (request()->is('packages*')) aria-current="page" @endif>الباقات</a>@endif
             @if (Route::has('site.complaints'))<a href="{{ Site::url('complaints') }}" @if (request()->is('complaints*')) aria-current="page" @endif>الشكاوى</a>@endif
             <a href="{{ Site::url() }}#app">التطبيق</a>
+            @if (Route::has('site.account'))<a href="{{ Site::url('account') }}" @if (request()->is('account*', 'login')) aria-current="page" @endif>حسابي</a>@endif
         </nav>
     </div>
 </header>

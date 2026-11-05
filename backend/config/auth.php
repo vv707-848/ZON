@@ -50,6 +50,11 @@ return [
             'driver' => 'sanctum',
             'provider' => 'customers',
         ],
+        // The same accounts signed in on the website (zon.sa): a session, for buying a plan there.
+        'site' => [
+            'driver' => 'session',
+            'provider' => 'customers',
+        ],
     ],
 
     /*

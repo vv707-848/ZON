@@ -19,6 +19,12 @@ final class SignIn
 
     public function __invoke(string $login, string $password): Customer
     {
+        return $this->complete($this->check($login, $password));
+    }
+
+    /** The account behind a username or phone and its password — nothing else happens (the website's deletion form). */
+    public function check(string $login, string $password): Customer
+    {
         $phone = Phone::normalize($login);
         $customer = Customer::query()
             ->when($phone !== null, fn ($q) => $q->where('phone', $phone), fn ($q) => $q->where('username', trim($login)))
@@ -32,6 +38,12 @@ final class SignIn
             throw ApiException::of(ErrorCode::AccountSuspended);
         }
 
+        return $customer;
+    }
+
+    /** Signed in: a pending deletion is cancelled (store rule) and the sign-in is logged. */
+    public function complete(Customer $customer): Customer
+    {
         if ($deletion = $customer->pendingDeletion()->first()) {
             ($this->cancelDeletion)($deletion, "customer:{$customer->id}");
         }
