@@ -8,6 +8,7 @@ use App\Enums\CustomerRole;
 use App\Enums\FalStatus;
 use App\Enums\NafathStatus;
 use App\Filament\Concerns\AuthorizesByPermission;
+use App\Filament\Concerns\SearchesByIdentifier;
 use App\Filament\NavigationGroup;
 use App\Filament\Resources\Customers\Pages\EditCustomer;
 use App\Filament\Resources\Customers\Pages\ListCustomers;
@@ -36,6 +37,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
@@ -44,7 +46,7 @@ use UnitEnum;
  */
 class CustomerResource extends Resource
 {
-    use AuthorizesByPermission;
+    use AuthorizesByPermission, SearchesByIdentifier;
 
     protected static ?string $model = Customer::class;
 
@@ -65,6 +67,29 @@ class CustomerResource extends Resource
     protected static function viewPermission(): Permission
     {
         return Permission::ViewCustomers;
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'username'];
+    }
+
+    /** A phone in any Saudi format, the digits of one, or a FAL licence number. */
+    protected static function identifierMatches(Builder $query, string $search): void
+    {
+        if (($phone = Phone::normalize($search)) !== null) {
+            $query->orWhere('phone', $phone);
+        } elseif (preg_match('/^\d{6,}$/', $digits = ltrim($search, '0')) === 1) {
+            $query->orWhere('phone', 'like', "%{$digits}%")->orWhere('fal_number', $search);
+        }
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        assert($record instanceof Customer);
+
+        return array_filter(['الدور' => $record->role->label(), 'الجوال' => Phone::local($record->phone), 'الحالة' => $record->status->label(),
+            'مراجعة' => $record->is_tester ? 'حساب مراجعة' : null]);
     }
 
     protected static function managePermission(): Permission

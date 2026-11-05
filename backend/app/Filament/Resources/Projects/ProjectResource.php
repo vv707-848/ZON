@@ -6,6 +6,7 @@ use App\Actions\Moderation\ModerateContent;
 use App\Enums\Delivery;
 use App\Enums\ListingStatus;
 use App\Filament\Concerns\AuthorizesByPermission;
+use App\Filament\Concerns\SearchesByIdentifier;
 use App\Filament\NavigationGroup;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Projects\Pages\ListProjects;
@@ -34,7 +35,7 @@ use UnitEnum;
 /** «المشاريع ووحداتها»: developers' projects, their unit models (available, sold), wording and licences. */
 class ProjectResource extends Resource
 {
-    use AuthorizesByPermission;
+    use AuthorizesByPermission, SearchesByIdentifier;
 
     protected static ?string $model = Project::class;
 
@@ -53,6 +54,25 @@ class ProjectResource extends Resource
     protected static function viewPermission(): Permission
     {
         return Permission::ViewListings;
+    }
+
+    protected static function identifierMatches(Builder $query, string $search): void
+    {
+        if (preg_match('/^\d{1,12}$/', $search) === 1) {
+            $query->orWhereKey((int) $search);
+        }
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('developer');
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        assert($record instanceof Project);
+
+        return ['الرقم' => (string) $record->id, 'الحالة' => $record->status->label(), 'المكان' => "{$record->city} · {$record->neighborhood}", 'المطوّر' => (string) $record->developer?->name];
     }
 
     public static function canCreate(): bool

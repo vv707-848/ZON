@@ -5,6 +5,7 @@ namespace App\Filament\Resources\SupportTickets;
 use App\Enums\TicketStatus;
 use App\Enums\TicketType;
 use App\Filament\Concerns\AuthorizesByPermission;
+use App\Filament\Concerns\SearchesByIdentifier;
 use App\Filament\NavigationGroup;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Listings\ListingResource;
@@ -24,6 +25,8 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use UnitEnum;
@@ -34,7 +37,7 @@ use UnitEnum;
  */
 class SupportTicketResource extends Resource
 {
-    use AuthorizesByPermission;
+    use AuthorizesByPermission, SearchesByIdentifier;
 
     protected static ?string $model = SupportTicket::class;
 
@@ -60,6 +63,33 @@ class SupportTicketResource extends Resource
     protected static function viewPermission(): Permission
     {
         return Permission::HandleSupport;
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['subject'];
+    }
+
+    /** The reference the user quotes (ZT-261103-AB12C). */
+    protected static function identifierMatches(Builder $query, string $search): void
+    {
+        if (preg_match('/^ZT-\d{6}-[A-Z0-9]{5}$/i', $search) === 1) {
+            $query->orWhere('reference', strtoupper($search));
+        }
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        assert($record instanceof SupportTicket);
+
+        return $record->reference.($record->subject ? " — {$record->subject}" : '');
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        assert($record instanceof SupportTicket);
+
+        return ['النوع' => $record->type->label(), 'الحالة' => $record->status->label(), 'المرسل' => (string) $record->name];
     }
 
     public static function canCreate(): bool

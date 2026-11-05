@@ -6,7 +6,9 @@ use App\Actions\Owner\OwnerCaseFlow;
 use App\Enums\ContractStatus;
 use App\Enums\OwnerCaseStage;
 use App\Filament\Concerns\AuthorizesByPermission;
+use App\Filament\Concerns\SearchesByIdentifier;
 use App\Filament\NavigationGroup;
+use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Listings\ListingResource;
 use App\Filament\Resources\OwnerCases\Pages\ListOwnerCases;
 use App\Filament\Support\Columns;
@@ -19,12 +21,14 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /** «ملفات الملاك والتراخيص»: each owner's path — contract (REGA · Nafath) → fee → licence → listing → sale. */
 class OwnerCaseResource extends Resource
 {
-    use AuthorizesByPermission;
+    use AuthorizesByPermission, SearchesByIdentifier;
 
     protected static ?string $model = OwnerCase::class;
 
@@ -41,6 +45,35 @@ class OwnerCaseResource extends Resource
     protected static function viewPermission(): Permission
     {
         return Permission::ViewPayments;
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['deed_number'];
+    }
+
+    protected static function identifierMatches(Builder $query, string $search): void {}
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        assert($record instanceof OwnerCase);
+
+        return "صك {$record->deed_number}";
+    }
+
+    /** A case opens on its owner's account. */
+    public static function getGlobalSearchResultUrl(Model $record): ?string
+    {
+        assert($record instanceof OwnerCase);
+
+        return CustomerResource::canViewAny() ? CustomerResource::getUrl('view', ['record' => $record->customer_id]) : null;
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        assert($record instanceof OwnerCase);
+
+        return ['المرحلة' => $record->stage->label()];
     }
 
     public static function canCreate(): bool
