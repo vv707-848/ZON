@@ -27,6 +27,12 @@ return [
             'secret_key' => env('MOYASAR_SECRET_KEY'),
             'publishable_key' => env('MOYASAR_PUBLISHABLE_KEY'),
             'webhook_secret' => env('MOYASAR_WEBHOOK_SECRET'),
+            // The website's payment form (cdn.moyasar.com/mpf/{version}): the version Moyasar's own samples load.
+            'form_version' => env('MOYASAR_FORM_VERSION', '1.15.0'),
+            // The methods activated on the Moyasar account (creditcard · applepay · stcpay). Apple Pay also needs the
+            // domain registered in Moyasar's dashboard and Apple's file at /.well-known/ (MOYASAR_APPLE_PAY_DOMAIN_FILE).
+            'web_methods' => array_values(array_filter(array_map('trim', explode(',', (string) env('MOYASAR_WEB_METHODS', 'creditcard'))))),
+            'apple_pay_domain_file' => env('MOYASAR_APPLE_PAY_DOMAIN_FILE'),
         ],
     ],
 

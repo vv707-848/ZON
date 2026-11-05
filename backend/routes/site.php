@@ -32,7 +32,10 @@ Route::middleware('site')->group(function () {
     Route::get('sitemap.xml', [Site\SitemapController::class, 'index'])->name('site.sitemap');
     Route::get('sitemaps/{part}.xml', [Site\SitemapController::class, 'part'])->where('part', 'pages|listings-\d+|projects|users')->name('site.sitemap.part');
 
+    Route::get('packages', Site\PackagesController::class)->name('site.packages');
+
     Route::get('.well-known/apple-app-site-association', [Site\WellKnownController::class, 'apple']);
+    Route::get('.well-known/apple-developer-merchantid-domain-association', [Site\WellKnownController::class, 'applePay']);
     Route::get('.well-known/assetlinks.json', [Site\WellKnownController::class, 'android']);
 });
 
@@ -62,4 +65,16 @@ Route::middleware(['web', 'site.headers'])->group(function () {
     Route::get('account', [Site\AccountController::class, 'show'])->name('site.account');
     Route::get('account/delete', [Site\AccountController::class, 'deletion'])->name('site.account.delete');
     Route::post('account/delete', [Site\AccountController::class, 'delete'])->middleware('throttle:login');
+});
+
+// Buying a plan on the website (Moyasar; the apps sell through the stores): signed in with the app's account.
+Route::middleware(['web', 'site.headers', 'auth:site'])->group(function () {
+    Route::get('subscribe/{package:code}', [Site\CheckoutController::class, 'confirm'])->name('site.subscribe');
+    Route::post('subscribe/{package:code}', [Site\CheckoutController::class, 'start'])->middleware('throttle:site-forms');
+    Route::get('pay/{payment}', [Site\CheckoutController::class, 'pay'])->name('site.pay');
+    Route::get('pay/{payment}/return', [Site\CheckoutController::class, 'back'])->name('site.pay.return');
+    Route::get('pay/{payment}/done', [Site\CheckoutController::class, 'done'])->name('site.pay.done');
+
+    Route::get('account/invoices', [Site\InvoiceController::class, 'index'])->name('site.invoices');
+    Route::get('account/invoices/{invoice}', [Site\InvoiceController::class, 'show'])->whereNumber('invoice')->name('site.invoice');
 });

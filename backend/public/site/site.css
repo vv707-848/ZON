@@ -56,6 +56,12 @@ main { display: block; padding: 20px 0 56px; }
 .nav::-webkit-scrollbar { display: none; }
 .nav a { padding: 8px 12px; border-radius: 999px; color: var(--sage); font-weight: 600; font-size: 14px; white-space: nowrap; }
 .nav a:hover, .nav a[aria-current="page"] { background: var(--tint); color: var(--forest); }
+/* A phone fits the logo and four sections; «التطبيق» is on the home page itself. */
+@media (max-width: 480px) {
+  .brand span { display: none; }
+  .nav a { padding: 8px 10px; }
+  .nav .wide-only { display: none; }
+}
 
 .footer { background: var(--deep); color: #DCE5DF; padding: 36px 0 28px; font-size: 14px; }
 .footer a { color: var(--white); }
@@ -218,6 +224,19 @@ fieldset.field { border: 0; padding: 0; margin: 0; min-width: 0; }
 .msg-staff { background: #E3F4EA; }
 .msg-head { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
 .links-inline { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+
+/* ── Plans and payment ───────────────────────────────────────────────────────────────── */
+.plan { background: var(--white); border-radius: 24px; padding: 20px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 10px; }
+.plan-paid { box-shadow: 0 0 0 2px var(--gold2), var(--shadow-card); }
+.plan-price { color: var(--forest); font-size: 22px; font-weight: 700; line-height: 1.4; }
+.plan-price .small { color: var(--stone); font-weight: 400; }
+.plan-cta { margin-top: auto; }
+.mysr-form { margin: 0 auto; }
+.lines { width: 100%; border-collapse: collapse; font-size: 14px; }
+.lines th, .lines td { border-bottom: 1px solid var(--line); padding: 8px 6px; text-align: start; vertical-align: top; }
+.lines tfoot th { border-bottom: 0; font-size: 15px; }
+.invoice .qr { width: 120px; height: 120px; }
+@media print { .invoice { max-width: none; } }
 
 /* ── Text pages (policies) ───────────────────────────────────────────────────────────── */
 .doc { background: var(--white); border-radius: 24px; padding: 24px 20px; box-shadow: var(--shadow-card); max-width: 820px; }
