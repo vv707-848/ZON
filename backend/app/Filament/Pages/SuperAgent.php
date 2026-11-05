@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\NoteCategory;
 use App\Enums\PropertyType;
 use App\Filament\NavigationGroup;
 use App\Filament\Support\ReportView;
@@ -10,6 +11,7 @@ use App\Models\City;
 use App\Models\ExecReport;
 use App\SuperAgent\Catalog;
 use App\SuperAgent\DailyCap;
+use App\SuperAgent\NotesDigest;
 use App\SuperAgent\SuperAgent as Agent;
 use App\SuperAgent\Template;
 use BackedEnum;
@@ -76,8 +78,10 @@ class SuperAgent extends Page
             Textarea::make('question')->label('سؤالك')->rows(2)->maxLength(500)->placeholder('مثال: أين يزيد الطلب على العرض في الرياض هذا الشهر؟'),
             Section::make('الوضع اليدوي (بلا نموذج)')->collapsed()->columns(3)->schema([
                 Select::make('template')->label('التقرير')->options($templates)->live()->columnSpanFull(),
-                Select::make('city')->label('المدينة')->options(fn () => array_combine(array_keys(City::catalog()), array_keys(City::catalog())))
+                Select::make('city')->label('المدينة')->options(fn () => array_combine(array_keys(City::catalog()), array_keys(City::catalog())))->live()
                     ->visible(fn (Get $get) => $this->uses($get('template'), 'city')),
+                Select::make('neighborhood')->label('الحي')->options(fn (Get $get) => self::neighborhoods($get('city')))
+                    ->visible(fn (Get $get) => $this->uses($get('template'), 'neighborhood')),
                 Select::make('property_type')->label('النوع')->options(PropertyType::options())->visible(fn (Get $get) => $this->uses($get('template'), 'property_type')),
                 TextInput::make('days')->label('الأيام')->integer()->minValue(1)->maxValue(365)->visible(fn (Get $get) => $this->uses($get('template'), 'days')),
                 TextInput::make('months')->label('الأشهر')->integer()->minValue(1)->maxValue(24)->visible(fn (Get $get) => $this->uses($get('template'), 'months')),
@@ -97,6 +101,31 @@ class SuperAgent extends Page
             Section::make('التقرير')->visible(fn () => $this->report() !== null)->schema([Html::make(fn () => ReportView::render($this->report()))]),
             Section::make('آخر التقارير')->collapsed()->schema([Html::make(fn () => $this->history())]),
         ]);
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('notes_digest')->label('قراءة ملاحظات العملاء')->icon('heroicon-o-lock-open')->color('warning')
+                ->modalHeading('قراءة ملاحظات الوسطاء على عملائهم (حساس)')
+                ->modalDescription('تُقرأ الملاحظات مُخفاة الأسماء والأرقام، ويعود ملخص وموضوعات فقط، ولا تُقرأ أقل من '.NotesDigest::MINIMUM.' ملاحظة كي لا تصف عملاء بأعيانهم. القراءة تُسجَّل في التدقيق.')
+                ->schema([
+                    Select::make('city')->label('المدينة')->required()->live()->options(fn () => array_combine(array_keys(City::catalog()), array_keys(City::catalog()))),
+                    Select::make('neighborhood')->label('الحي')->options(fn (Get $get) => self::neighborhoods($get('city'))),
+                    Select::make('property_type')->label('النوع')->options(PropertyType::options()),
+                    Select::make('category')->label('تصنيف الملاحظة')->options(NoteCategory::options()),
+                    TextInput::make('days')->label('الأيام')->integer()->minValue(1)->maxValue(365)->default(180),
+                ])
+                ->action(fn (array $data) => $this->runSafely(fn () => app(NotesDigest::class)->read(Staff::user(), $data))),
+        ];
+    }
+
+    /** @return array<string, string> */
+    private static function neighborhoods(mixed $city): array
+    {
+        $names = City::catalog()[(string) $city] ?? [];
+
+        return array_combine($names, $names);
     }
 
     public function ask(): void

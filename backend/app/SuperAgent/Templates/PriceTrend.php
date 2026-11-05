@@ -25,7 +25,7 @@ final class PriceTrend extends Template
 
     public function params(): array
     {
-        return ['city' => Param::city(), 'property_type' => Param::propertyType(required: true), 'months' => Param::months()];
+        return ['city' => Param::city(), 'neighborhood' => Param::neighborhood(), 'property_type' => Param::propertyType(required: true), 'months' => Param::months()];
     }
 
     public function columns(): array
@@ -36,7 +36,7 @@ final class PriceTrend extends Template
     public function query(array $params): array
     {
         return ["SELECT DATE_FORMAT(published_at, '%Y-%m') AS month, COUNT(*) AS listings, ROUND(AVG(price)) AS avg_price FROM ai_v_listings
-            WHERE city = ? AND property_type = ? AND published_at >= ? GROUP BY month ORDER BY month",
-            [$params['city'], $params['property_type'], now()->subMonths($params['months'])->startOfMonth()->toDateTimeString()]];
+            WHERE city = ? AND (? IS NULL OR neighborhood = ?) AND property_type = ? AND published_at >= ? GROUP BY month ORDER BY month",
+            [$params['city'], $params['neighborhood'], $params['neighborhood'], $params['property_type'], now()->subMonths($params['months'])->startOfMonth()->toDateTimeString()]];
     }
 }

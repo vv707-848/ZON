@@ -443,9 +443,12 @@ search_listings · search_requests · matching · match_searchers · chat · sum
 
 - **اتصال القراءة:** `ai_reader` (`REPORT_DB_*`) بصلاحية SELECT على مشاهد `ai_v_*` فقط (`deploy/mysql/ai_reader.sql`). ممنوع أي صلاحية على الجداول الأصلية.
 - **القوالب:**
-  - **14 تشغيلياً:** TopDemandByNeighborhood · TopPropertyTypes · SupplyVsDemand · ListingFunnel · UserGrowth · BrokerActivity · MatchingPerformance · SubscriptionsSummary · PriceTrend · TimeToSell · SearchNoResults · UserFunnel · RevenueSummary · DeveloperProjectPerf.
-  - **4 للسوق:** DemandSupplyGap · RealBudgetIndex · UnmetFeatures · RejectionReasons.
+  - **15 تشغيلياً:** TopDemandByNeighborhood · TopPropertyTypes · SupplyVsDemand · ListingFunnel · UserGrowth · BrokerActivity · MatchingPerformance · SubscriptionsSummary · PriceTrend · TimeToSell · SearchNoResults · UserFunnel · RevenueSummary · DeveloperProjectPerf · BrokerClients (عملاء الوسطاء وملاحظاتهم، أعداداً).
+  - **5 للسوق:** DemandSupplyGap · RealBudgetIndex · UnmetFeatures · RejectionReasons · ClientDemand (طلب عملاء الوسطاء لكل حي ونوع).
   - تقارير السوق تستبعد من رفض المشاركة، ويُرفع حدها الأدنى للطلبات ولا يُخفض.
+  - **الحي** معامل اختياري (`Param::neighborhood`) في PriceTrend وTimeToSell وClientDemand. يُتحقق منه هنا بالمرجع، ولا تُرسل قائمة الأحياء كلها للنموذج.
+- **دفتر العملاء:** `ai_v_crm_clients` و`ai_v_crm_notes` أعداد وأماكن وأنواع وميزانيات، بلا اسم ولا جوال ولا وصف ولا كلمة من ملاحظة، وبلا حسابات المراجعة.
+- **قراءة ملاحظات العملاء** (`NotesDigest`، للمدير العام وحده): المدينة والحي والنوع والتصنيف والمدة. كل ملاحظة مُخفاة الاسم والأرقام. لا تُقرأ أقل من 20 ملاحظة. `summarize_batch` بدفعات 500 ثم تجميع. يعود ملخص وموضوعات فقط. القراءة في سجل التدقيق (المرشحات والعدد، لا الكلمات)، وتُحفظ في الأرشيف ضمن السقف اليومي.
 - **التدفق:**
   1. `report_select`: يختار القالب ومعاملاته من الكتالوج.
   2. التحقق من المعاملات (`Param`).

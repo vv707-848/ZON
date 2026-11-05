@@ -2,7 +2,7 @@
 
 namespace App\SuperAgent;
 
-/** Every approved template: 14 operational reports and 4 market reports. */
+/** Every approved template: 15 operational reports and 5 market reports. */
 final class Catalog
 {
     /** @var list<class-string<Template>> */
@@ -11,12 +11,13 @@ final class Catalog
         Templates\ListingFunnel::class, Templates\UserGrowth::class, Templates\BrokerActivity::class,
         Templates\MatchingPerformance::class, Templates\SubscriptionsSummary::class, Templates\PriceTrend::class,
         Templates\TimeToSell::class, Templates\SearchNoResults::class, Templates\UserFunnel::class,
-        Templates\RevenueSummary::class, Templates\DeveloperProjectPerf::class,
+        Templates\RevenueSummary::class, Templates\DeveloperProjectPerf::class, Templates\BrokerClients::class,
     ];
 
     /** @var list<class-string<MarketTemplate>> */
     public const MARKET = [
         Templates\DemandSupplyGap::class, Templates\RealBudgetIndex::class, Templates\UnmetFeatures::class, Templates\RejectionReasons::class,
+        Templates\ClientDemand::class,
     ];
 
     /** @return array<string, Template> name => template */

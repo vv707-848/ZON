@@ -108,7 +108,7 @@
 
 13 مشهداً يقرؤها حساب `ai_reader` وحده (`deploy/mysql/ai_reader.sql`)، ولا يرى أي جدول:
 
-- **المشاهد:** `ai_v_listings` · `ai_v_listing_history` · `ai_v_requests` · `ai_v_projects` · `ai_v_project_units` · `ai_v_customers` · `ai_v_subscriptions` · `ai_v_payments` · `ai_v_search_misses` · `ai_v_search_feedback` · `ai_v_ai_requests` · `ai_v_daily_area_stats` · `ai_v_preferences`.
+- **المشاهد:** `ai_v_listings` · `ai_v_listing_history` · `ai_v_requests` · `ai_v_projects` · `ai_v_project_units` · `ai_v_customers` · `ai_v_subscriptions` · `ai_v_payments` · `ai_v_search_misses` · `ai_v_search_feedback` · `ai_v_ai_requests` · `ai_v_daily_area_stats` · `ai_v_preferences` · `ai_v_crm_clients` · `ai_v_crm_notes`.
 - **ما لا تحمله:** لا اسم، ولا جوال، ولا بريد، ولا نص حر لشخص. سبب «غير مطابق» مثلاً يظهر في المشهد بوجوده فقط (`has_reason`)، ونصه للموظفين في اللوحة.
 - **الرغبات:** `ai_v_preferences` تضم الرغبات التي وافق أصحابها على مشاركتها فقط.
 - **إضافة مشهد:** تتطلب ثلاث خطوات معاً:
