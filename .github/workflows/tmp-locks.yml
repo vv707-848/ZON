@@ -1,0 +1,36 @@
+# Temporary: resolves new packages where Packagist and pub.dev are reachable, and prints the files. Deleted after use.
+name: Locks (temporary)
+on: push
+permissions:
+  contents: read
+jobs:
+  composer:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          extensions: bcmath, exif, gd, intl, mbstring, pcntl, pdo_mysql, redis, zip
+          coverage: none
+          tools: composer:v2
+      - run: composer require "sentry/sentry-laravel:^4.29" -W --no-interaction --no-progress --no-scripts --no-install 2>&1 | tail -n 60
+      - run: composer show --locked | grep -Ei "sentry|nyholm|options-resolver|psr-http-message-bridge|pretty-package|php-http" || true
+      - run: echo "JSON-BEGIN"; base64 -w 76 composer.json; echo "JSON-END"; echo "LOCK-BEGIN"; base64 -w 76 composer.lock; echo "LOCK-END"
+  pub:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.9
+          channel: stable
+          cache: true
+      - run: flutter pub add http flutter_secure_storage package_info_plus device_info_plus sentry_flutter firebase_core firebase_messaging 2>&1 | tail -n 80
+      - run: echo "PUBSPEC-BEGIN"; base64 -w 76 pubspec.yaml; echo "PUBSPEC-END"; echo "PUBLOCK-BEGIN"; base64 -w 76 pubspec.lock; echo "PUBLOCK-END"
