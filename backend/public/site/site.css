@@ -56,6 +56,12 @@ main { display: block; padding: 20px 0 56px; }
 .nav::-webkit-scrollbar { display: none; }
 .nav a { padding: 8px 12px; border-radius: 999px; color: var(--sage); font-weight: 600; font-size: 14px; white-space: nowrap; }
 .nav a:hover, .nav a[aria-current="page"] { background: var(--tint); color: var(--forest); }
+/* A phone fits the logo and four sections; «التطبيق» is on the home page itself. */
+@media (max-width: 480px) {
+  .brand span { display: none; }
+  .nav a { padding: 8px 10px; }
+  .nav .wide-only { display: none; }
+}
 
 .footer { background: var(--deep); color: #DCE5DF; padding: 36px 0 28px; font-size: 14px; }
 .footer a { color: var(--white); }
