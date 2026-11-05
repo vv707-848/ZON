@@ -41,7 +41,7 @@ def build_store(settings: Settings) -> VectorStore:
 def build_services(settings: Settings) -> Services:
     key = settings.llm_api_key.get_secret_value()
     llm = LLM(
-        openai_model(settings),
+        openai_model(settings.llm_base_url, key, settings.llm_model, settings.request_budget_seconds),
         load_prompts(),
         profile=load_profile(settings.llm_profile),
         max_concurrency=settings.llm_max_concurrency,

@@ -10,13 +10,13 @@ from pydantic import BaseModel, ValidationError
 
 from zon_agents.errors import InvalidPayload
 from zon_agents.llm import LLM
-from zon_agents.tools.retrieval import Retrieval
+from zon_agents.tools.retrieval import Retriever
 
 
 @dataclass(frozen=True)
 class Ctx:
     llm: LLM
-    retrieval: Retrieval
+    retrieval: Retriever
     today: Callable[[], date] = date.today
 
 

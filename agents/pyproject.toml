@@ -33,7 +33,7 @@ zon-agents = "zon_agents.cli:main"
 include = ["zon_agents*"]
 
 [tool.setuptools.package-data]
-zon_agents = ["prompts/*.md", "models/*.toml"]
+zon_agents = ["prompts/*.md", "models/*.toml", "lab/cases/*.jsonl", "lab/cases/*.json"]
 
 [tool.ruff]
 line-length = 120
