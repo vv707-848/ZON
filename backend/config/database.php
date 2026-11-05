@@ -59,6 +59,8 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // A failed query's message keeps its ? placeholders: no phone, name or text in the logs or in Sentry.
+            'mask_bindings_in_exception_messages' => true,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ], fn ($value) => $value !== null) : [],
@@ -76,6 +78,7 @@ return [
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
             'strict' => true,
+            'mask_bindings_in_exception_messages' => true,
             'options' => [PDO::ATTR_TIMEOUT => 5],
         ],
 

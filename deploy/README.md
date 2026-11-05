@@ -82,3 +82,4 @@
 | سجلات Laravel | `storage/logs` |
 | سطر خدمة الوكلاء | `request_id` في `/var/log/zon/agents.log` |
 | لوحة الإدارة | صفحة «تتبّع طلب» |
+| Sentry | الوسم `request_id` في مشاريع zon-backend وzon-agents وzon-app (`docs/operations.md` «تتبّع الأخطاء») |

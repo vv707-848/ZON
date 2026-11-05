@@ -48,6 +48,7 @@ def test_health_reports_each_dependency(client: TestClient, embedder: FakeEmbedd
         "embed": True,
         "qdrant": True,
         "model": model,
+        "errors": False,  # no SENTRY_DSN in the tests
     }
 
     embedder.down = True
@@ -58,6 +59,7 @@ def test_health_reports_each_dependency(client: TestClient, embedder: FakeEmbedd
         "embed": False,
         "qdrant": True,
         "model": model,
+        "errors": False,
     }
 
 

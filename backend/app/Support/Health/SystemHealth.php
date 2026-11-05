@@ -60,6 +60,7 @@ final class SystemHealth
             $this->check('uploads', 'رفع الصور ومعالجتها', 'deploy/php/zon.ini في conf.d لـ PHP-FPM ولسطر الأوامر، ثم إعادة تشغيل php8.5-fpm — وامتدادا gd و exif', $this->uploads(...)),
             $this->check('websockets', 'المراسلة الفورية (Reverb)', 'supervisorctl status zon-reverb — وقيم REVERB_* في .env', $this->websockets(...)),
             $this->check('integrations', 'التكاملات الخارجية', 'config/services.php و docs/integrations.md — قيم *_DRIVER و PRODUCTION_ALLOWS_FAKE', $this->integrations(...)),
+            $this->check('errors', 'تتبّع الأخطاء (Sentry)', 'SENTRY_LARAVEL_DSN و SENTRY_RELEASE في .env — docs/operations.md «تتبّع الأخطاء»', $this->errors(...)),
         ];
     }
 
@@ -211,6 +212,9 @@ final class SystemHealth
         if (is_string($model) && $model !== '') {
             $detail .= " · {$model}";                    // the model profile the AI node serves (agents' LLM_PROFILE)
         }
+        if (is_bool($response->json('errors'))) {
+            $detail .= ' · Sentry '.($response->json('errors') ? '✓' : '✗');   // the agents service's own SENTRY_DSN
+        }
         if ($down === []) {
             return [HealthStatus::Ok, $detail];
         }
@@ -349,6 +353,23 @@ final class SystemHealth
         return $refused !== []
             ? [HealthStatus::Fail, 'محاكاة مرفوضة في الإنتاج: '.implode('، ', $refused).' — '.$detail]
             : [HealthStatus::Warn, 'محاكاة مسموحة مؤقتًا: '.implode('، ', $fakes).' — '.$detail];
+    }
+
+    /** @return array{HealthStatus, string} */
+    private function errors(): array
+    {
+        if (blank(config('sentry.dsn'))) {
+            return app()->isProduction()
+                ? [HealthStatus::Warn, 'لا يصل أي خطأ لأحد: SENTRY_LARAVEL_DSN فارغ']
+                : [HealthStatus::Ok, 'معطّل (بلا DSN) — اختياري خارج الإنتاج'];
+        }
+        $release = config('sentry.release');
+        $detail = 'البيئة '.(config('sentry.environment') ?: app()->environment()).' · الإصدار '.($release ?: '—')
+            .' · عيّنة الأداء '.(float) config('sentry.traces_sample_rate');
+
+        return app()->isProduction() && blank($release)
+            ? [HealthStatus::Warn, $detail.' — بلا رقم إصدار لا يُعرف أي نشر أدخل الخطأ']
+            : [HealthStatus::Ok, $detail];
     }
 
     /** Milliseconds the callback took. */

@@ -8,7 +8,7 @@
 | المكوّن | المستخدم | آخر مستقر | ملاحظة |
 |---|---|---|---|
 | PHP | 8.5 | 8.5.12 | `composer.json`: ‏`^8.5`. الفحص الآلي والإنتاج على 8.5 |
-| Laravel | 13.39.0 | 13.39.0 | من 12. التغييرات أدناه |
+| Laravel | 13.40.0 | 13.40.0 | من 12. التغييرات أدناه |
 | Symfony (عبر Laravel) | 8.1 | — | — |
 | Filament / Livewire | 5.11.0 / 4.4.8 | نفسها | — |
 | Sanctum / Reverb | 4.3.3 / 1.12.0 | نفسها | — |
@@ -37,6 +37,7 @@
 | Qdrant (الخادم / العميل) | 1.20.0 / 1.20.0 | 1.20.0 | بلا تغييرات كاسرة. ‏`enforce_internal_auth` صار افتراضياً مع المفتاح |
 | Nginx | 1.30 (الفرع المستقر) | 1.30.6 (14 أكتوبر 2026، [nginx.org](https://nginx.org/2026.html)) | من مستودع nginx.org لا من Ubuntu: نسخة Ubuntu 24.04 هي 1.24، ولا تعرف `http2 on;` (أُضيف في 1.25.1) الذي يستخدمه `deploy/nginx/zon.conf`. تحقّق صياغة الملف بـ `nginx -t` |
 | chillerlan/php-qrcode | 5.0.5 | نفسه | رموز QR في الموقع (ترخيص الإعلان، والفاتورة). كان يصل عبر Filament، وصار طلباً صريحاً في `composer.json` كي لا يختفي إن تخلّت عنه Filament |
+| sentry/sentry-laravel · sentry/sentry | 4.29.0 · 4.36.0 | نفسها (5 نوفمبر 2026) | تتبّع الأخطاء (`config/sentry.php`). خيار `data_collection` الجديد يحدد ما يُجمع صراحة بدل `send_default_pii` |
 
 ## خدمة الوكلاء
 
@@ -48,6 +49,7 @@
 | pydantic · pydantic-settings | 2.14.3 · 2.16.2 | نفسها | — |
 | pydantic-ai-slim · mcp | 2.66.0 · 2.3.0 | نفسها (5 نوفمبر 2026) | — |
 | qdrant-client · httpx | 1.20.0 · 0.28.1 | نفسها | — |
+| sentry-sdk | 2.74.0 | نفسه (5 نوفمبر 2026) | تتبّع الأخطاء (`zon_agents/monitoring.py`): `data_collection`، و`send_default_pii` مهجور فيه |
 | pytest · ruff · mypy | 9.2.0 · 0.17.4 · 2.4.1 | نفسها | — |
 
 **عقدة الذكاء (RunPod):** النموذج ملف (`agents/zon_agents/models/<name>.toml`)، وملفه يحدد محركه (`deploy/ai-node/install.sh`):

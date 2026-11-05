@@ -93,6 +93,53 @@ class LiveDriversTest extends TestCase
         unlink($credentials);
     }
 
+    public function test_fcm_drops_only_tokens_that_will_never_work_and_still_sends_to_the_rest(): void
+    {
+        $credentials = $this->fcmCredentials();
+        $tokenError = fn (string $status, string $code, int $http, array $more = []) => Http::response(['error' => [
+            'code' => $http, 'status' => $status, 'details' => [['@type' => 'type.googleapis.com/google.firebase.fcm.v1.FcmError', 'errorCode' => $code], ...$more],
+        ]], $http);
+        Http::fake([
+            'oauth2.googleapis.com/token' => Http::response(['access_token' => 'ya29.token', 'expires_in' => 3599]),
+            'fcm.googleapis.com/*' => Http::sequence()
+                ->push(['name' => 'projects/zon-app/messages/1'])
+                ->pushResponse($tokenError('NOT_FOUND', 'UNREGISTERED', 404))
+                ->pushResponse($tokenError('INVALID_ARGUMENT', 'INVALID_ARGUMENT', 400, [['@type' => 'type.googleapis.com/google.rpc.BadRequest',
+                    'fieldViolations' => [['field' => 'message.token', 'description' => 'The registration token is not a valid FCM registration token']]]]))
+                ->pushResponse($tokenError('PERMISSION_DENIED', 'SENDER_ID_MISMATCH', 403))
+                ->push(['name' => 'projects/zon-app/messages/5'])
+                // Our payload, not a token: every token would fail the same way — stop, delete nothing.
+                ->pushResponse($tokenError('INVALID_ARGUMENT', 'INVALID_ARGUMENT', 400, [['@type' => 'type.googleapis.com/google.rpc.BadRequest',
+                    'fieldViolations' => [['field' => 'message.data[0].value', 'description' => 'Invalid value']]]]))
+                ->pushResponse($tokenError('UNAVAILABLE', 'UNAVAILABLE', 503)),
+        ]);
+        $fcm = new FcmPushGateway($credentials);
+
+        $dead = $fcm->send(['alive', 'uninstalled', 'malformed', 'other-project', 'alive-too'], 'عرض جديد', 'في حي النرجس');
+
+        $this->assertSame(['uninstalled', 'malformed', 'other-project'], $dead);
+        Http::assertSentCount(1 + 5);   // one sign-in, and every token was tried
+        foreach (['payload', 'fcm-down'] as $case) {
+            try {
+                $fcm->send(['alive'], 'عرض', 'نص');
+                $this->fail("{$case}: the batch should stop");
+            } catch (IntegrationException $e) {
+                $this->assertStringContainsString($case === 'payload' ? 'HTTP 400' : 'HTTP 503', $e->getMessage());
+            }
+        }
+        unlink($credentials);
+    }
+
+    private function fcmCredentials(): string
+    {
+        $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+        openssl_pkey_export($key, $privateKey);
+        $credentials = (string) tempnam(sys_get_temp_dir(), 'fcm');
+        file_put_contents($credentials, json_encode(['project_id' => 'zon-app', 'client_email' => 'push@zon-app.iam.gserviceaccount.com', 'private_key' => $privateKey]));
+
+        return $credentials;
+    }
+
     public function test_the_fake_payment_driver_says_it_is_a_simulation(): void
     {
         $this->assertSame('fake', app(PaymentGateway::class)->name());

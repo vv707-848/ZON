@@ -8,6 +8,7 @@ use App\Models\AppConfig;
 use App\Models\Customer;
 use App\Models\DeletionRequest;
 use App\Models\Listing;
+use Database\Seeders\ReferenceSeeder;
 use Illuminate\Testing\TestResponse;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
@@ -130,12 +131,12 @@ class AuthTest extends TestCase
 
     public function test_old_app_versions_must_update_and_maintenance_lets_testers_in(): void
     {
-        $headers = ['X-App-Platform' => 'ios', 'X-App-Version' => '3.0.0'];
-        $this->getJson('/api/v1/catalog', $headers)->assertStatus(426)->assertJsonPath('error.details.min_version', '3.1.2');
+        $headers = ['X-App-Platform' => 'ios', 'X-App-Version' => '1.2.0'];
+        $this->getJson('/api/v1/catalog', $headers)->assertStatus(426)->assertJsonPath('error.details.min_version', ReferenceSeeder::FIRST_APP_VERSION);
 
         AppConfig::query()->where('platform', 'ios')->update(['maintenance_mode' => true, 'maintenance_message' => 'نحدّث الخوادم']);
         AppConfig::query()->first()->save();   // the cached copy is dropped on save
-        $headers['X-App-Version'] = '3.1.2';
+        $headers['X-App-Version'] = ReferenceSeeder::FIRST_APP_VERSION;
         $this->getJson('/api/v1/catalog', $headers)->assertStatus(503)->assertJsonPath('error.message', 'نحدّث الخوادم');
         $this->getJson('/api/v1/app/config', $headers)->assertOk()->assertJsonPath('data.platform.maintenance.message', 'نحدّث الخوادم');
 

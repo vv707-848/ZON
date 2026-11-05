@@ -48,6 +48,7 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="MEDIA_DISK" value="minio"/>
         <env name="AGENTS_URL" value="http://agents.test"/>
+        <env name="SENTRY_LARAVEL_DSN" value=""/>
         <env name="AGENTS_INTERNAL_KEY" value="test-internal-key"/>
         <env name="INDEX_SHARED_SECRET" value="test-index-secret"/>
         <env name="RATE_SALT" value="test-rate-salt"/>

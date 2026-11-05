@@ -20,7 +20,8 @@
 
 | الأمر | متى |
 |---|---|
-| `php artisan zon:doctor` | أول خطوة عند أي شكوى. يفحص 14 بنداً (الإعدادات، القاعدة، الترحيلات، Redis، المجدول، الطوابير، المهام الفاشلة، الوكلاء، الفهرس، اتصال الوكيل الأعلى، التخزين، رفع الصور ومعالجتها، Reverb، التكاملات)، ولكل بند فاشل «أين تنظر أولاً». الصفحة نفسها في اللوحة: «صحة النظام» |
+| `php artisan zon:doctor` | أول خطوة عند أي شكوى. يفحص 15 بنداً (الإعدادات، القاعدة، الترحيلات، Redis، المجدول، الطوابير، المهام الفاشلة، الوكلاء، الفهرس، اتصال الوكيل الأعلى، التخزين، رفع الصور ومعالجتها، Reverb، التكاملات، تتبّع الأخطاء)، ولكل بند فاشل «أين تنظر أولاً». الصفحة نفسها في اللوحة: «صحة النظام» |
+| `php artisan sentry:test` | بعد ضبط `SENTRY_LARAVEL_DSN`: يرسل خطأً تجريبياً، فيظهر في مشروع zon-backend |
 | `php artisan zon:reindex [listing\|project_unit\|request\|kb_document] [--force]` | بعد فهرس فارغ أو أُعيد بناؤه (`zon-agents bootstrap --recreate`): مع `--force`. دونه يُرسل ما تغيّر نصه فقط |
 | `php artisan zon:create-superadmin <email>` | أول تشغيل: المدير العام (كلمة سر 12+ تُطلب سراً، ثم المصادقة الثنائية عند أول دخول) |
 | `php artisan queue:failed` · `queue:retry <id>` | بعد تنبيه «المهام الفاشلة» |
@@ -32,6 +33,7 @@
 cd /var/www/zon/backend
 git pull
 composer install --no-dev --optimize-autoloader
+sed -i "s/^SENTRY_RELEASE=.*/SENTRY_RELEASE=zon-backend@$(git rev-parse --short HEAD)/" .env   # قبل optimize: الإعدادات تُحفظ
 php artisan migrate --force
 php artisan optimize          # config · routes · events · views
 php artisan filament:assets      # CSS/JS of the panel (composer install runs it too: filament:upgrade)
@@ -125,6 +127,33 @@ php artisan zon:doctor
    - لا نص مستخدم في هذا السجل.
 4. **سطر nginx:** `trace=<الرقم>` في `/var/log/nginx/zon-api.log`.
 5. **مهمة في الطابور:** تحمل الرقم نفسه (Laravel Context)، فسجلّها في السجل نفسه وتحت الرقم نفسه.
+6. **Sentry:** ابحث بـ `request_id:<الرقم>` في المشاريع الثلاثة (zon-backend · zon-agents · zon-app). خطأ التطبيق وخطأ الخادم وخطأ الوكلاء لنفس الفعل تحمل الرقم نفسه.
+
+## تتبّع الأخطاء (Sentry)
+
+ثلاثة مشاريع، لكل منها DSN، وبلا DSN لا يُرسل شيء:
+
+| المشروع | المتغير | ما يغطيه |
+|---|---|---|
+| zon-backend | `SENTRY_LARAVEL_DSN` في `backend/.env` | واجهة التطبيق، واللوحة، والموقع، والطوابير، والمجدول (`config/sentry.php`) |
+| zon-agents | `SENTRY_DSN` في `agents/.env` | خدمة الوكلاء (`zon_agents/monitoring.py`) |
+| zon-app | `--dart-define=SENTRY_DSN=…` عند بناء التطبيق | تطبيق الجوال |
+
+**ما يحمله كل خطأ:** الاستثناء، ومكدّسه (أسطر الكود بلا قيم المتغيرات)، والمسار، ورقم التتبّع `request_id`، ومنصة التطبيق وإصداره، والإصدار المنشور (`SENTRY_RELEASE`)، والحساب برقمه فقط (`customer:123` · `staff:5`).
+
+**ما لا يخرج أبداً** (يحرسه `MonitoringTest` في الباك إند و`test_monitoring.py` في الوكلاء):
+- محتوى الطلب والرد، والكوكيز، ومعاملات العنوان.
+- قيم SQL: رسالة خطأ القاعدة تُبقي `?` (`mask_bindings_in_exception_messages`)، وتُحذف القيمة التي يقتبسها MySQL في رسالته (`Duplicate entry '?'`).
+- محتوى المهام في الطابور، ونصوص الموجّهات وأجوبة النموذج.
+- الاسم والجوال والبريد وعنوان IP.
+
+**الأخطاء المتوقعة لا تُرسل:** أخطاء `ApiException` (426، 503، 422…)، والتحقق من الحقول، و404، و401/403.
+
+**الأداء:** `SENTRY_TRACES_SAMPLE_RATE=0` افتراضياً (الأخطاء فقط). عند الحاجة 0.05 (5٪ من الطلبات)، والتتبّع يمتد من Laravel إلى خدمة الوكلاء وحدها، لا إلى ميسّر والرسائل والمتاجر.
+
+**إعداد المشروع في Sentry** (مرة واحدة):
+- Security & Privacy ← تفعيل Data Scrubber و«Prevent Storing of IP Addresses».
+- تنبيه لكل خطأ جديد (New issue) إلى بريد الفريق، وتنبيه حين يتجاوز خطأ 50 حدثاً في الساعة.
 
 ## من العرَض إلى الموضع
 

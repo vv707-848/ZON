@@ -17,6 +17,7 @@
 ```
 zon_agents/
   main.py            مسارات HTTP، وسطر سجل JSON لكل طلب بـ request_id = رقم تتبّع Laravel
+  monitoring.py      Sentry (SENTRY_DSN): الخطأ غير المتوقع برقم التتبّع، بلا محتوى الطلب ولا الموجّهات
   pipelines/         مسار كل وكيل: ranking · chat · text (تلخيص وتنقية) · reports (الوكيل الأعلى)
                      الكود يختار الاسترجاع، والنموذج يرتّب ويصوغ فقط
   tools/retrieval.py الاستعلام بمتجهاته الثلاثة، والبحث الهجين داخل المرشحين، ومكتبة المعرفة
@@ -40,6 +41,7 @@ zon_agents/
 | 503 من `/agents/*` | التضمين أو Qdrant متوقف (والنموذج لوكلاء النص) | `GET /agents/health` |
 | 401 من `/index/*` | المفتاح المشترك مختلف، أو ساعتا الخادمين متباعدتان أكثر من 5 دقائق | `INDEX_SHARED_SECRET` في الطرفين، وNTP |
 | `ignored_stale` | نسخة أقدم من المفهرسة — سلوك صحيح | — |
+| 500 من `/agents/*` | خطأ في الكود | سطر `unhandled` في السجل، والخطأ نفسه في Sentry (zon-agents) بالوسم `request_id` |
 
 كل سطر سجل يحمل `request_id`، وهو رقم التتبع نفسه في Laravel (`X-Request-Id`):
 

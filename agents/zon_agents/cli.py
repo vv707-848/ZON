@@ -13,7 +13,7 @@ from typing import Any
 
 import uvicorn
 
-from zon_agents import logs
+from zon_agents import logs, monitoring
 from zon_agents.config import Settings
 from zon_agents.lab.cases import check, load_cases
 from zon_agents.lab.runner import Outcome, report, run_cases
@@ -136,6 +136,7 @@ def main() -> None:
 
     settings = Settings()  # values come from the environment / .env
     logs.configure(settings.log_level)
+    monitoring.init(settings)  # Sentry, when SENTRY_DSN is set
     if args.command == "bootstrap":
         asyncio.run(_bootstrap(settings, args.recreate))
         return
