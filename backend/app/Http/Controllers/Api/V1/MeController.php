@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /** The signed-in account: profile, phone, password, notification switches, push token, Nafath. */
 class MeController extends Controller
@@ -89,7 +90,35 @@ class MeController extends Controller
             'platform' => ['required', 'in:ios,android'],
             'app_version' => ['nullable', 'string', 'max:20'],
         ]);
-        IssueToken::registerDevice($request->user('api'), $data);
+        $session = $request->user('api')->currentAccessToken();
+        IssueToken::registerDevice($request->user('api'), $data, $session instanceof PersonalAccessToken ? $session->getKey() : null);
+
+        return Api::ok();
+    }
+
+    /** The account's sessions: one per phone signed in, the newest use first, this phone marked. */
+    public function sessions(Request $request): JsonResponse
+    {
+        $me = $request->user('api');
+        $current = $me->currentAccessToken();
+        $devices = $me->devices()->whereNotNull('access_token_id')->get()->keyBy('access_token_id');
+
+        return Api::ok($me->tokens()->orderByDesc('last_used_at')->orderByDesc('id')->get()->map(fn (PersonalAccessToken $token) => [
+            'id' => $token->getKey(),
+            'device' => $token->name,
+            'platform' => $devices->get($token->getKey())?->platform,
+            'app_version' => $devices->get($token->getKey())?->app_version,
+            'signed_in_at' => $token->created_at?->toIso8601String(),
+            'last_used_at' => $token->last_used_at?->toIso8601String(),
+            'current' => $current instanceof PersonalAccessToken && $current->is($token),
+        ])->values());
+    }
+
+    /** Ends one session — a lost phone's, or this one (= sign out): its token and its push registration go. */
+    public function endSession(Request $request, int $session): JsonResponse
+    {
+        $token = $request->user('api')->tokens()->whereKey($session)->first() ?? throw ApiException::of(ErrorCode::NotFound);
+        $token->delete();
 
         return Api::ok();
     }
