@@ -14,7 +14,7 @@
 
 | الملف | يُنسخ إلى | العقدة |
 |---|---|---|
-| `nginx/zon.conf` | `/etc/nginx/sites-available/zon.conf` | التطبيق |
+| `nginx/zon.conf` | `/etc/nginx/sites-available/zon.conf`. يتطلب Nginx 1.30 من مستودع nginx.org (نسخة Ubuntu 1.24 لا تعرف `http2 on;`)، وشهادتين: `api.zon.sa`، و`zon.sa` مع `www.zon.sa` | التطبيق |
 | `php/zon.ini` | `/etc/php/8.5/fpm/conf.d/99-zon.ini` و`/etc/php/8.5/cli/conf.d/99-zon.ini`، ثم `systemctl restart php8.5-fpm` | التطبيق |
 | `supervisor/zon.conf` | `/etc/supervisor/conf.d/zon.conf` | التطبيق |
 | `cron/zon` | `/etc/cron.d/zon` | التطبيق |

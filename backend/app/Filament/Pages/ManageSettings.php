@@ -100,7 +100,9 @@ class ManageSettings extends Page
         return match ($setting->type()) {
             'bool' => Toggle::make($name)->label($setting->label()),
             'list' => Textarea::make($name)->label($setting->label())->rows(4),
-            'text' => TextInput::make($name)->label($setting->label())->maxLength(200),
+            'text' => $setting === Setting::SiteEmail
+                ? TextInput::make($name)->label($setting->label())->email()->maxLength(200)
+                : TextInput::make($name)->label($setting->label())->maxLength(200),
             'decimal' => TextInput::make($name)->label($setting->label())->numeric()->minValue(0)->required(),
             'money' => TextInput::make($name)->label($setting->label())->numeric()->minValue(0)->required(),
             default => TextInput::make($name)->label($setting->label())->integer()->minValue($setting->minimum())->required(),

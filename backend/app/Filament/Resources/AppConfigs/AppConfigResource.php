@@ -8,13 +8,16 @@ use App\Filament\Resources\AppConfigs\Pages\EditAppConfig;
 use App\Filament\Resources\AppConfigs\Pages\ListAppConfigs;
 use App\Models\AppConfig;
 use App\Support\Permissions\Permission;
+use App\Support\Site\Site;
 use BackedEnum;
+use Closure;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -57,9 +60,28 @@ class AppConfigResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
-            TextInput::make('min_version')->label('أقل إصدار مسموح')->required()->regex('/^\d+\.\d+\.\d+$/'),
+            // A forced update sends the user to the store: no link, no forced update.
+            TextInput::make('min_version')->label('أقل إصدار مسموح')->required()->regex('/^\d+\.\d+\.\d+$/')
+                ->rule(fn (?AppConfig $record, Get $get) => function (string $attribute, mixed $value, Closure $fail) use ($record, $get) {
+                    if ($record !== null && $value !== $record->min_version && blank($get('store_url'))) {
+                        $fail('أضف رابط المتجر قبل رفع أقل إصدار: التحديث الإجباري يفتح صفحة المتجر.');
+                    }
+                }),
             TextInput::make('latest_version')->label('أحدث إصدار')->required()->regex('/^\d+\.\d+\.\d+$/'),
-            TextInput::make('store_url')->label('رابط المتجر')->url()->required()->columnSpanFull(),
+            // Empty until the app is published there; the website shows a store's badge once its real link is set.
+            TextInput::make('store_url')->label('رابط صفحة التطبيق في المتجر')->url()->columnSpanFull()
+                ->helperText(fn (?AppConfig $record) => $record?->platform === 'ios'
+                    ? 'من App Store Connect بعد النشر، وفيه رقم التطبيق: https://apps.apple.com/sa/app/…/id123456789'
+                    : 'https://play.google.com/store/apps/details?id='.config('services.google_play.package'))
+                ->rule(fn (?AppConfig $record) => function (string $attribute, mixed $value, Closure $fail) use ($record) {
+                    if (blank($value)) {
+                        return;
+                    }
+                    $ok = $record?->platform === 'ios' ? Site::isAppStoreLink((string) $value) : Site::isPlayLink((string) $value);
+                    if (! $ok) {
+                        $fail($record?->platform === 'ios' ? 'رابط App Store يحمل رقم التطبيق (…/id123456789).' : 'رابط Google Play لتطبيق '.config('services.google_play.package').'.');
+                    }
+                }),
             Toggle::make('maintenance_mode')->label('وضع الصيانة')->live(),
             DateTimePicker::make('maintenance_until')->label('حتى (اختياري)'),
             Textarea::make('maintenance_message')->label('رسالة الصيانة')->maxLength(500)->columnSpanFull(),

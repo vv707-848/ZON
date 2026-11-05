@@ -9,7 +9,7 @@ use App\Filament\Support\Staff;
 use App\Models\LegalPage;
 use Filament\Resources\Pages\EditRecord;
 
-/** Every save publishes a new version of the policy. */
+/** Every save publishes the policy: a draft becomes version 1, a published policy a new version. */
 class EditLegalPage extends EditRecord
 {
     protected static string $resource = LegalPageResource::class;
@@ -17,7 +17,10 @@ class EditLegalPage extends EditRecord
     /** @param array<string, mixed> $data @return array<string, mixed> */
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        return $data + ['version' => (string) ((int) $this->page()->version + 1), 'published_at' => now(), 'updated_by' => Staff::user()->id];
+        $page = $this->page();
+        $version = $page->published_at === null ? $page->version : (string) ((int) $page->version + 1);
+
+        return $data + ['version' => $version, 'published_at' => now(), 'updated_by' => Staff::user()->id];
     }
 
     protected function afterSave(): void

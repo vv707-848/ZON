@@ -17,6 +17,7 @@ use App\Models\SearchRequest;
 use App\Support\Api;
 use App\Support\Blocks;
 use App\Support\Ownership;
+use App\Support\PublicView;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,8 +43,7 @@ class RequestController extends Controller
     {
         $viewer = $request->user('api');
         $viewer = $viewer instanceof Customer ? $viewer : null;
-        $mine = $viewer !== null && $viewer->id === $searchRequest->customer_id;
-        if (! $mine && ($searchRequest->status !== RequestStatus::Published || Blocks::hides($viewer, $searchRequest->customer))) {
+        if (! PublicView::request($searchRequest, $viewer)) {
             throw ApiException::of(ErrorCode::NotFound);
         }
 

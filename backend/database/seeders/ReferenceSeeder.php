@@ -20,6 +20,7 @@ class ReferenceSeeder extends Seeder
     ];
 
     /** The app's policy texts (lib/features/legal/legal_screen.dart), version 1. */
+    /** The five policies of the app's settings: titles, and a first line to replace (drafts, never published as is). */
     private const LEGAL = [
         'payments' => ['سياسة الدفع', 'الباقات تُدفع سنوياً أو شهرياً داخل المنصة. لا عمولة بيع أو تأجير على الإعلان. المبالغ غير شاملة ضريبة القيمة المضافة إن وُجدت لاحقاً.'],
         'privacy' => ['سياسة الخصوصية', 'زون تجمع بيانات الحساب والعقار لإتمام الوساطة والإعلان وفق نظام الهيئة العامة للعقار. لا تُشارك بيانات المالك الخاصة خارج إدارة الملاك لدى الوسيط.'],
@@ -50,12 +51,14 @@ class ReferenceSeeder extends Seeder
             }
         }
 
-        foreach (['ios' => 'https://apps.apple.com/app/zon', 'android' => 'https://play.google.com/store/apps/details?id=sa.zon.app'] as $platform => $store) {
-            AppConfig::query()->firstOrCreate(['platform' => $platform], ['min_version' => '3.1.2', 'latest_version' => '3.1.2', 'store_url' => $store]);
+        // The store link is set in «إعدادات التطبيق» once the app is published there (the website shows its badge then).
+        foreach (['ios', 'android'] as $platform) {
+            AppConfig::query()->firstOrCreate(['platform' => $platform], ['min_version' => '3.1.2', 'latest_version' => '3.1.2', 'store_url' => null]);
         }
 
+        // Drafts: a policy is shown in the app and on the website once its owner writes and saves it in the panel.
         foreach (self::LEGAL as $slug => [$title, $body]) {
-            LegalPage::query()->firstOrCreate(['slug' => $slug], ['title' => $title, 'body' => $body, 'version' => '1', 'published_at' => now()]);
+            LegalPage::query()->firstOrCreate(['slug' => $slug], ['title' => $title, 'body' => $body, 'version' => '1', 'published_at' => null]);
         }
 
         foreach (self::TERMS as $term => $synonyms) {

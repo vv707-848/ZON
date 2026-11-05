@@ -60,7 +60,7 @@
 | رخصة العرض: تاريخ انتهائها، وتنبيه قبله بأسبوع وبيوم، و«تحديث الرخصة» بعد تجديدها لدى الهيئة | معلن | `licence.expires_at` في العرض · `POST /listings/{id}/licence` | حالة «منتهي الترخيص»، ورقم الرخصة وتاريخها |
 | الاشتراكات | باحث · وسيط · مالك | في التطبيقين عبر المتجر: `GET /store/products` · `POST /store/check` · `POST /store/purchases`. في الموقع ولرسوم الترخيص عبر ميسّر: `POST /checkout` · `GET /payments/{public_id}` · `POST /payments/{public_id}/confirm`. ثم `GET /packages` · `GET /subscription` · `GET /invoices` | الباقات: الأسعار والحدود من الجدول، والاشتراكات، والمنح، والمدفوعات والاسترداد، والفواتير |
 | المتابعون | الجميع | `GET /me/followers` · `GET /me/following` | — |
-| الإعدادات: تفضيلات الإشعارات · السياسات · كلمة السر | الجميع | `PUT /me/notification-preferences` · `GET /legal/{slug}` · `PUT /me/password` | صفحات السياسات (نص ورقم نسخة) |
+| الإعدادات: تفضيلات الإشعارات · السياسات · كلمة السر | الجميع | `PUT /me/notification-preferences` · `GET /legal/{slug}` (404 للمسودة: يُخفي التطبيق صفّها حتى تُنشر) · `PUT /me/password` | صفحات السياسات (نص ورقم نسخة)، وهي نفسها في الموقع `zon.sa/legal/{slug}` |
 | الدعم: شكوى · اقتراح · استفسار برقم قيد ومدة رد معلنة، ومراسلة «فريق زون» في الاتجاهين | الجميع (الزائر يرسل فقط) | `POST /support-tickets` · `GET /support-tickets` · `GET /support-tickets/{reference}` · `POST /support-tickets/{reference}/messages` | «الشكاوى والمراسلات»: الرد، والإغلاق بالإجراء المتخذ، ومراسلة مستخدم من صفحة حسابه أو عرضه |
 | الشات (زون) | الجميع | `POST /ai/chat` · `GET /ai/chat` | مكتبة المعرفة، وكلمات المنع، ومراجعة المحادثات المرفوضة |
 

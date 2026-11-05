@@ -52,6 +52,14 @@ enum Setting: string
     case MarketReportMinRequests = 'reports.market_min_requests';
     case SuperAgentDailyCap = 'reports.super_agent_daily_cap';
 
+    // ── The website's footer: who runs the platform (each line shows only once it is filled)
+    case SiteLegalName = 'site.legal_name';
+    case SiteCrNumber = 'site.cr_number';
+    case SiteFalLicence = 'site.fal_licence';
+    case SiteAddress = 'site.address';
+    case SiteEmail = 'site.email';
+    case SitePhone = 'site.phone';
+
     public function default(): mixed
     {
         return match ($this) {
@@ -80,6 +88,7 @@ enum Setting: string
             self::ChatBlockedTerms => [],
             self::MarketReportMinRequests => 5,
             self::SuperAgentDailyCap => 30,
+            self::SiteLegalName, self::SiteCrNumber, self::SiteFalLicence, self::SiteAddress, self::SiteEmail, self::SitePhone => '',
         };
     }
 
@@ -90,7 +99,8 @@ enum Setting: string
             self::RequireNafath, self::VatRegistered, self::GooglePlayVatByZon => 'bool',
             self::FeaturedPrice, self::UrgentListingPrice, self::UrgentRequestPrice, self::AdLicenceFee => 'money',
             self::OwnerCommissionPercent, self::BrokerFreeSharePercent, self::VatRate => 'decimal',
-            self::VatNumber, self::SellerName => 'text',
+            self::VatNumber, self::SellerName, self::SiteLegalName, self::SiteCrNumber, self::SiteFalLicence, self::SiteAddress,
+            self::SiteEmail, self::SitePhone => 'text',
             self::ChatBlockedTerms => 'list',
             default => 'int',
         };
@@ -126,6 +136,12 @@ enum Setting: string
             self::ChatBlockedTerms => 'كلمات المنع في الشات (سطر لكل كلمة)',
             self::MarketReportMinRequests => 'الحد الأدنى للطلبات في تقرير السوق (لا يُخفض تحت 5)',
             self::SuperAgentDailyCap => 'سقف تقارير الوكيل الأعلى اليومي',
+            self::SiteLegalName => 'الاسم النظامي للمنشأة كما في السجل التجاري',
+            self::SiteCrNumber => 'رقم السجل التجاري (أو الرقم الموحد)',
+            self::SiteFalLicence => 'رقم رخصة فال للمنصة الإلكترونية',
+            self::SiteAddress => 'العنوان الوطني',
+            self::SiteEmail => 'بريد التواصل',
+            self::SitePhone => 'رقم التواصل (واتساب الأعمال)',
         };
     }
 
@@ -138,6 +154,7 @@ enum Setting: string
             'owners', 'brokers' => 'المالك والعمولات',
             'tax' => 'الضريبة والفواتير',
             'preferences', 'accounts', 'support' => 'الرغبات والحسابات والدعم',
+            'site' => 'الموقع: بيانات المنشأة في التذييل',
             default => 'الذكاء والتقارير',
         };
     }

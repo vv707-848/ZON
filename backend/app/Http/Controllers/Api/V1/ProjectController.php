@@ -21,6 +21,7 @@ use App\Support\Actor;
 use App\Support\Api;
 use App\Support\Blocks;
 use App\Support\Ownership;
+use App\Support\PublicView;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -75,7 +76,8 @@ class ProjectController extends Controller
     {
         $this->visible($request, $project);
         $unit->load(['licence', 'media']);
-        if ($unit->project_id !== $project->id || (! $this->isMine($request, $project) && ! $unit->isAdvertisable($project))) {
+        $viewer = $request->user('api');
+        if (! PublicView::unit($project, $unit, $viewer instanceof Customer ? $viewer : null)) {
             throw ApiException::of(ErrorCode::NotFound);
         }
 
@@ -173,7 +175,7 @@ class ProjectController extends Controller
     private function visible(Request $request, Project $project): void
     {
         $viewer = $request->user('api');
-        if (! $this->isMine($request, $project) && (! $project->status->isPublic() || Blocks::hides($viewer instanceof Customer ? $viewer : null, $project->developer))) {
+        if (! PublicView::project($project, $viewer instanceof Customer ? $viewer : null)) {
             throw ApiException::of(ErrorCode::NotFound);
         }
     }
