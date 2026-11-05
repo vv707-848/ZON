@@ -6,6 +6,7 @@ use App\Actions\Admin\RefundPayment;
 use App\Enums\PaymentPurpose;
 use App\Enums\PaymentStatus;
 use App\Filament\Concerns\AuthorizesByPermission;
+use App\Filament\Concerns\SearchesByIdentifier;
 use App\Filament\NavigationGroup;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Payments\Pages\ListPayments;
@@ -29,6 +30,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
@@ -38,7 +40,7 @@ use UnitEnum;
  */
 class PaymentResource extends Resource
 {
-    use AuthorizesByPermission;
+    use AuthorizesByPermission, SearchesByIdentifier;
 
     protected static ?string $model = Payment::class;
 
@@ -55,6 +57,38 @@ class PaymentResource extends Resource
     protected static function viewPermission(): Permission
     {
         return Permission::ViewPayments;
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['public_id'];
+    }
+
+    /** Our payment id, or the provider's reference (a Moyasar payment, Apple's transaction, Google's order). */
+    protected static function identifierMatches(Builder $query, string $search): void
+    {
+        if (preg_match('/^[\w.:-]{6,80}$/u', $search) === 1) {
+            $query->orWhere('provider_ref', $search)->orWhere('public_id', strtoupper($search));
+        }
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        assert($record instanceof Payment);
+
+        return $record->purpose->label().' — '.$record->amount()->riyals().' '.$record->currency;
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('customer');
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        assert($record instanceof Payment);
+
+        return ['الحالة' => $record->status->label(), 'المزوّد' => $record->provider, 'المشتري' => (string) $record->customer?->name];
     }
 
     public static function canCreate(): bool

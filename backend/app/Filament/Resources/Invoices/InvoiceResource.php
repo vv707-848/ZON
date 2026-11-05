@@ -3,8 +3,10 @@
 namespace App\Filament\Resources\Invoices;
 
 use App\Filament\Concerns\AuthorizesByPermission;
+use App\Filament\Concerns\SearchesByIdentifier;
 use App\Filament\NavigationGroup;
 use App\Filament\Resources\Invoices\Pages\ListInvoices;
+use App\Filament\Resources\Payments\PaymentResource;
 use App\Filament\Support\Columns;
 use App\Filament\Support\Filters;
 use App\Models\Invoice;
@@ -16,13 +18,15 @@ use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
 use UnitEnum;
 
 /** «الفواتير»: simplified tax invoices, numbered without gaps per year (ZATCA phase 1 QR when VAT-registered). */
 class InvoiceResource extends Resource
 {
-    use AuthorizesByPermission;
+    use AuthorizesByPermission, SearchesByIdentifier;
 
     protected static ?string $model = Invoice::class;
 
@@ -39,6 +43,35 @@ class InvoiceResource extends Resource
     protected static function viewPermission(): Permission
     {
         return Permission::ViewPayments;
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['number'];
+    }
+
+    protected static function identifierMatches(Builder $query, string $search): void {}
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        assert($record instanceof Invoice);
+
+        return "فاتورة {$record->number}";
+    }
+
+    /** An invoice opens on its payment. */
+    public static function getGlobalSearchResultUrl(Model $record): ?string
+    {
+        assert($record instanceof Invoice);
+
+        return PaymentResource::canViewAny() ? PaymentResource::getUrl('view', ['record' => $record->payment]) : null;
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        assert($record instanceof Invoice);
+
+        return ['التاريخ' => $record->issued_at->toDateString(), 'المشتري' => (string) $record->buyer_name];
     }
 
     protected static function managePermission(): ?Permission

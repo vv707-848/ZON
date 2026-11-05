@@ -5,6 +5,7 @@ namespace App\Filament\Resources\SearchRequests;
 use App\Actions\Moderation\ModerateContent;
 use App\Enums\RequestStatus;
 use App\Filament\Concerns\AuthorizesByPermission;
+use App\Filament\Concerns\SearchesByIdentifier;
 use App\Filament\NavigationGroup;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\SearchRequests\Pages\ListSearchRequests;
@@ -36,7 +37,7 @@ use UnitEnum;
 /** «الطلبات»: search requests (normal and urgent), and how many area brokers each one reached. */
 class SearchRequestResource extends Resource
 {
-    use AuthorizesByPermission;
+    use AuthorizesByPermission, SearchesByIdentifier;
 
     protected static ?string $model = SearchRequest::class;
 
@@ -55,6 +56,37 @@ class SearchRequestResource extends Resource
     protected static function viewPermission(): Permission
     {
         return Permission::ViewRequests;
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['description'];
+    }
+
+    protected static function identifierMatches(Builder $query, string $search): void
+    {
+        if (preg_match('/^\d{1,12}$/', $search) === 1) {
+            $query->orWhereKey((int) $search);
+        }
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        assert($record instanceof SearchRequest);
+
+        return "طلب #{$record->id} — {$record->city}";
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('customer');
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        assert($record instanceof SearchRequest);
+
+        return ['الحالة' => $record->status->label(), 'صاحبه' => (string) $record->customer?->name];
     }
 
     public static function canCreate(): bool

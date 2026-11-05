@@ -10,6 +10,7 @@ use App\Enums\ListingStatus;
 use App\Enums\PropertyType;
 use App\Enums\TextReview;
 use App\Filament\Concerns\AuthorizesByPermission;
+use App\Filament\Concerns\SearchesByIdentifier;
 use App\Filament\NavigationGroup;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Listings\Pages\ListListings;
@@ -17,6 +18,7 @@ use App\Filament\Resources\Listings\Pages\ViewListing;
 use App\Filament\Support\Audit;
 use App\Filament\Support\Columns;
 use App\Filament\Support\Staff;
+use App\Models\AdLicense;
 use App\Models\City;
 use App\Models\Listing;
 use App\Support\Permissions\Permission;
@@ -50,7 +52,7 @@ use UnitEnum;
  */
 class ListingResource extends Resource
 {
-    use AuthorizesByPermission;
+    use AuthorizesByPermission, SearchesByIdentifier;
 
     protected static ?string $model = Listing::class;
 
@@ -69,6 +71,29 @@ class ListingResource extends Resource
     protected static function viewPermission(): Permission
     {
         return Permission::ViewListings;
+    }
+
+    /** Its number, or any advertising licence it carried. */
+    protected static function identifierMatches(Builder $query, string $search): void
+    {
+        if (preg_match('/^\d{1,12}$/', $search) === 1) {
+            $query->orWhereKey((int) $search);
+        }
+        if (preg_match('/^[\dA-Za-z-]{6,40}$/', $search) === 1) {
+            $query->orWhereIn('id', AdLicense::query()->select('listing_id')->whereNotNull('listing_id')->where('licence_number', $search));
+        }
+    }
+
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('customer');
+    }
+
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        assert($record instanceof Listing);
+
+        return ['الرقم' => (string) $record->id, 'الحالة' => $record->status->label(), 'المكان' => "{$record->city} · {$record->neighborhood}", 'المعلن' => (string) $record->customer?->name];
     }
 
     public static function canCreate(): bool

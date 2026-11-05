@@ -46,6 +46,9 @@ class DeveloperResource extends Resource
 
     protected static ?string $model = Customer::class;
 
+    /** Developers are accounts: the global search finds them in «المستخدمون». */
+    protected static bool $isGloballySearchable = false;
+
     protected static ?string $slug = 'developers';
 
     protected static ?string $modelLabel = 'مطوّر';

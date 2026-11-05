@@ -39,6 +39,7 @@ class AdminPanelProvider extends PanelProvider
             ->colors(['primary' => Color::hex('#1B4D3E')])
             ->font('IBM Plex Sans Arabic')
             ->sidebarCollapsibleOnDesktop()
+            ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
