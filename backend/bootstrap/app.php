@@ -10,6 +10,7 @@ use Illuminate\Foundation\Configuration\Middleware as Stack;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Support\Facades\Route;
+use Sentry\Laravel\Integration as Sentry;
 
 // The three parties meet here: the app on /api/v1 (routes/api.php), the admin panel on /admin (Filament,
 // app/Providers/Filament), the AI service only through App\Ai\AiGateway. Every request gets a trace id first.
@@ -44,6 +45,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn () => Site::url('login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Unexpected errors go to Sentry (config/sentry.php; nothing is sent without SENTRY_LARAVEL_DSN). Expected
+        // ones — ApiException, validation, 404, 401/403 — are not reported anywhere.
+        Sentry::handles($exceptions);
         $exceptions->dontReport([ApiException::class]);
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*') || $request->expectsJson());
         $exceptions->render(fn (Throwable $e, Request $request) => $request->is('api/*') ? ApiErrors::render($e) : null);

@@ -34,5 +34,9 @@ final class IssueToken
             'app_version' => $device['app_version'] ?? null,
             'last_seen_at' => now(),
         ]);
+        // One phone, one current token: the token FCM replaced is not kept beside it (the phone would get each notice twice).
+        if ($session !== null) {
+            CustomerDevice::query()->where('access_token_id', $session)->where('push_token', '!=', $device['push_token'])->delete();
+        }
     }
 }

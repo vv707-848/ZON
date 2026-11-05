@@ -18,7 +18,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from zon_agents import __version__
+from zon_agents import __version__, monitoring
 from zon_agents.config import Settings
 from zon_agents.errors import DependencyUnavailable, InvalidPayload
 from zon_agents.indexing import Indexer
@@ -62,7 +62,15 @@ class HealthCheck:
                     self._probe(s.llm.healthy), self._probe(s.embedder.healthy), self._probe(s.store.healthy)
                 )
                 model = s.llm.profile.name  # the profile the AI node serves (LLM_PROFILE)
-                self._cached = {"status": "ok", "llm": llm, "embed": embed, "qdrant": qdrant, "model": model}
+                errors = monitoring.enabled()  # SENTRY_DSN set: unexpected errors reach Sentry
+                self._cached = {
+                    "status": "ok",
+                    "llm": llm,
+                    "embed": embed,
+                    "qdrant": qdrant,
+                    "model": model,
+                    "errors": errors,
+                }
                 self._at = time.monotonic()
             return self._cached
 
@@ -124,8 +132,9 @@ def create_app(settings: Settings, services: Services | None = None) -> FastAPI:
         try:
             try:
                 response = await call_next(request)
-            except Exception:
+            except Exception as error:
                 event("unhandled", logging.ERROR, exc_info=True, path=request.url.path)
+                monitoring.capture(error)  # Sentry, with the request id and without the body (monitoring.py)
                 response = JSONResponse({"detail": "internal error"}, status_code=500)
             event(
                 "request",

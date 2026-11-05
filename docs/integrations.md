@@ -107,7 +107,15 @@
    - `PUSH_DRIVER=fcm`
    - `FCM_PROJECT_ID=…`
    - `FCM_CREDENTIALS=/etc/zon/fcm-service-account.json`
-4. الرموز التي يقول عنها FCM إنها لم تعد موجودة تُحذف آلياً من `customer_devices`.
+4. **الرموز عندنا لا عند Firebase** — الطريقة التي يوصي بها Firebase، **بلا Device Groups** التي تتوقف بعد 29 سبتمبر 2027 ([Firebase](https://firebase.google.com/docs/cloud-messaging/migrate-off-device-groups)):
+   - كل جوال مسجّل الدخول له سطر في `customer_devices`: رمزه ومنصته وإصداره ووقت آخر تسجيل (`last_seen_at`)، مربوط بجلسته.
+   - التطبيق يرسل رمزه عند الدخول، وعند كل فتح، وعند تجدده (`POST /me/devices`). الرمز الذي استبدله FCM يُحذف، فلا يصل الإشعار للجوال مرتين.
+   - إنهاء الجلسة لأي سبب (الخروج، «أجهزتي»، اللوحة، تغيير كلمة السر، انتهاء الـ 90 يوماً) يحذف رمزها.
+   - الإرسال رسالة لكل رمز (HTTP v1). يُحذف الرمز الذي يقول FCM إنه لن يعمل أبداً، ويُكمل الإرسال لبقية الرموز ([Firebase](https://firebase.google.com/docs/cloud-messaging/manage-tokens)):
+     - `UNREGISTERED` (404).
+     - `INVALID_ARGUMENT` على الرمز نفسه (400 مع `message.token`). أما الخطأ في محتوى الرسالة فلا يحذف شيئاً.
+     - `SENDER_ID_MISMATCH` (403): رمز مشروع Firebase آخر.
+   - أي خطأ آخر يخص كل الرموز (الدخول، المحتوى، FCM نفسه): يتوقف الإرسال ويُسجَّل، والإشعار باقٍ في الجرس.
 
 ### الهيئة العامة للعقار ونفاذ (عند توفر الواجهة أو العقد)
 1. صنف جديد يطبّق العقد نفسه، مثل `Rega\RegaApiGateway`:

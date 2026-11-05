@@ -49,4 +49,10 @@ class Settings(BaseSettings):
     knowledge_min_score: float = Field(default=0.45, ge=0, le=1)
 
     health_cache_seconds: float = 5.0
+
+    # Error tracking (zon_agents/monitoring.py): an empty DSN sends nothing. The release is the deployed commit.
+    sentry_dsn: SecretStr | None = None
+    sentry_environment: str = "production"
+    sentry_release: str | None = None
+    sentry_traces_sample_rate: float = Field(default=0.0, ge=0, le=1)
     phash_max_bytes: int = 20 * 1024 * 1024

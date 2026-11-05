@@ -21,7 +21,7 @@ class SessionsTest extends TestCase
     private function phone(string $name, string $push): string
     {
         $token = $this->postJson('/api/v1/auth/login', ['login' => 'faisal', 'password' => 'a-good-secret', 'device_name' => $name,
-            'push_token' => $push, 'platform' => 'ios', 'app_version' => '3.1.2'])->assertOk()->json('data.token');
+            'push_token' => $push, 'platform' => 'ios', 'app_version' => '1.2.1'])->assertOk()->json('data.token');
         Auth::forgetGuards();
 
         return (string) $token;
@@ -43,7 +43,7 @@ class SessionsTest extends TestCase
         $sessions = $this->as($mine)->getJson('/api/v1/me/sessions')->assertOk()->json('data');
         $this->assertSame(['iPhone 16', 'iPad'], array_column($sessions, 'device'), 'the phone in use first');
         $this->assertSame([true, false], array_column($sessions, 'current'));
-        $this->assertSame(['ios', '3.1.2'], [$sessions[1]['platform'], $sessions[1]['app_version']]);
+        $this->assertSame(['ios', '1.2.1'], [$sessions[1]['platform'], $sessions[1]['app_version']]);
 
         $this->as($mine)->deleteJson('/api/v1/me/sessions/'.$sessions[1]['id'])->assertOk();
 
@@ -66,6 +66,8 @@ class SessionsTest extends TestCase
         $this->as($mine)->postJson('/api/v1/me/devices', ['push_token' => 'push-new', 'platform' => 'android'])->assertOk();
         $session = $this->as($mine)->getJson('/api/v1/me/sessions')->json('data.0.id');
         $this->assertSame($session, CustomerDevice::query()->where('push_token', 'push-new')->value('access_token_id'));
+        $this->assertSame(['push-new'], CustomerDevice::query()->where('access_token_id', $session)->pluck('push_token')->all(),
+            'the token FCM replaced (push-mine) is not kept beside the new one');
     }
 
     public function test_the_panel_ends_one_phones_session_and_audits_it(): void

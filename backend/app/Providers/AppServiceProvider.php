@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models;
+use App\Support\Monitoring;
 use App\Support\Phone;
 use App\Support\RequestCache;
 use App\Support\Trace;
@@ -87,6 +88,9 @@ class AppServiceProvider extends ServiceProvider
         // Per-request answers (blocks, entitlements) never outlive their request or job.
         Event::listen(RequestHandled::class, fn () => RequestCache::flush());
         Event::listen(JobProcessing::class, fn () => RequestCache::flush());
+
+        // Sentry (config/sentry.php): the signed-in account on each error, as a bare id.
+        Monitoring::listen($this->app['events']);
 
         $this->rateLimits();
     }

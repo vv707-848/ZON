@@ -17,6 +17,8 @@ dependencies = [
     "mcp==2.3.0",
     "qdrant-client==1.20.0",
     "httpx==0.28.1",
+    # Error tracking (zon_agents/monitoring.py): off without SENTRY_DSN; never request bodies, prompts or answers.
+    "sentry-sdk==2.74.0",
 ]
 
 [project.optional-dependencies]

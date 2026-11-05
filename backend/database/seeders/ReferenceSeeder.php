@@ -11,6 +11,13 @@ use Illuminate\Database\Seeder;
 /** Cities, versions, policies and local terms — first values from app 3.1.2, then edited from the panel. */
 class ReferenceSeeder extends Seeder
 {
+    /**
+     * The first allowed and latest app version: the one the app reports (app/pubspec.yaml `version`, the store's
+     * version), not the name of the delivery (3.1.2). The panel raises it from then on; AppVersionContractTest
+     * keeps the app in this repository above it.
+     */
+    public const FIRST_APP_VERSION = '1.2.1';
+
     /** The app's kCities (lib/data/catalog/cities.dart). */
     private const CITIES = [
         'الرياض' => ['النرجس', 'الملقا', 'العليا', 'الياسمين', 'حطين', 'القيروان', 'العارض', 'الورود'],
@@ -53,7 +60,7 @@ class ReferenceSeeder extends Seeder
 
         // The store link is set in «إعدادات التطبيق» once the app is published there (the website shows its badge then).
         foreach (['ios', 'android'] as $platform) {
-            AppConfig::query()->firstOrCreate(['platform' => $platform], ['min_version' => '3.1.2', 'latest_version' => '3.1.2', 'store_url' => null]);
+            AppConfig::query()->firstOrCreate(['platform' => $platform], ['min_version' => self::FIRST_APP_VERSION, 'latest_version' => self::FIRST_APP_VERSION, 'store_url' => null]);
         }
 
         // Drafts: a policy is shown in the app and on the website once its owner writes and saves it in the panel.
