@@ -80,10 +80,10 @@ class Customer extends Authenticatable
     /** A switch of the app's notification settings (on unless turned off). */
     public function wants(NoticePref $pref): bool
     {
-        return (bool) ($this->notification_prefs[$pref->value] ?? true);
+        return (bool) ($this->notification_prefs[$pref->value] ?? $pref->byDefault());
     }
 
-    /** @return array<string, bool> all six switches */
+    /** @return array<string, bool> every switch */
     public function noticePrefs(): array
     {
         $prefs = [];

@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Actions\Billing\ApplyBoost;
 use App\Actions\Moderation\AutoHideReported;
+use App\Enums\AnnouncementKind;
 use App\Enums\BoostKind;
 use App\Enums\ListingStatus;
 use App\Enums\RequestStatus;
@@ -37,6 +38,8 @@ use App\Models\Project;
 use App\Models\SearchFeedback;
 use App\Models\SearchRequest;
 use App\Models\User;
+use App\Notifications\Notices;
+use App\Notifications\PushChannel;
 use App\Services\Billing\Entitlements;
 use App\Support\Permissions\Permission;
 use App\Support\Settings\Setting;
@@ -151,9 +154,30 @@ class AdminActionsTest extends AdminTestCase
         Customer::factory()->seeker()->create();
         $this->signInStaff(Permission::SendAnnouncements);
 
-        Livewire::test(CreateAnnouncement::class)->fillForm(['title' => 'تحديث', 'body' => 'باقات جديدة للوسطاء', 'audience' => 'broker'])->call('create')->assertHasNoFormErrors();
+        Livewire::test(CreateAnnouncement::class)->fillForm(['title' => 'تحديث', 'body' => 'باقات جديدة للوسطاء', 'audience' => 'broker'])->call('create')
+            ->assertHasFormErrors(['kind' => 'required']);
+        Livewire::test(CreateAnnouncement::class)->fillForm(['kind' => 'service', 'title' => 'اجتماع الوسطاء', 'body' => 'رابط اجتماع الخميس', 'audience' => 'broker'])
+            ->call('create')->assertHasNoFormErrors();
 
-        $this->assertSame(2, Announcement::query()->sole()->recipients);
+        $this->assertSame([2, 2], [Announcement::query()->sole()->recipients, Announcement::query()->sole()->pushed], 'a service message: the bell and the phones of all');
+    }
+
+    public function test_a_promotion_reaches_every_bell_but_only_the_phones_of_those_who_agreed(): void
+    {
+        $agreed = Customer::factory()->broker()->create(['notification_prefs' => ['marketing' => true]]);
+        $others = Customer::factory()->broker()->count(2)->create();
+        $this->signInStaff(Permission::SendAnnouncements);
+
+        Livewire::test(CreateAnnouncement::class)->fillForm(['kind' => 'promotion', 'title' => 'خصم 20%', 'body' => 'على الباقة السنوية هذا الأسبوع', 'audience' => 'broker'])
+            ->call('create')->assertHasNoFormErrors();
+
+        $this->assertSame([3, 1], [Announcement::query()->sole()->recipients, Announcement::query()->sole()->pushed]);
+        foreach ([$agreed, ...$others] as $broker) {
+            $this->assertSame(1, $broker->notifications()->count(), 'in every bell');
+        }
+        $notice = Notices::announcement('خصم 20%', 'نص', null, AnnouncementKind::Promotion);
+        $this->assertSame(['database', PushChannel::class], $notice->via($agreed));
+        $this->assertSame(['database'], $notice->via($others[0]), 'no consent, no push');
     }
 
     public function test_a_failed_index_signal_is_sent_again_from_the_panel(): void

@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Enums\AnnouncementKind;
 use App\Enums\BoostKind;
 use App\Enums\NoteKind;
 use App\Enums\NoticePref;
@@ -157,9 +158,9 @@ final class Notices
             "/support/{$ticket->reference}", null, "support-closed:{$ticket->reference}");
     }
 
-    public static function announcement(string $title, string $body, ?string $target): AppNotice
+    public static function announcement(string $title, string $body, ?string $target, AnnouncementKind $kind): AppNotice
     {
-        return new AppNotice(NoteKind::Plan, $title, $body, $target ?: '/notifications');
+        return new AppNotice(NoteKind::Plan, $title, $body, $target ?: '/notifications', promotion: $kind === AnnouncementKind::Promotion);
     }
 
     private static function endsIn(int $daysLeft): string

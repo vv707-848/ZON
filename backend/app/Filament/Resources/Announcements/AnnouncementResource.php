@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Announcements;
 
+use App\Enums\AnnouncementKind;
 use App\Enums\CustomerRole;
 use App\Filament\Concerns\AuthorizesByPermission;
 use App\Filament\NavigationGroup;
@@ -11,6 +12,7 @@ use App\Models\Announcement;
 use App\Models\City;
 use App\Support\Permissions\Permission;
 use BackedEnum;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -46,6 +48,11 @@ class AnnouncementResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->columns(2)->components([
+            Radio::make('kind')->label('نوع الرسالة')->required()->options(AnnouncementKind::options())->inline()->columnSpanFull()
+                ->descriptions([
+                    AnnouncementKind::Service->value => 'تشغيل المنصة: اجتماع للوسطاء، تغيير سياسة، صيانة — في الجرس وإشعار لكل الأجهزة، بلا خيار لإيقافه.',
+                    AnnouncementKind::Promotion->value => 'بيع شيء: باقة، خصم، حملة — في الجرس للجميع، وإشعار الجوال لمن فعّل «العروض والتسويق» فقط (آبل 4.5.4 · نظام حماية البيانات م25).',
+                ]),
             TextInput::make('title')->label('العنوان')->required()->maxLength(120),
             Select::make('audience')->label('إلى')->required()->default('all')->options(['all' => 'الجميع'] + CustomerRole::options()),
             Select::make('city')->label('المدينة (اختياري)')->options(fn () => array_combine(array_keys(City::catalog()), array_keys(City::catalog()))),
@@ -59,10 +66,13 @@ class AnnouncementResource extends Resource
         return $table->defaultSort('id', 'desc')
             ->modifyQueryUsing(fn ($query) => $query->with('creator'))
             ->columns([
+                TextColumn::make('kind')->label('النوع')->badge()->formatStateUsing(fn (AnnouncementKind $state) => $state->label())
+                    ->color(fn (AnnouncementKind $state) => $state === AnnouncementKind::Promotion ? 'warning' : 'info'),
                 TextColumn::make('title')->label('العنوان'),
                 TextColumn::make('audience')->label('إلى')->formatStateUsing(fn (string $state) => $state === 'all' ? 'الجميع' : CustomerRole::from($state)->label()),
                 TextColumn::make('city')->label('المدينة')->placeholder('كل المدن'),
-                TextColumn::make('recipients')->label('المستلمون'),
+                TextColumn::make('recipients')->label('في الجرس'),
+                TextColumn::make('pushed')->label('إشعار الجوال'),
                 TextColumn::make('sent_at')->label('أُرسل')->dateTime()->placeholder('قيد الإرسال'),
                 TextColumn::make('creator.name')->label('بواسطة'),
             ]);

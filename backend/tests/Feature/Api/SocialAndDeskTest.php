@@ -147,7 +147,9 @@ class SocialAndDeskTest extends TestCase
         $this->getJson('/api/v1/notifications')->assertJsonPath('meta.unread', 1)->assertJsonPath('data.0.target', '/account');
         $this->postJson('/api/v1/notifications/read')->assertJsonPath('data.unread', 0);
 
-        $this->putJson('/api/v1/me/notification-preferences', ['messages' => false])->assertJsonPath('data.messages', false)->assertJsonPath('data.matching', true);
+        $this->putJson('/api/v1/me/notification-preferences', ['messages' => false])->assertJsonPath('data.messages', false)->assertJsonPath('data.matching', true)
+            ->assertJsonPath('data.marketing', false);    // offers' pushes wait for consent
+        $this->putJson('/api/v1/me/notification-preferences', ['marketing' => true])->assertJsonPath('data.marketing', true)->assertJsonPath('data.messages', false);
 
         $reference = $this->postJson('/api/v1/support-tickets', ['body' => 'لا أستطيع رفع الصور'])->assertCreated()->json('data.reference');
         $this->assertMatchesRegularExpression('/^ZT-\d{6}-[A-Z0-9]{5}$/', $reference);
