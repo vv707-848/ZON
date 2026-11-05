@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The channel of the account's notifications, as the phone's settings list it (MainActivity creates it). -->
+    <string name="notification_channel_name">إشعارات زون</string>
+    <string name="notification_channel_description">الرسائل والمطابقة وحالة إعلاناتك وتنبيهات حسابك</string>
+</resources>

@@ -4,6 +4,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Push (Firebase): google-services.json comes from the Firebase project (docs/integrations.md «الإشعارات —
+// Firebase»). Without it the app builds and runs without push.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.zon.app"
     compileSdk = flutter.compileSdkVersion

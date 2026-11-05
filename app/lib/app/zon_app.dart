@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'package:zon/app/gate_overlay.dart';
 import 'package:zon/app/router.dart';
 import 'package:zon/core/layout/ui_scale.dart';
 import 'package:zon/core/theme/app_theme.dart';
@@ -39,10 +40,14 @@ class ZonApp extends StatelessWidget {
       // ×[kMaxTextScale]; beyond that the cards would no longer fit the
       // phone. Smaller-than-normal settings keep the design size. The main
       // screens are checked at ×1.2 on a 360-pt phone (test/text_scale_test).
+      // Over every page, the server's gate (update required, maintenance).
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(textScaler: MediaQuery.textScalerOf(context).clamp(minScaleFactor: 1, maxScaleFactor: kMaxTextScale)),
         child: UiScale(
-          child: DefaultTextStyle(style: baseTextStyle(), child: child ?? const SizedBox.shrink()),
+          child: DefaultTextStyle(
+            style: baseTextStyle(),
+            child: GateOverlay(child: child ?? const SizedBox.shrink()),
+          ),
         ),
       ),
     );

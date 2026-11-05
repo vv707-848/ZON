@@ -22,6 +22,7 @@ const List<String> _routes = <String>[
   '/account/requests',
   '/account/tasks',
   '/account/settings',
+  '/account/devices',
   '/notifications',
   '/listings/l1',
   '/projects/p1',

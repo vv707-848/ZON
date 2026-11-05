@@ -25,6 +25,20 @@ dependencies:
   speech_to_text: ^7.5.0
   # Salted password hashes of the local account registry (data/auth).
   crypto: ^3.0.6
+  # The server (lib/core/net): every call through ApiClient.
+  http: ^1.6.0
+  # The session token and this installation's id, in the keychain / keystore.
+  flutter_secure_storage: ^11.2.0
+  # The app's store version (X-App-Version, the server's version gate).
+  package_info_plus: ^10.2.2
+  # The phone's model, the name of its session in «أجهزتي».
+  device_info_plus: ^13.3.0
+  # Error tracking (lib/core/monitoring), only in a build with SENTRY_DSN.
+  sentry_flutter: ^10.3.0
+  # Push notifications (lib/data/push), only in a build with ZON_PUSH and the
+  # Firebase project's files.
+  firebase_core: ^5.1.0
+  firebase_messaging: ^17.0.1
 
 dev_dependencies:
   flutter_test:

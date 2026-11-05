@@ -1,8 +1,12 @@
 // `/login` — sign in, or sign up: role → details → phone code (OTP) →
 // wish (for seekers).
 //
-// Accounts and passwords are handled by `LocalAuth` (data/auth): a local
-// simulation until the server and the SMS provider are connected.
+// Accounts and passwords: on the server when the app is built with one
+// (ZON_API_URL — `ServerAuth`: the code arrives by SMS and creates the
+// account), else `LocalAuth` (data/auth), the device's simulation with a
+// fixed test code. `Auth` chooses.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,7 +16,9 @@ import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/utils/input.dart';
 import 'package:zon/core/widgets/widgets.dart';
+import 'package:zon/data/auth/auth.dart';
 import 'package:zon/data/auth/local_auth.dart';
+import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/shared/widgets/barq_card.dart';
@@ -330,6 +336,7 @@ class _SignInState extends State<_SignIn> {
   final FocusNode _userFocus = FocusNode();
   final FocusNode _passFocus = FocusNode();
   String err = '';
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -340,7 +347,8 @@ class _SignInState extends State<_SignIn> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_busy) return;
     // validation: both fields required, password at least 8 characters
     if (_user.text.trim().isEmpty) {
       _userFocus.requestFocus();
@@ -352,9 +360,12 @@ class _SignInState extends State<_SignIn> {
       setState(() => err = 'كلمة السر 8 أحرف على الأقل');
       return;
     }
-    // Checks the account registry (salted hash) — signing out does not
-    // delete the account, so the same details work again (QA AUTH-02).
-    final result = LocalAuth.signIn(_user.text, _pass.text);
+    // The server, or the device's registry (salted hash) — signing out does
+    // not delete the account, so the same details work again (QA AUTH-02).
+    setState(() => _busy = true);
+    final result = await Auth.signIn(_user.text, _pass.text);
+    if (!mounted) return;
+    setState(() => _busy = false);
     if (!result.ok) {
       setState(() => err = result.error!);
       return;
@@ -374,7 +385,7 @@ class _SignInState extends State<_SignIn> {
           _label('كلمة السر'),
           _input(controller: _pass, focusNode: _passFocus, dir: TextDirection.ltr, obscure: true, onSubmitted: (_) => _submit()),
           if (err.isNotEmpty) FormError(err),
-          GateCta(label: 'دخول', onTap: _submit),
+          GateCta(label: _busy ? 'جارٍ الدخول…' : 'دخول', disabled: _busy, onTap: _submit),
         ],
       ),
     );
@@ -400,6 +411,7 @@ class _SignUpState extends State<_SignUp> {
   final TextEditingController _fal = TextEditingController();
   String city = 'الرياض';
   String err = '';
+  bool _busy = false;
 
   @override
   void initState() {
@@ -410,11 +422,41 @@ class _SignUpState extends State<_SignUp> {
   }
 
   /// Checks the details before the SMS code step (QA AUTH-03: the phone
-  /// format is checked here; sending the SMS waits for the server).
-  void _toCode() {
-    final error = LocalAuth.validateSignUp(name: _name.text, phone: _phone.text, username: _user.text, password: _pass.text);
+  /// format is checked here). With a server, it checks them too (a taken
+  /// username or number) and sends the code.
+  Future<void> _toCode() async {
+    if (_busy) return;
+    final error = Auth.server
+        ? LocalAuth.nameError(_name.text) ?? LocalAuth.phoneError(_phone.text) ?? LocalAuth.usernameError(_user.text) ?? LocalAuth.passwordError(_pass.text)
+        : LocalAuth.validateSignUp(name: _name.text, phone: _phone.text, username: _user.text, password: _pass.text);
     setState(() => err = error ?? '');
-    if (error == null) setState(() => step = 2);
+    if (error != null) return;
+    if (!Auth.server) {
+      setState(() => step = 2);
+      return;
+    }
+    setState(() => _busy = true);
+    final failed = await ServerAuth.register(
+      role: role,
+      name: _name.text,
+      phone: _phone.text,
+      city: city,
+      username: _user.text,
+      password: _pass.text,
+      fal: role == 'broker' ? _fal.text : null,
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      err = failed ?? '';
+      if (failed == null) step = 2;
+    });
+  }
+
+  /// The server's check of the SMS code: the account is created and signed in.
+  Future<String?> _verify(String code) async {
+    final result = await ServerAuth.verify(normalizeSaudiMobile(_phone.text) ?? _phone.text, code);
+    return result.ok ? null : result.error;
   }
 
   @override
@@ -425,8 +467,15 @@ class _SignUpState extends State<_SignUp> {
     super.dispose();
   }
 
-  /// Creates the account (and saves the seeker's [wish] in it).
+  /// Creates the account (and saves the seeker's [wish] in it). With a server
+  /// the account already exists (the code created it); the wish stays on
+  /// this phone until the requests are wired (POST /preferences).
   void _finish({Wish? wish}) {
+    if (Auth.server) {
+      if (wish != null) store.saveWish(wish);
+      Nav.replace(context, role == 'seeker' ? '/account/matching' : '/');
+      return;
+    }
     final result = LocalAuth.signUp(
       name: _name.text,
       phone: _phone.text,
@@ -485,12 +534,15 @@ class _SignUpState extends State<_SignUp> {
           _label('كلمة السر'),
           _input(controller: _pass, dir: TextDirection.ltr, obscure: true),
           if (err.isNotEmpty) FormError(err),
-          GateCta(label: 'تحقق من الجوال', disabled: !ok, onTap: _toCode),
+          GateCta(label: _busy ? 'جارٍ الإرسال…' : 'تحقق من الجوال', disabled: !ok || _busy, onTap: _toCode),
         ],
       );
     } else if (step == 2) {
+      final phone = normalizeSaudiMobile(_phone.text) ?? _phone.text;
       body = _OtpStep(
-        phone: normalizeSaudiMobile(_phone.text) ?? _phone.text,
+        phone: phone,
+        verify: Auth.server ? _verify : null,
+        resend: Auth.server ? () => ServerAuth.resend(phone) : null,
         onOk: () {
           if (role == 'seeker') {
             setState(() => step = 3);
@@ -505,7 +557,9 @@ class _SignUpState extends State<_SignUp> {
         onDone: (w) => _finish(wish: w),
       );
     }
-    return GateChrome(back: step == 0 ? widget.onBack : () => setState(() => step -= 1), child: body);
+    // With a server the code created the account: the wish step has no way back to the code.
+    final back = step == 0 ? widget.onBack : (Auth.server && step == 3 ? null : () => setState(() => step -= 1));
+    return GateChrome(back: back, child: body);
   }
 }
 
@@ -655,10 +709,17 @@ class _WishSetupState extends State<_WishSetup> {
 }
 
 class _OtpStep extends StatefulWidget {
-  const _OtpStep({required this.phone, required this.onOk});
+  const _OtpStep({required this.phone, required this.onOk, this.verify, this.resend});
 
   final String phone;
   final VoidCallback onOk;
+
+  /// The server's check of the code: null when right, else the line to show.
+  /// Null in the test build, which accepts its fixed code [kTestOtp].
+  final Future<String?> Function(String code)? verify;
+
+  /// Sends the code again (the server's); null when sent, else the error.
+  final Future<String?> Function()? resend;
 
   @override
   State<_OtpStep> createState() => _OtpStepState();
@@ -670,6 +731,9 @@ const String _zw = '​';
 
 class _OtpStepState extends State<_OtpStep> {
   final List<String> digits = List<String>.filled(6, '');
+  bool _checking = false;
+  String _error = '';
+  String _resent = '';
   late final List<TextEditingController> _ctl = List<TextEditingController>.generate(6, (_) => TextEditingController(text: _zw));
   late final List<FocusNode> _focus = List<FocusNode>.generate(6, (_) => FocusNode());
 
@@ -709,18 +773,51 @@ class _OtpStepState extends State<_OtpStep> {
     setState(() => digits[i] = v);
     _set(i, _zw + v);
     if (v.isNotEmpty && i < 5) _focus[i + 1].requestFocus();
-    if (v.isNotEmpty && i == 5 && digits.join() == kTestOtp) widget.onOk();
+    if (v.isNotEmpty && i == 5) {
+      if (widget.verify != null) {
+        unawaited(_check());
+      } else if (digits.join() == kTestOtp) {
+        widget.onOk();
+      }
+    }
+  }
+
+  /// The server checks the six digits.
+  Future<void> _check() async {
+    final verify = widget.verify;
+    final code = digits.join();
+    if (verify == null || code.length < 6 || _checking) return;
+    setState(() {
+      _checking = true;
+      _error = '';
+    });
+    final error = await verify(code);
+    if (!mounted) return;
+    setState(() {
+      _checking = false;
+      _error = error ?? '';
+    });
+    if (error == null) widget.onOk();
+  }
+
+  Future<void> _resend() async {
+    final resend = widget.resend;
+    if (resend == null) return;
+    final error = await resend();
+    if (mounted) setState(() => _resent = error ?? 'أرسلنا رمزاً جديداً.');
   }
 
   @override
   Widget build(BuildContext context) {
     final code = digits.join();
-    final ok = code == kTestOtp;
+    final server = widget.verify != null;
+    final ok = server ? code.length == 6 && !_checking : code == kTestOtp;
+    final to = widget.phone.isNotEmpty ? widget.phone : 'جوالك';
     return _GateForm(
       children: <Widget>[
         GateHero(
           title: 'أدخل رمز التحقق',
-          sub: 'أرسلنا رمزاً إلى ${widget.phone.isNotEmpty ? widget.phone : 'جوالك'} — رمز النسخة التجريبية $kTestOtp',
+          sub: server ? 'أرسلنا رمزاً إلى $to' : 'أرسلنا رمزاً إلى $to — رمز النسخة التجريبية $kTestOtp',
           tight: true,
         ),
         Directionality(
@@ -755,7 +852,19 @@ class _OtpStepState extends State<_OtpStep> {
             ],
           ),
         ),
-        GateCta(label: ok ? 'تم التحقق' : 'تأكيد', disabled: !ok, onTap: widget.onOk),
+        if (_error.isNotEmpty) FormError(_error),
+        if (server)
+          GateCta(label: _checking ? 'جارٍ التحقق…' : 'تأكيد', disabled: !ok, onTap: _check)
+        else
+          GateCta(label: ok ? 'تم التحقق' : 'تأكيد', disabled: !ok, onTap: widget.onOk),
+        if (widget.resend != null)
+          Tap(
+            onTap: _resend,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Tx(_resent.isEmpty ? 'لم يصلك الرمز؟ أعد الإرسال' : _resent, style: ts(14, w: 600, lh: 21, c: AppColors.teal), align: TextAlign.center),
+            ),
+          ),
       ],
     );
   }

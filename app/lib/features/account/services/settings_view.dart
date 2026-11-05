@@ -1,12 +1,18 @@
-// الإعدادات — profile fields, notification switches, policies, sign out.
+// الإعدادات — profile fields, notification switches, «أجهزتي», policies, sign out. With a server (ZON_API_URL)
+// the profile, the switches and the sign-out are the server's (ServerAuth); without one they stay on the device.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
+import 'package:zon/data/auth/auth.dart';
 import 'package:zon/data/auth/local_auth.dart';
+import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/widgets/service_form.dart';
@@ -19,7 +25,21 @@ const List<List<String>> kPolicies = <List<String>>[
   <String>['rega', 'ضوابط الإعلانات العقارية', Lu.scale],
 ];
 
-const List<String> _notes = <String>['رسائل', 'نشر المتابَعين', 'طلبات المنطقة', 'حالة الإعلان', 'تقييمات', 'مطابقة'];
+/// The notification switches: the server's keys (docs/api.md PUT /me/notification-preferences) and their labels.
+/// The six are on until turned off; «العروض والتسويق» is off until the person turns it on — a promotion reaches
+/// the phone only with that consent (App Store Review Guideline 4.5.4, PDPL Art. 25), the bell always has it.
+const List<(String, String)> kNoticePrefs = <(String, String)>[
+  ('messages', 'رسائل'),
+  ('followed_posts', 'نشر المتابَعين'),
+  ('area_requests', 'طلبات المنطقة'),
+  ('listing_status', 'حالة الإعلان'),
+  ('ratings', 'تقييمات'),
+  ('matching', 'مطابقة'),
+  ('marketing', 'العروض والتسويق'),
+];
+
+/// On until turned off — except the marketing consent.
+bool noticePrefDefault(String key) => key != 'marketing';
 
 /// On/off switch (RTL: off → knob right, on → knob left).
 class Sw extends StatelessWidget {
@@ -137,7 +157,10 @@ class _SettingsViewState extends State<SettingsView> {
   late String city = user?.city ?? '';
   String theme = 'light';
   String lang = 'ar';
-  late final Map<String, bool> notifs = <String, bool>{for (final n in _notes) n: true};
+  late final Map<String, bool> notifs = <String, bool>{
+    for (final (key, _) in kNoticePrefs) key: Api.on ? (ServerSession.prefs[key] ?? noticePrefDefault(key)) : noticePrefDefault(key),
+  };
+  String prefError = '';
   late final TextEditingController _tName = TextEditingController(text: user?.name ?? '');
   late final TextEditingController _tPhone = TextEditingController(text: user?.phone ?? '');
   final TextEditingController _tBody = TextEditingController();
@@ -157,14 +180,48 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   String profileError = '';
+  bool _saving = false;
 
-  void _saveProfile() {
-    if (user == null) return;
+  Future<void> _saveProfile() async {
+    final u = user;
+    if (u == null || _saving) return;
     final error = LocalAuth.nameError(_name.text) ?? LocalAuth.phoneError(_phone.text);
     setState(() => profileError = error ?? '');
     if (error != null) return;
-    LocalAuth.updateProfile(name: _name.text, phone: _phone.text, city: city);
-    setState(() => edit = false);
+    if (!Api.on) {
+      LocalAuth.updateProfile(name: _name.text, phone: _phone.text, city: city);
+      setState(() => edit = false);
+      return;
+    }
+    if (_phone.text.trim() != u.phone) {
+      // The server changes a number only with a code sent to the new one (POST /me/phone): not wired yet.
+      setState(() => profileError = 'تغيير رقم الجوال يحتاج رمز تحقق إلى الرقم الجديد، ولم يُربط بعد في هذه النسخة.');
+      return;
+    }
+    setState(() => _saving = true);
+    final failed = await ServerAuth.updateProfile(name: _name.text, city: city);
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      profileError = failed ?? '';
+      if (failed == null) edit = false;
+    });
+  }
+
+  /// One switch: saved on the server when the app has one (the old value comes back if it could not be saved).
+  Future<void> _togglePref(String key) async {
+    final on = !(notifs[key] ?? false);
+    setState(() {
+      notifs[key] = on;
+      prefError = '';
+    });
+    if (!Api.on) return;
+    final failed = await ServerAuth.setPref(key, on);
+    if (!mounted || failed == null) return;
+    setState(() {
+      notifs[key] = !on;
+      prefError = failed;
+    });
   }
 
   Widget _block(String h, Widget body) => Column(
@@ -320,7 +377,7 @@ class _SettingsViewState extends State<SettingsView> {
                   child: Row(
                     children: <Widget>[
                       Expanded(
-                        child: AppButton(label: 'حفظ', onTap: _saveProfile),
+                        child: AppButton(label: _saving ? 'جارٍ الحفظ…' : 'حفظ', onTap: _saving ? null : _saveProfile),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -407,20 +464,26 @@ class _SettingsViewState extends State<SettingsView> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                for (var i = 0; i < _notes.length; i++)
+                for (var i = 0; i < kNoticePrefs.length; i++)
                   Tap(
-                    onTap: () => setState(() => notifs[_notes[i]] = !(notifs[_notes[i]] ?? false)),
+                    onTap: () => _togglePref(kNoticePrefs[i].$1),
                     child: NoteSw(
-                      start: Tx(_notes[i], style: text14),
-                      end: Sw(on: notifs[_notes[i]] ?? false),
-                      last: i == _notes.length - 1,
+                      start: Tx(kNoticePrefs[i].$2, style: text14),
+                      end: Sw(on: notifs[kNoticePrefs[i].$1] ?? false),
+                      last: i == kNoticePrefs.length - 1,
                     ),
                   ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Tx('العروض والتسويق: عروض زون وحملاتها على جوالك. مطفأ حتى تفعّله، وتوقفه متى شئت.', style: ts(12, lh: 18, c: AppColors.muted)),
+                ),
+                if (prefError.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 12), child: FormError(prefError)),
               ],
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           ),
         ),
+        PolicyRow(icon: Lu.smartphone, title: 'أجهزتي', onTap: () => Nav.go(context, '/account/devices')),
         if (store.unclaimedLegacy() case final legacy when legacy.listings.isNotEmpty || legacy.requests.isNotEmpty)
           _block('بيانات من الإصدار السابق', _panel(_legacyRecovery(legacy.listings.length, legacy.requests.length))),
         if (u?.role != 'developer') PolicyRow(icon: Lu.landmark, title: 'الاشتراكات والباقة', onTap: () => Nav.go(context, '/account/plans')),
@@ -444,10 +507,10 @@ class _SettingsViewState extends State<SettingsView> {
         AppButton(
           label: 'تسجيل الخروج',
           tone: ButtonTone.ghost,
-          onTap: () {
-            // Closes the session only — the account and its data stay.
-            LocalAuth.signOut();
-            Nav.go(context, '/');
+          onTap: () async {
+            // Closes this phone's session — the account and its data stay (on the server, its token goes).
+            await Auth.signOut();
+            if (context.mounted) unawaited(Nav.go(context, '/'));
           },
         ),
       ];

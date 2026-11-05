@@ -1,0 +1,51 @@
+# Temporary (deleted before the pull request): prints the formatter's patch, the analyzer, the tests and an
+# Android build of this branch, where pub.dev and Google's Maven are reachable.
+name: App tools (temporary)
+on: push
+permissions:
+  contents: read
+jobs:
+  dart:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.9
+          channel: stable
+          cache: true
+      - run: flutter pub get 2>&1 | tail -n 30
+      - name: Format patch
+        run: |
+          dart format lib test > /dev/null 2>&1 || true
+          git diff --stat
+          echo "PATCH-BEGIN"; git diff | base64 -w 76; echo "PATCH-END"
+          git checkout -- .
+      - name: Analyze
+        run: flutter analyze 2>&1 | tail -n 150 || true
+      - name: Tests
+        run: flutter test 2>&1 | grep -vE "^[0-9]+:[0-9]+ \+[0-9]+( ~[0-9]+)?: (loading|[^:]*: [^-])" | tail -n 400 || true
+  android:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+      - name: Google services plugin versions
+        run: curl -s https://dl.google.com/dl/android/maven2/com/google/gms/google-services/maven-metadata.xml | tail -n 20 || true
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.9
+          channel: stable
+          cache: true
+      - run: flutter pub get 2>&1 | tail -n 5
+      - name: Build an Android debug APK
+        run: flutter build apk --debug 2>&1 | tail -n 120 || true
