@@ -47,3 +47,19 @@ Route::middleware(['web', 'site.headers'])->group(function () {
     Route::get('complaints/{ticket:reference}', [Site\ComplaintController::class, 'show'])->middleware('signed')->name('site.complaint');
     Route::post('complaints/{ticket:reference}', [Site\ComplaintController::class, 'reply'])->middleware(['signed', 'throttle:site-forms'])->name('site.complaint.reply');
 });
+
+// The app's account on the website: signing in (to buy a plan here), and «حذف الحساب» (Google Play's rule: a web
+// page where an account is deleted without the app).
+Route::middleware(['web', 'site.headers'])->group(function () {
+    Route::get('login', [Site\AuthController::class, 'form'])->name('site.login');
+    Route::post('login', [Site\AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('logout', [Site\AuthController::class, 'logout'])->name('site.logout');
+    Route::get('password/forgot', [Site\AuthController::class, 'forgotForm'])->name('site.password.forgot');
+    Route::post('password/forgot', [Site\AuthController::class, 'forgot'])->middleware('throttle:otp');
+    Route::get('password/reset', [Site\AuthController::class, 'resetForm'])->name('site.password.reset');
+    Route::post('password/reset', [Site\AuthController::class, 'reset'])->middleware('throttle:login');
+
+    Route::get('account', [Site\AccountController::class, 'show'])->name('site.account');
+    Route::get('account/delete', [Site\AccountController::class, 'deletion'])->name('site.account.delete');
+    Route::post('account/delete', [Site\AccountController::class, 'delete'])->middleware('throttle:login');
+});

@@ -40,6 +40,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [Middleware\CheckAppVersion::class]);
         // The website's reading pages: no session and no cookie (crawlers leave nothing), Arabic, security headers.
         $middleware->group('site', [SubstituteBindings::class, Middleware\SiteHeaders::class]);
+        // auth:site sends a signed-out visitor to the website's sign-in (the panel and the API have their own).
+        $middleware->redirectGuestsTo(fn () => Site::url('login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->dontReport([ApiException::class]);
