@@ -23,11 +23,15 @@ Map<String, Object?> ok([Object? data, Map<String, Object?> meta = const <String
 };
 
 /// The server's error envelope.
-Map<String, Object?> apiFail(String code, String message, {Map<String, Object?> details = const <String, Object?>{}, String trace = 'srv-trace-0001'}) =>
-    <String, Object?>{
-      'success': false,
-      'error': <String, Object?>{'code': code, 'message': message, 'details': details, 'trace_id': trace},
-    };
+Map<String, Object?> apiFail(
+  String code,
+  String message, {
+  Map<String, Object?> details = const <String, Object?>{},
+  String trace = 'srv-trace-0001',
+}) => <String, Object?>{
+  'success': false,
+  'error': <String, Object?>{'code': code, 'message': message, 'details': details, 'trace_id': trace},
+};
 
 /// The account as `me` describes it.
 Map<String, Object?> me({int id = 41, String role = 'broker', String name = 'فيصل العتيبي', Map<String, bool>? prefs}) => <String, Object?>{

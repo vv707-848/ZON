@@ -14,6 +14,14 @@ import 'package:zon/shared/widgets/push_banner.dart';
 import '../support/server_env.dart';
 import '../support/test_env.dart';
 
+/// A stream event reaches the app at the end of one frame; what it shows (a pushed page — offstage for its
+/// first frame while heroes measure — or the banner) is drawn in the next ones.
+Future<void> _deliver(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
 void main() {
   test('after signing in: one permission prompt, then this installation\'s id to the server', () async {
     await freshDevice();
@@ -98,8 +106,7 @@ void main() {
     await Push.listen();
 
     push.tapped.add(const PushMessage(title: 'عروض تطابق رغبتك', body: '3 عروض جديدة', target: 'https://example.com/'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await _deliver(tester);
 
     expect(find.byType(NotificationsScreen), findsOneWidget);
   });
@@ -116,18 +123,17 @@ void main() {
     await Push.listen();
 
     push.arrived.add(const PushMessage(title: 'رسالة جديدة', body: 'فهد: هل العرض متاح؟', target: '/notifications'));
-    await tester.pump();
+    await _deliver(tester);
     expect(find.byType(PushBanner), findsOneWidget);
     expect(find.text('فهد: هل العرض متاح؟'), findsOneWidget);
 
     await tester.tap(find.text('رسالة جديدة'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await _deliver(tester);
     expect(find.byType(PushBanner), findsNothing);
     expect(find.byType(NotificationsScreen), findsOneWidget);
 
     push.arrived.add(const PushMessage(title: 'تذكير', body: 'مهمة اليوم', target: '/notifications'));
-    await tester.pump();
+    await _deliver(tester);
     expect(find.byType(PushBanner), findsOneWidget);
     await tester.pump(kPushBannerTime + const Duration(seconds: 1));
     expect(find.byType(PushBanner), findsNothing, reason: 'gone by itself');

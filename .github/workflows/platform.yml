@@ -26,10 +26,6 @@ concurrency:
 permissions:
   contents: read
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   backend:
     name: Backend · PHP 8.5 · MySQL 9.7 · Redis 8
@@ -61,6 +57,9 @@ jobs:
       REDIS_HOST: 127.0.0.1
     defaults:
       run:
+        # bash -eo pipefail: a failing command before `| tee` fails its step. The workflow-level default does not
+        # reach a job with its own defaults.run — without this line the tests could fail and the run stay green.
+        shell: bash
         working-directory: backend
     steps:
       - uses: actions/checkout@v7
@@ -155,6 +154,9 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
+        # bash -eo pipefail: a failing command before `| tee` fails its step. The workflow-level default does not
+        # reach a job with its own defaults.run — without this line the tests could fail and the run stay green.
+        shell: bash
         working-directory: agents
     steps:
       - uses: actions/checkout@v7

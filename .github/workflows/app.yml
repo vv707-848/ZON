@@ -22,10 +22,6 @@ concurrency:
 permissions:
   contents: read
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   app:
     name: App · Flutter stable
@@ -33,6 +29,9 @@ jobs:
     timeout-minutes: 25
     defaults:
       run:
+        # bash -eo pipefail: a failing command before `| tee` fails its step. The workflow-level default does not
+        # reach a job with its own defaults.run — without this line the tests could fail and the run stay green.
+        shell: bash
         working-directory: app
     steps:
       - uses: actions/checkout@v7

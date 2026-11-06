@@ -76,6 +76,8 @@ void main() {
     final push = FakePush();
     Push.provider = push;
     await Push.start();
+    await Future<void>.delayed(const Duration(milliseconds: 1)); // FCM gives the id on its stream
+    expect(Push.token, 'fid-0001');
     await Auth.signOut();
 
     expect(FakeServer.body(server.sent('POST', 'auth/logout').single), <String, Object?>{'push_token': 'fid-0001'});
