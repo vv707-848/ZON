@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/layout/app_shell.dart';
+import 'package:zon/core/simulations.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
@@ -85,22 +86,24 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             BarqCard(name: name, verified: verified),
-            const SizedBox(height: 14),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: MeStat(n: loc(8 + (n % 40)), label: 'المتابِعون'),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: MeStat(n: loc(4 + (n % 20)), label: 'يتابِع'),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: MeStat(n: loc(3 + (n % 12)), label: 'المفضلة'),
-                ),
-              ],
-            ),
+            if (kSimulations) ...<Widget>[
+              const SizedBox(height: 14),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: MeStat(n: loc(8 + (n % 40)), label: 'المتابِعون'),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: MeStat(n: loc(4 + (n % 20)), label: 'يتابِع'),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: MeStat(n: loc(3 + (n % 12)), label: 'المفضلة'),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 14),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -123,7 +126,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ),
               ),
             ),
-            if (!sent) ...<Widget>[
+            if (kSimulations && !sent) ...<Widget>[
               const SizedBox(height: 14),
               Container(
                 constraints: const BoxConstraints(minHeight: 56),

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:zon/app/external_links.dart';
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/simulations.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
@@ -27,9 +28,9 @@ class AdvertiserCard extends StatelessWidget {
     final id = slugName(p);
     final nums = (phones != null && phones!.isNotEmpty)
         ? phones!
-        : role == 'developer'
+        : kSimulations && role == 'developer'
         ? kProjectPhones
-        : const <String>['0550000000'];
+        : const <String>[];
     Widget btn({required String label, required String icon, required bool ghost, required VoidCallback onTap}) {
       return Tap(
         onTap: onTap,
@@ -108,21 +109,23 @@ class AdvertiserCard extends StatelessWidget {
                   },
                 ),
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: btn(
-                  label: 'اتصال',
-                  icon: Lu.phone,
-                  ghost: true,
-                  onTap: () {
-                    if (nums.length == 1) {
-                      callPhone(nums.first);
-                    } else {
-                      showCallPop(context, nums);
-                    }
-                  },
+              if (nums.isNotEmpty) ...<Widget>[
+                const SizedBox(width: 6),
+                Expanded(
+                  child: btn(
+                    label: 'اتصال',
+                    icon: Lu.phone,
+                    ghost: true,
+                    onTap: () {
+                      if (nums.length == 1) {
+                        callPhone(nums.first);
+                      } else {
+                        showCallPop(context, nums);
+                      }
+                    },
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ],
