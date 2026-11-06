@@ -4,9 +4,11 @@ namespace Tests\Feature\Admin;
 
 use App\Actions\Billing\ApplyBoost;
 use App\Actions\Moderation\AutoHideReported;
+use App\Enums\AccountStatus;
 use App\Enums\AnnouncementKind;
 use App\Enums\BoostKind;
 use App\Enums\ListingStatus;
+use App\Enums\ReportStatus;
 use App\Enums\RequestStatus;
 use App\Filament\Pages\ManageSettings;
 use App\Filament\Resources\Announcements\Pages\CreateAnnouncement;
@@ -35,6 +37,7 @@ use App\Models\Message;
 use App\Models\Package;
 use App\Models\Payment;
 use App\Models\Project;
+use App\Models\Rating;
 use App\Models\SearchFeedback;
 use App\Models\SearchRequest;
 use App\Models\User;
@@ -119,6 +122,41 @@ class AdminActionsTest extends AdminTestCase
         $late = ContentReport::query()->create(['reporter_id' => Customer::factory()->create()->id, 'target_type' => 'request', 'target_id' => $autoHidden->id, 'details' => 'بلاغ آخر']);
         Livewire::test(ListContentReports::class)->callTableAction('decide', $late, ['decision' => 'reject', 'note' => 'لا جديد'])->assertHasNoTableActionErrors();
         $this->assertSame(RequestStatus::Hidden, $autoHidden->fresh()->status, 'an accepted report made the hiding the staff\'s own');
+    }
+
+    public function test_an_accepted_report_hides_each_kind_of_content_and_warns_or_suspends_its_owner(): void
+    {
+        $listing = Listing::factory()->published()->create();
+        $request = SearchRequest::factory()->create();
+        $rater = Customer::factory()->create();
+        $rating = Rating::query()->create(['rater_id' => $rater->id, 'rated_id' => $listing->customer_id, 'stars' => 1, 'comment' => 'تعليق مسيء']);
+        $conversation = Conversation::query()->create(['listing_id' => $listing->id, 'last_message_at' => now()]);
+        $message = Message::query()->create(['conversation_id' => $conversation->id, 'sender_id' => $rater->id, 'body' => 'رسالة مسيئة']);
+        [$project, $warned] = [Project::factory()->published()->create(), Project::factory()->published()->create()];
+        $abuser = Customer::factory()->create();
+        $abuser->createToken('iPhone 16');
+        $this->signInStaff(Permission::HandleReports);
+        $decide = function (string $type, int $id, string $action): void {
+            $report = ContentReport::query()->create(['reporter_id' => Customer::factory()->create()->id, 'target_type' => $type, 'target_id' => $id, 'details' => 'مخالف']);
+            Livewire::test(ListContentReports::class)->callTableAction('decide', $report, ['decision' => 'accept', 'action' => $action, 'note' => 'مخالف للسياسة'])
+                ->assertHasNoTableActionErrors();
+        };
+
+        foreach ([['listing', $listing->id], ['project', $project->id], ['request', $request->id], ['rating', $rating->id], ['message', $message->id]] as [$type, $id]) {
+            $decide($type, $id, 'hidden');
+        }
+        $this->assertSame([ListingStatus::Hidden, ListingStatus::Hidden, RequestStatus::Hidden], [$listing->fresh()->status, $project->fresh()->status, $request->fresh()->status]);
+        $this->assertNotNull($rating->fresh()->hidden_at);
+        $this->assertSame('— أُخفيت هذه الرسالة —', $message->fresh()->body);
+
+        $decide('project', $warned->id, 'warned');
+        $this->assertSame(ListingStatus::Published, $warned->fresh()->status, 'a warning leaves the content up');
+        $this->assertSame('تنبيه من فريق زون', $warned->developer->notifications()->sole()->data['title']);
+
+        $decide('customer', $abuser->id, 'banned');
+        $this->assertSame(AccountStatus::Suspended, $abuser->fresh()->status);
+        $this->assertSame(0, $abuser->tokens()->count(), 'signed out of every phone');
+        $this->assertSame(7, ContentReport::query()->where('status', ReportStatus::Accepted)->count());
     }
 
     public function test_a_refund_stops_what_the_payment_bought(): void

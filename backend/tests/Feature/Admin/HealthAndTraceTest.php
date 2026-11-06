@@ -10,6 +10,7 @@ use App\Filament\Pages\HealthMonitor;
 use App\Filament\Pages\TraceLookup;
 use App\Filament\Resources\Activities\Pages\ListActivities;
 use App\Filament\Resources\AiRequests\Pages\ListAiRequests;
+use App\Integrations\Drivers;
 use App\Jobs\Scheduled\SchedulerHeartbeat;
 use App\Models\AiRequest;
 use App\Models\IndexEvent;
@@ -73,6 +74,31 @@ class HealthAndTraceTest extends AdminTestCase
 
         $this->assertSame('warn', $checks['agents']['status']);
         $this->assertStringContainsString('Qdrant ✗', $checks['agents']['detail']);
+    }
+
+    public function test_in_production_the_doctor_fails_on_debug_and_a_refused_simulation_and_warns_on_hidden_errors(): void
+    {
+        $this->app['env'] = 'production';
+        config(['queue.default' => 'redis']);   // the tests run their jobs in-line (sync), which production refuses
+        config(['app.debug' => true, 'zon.admin_allowed_ips' => [], 'services.production_allows_fake' => 'nafath', 'sentry.dsn' => null]);
+
+        $checks = $this->doctor(1);
+
+        $this->assertSame(['fail', 'fail', 'warn'], [$checks['app']['status'], $checks['integrations']['status'], $checks['errors']['status']]);
+        $this->assertStringContainsString('APP_DEBUG', $checks['app']['detail']);
+        $refused = explode(' — ', $checks['integrations']['detail'])[0];
+        $this->assertStringContainsString('sms', $refused);
+        $this->assertStringNotContainsString('nafath', $refused, 'a simulation the owner allowed for now is not refused');
+        $this->assertStringContainsString('SENTRY_LARAVEL_DSN', $checks['errors']['detail']);
+
+        // Debug off and the panel behind its addresses; every simulation allowed for now; a DSN without a release.
+        config(['app.debug' => false, 'zon.admin_allowed_ips' => ['10.0.0.1'], 'services.production_allows_fake' => implode(',', array_keys(Drivers::SERVICES)),
+            'sentry.dsn' => 'https://public@o1.ingest.sentry.invalid/1', 'sentry.release' => null]);
+
+        $checks = $this->doctor(0);
+
+        $this->assertSame(['ok', 'warn', 'warn'], [$checks['app']['status'], $checks['integrations']['status'], $checks['errors']['status']]);
+        $this->assertStringContainsString('بلا رقم إصدار', $checks['errors']['detail']);
     }
 
     public function test_the_health_page_shows_each_check_to_permitted_staff(): void
