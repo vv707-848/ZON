@@ -10,11 +10,6 @@ class FakePushGateway implements PushGateway
     /** @var list<array{tokens: list<string>, title: string, body: string, data: array<string, scalar>}> */
     private array $sent = [];
 
-    public function name(): string
-    {
-        return 'fake';
-    }
-
     public function send(array $tokens, string $title, string $body, array $data = []): array
     {
         $this->sent[] = compact('tokens', 'title', 'body', 'data');

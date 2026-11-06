@@ -53,7 +53,7 @@ abstract class TestCase extends BaseTestCase
      */
     private function recordContractSamples(): void
     {
-        $dir = (string) env('ZON_CONTRACT_DIR', '');
+        $dir = (string) getenv('ZON_CONTRACT_DIR');   // the shell's variable, not the application's config
         if ($dir === '') {
             return;
         }

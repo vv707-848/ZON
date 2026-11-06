@@ -12,11 +12,6 @@ use Illuminate\Support\Str;
  */
 class FakeNafathGateway implements NafathGateway
 {
-    public function name(): string
-    {
-        return 'fake';
-    }
-
     public function start(string $nationalId): NafathChallenge
     {
         $transaction = (string) Str::uuid();

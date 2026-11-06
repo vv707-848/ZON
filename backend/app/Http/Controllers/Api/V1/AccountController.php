@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Actions\Accounts\CancelDeletion;
 use App\Actions\Accounts\RequestDeletion;
 use App\Enums\ErrorCode;
 use App\Exceptions\ApiException;
@@ -13,7 +12,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
-/** «حذف حسابي» and «طلب استعادة بيانات الإصدار السابق». */
+/**
+ * «حذف حسابي» and «طلب استعادة بيانات الإصدار السابق». A deletion signs the account out of every phone; signing in
+ * during the grace period cancels it (SignIn), so there is no separate «cancel» call.
+ */
 class AccountController extends Controller
 {
     public function requestDeletion(Request $request, RequestDeletion $delete): JsonResponse
@@ -29,16 +31,6 @@ class AccountController extends Controller
         $deletion = $delete($me);
 
         return Api::ok(['purge_at' => $deletion->purge_at->toIso8601String()], status: 202);
-    }
-
-    /** Cancelling from a phone still signed in (signing in again also cancels). */
-    public function cancelDeletion(Request $request, CancelDeletion $cancel): JsonResponse
-    {
-        $me = $request->user('api');
-        $deletion = $me->pendingDeletion()->first() ?? throw ApiException::of(ErrorCode::NotFound);
-        $cancel($deletion, "customer:{$me->id}");
-
-        return Api::ok();
     }
 
     /**

@@ -26,7 +26,7 @@ dependencies = [
 phash = ["imagededup==0.3.3.post2"]
 
 [dependency-groups]
-dev = ["pytest==9.2.0", "pytest-asyncio==1.4.1.post1", "ruff==0.17.4", "mypy==2.4.1"]
+dev = ["pytest==9.2.0", "pytest-asyncio==1.4.1.post1", "pytest-cov==7.1.0", "ruff==0.17.4", "mypy==2.4.1"]
 
 [project.scripts]
 zon-agents = "zon_agents.cli:main"

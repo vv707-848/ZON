@@ -77,12 +77,16 @@ jobs:
         id: tests
         if: ${{ !cancelled() && steps.packages.outcome == 'success' }}
         run: |
-          flutter test 2>&1 | tee "$RUNNER_TEMP/tests.log"
+          flutter test --coverage 2>&1 | tee "$RUNNER_TEMP/tests.log"
           flutter test --dart-define=ZON_SIMULATIONS=false test/no_simulations_test.dart 2>&1 | tee -a "$RUNNER_TEMP/tests.log"
 
       - name: Explain a test failure
         if: failure() && steps.tests.outcome == 'failure'
         run: ../.github/scripts/annotate.sh error "flutter test" "$RUNNER_TEMP/tests.log" 120
+
+      - name: Coverage (floor 71%)
+        if: ${{ !cancelled() && steps.tests.outcome == 'success' }}
+        run: python3 -I ../.github/scripts/coverage.py coverage/lcov.info 71 App
 
       - name: Outdated packages (report only)
         if: ${{ !cancelled() && steps.packages.outcome == 'success' }}
@@ -98,8 +102,9 @@ jobs:
           path: app/pubspec.lock
           retention-days: 7
 
-  # The Gradle side the tests cannot see: SDK levels, merged manifests, plugin versions, Kotlin. A debug APK,
-  # without the Firebase files (the app then builds without push). It found minSdk 26 for Sentry's Android SDK.
+  # The Gradle side the tests cannot see: SDK levels, merged manifests, plugin versions, Kotlin, release signing.
+  # A release APK signed as the store build will be, without the Firebase files (the app then builds without push).
+  # It found minSdk 26 for Sentry's Android SDK.
   android:
     name: App · Android build
     runs-on: ubuntu-24.04
@@ -130,9 +135,19 @@ jobs:
       - name: Packages
         run: flutter pub get
 
-      - name: Debug APK
+      # android/key.properties names an upload key, as the owner's will (app/README.md «بناء نسخ المتاجر»); a
+      # throwaway one here. apksigner then shows the APK carries that key, not the debug one Google Play refuses.
+      - name: Release APK, signed with an upload key
         id: build
-        run: flutter build apk --debug 2>&1 | tee "$RUNNER_TEMP/build.log"
+        run: |
+          keytool -genkeypair -keystore "$RUNNER_TEMP/upload.jks" -storepass ci-upload-key -keypass ci-upload-key -alias upload \
+            -keyalg RSA -keysize 2048 -validity 1 -dname "CN=CI upload key" -noprompt
+          printf 'storeFile=%s\nstorePassword=ci-upload-key\nkeyAlias=upload\nkeyPassword=ci-upload-key\n' "$RUNNER_TEMP/upload.jks" > android/key.properties
+          flutter build apk --release 2>&1 | tee "$RUNNER_TEMP/build.log"
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner"
+          "$apksigner" verify --print-certs build/app/outputs/flutter-apk/app-release.apk > "$RUNNER_TEMP/signer.txt" 2>&1
+          cat "$RUNNER_TEMP/signer.txt" | tee -a "$RUNNER_TEMP/build.log"
+          grep -q "CN=CI upload key" "$RUNNER_TEMP/signer.txt"
 
       - name: Explain a build failure
         if: failure() && steps.build.outcome == 'failure'

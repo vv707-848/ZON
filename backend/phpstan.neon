@@ -8,5 +8,7 @@ parameters:
         - database
         - routes
         - config
+        # The tests too: a test calling a method that no longer exists fails here, not only when it runs.
+        - tests
     parseModelCastsMethod: true
     treatPhpDocTypesAsCertain: false

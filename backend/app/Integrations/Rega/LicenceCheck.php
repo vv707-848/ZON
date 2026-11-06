@@ -13,7 +13,6 @@ final readonly class LicenceCheck
         public ?string $number = null,
         public ?CarbonImmutable $expiresAt = null,
         public ?string $qrUrl = null,
-        public ?string $reason = null,
     ) {}
 
     /**

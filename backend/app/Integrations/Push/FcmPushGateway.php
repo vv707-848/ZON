@@ -39,11 +39,6 @@ class FcmPushGateway implements PushGateway
         }
     }
 
-    public function name(): string
-    {
-        return 'fcm';
-    }
-
     public function send(array $tokens, string $title, string $body, array $data = []): array
     {
         $url = "https://fcm.googleapis.com/v1/projects/{$this->project}/messages:send";

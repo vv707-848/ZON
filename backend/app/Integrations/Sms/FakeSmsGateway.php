@@ -14,11 +14,6 @@ class FakeSmsGateway implements SmsGateway
     /** @var list<array{phone: string, text: string}> */
     private array $sent = [];
 
-    public function name(): string
-    {
-        return 'fake';
-    }
-
     public function send(string $phone, string $text): void
     {
         $this->sent[] = ['phone' => $phone, 'text' => $text];

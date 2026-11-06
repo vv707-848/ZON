@@ -239,9 +239,6 @@ class OwnerCases {
     }
   }
 
-  /// Whether the signed-in account is paying the fee of case [id] right now.
-  bool isPaying(String id) => _paying.contains('${store.accountId}:$id');
-
   /// Step 4 — the listing of the case is published: the plan is active.
   OwnerCase markPublished(String id, String listingId) {
     final c = _update(id, <String, Object?>{'listingId': listingId, 'publishedAt': appNow().toIso8601String()});

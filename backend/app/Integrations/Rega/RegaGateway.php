@@ -7,8 +7,6 @@ use App\Enums\ContractStatus;
 /** The General Authority for Real Estate: FAL licences, advertising licences, owners' brokerage contracts. */
 interface RegaGateway
 {
-    public function name(): string;
-
     /** A broker's FAL licence. */
     public function checkFal(string $falNumber): LicenceCheck;
 

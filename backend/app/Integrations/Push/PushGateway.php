@@ -5,8 +5,6 @@ namespace App\Integrations\Push;
 /** Push notifications to the app (FCM, which also reaches iOS through APNs). */
 interface PushGateway
 {
-    public function name(): string;
-
     /**
      * @param  list<string>  $tokens
      * @param  array<string, scalar>  $data  sent as strings (FCM's rule)

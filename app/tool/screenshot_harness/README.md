@@ -1,6 +1,6 @@
 # أداة صور الشاشات (ليست جزءًا من التطبيق)
 
-هذه الأداة شغّلت تطبيق زون الحقيقي (كود `lib/` نفسه) والتقطت صور الشاشات المرفقة مع النسخة 1.2.1+4 (`docs/screenshots_v3_1.pdf`: خطة `make_plan_v3_1.py` ثم خطة `make_plan.py`).
+هذه الأداة شغّلت تطبيق زون الحقيقي (كود `lib/` نفسه) والتقطت صور الشاشات المرفقة مع النسخة 1.2.1+4 (`docs/history/screenshots_v3_1.pdf`: خطة `make_plan_v3_1.py` ثم خطة `make_plan.py`).
 
 - `lib/main.dart` — يشغّل `ZonApp` ويتبع خطة JSON من سيناريوهات. **كل سيناريو يبدأ بجهاز فارغ**، ثم ينشئ حساباته وبياناته عبر كود التطبيق نفسه (`LocalAuth.signUp`، `store.saveListing`، `billing.startPeriod`، `ownerCases`، `notifications`)، ثم يفتح الصفحة وينفذ النقرات والكتابة والتمرير والالتقاط.
 - `make_plan.py` — يولّد خطة صور النسخة الثالثة: `python3 make_plan.py plan.json [بادئة-اسم]`.

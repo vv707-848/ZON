@@ -19,8 +19,12 @@ class Package extends Model
 
     public const OWNER = 'owner';
 
-    /** The limits of an account without a subscription (a free seeker or broker). */
-    public const FREE = 'free';
+    /** The plans of an account without a subscription, and the developer's (Entitlements::baseCode). */
+    public const FREE_SEEKER = 'free-seeker';
+
+    public const FREE_BROKER = 'free-broker';
+
+    public const DEVELOPER = 'developer';
 
     protected $guarded = ['id'];
 

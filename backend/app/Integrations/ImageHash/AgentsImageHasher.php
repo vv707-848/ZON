@@ -9,11 +9,6 @@ use Illuminate\Support\Facades\Http;
 /** The agents service's pHash (POST /media/phash, raw image body). Not an AI call: no quota, no masking. */
 class AgentsImageHasher implements ImageHasher
 {
-    public function name(): string
-    {
-        return 'agents';
-    }
-
     public function hash(string $binary): ?string
     {
         try {
