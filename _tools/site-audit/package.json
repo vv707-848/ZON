@@ -1,0 +1,17 @@
+{
+  "name": "zon-site-audit",
+  "private": true,
+  "description": "The website as a search engine and a tablet see it: docs/website.md «الفحص الآلي للموقع»",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "audit": "node audit.mjs"
+  },
+  "dependencies": {
+    "chrome-launcher": "1.2.3",
+    "lighthouse": "13.6.0",
+    "puppeteer-core": "25.16.0"
+  }
+}

@@ -84,7 +84,7 @@
     @else
         <div class="grid">
             @foreach ($listings as $listing)
-                @include('site.partials.listing-card', ['listing' => $listing])
+                @include('site.partials.listing-card', ['listing' => $listing, 'level' => 2])
             @endforeach
         </div>
         @if ($listings->hasPages())

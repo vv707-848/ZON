@@ -48,10 +48,11 @@ class SitemapController extends Controller
         return $this->respond($xml);
     }
 
-    /** @return list<string> the home, the feed, the plans, complaints, a page per city and per city and type with listings, the policies */
+    /** @return list<string> the home, the feed, the plans, complaints, account deletion, a page per city and per city and type with listings, the policies */
     private function pages(): array
     {
-        $urls = [$this->url(Site::url()), $this->url(Browse::url([])), $this->url(Site::url('packages')), $this->url(Site::url('complaints'))];
+        $urls = [$this->url(Site::url()), $this->url(Browse::url([])), $this->url(Site::url('packages')), $this->url(Site::url('complaints')),
+            $this->url(Site::url('account/delete'))];
         $places = Browse::listings()->reorder()->toBase()->selectRaw('city, property_type')->groupBy('city', 'property_type')->get();
         foreach ($places->pluck('city')->unique() as $city) {
             $urls[] = $this->url(Browse::url(['city' => (string) $city]));
