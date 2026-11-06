@@ -87,22 +87,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           children: <Widget>[
             BarqCard(name: name, verified: verified),
             if (kSimulations) ...<Widget>[
-            const SizedBox(height: 14),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: MeStat(n: loc(8 + (n % 40)), label: 'المتابِعون'),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: MeStat(n: loc(4 + (n % 20)), label: 'يتابِع'),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: MeStat(n: loc(3 + (n % 12)), label: 'المفضلة'),
-                ),
-              ],
-            ),
+              const SizedBox(height: 14),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: MeStat(n: loc(8 + (n % 40)), label: 'المتابِعون'),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: MeStat(n: loc(4 + (n % 20)), label: 'يتابِع'),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: MeStat(n: loc(3 + (n % 12)), label: 'المفضلة'),
+                  ),
+                ],
+              ),
             ],
             const SizedBox(height: 14),
             Padding(

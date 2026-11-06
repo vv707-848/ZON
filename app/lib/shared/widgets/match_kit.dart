@@ -65,7 +65,12 @@ const Map<String, List<(String, String)>> _huntRows = <String, List<(String, Str
 const List<String> _huntMark = <String>['يفحص', 'يفكر', 'يصنّف', 'مطابق'];
 
 /// The people rows without simulations: roles, never a made-up name.
-const List<(String, String)> _huntRoles = <(String, String)>[('رغبة باحث', 'باحث'), ('عميل وسيط', 'وسيط'), ('رغبة باحث', 'باحث'), ('عميل وسيط', 'وسيط')];
+const List<(String, String)> _huntRoles = <(String, String)>[
+  ('رغبة باحث', 'باحث'),
+  ('عميل وسيط', 'وسيط'),
+  ('رغبة باحث', 'باحث'),
+  ('عميل وسيط', 'وسيط'),
+];
 
 /// The AI "scanning…" card shown while matches are being searched.
 class Hunt extends StatefulWidget {

@@ -409,11 +409,13 @@ class _ProjectMarketState extends State<ProjectMarket> {
     const seekerNotes = 'أبحث عن فيلا بحديقة قريبة من المدارس';
     final seekers = <(String, String, String, String, String, String)>[
       if (kSimulations) ...<(String, String, String, String, String, String)>[
-      ('s1', 'سارة القحطاني', project?.city ?? 'الرياض', project?.neighborhood ?? 'النرجس', project?.propertyType ?? 'villa', seekerNotes),
-      ('s2', 'محمد الشهري', project?.city ?? 'الرياض', '', project?.propertyType ?? 'apartment', 'رغبة مسجّلة'),
+        ('s1', 'سارة القحطاني', project?.city ?? 'الرياض', project?.neighborhood ?? 'النرجس', project?.propertyType ?? 'villa', seekerNotes),
+        ('s2', 'محمد الشهري', project?.city ?? 'الرياض', '', project?.propertyType ?? 'apartment', 'رغبة مسجّلة'),
       ],
     ];
-    const brokers = <(String, String, String, int)>[if (kSimulations) ...<(String, String, String, int)>[('b1', 'فهد العتيبي', '0551111111', 4), ('b2', 'نورة الحربي', '0554444444', 2)]];
+    const brokers = <(String, String, String, int)>[
+      if (kSimulations) ...<(String, String, String, int)>[('b1', 'فهد العتيبي', '0551111111', 4), ('b2', 'نورة الحربي', '0554444444', 2)],
+    ];
 
     final tabs = MxTabs(
       items: <(String, bool, VoidCallback)>[

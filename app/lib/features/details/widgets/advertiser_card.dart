@@ -110,21 +110,21 @@ class AdvertiserCard extends StatelessWidget {
                 ),
               ),
               if (nums.isNotEmpty) ...<Widget>[
-              const SizedBox(width: 6),
-              Expanded(
-                child: btn(
-                  label: 'اتصال',
-                  icon: Lu.phone,
-                  ghost: true,
-                  onTap: () {
-                    if (nums.length == 1) {
-                      callPhone(nums.first);
-                    } else {
-                      showCallPop(context, nums);
-                    }
-                  },
+                const SizedBox(width: 6),
+                Expanded(
+                  child: btn(
+                    label: 'اتصال',
+                    icon: Lu.phone,
+                    ghost: true,
+                    onTap: () {
+                      if (nums.length == 1) {
+                        callPhone(nums.first);
+                      } else {
+                        showCallPop(context, nums);
+                      }
+                    },
+                  ),
                 ),
-              ),
               ],
             ],
           ),
