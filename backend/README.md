@@ -56,7 +56,7 @@ php artisan queue:work --queue=index,ai,notify,default,media
 
 ```bash
 php artisan test                                   # 98 اختباراً على قاعدة zon_test (phpunit.xml)
-vendor/bin/phpstan analyse --memory-limit=1G       # larastan المستوى 5
+vendor/bin/phpstan analyse --memory-limit=1G       # larastan المستوى 6، والاختبارات معه
 vendor/bin/pint --test                             # تنسيق laravel
 ZON_CONTRACT_DIR=../docs/contracts/fixtures php artisan test   # يسجّل حمولات الوكلاء لفحص العقد
 ```

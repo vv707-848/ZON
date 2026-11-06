@@ -32,7 +32,10 @@ final class CreateListing
 {
     public function __construct(private readonly RegaGateway $rega) {}
 
-    /** @param array<string, mixed> $columns @param list<int> $mediaIds */
+    /**
+     * @param  array<string, mixed>  $columns
+     * @param  list<int>  $mediaIds
+     */
     public function __invoke(Customer $customer, array $columns, array $mediaIds, ?int $coverId, ?string $licenceNumber, ?int $ownerCaseId): Listing
     {
         PublishingGate::assert($customer, CustomerRole::Broker, CustomerRole::Owner);

@@ -20,7 +20,11 @@ final readonly class Money
         return (string) BigDecimal::ofUnscaledValue($this->halalas, 2);
     }
 
-    /** Splits a gross amount into net + VAT at `rate` ("0.15"): what an invoice prints. */
+    /**
+     * Splits a gross amount into net + VAT at `rate` ("0.15"): what an invoice prints.
+     *
+     * @return array{net: self, vat: self}
+     */
     public function withoutRate(string $rate): array
     {
         $net = BigDecimal::of($this->halalas)->dividedBy(BigDecimal::one()->plus($rate), 0, RoundingMode::HalfUp)->toInt();

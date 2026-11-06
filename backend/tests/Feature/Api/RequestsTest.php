@@ -20,6 +20,10 @@ class RequestsTest extends TestCase
             'source' => 'grant', 'starts_at' => now()->subDay(), 'ends_at' => now()->addYear()]);
     }
 
+    /**
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
     private function form(array $extra = []): array
     {
         return $extra + ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhoods' => ['النرجس', 'الملقا'], 'property_types' => ['villa'],

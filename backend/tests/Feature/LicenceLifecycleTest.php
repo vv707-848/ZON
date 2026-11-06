@@ -36,6 +36,7 @@ class LicenceLifecycleTest extends TestCase
         $this->travelTo(CarbonImmutable::parse($riyadh, AdLicense::TIMEZONE));
     }
 
+    /** @param array<string, mixed> $attributes */
     private function listingEndingOn(string $lastDay, array $attributes = []): Listing
     {
         $listing = Listing::factory()->published()->create($attributes);

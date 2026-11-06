@@ -29,8 +29,8 @@ abstract class MetricsChart extends ChartWidget
         $i = 0;
         foreach ($this->series() as $key => $label) {
             $points = str_contains($key, ':')
-                ? ($rows[$key] ?? collect())->keyBy(fn ($m) => $m->stat_date->toDateString())
-                : $rows->filter(fn ($_, $group) => str_starts_with($group, $key.':'))->flatten()->groupBy(fn ($m) => $m->stat_date->toDateString())
+                ? ($rows[$key] ?? collect())->keyBy(fn (DailyMetric $m): string => $m->stat_date->toDateString())
+                : $rows->filter(fn ($_, $group) => str_starts_with($group, $key.':'))->flatten()->groupBy(fn (DailyMetric $m): string => $m->stat_date->toDateString())
                     ->map(fn ($group) => (object) ['value' => $group->sum('value')]);
             $color = self::COLORS[$i++ % count(self::COLORS)];
             $datasets[] = [

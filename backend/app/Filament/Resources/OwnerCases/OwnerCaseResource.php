@@ -52,6 +52,9 @@ class OwnerCaseResource extends Resource
         return ['deed_number'];
     }
 
+    /**
+     * @param  Builder<Model>  $query
+     */
     protected static function identifierMatches(Builder $query, string $search): void {}
 
     public static function getGlobalSearchResultTitle(Model $record): string

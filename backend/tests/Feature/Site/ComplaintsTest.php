@@ -23,7 +23,12 @@ class ComplaintsTest extends TestCase
         return 'https://zon.sa/'.ltrim($path, '/');
     }
 
-    /** @return array<string, mixed> a complaint as a person sends it: the form open for a while, the hidden field empty */
+    /**
+     * A complaint as a person sends it: the form open for a while, the hidden field empty.
+     *
+     * @param  array<string, mixed>  $fields
+     * @return array<string, mixed>
+     */
     private function form(array $fields = []): array
     {
         return $fields + ['type' => 'complaint', 'name' => 'نورة السبيعي', 'phone' => '٠٥٥ ١٢٣ ٤٥٦٧', 'body' => 'السعر في الإعلان يختلف عمّا قاله المعلن.',

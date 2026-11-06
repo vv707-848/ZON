@@ -22,6 +22,7 @@ use Tests\TestCase;
 /** Every AI service through AiGateway: SQL candidates, masking, ids checked, quota, cache, fallback — a result is a record and its score. */
 class AiTest extends TestCase
 {
+    /** @param array<string, mixed> $output */
     private function agent(array $output, int $status = 200, bool $degraded = false): void
     {
         Http::fake(['agents.test/agents/*' => Http::response($status === 200 ? ['output' => $output, 'degraded' => $degraded, 'usage' => ['tokens_in' => 900, 'tokens_out' => 120], 'latency_ms' => 2100] : ['detail' => 'down'], $status)]);
@@ -161,7 +162,7 @@ class AiTest extends TestCase
 
         $this->postJson('/api/v1/ai/chat', ['message' => 'وش رأيك بالمباراة؟'])->assertOk()->assertJsonPath('data.intent', 'out_of_scope')->assertJsonPath('meta.ai.status', 'skipped');
         $this->postJson('/api/v1/ai/chat', ['message' => 'كم سعر الباقة؟'])->assertOk()->assertJsonPath('data.answer', 'باقة الباحث 199 ريال شهرياً.')->assertJsonPath('data.action', '/account/plans');
-        Http::assertSent(fn (Sent $r) => $r['intent'] === 'packages' && collect($r['packages'])->contains('price', 199.0));
+        Http::assertSent(fn (Sent $r) => $r['intent'] === 'packages' && collect((array) $r['packages'])->contains('price', 199.0));
         $this->postJson('/api/v1/ai/chat', ['message' => 'كيف أطلع ترخيص فال؟'])->assertJsonPath('data.answer', 'لا أملك معلومة موثقة عن هذا. راجع الجهة الرسمية المختصة.');
         $this->postJson('/api/v1/ai/chat', ['message' => 'كم رسوم الترخيص؟'])->assertJsonPath('data.covered', false);
 

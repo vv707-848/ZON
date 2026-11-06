@@ -22,7 +22,14 @@ class GlobalSearchTest extends AdminTestCase
         assert($search instanceof GlobalSearch);
         $results = $search->getResults();
 
-        return collect($results?->getCategories() ?? [])->flatMap(fn ($group) => collect($group)->map(fn ($r) => (string) $r->title))->values()->all();
+        $titles = [];
+        foreach ($results?->getCategories() ?? [] as $group) {
+            foreach ($group as $result) {
+                $titles[] = (string) $result->title;
+            }
+        }
+
+        return $titles;
     }
 
     public function test_a_phone_in_any_format_a_licence_a_reference_or_a_payment_finds_its_record(): void

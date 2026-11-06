@@ -64,7 +64,11 @@ class ProjectUnit extends Model
         return $project->delivery !== Delivery::Ready || ($this->licence?->isValid() ?? false);
     }
 
-    /** The same rule in SQL. @param Builder<ProjectUnit> $query */
+    /**
+     * The same rule in SQL.
+     *
+     * @param  Builder<ProjectUnit>  $query
+     */
     public function scopeAdvertisable(Builder $query): void
     {
         $query->where(fn (Builder $q) => $q->whereHas('project', fn (Builder $p) => $p->where('delivery', '!=', Delivery::Ready))

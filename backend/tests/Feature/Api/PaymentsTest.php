@@ -18,6 +18,7 @@ use Tests\TestCase;
  */
 class PaymentsTest extends TestCase
 {
+    /** @param array<string, mixed> $body */
     private function checkout(array $body): string
     {
         return $this->postJson('/api/v1/checkout', $body)->assertCreated()->json('data.payment_id');

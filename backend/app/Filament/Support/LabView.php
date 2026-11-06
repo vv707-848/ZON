@@ -45,7 +45,7 @@ final class LabView
         }
         $html .= '</tr></thead><tbody>';
         foreach ($run->agents as $agent => $entry) {
-            $metrics = collect($entry['metrics'] ?? [])->map(fn ($value, $name) => e($name).' '.self::number($value));
+            $metrics = collect((array) ($entry['metrics'] ?? []))->map(fn ($value, $name) => e($name).' '.self::number($value));
             foreach ($entry['variants'] ?? [] as $variant => $result) {
                 $metrics->push(e($variant).' '.self::number($result['score'] ?? null)
                     .(isset($result['stability']) ? ' · stability '.self::number($result['stability']) : ''));
@@ -65,7 +65,7 @@ final class LabView
     /** Failed calls first, then the lowest scores: what to read before trusting a number. */
     public static function failures(ModelEvaluation $run): HtmlString
     {
-        $wrong = collect($run->report['outcomes'] ?? [])->filter(fn (array $o) => ($o['error'] ?? null) !== null || (float) ($o['score'] ?? 0) < 0.5)
+        $wrong = collect((array) ($run->report['outcomes'] ?? []))->filter(fn (array $o) => ($o['error'] ?? null) !== null || (float) ($o['score'] ?? 0) < 0.5)
             ->sortBy(fn (array $o) => [($o['error'] ?? null) === null ? 1 : 0, (float) ($o['score'] ?? 0)])->values();
         if ($wrong->isEmpty()) {
             return new HtmlString('<p>لا حالة دون النصف.</p>');
@@ -78,7 +78,7 @@ final class LabView
         }
         $html .= '</tr></thead><tbody>';
         foreach ($wrong->take(self::FAILURES_SHOWN) as $o) {
-            $detail = ($o['error'] ?? null) ?? collect($o['metrics'] ?? [])->map(fn ($v, $k) => "{$k} ".self::number($v))->implode(' · ');
+            $detail = ($o['error'] ?? null) ?? collect((array) ($o['metrics'] ?? []))->map(fn ($v, $k) => "{$k} ".self::number($v))->implode(' · ');
             $answer = json_encode($o['output'] ?? null, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) ?: '—';
             $html .= '<tr><td style="'.self::CELL.'"><code>'.e((string) ($o['case'] ?? '')).'</code></td>'
                 .'<td style="'.self::CELL.'">'.e(self::AGENTS[$o['agent'] ?? ''] ?? (string) ($o['agent'] ?? '')).'</td>'

@@ -40,7 +40,7 @@ class HealthAndTraceTest extends AdminTestCase
     {
         $this->assertSame($exitCode, Artisan::call('zon:doctor', ['--json' => true]));
 
-        return collect(json_decode(Artisan::output(), true))->keyBy('key')->all();
+        return collect((array) json_decode(Artisan::output(), true))->keyBy('key')->all();
     }
 
     public function test_the_doctor_checks_every_part_and_says_where_to_look(): void

@@ -50,6 +50,9 @@ class InvoiceResource extends Resource
         return ['number'];
     }
 
+    /**
+     * @param  Builder<Model>  $query
+     */
     protected static function identifierMatches(Builder $query, string $search): void {}
 
     public static function getGlobalSearchResultTitle(Model $record): string

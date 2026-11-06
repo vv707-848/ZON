@@ -11,11 +11,16 @@ use App\Models\Listing;
 use Database\Seeders\ReferenceSeeder;
 use Illuminate\Testing\TestResponse;
 use Spatie\Activitylog\Models\Activity;
+use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 /** Sign-up (form → code → account), sign-in by username or phone, forgotten password, and the app gates. */
 class AuthTest extends TestCase
 {
+    /**
+     * @param  array<string, mixed>  $form
+     * @return TestResponse<Response>
+     */
     private function signUp(array $form = []): TestResponse
     {
         return $this->postJson('/api/v1/auth/register', $form + [

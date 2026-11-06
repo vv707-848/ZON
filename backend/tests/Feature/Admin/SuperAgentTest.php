@@ -22,9 +22,10 @@ use Livewire\Livewire;
 /** The SuperAgent: approved templates only, checked parameters, read-only views, numbers that come from the rows. */
 class SuperAgentTest extends AdminTestCase
 {
-    /** What the fake agents answer next; changed by agentsAnswer(). */
+    /** @var array<string, mixed> what the fake report_select agent answers next (agentsAnswer) */
     private array $select = [];
 
+    /** @var array<string, mixed> and report_write */
     private array $write = [];
 
     protected function setUp(): void
@@ -42,6 +43,10 @@ class SuperAgentTest extends AdminTestCase
         });
     }
 
+    /**
+     * @param  array<string, mixed>  $select
+     * @param  array<string, mixed>  $write
+     */
     private function agentsAnswer(array $select, array $write): void
     {
         [$this->select, $this->write] = [$select, $write];

@@ -26,7 +26,7 @@ class PushChannelTest extends TestCase
         CustomerDevice::query()->create(['customer_id' => $customer->id, 'platform' => 'ios', 'push_token' => $token]);
     }
 
-    /** A provider that answers every send with $answer: the dead ids, or an exception. */
+    /** @param list<string>|IntegrationException $answer a provider that answers every send with the dead ids, or an exception */
     private function provider(array|IntegrationException $answer): void
     {
         $this->app->instance(PushGateway::class, new class($answer) implements PushGateway

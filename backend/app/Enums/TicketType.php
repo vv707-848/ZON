@@ -22,7 +22,11 @@ enum TicketType: string
         };
     }
 
-    /** What a user may open himself; a notice is staff's. @return list<string> */
+    /**
+     * What a user may open himself; a notice is staff's.
+     *
+     * @return list<string>
+     */
     public static function forCustomers(): array
     {
         return [self::Complaint->value, self::Suggestion->value, self::Question->value];

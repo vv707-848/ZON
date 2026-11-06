@@ -15,13 +15,21 @@ final readonly class AiResult
         return $this->output !== null;
     }
 
-    /** `meta.ai` of the API answer: {status} — how the answer was obtained. */
+    /**
+     * `meta.ai` of the API answer: {status} — how the answer was obtained.
+     *
+     * @return array{status: string}
+     */
     public function meta(): array
     {
         return ['status' => $this->status->value];
     }
 
-    /** `meta.ai` when no call was needed (no candidates, out of scope…). */
+    /**
+     * `meta.ai` when no call was needed (no candidates, out of scope…).
+     *
+     * @return array{status: string}
+     */
     public static function skipped(): array
     {
         return ['status' => 'skipped'];

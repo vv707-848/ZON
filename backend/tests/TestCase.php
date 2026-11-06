@@ -29,7 +29,7 @@ abstract class TestCase extends BaseTestCase
 
     protected bool $seed = true;
 
-    /** What the agents service answers to index signals (contract §4) unless a test changes it. */
+    /** @var array{array<string, mixed>, int} what the agents service answers to index signals (contract §4) unless a test changes it: the body and the status */
     protected array $indexAnswer = [['status' => 'indexed'], 200];
 
     /** @var array<string, array<string, mixed>> contract samples of this run: "agents/chat" => [hash => payload] */

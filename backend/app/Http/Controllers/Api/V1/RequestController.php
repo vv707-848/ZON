@@ -106,7 +106,10 @@ class RequestController extends Controller
         return Api::created(['client_id' => $client->id]);
     }
 
-    /** @param array<string, ?string> $filters @return Builder<SearchRequest> */
+    /**
+     * @param  array<string, ?string>  $filters
+     * @return Builder<SearchRequest>
+     */
     private function board(Request $request, array $filters): Builder
     {
         $viewer = $request->user('api');

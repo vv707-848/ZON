@@ -24,7 +24,10 @@ final class UpdateListing
 {
     public function __construct(private readonly IndexSync $index, private readonly ChangeListingStatus $status) {}
 
-    /** @param array<string, mixed> $columns @param ?list<int> $mediaIds */
+    /**
+     * @param  array<string, mixed>  $columns
+     * @param  ?list<int>  $mediaIds
+     */
     public function __invoke(Listing $listing, Actor $actor, array $columns, ?array $mediaIds, ?int $coverId): Listing
     {
         return DB::transaction(function () use ($listing, $actor, $columns, $mediaIds, $coverId) {

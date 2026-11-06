@@ -17,7 +17,10 @@ final class SaveProject
 {
     public function __construct(private readonly IndexSync $index) {}
 
-    /** @param array<string, mixed> $columns @param ?list<int> $mediaIds */
+    /**
+     * @param  array<string, mixed>  $columns
+     * @param  ?list<int>  $mediaIds
+     */
     public function __invoke(Customer $developer, ?Project $project, array $columns, ?array $mediaIds, ?int $coverId): Project
     {
         PublishingGate::assert($developer, CustomerRole::Developer);

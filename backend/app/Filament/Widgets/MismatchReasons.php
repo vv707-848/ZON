@@ -36,7 +36,7 @@ class MismatchReasons extends TableWidget
                         $result = app(AiGateway::class)->call(AiAgent::SummarizeBatch, ['mode' => 'map', 'purpose' => 'أسباب «غير مطابق» في نتائج المطابقة والبحث', 'texts' => $texts],
                             check: fn (array $out) => trim((string) ($out['summary'] ?? '')) === '' ? null : $out, staff: Staff::user());
                         $body = $result->usable()
-                            ? $result->output['summary']."\n".collect($result->output['themes'] ?? [])->map(fn ($t) => '• '.($t['theme'] ?? '').' ('.($t['share'] ?? '').')')->implode("\n")
+                            ? $result->output['summary']."\n".collect((array) ($result->output['themes'] ?? []))->map(fn ($t) => '• '.($t['theme'] ?? '').' ('.($t['share'] ?? '').')')->implode("\n")
                             : 'تعذّر التلخيص الآن.';
                         Notification::make()->title('أبرز الأسباب')->body($body)->persistent()->send();
                     })

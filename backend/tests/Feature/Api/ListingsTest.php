@@ -18,6 +18,10 @@ use Tests\TestCase;
 /** A listing's life: gates → licence → AI wording → the advertiser's decision → public → pause · sold · boost. */
 class ListingsTest extends TestCase
 {
+    /**
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
     private function form(array $extra = []): array
     {
         return $extra + [
@@ -27,6 +31,7 @@ class ListingsTest extends TestCase
         ];
     }
 
+    /** @param array<string, mixed> $output */
     private function agentAnswers(array $output, bool $degraded = false): void
     {
         Http::fake(['agents.test/agents/*' => Http::response(['output' => $output, 'degraded' => $degraded, 'usage' => ['tokens_in' => 300, 'tokens_out' => 80], 'latency_ms' => 900])]);

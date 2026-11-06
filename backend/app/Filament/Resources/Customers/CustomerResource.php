@@ -75,7 +75,11 @@ class CustomerResource extends Resource
         return ['name', 'username'];
     }
 
-    /** A phone in any Saudi format, the digits of one, or a FAL licence number. */
+    /**
+     * A phone in any Saudi format, the digits of one, or a FAL licence number.
+     *
+     * @param  Builder<Model>  $query
+     */
     protected static function identifierMatches(Builder $query, string $search): void
     {
         if (($phone = Phone::normalize($search)) !== null) {
