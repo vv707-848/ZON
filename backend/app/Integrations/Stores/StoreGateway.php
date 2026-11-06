@@ -11,9 +11,6 @@ use Illuminate\Http\Request;
  */
 interface StoreGateway
 {
-    /** apple · google */
-    public function name(): string;
-
     /**
      * The purchase as the store reports it, or null when the store knows no such purchase.
      *

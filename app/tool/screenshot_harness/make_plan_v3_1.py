@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Screenshot plan for zon 1.2.1+4 — the places changed by the fixes F01–F10
-(docs/screenshots_v3_1.pdf).  usage: make_plan_v3_1.py out.json [only-prefix]
+(docs/history/screenshots_v3_1.pdf).  usage: make_plan_v3_1.py out.json [only-prefix]
 
 The "gallery" photo is a file on disk: set ZON_SHOTS_GALLERY to any JPEG
 (default /tmp/zon-shots/IMG_2041.jpg). F05 copies it next to itself as the

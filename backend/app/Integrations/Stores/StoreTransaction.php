@@ -27,7 +27,6 @@ final readonly class StoreTransaction
         public string $reference,
         public string $chain,
         public string $productId,
-        public CarbonImmutable $purchasedAt,
         public ?CarbonImmutable $expiresAt,
         public ?CarbonImmutable $revokedAt,
         public bool $test,

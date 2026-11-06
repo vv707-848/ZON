@@ -11,6 +11,7 @@ use App\Integrations\Stores\Stores;
 use Illuminate\Http\Client\Request as SentRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -194,7 +195,8 @@ class StoreDriversTest extends TestCase
     public function test_each_store_switches_alone_and_production_refuses_their_simulation(): void
     {
         $this->assertInstanceOf(FakeStore::class, Stores::for('apple'));
-        $this->assertSame('google', Stores::for('google')->name());
+        $purchase = Stores::for('google')->transaction('com.zon.app.featured', 'sim:'.Str::uuid().':abc123', false);
+        $this->assertSame('google', $purchase?->store, 'each store has its own simulation');
 
         $this->app['env'] = 'production';
         config(['services.production_allows_fake' => 'google_play']);

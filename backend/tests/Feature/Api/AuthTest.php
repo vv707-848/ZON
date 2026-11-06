@@ -103,16 +103,19 @@ class AuthTest extends TestCase
         $this->postJson('/api/v1/auth/login', ['login' => '0554444444', 'password' => 'brand-new-1'])->assertOk();
     }
 
-    public function test_signing_in_during_the_grace_period_cancels_the_deletion_and_restores_only_what_it_hid(): void
+    public function test_deleting_needs_the_password_signs_out_every_phone_and_signing_in_during_the_grace_period_cancels_it(): void
     {
         $broker = Customer::factory()->broker()->create(['password' => 'secret-123']);
         $public = Listing::factory()->published()->for($broker)->create();
-        $this->signIn($broker);
-        $this->postJson('/api/v1/account/delete', ['password' => 'secret-123'])->assertStatus(202);
+        $token = $broker->createToken('iPhone 16')->plainTextToken;
+        $this->withToken($token)->postJson('/api/v1/account/delete', ['password' => 'wrong-secret'])->assertStatus(422)
+            ->assertJsonStructure(['error' => ['details' => ['fields' => ['password']]]]);
+        $this->withToken($token)->postJson('/api/v1/account/delete', ['password' => 'secret-123'])->assertStatus(202);
         $this->assertSame('hidden', $public->fresh()->status->value);
 
         $this->app['auth']->forgetGuards();
-        $this->postJson('/api/v1/auth/login', ['login' => $broker->username, 'password' => 'secret-123'])->assertOk();
+        $this->withToken($token)->getJson('/api/v1/me')->assertUnauthorized();    // no phone stays signed in: signing in again is the way back
+        $this->withoutToken()->postJson('/api/v1/auth/login', ['login' => $broker->username, 'password' => 'secret-123'])->assertOk();
 
         $this->assertSame('published', $public->fresh()->status->value);
         $this->assertNotNull(DeletionRequest::query()->sole()->cancelled_at);

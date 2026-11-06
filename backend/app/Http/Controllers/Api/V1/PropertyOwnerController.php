@@ -84,7 +84,9 @@ class PropertyOwnerController extends Controller
     private function validated(Request $request, ?PropertyOwner $owner): array
     {
         $me = $request->user('api');
-        $request->merge(['phone' => is_string($request->input('phone')) ? (Phone::normalize($request->input('phone')) ?? $request->input('phone')) : $request->input('phone')]);
+        if (is_string($request->input('phone'))) {                     // an edit without a phone keeps the one saved
+            $request->merge(['phone' => Phone::normalize($request->input('phone')) ?? $request->input('phone')]);
+        }
         $need = $owner === null ? 'required' : 'sometimes';
 
         return $request->validate([

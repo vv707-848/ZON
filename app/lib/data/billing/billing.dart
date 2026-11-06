@@ -172,12 +172,6 @@ class Billing {
     return sub;
   }
 
-  /// Whether [plan] is being paid by the signed-in account right now.
-  bool isBuying(String plan) {
-    final me = store.accountId;
-    return me != null && _running.contains('$me:plan:$plan');
-  }
-
   /// Pays one period of [plan] (simulated) and opens it — for the account
   /// that pressed «ادفع», whichever account is signed in when the answer
   /// arrives.

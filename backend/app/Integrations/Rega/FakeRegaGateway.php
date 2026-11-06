@@ -15,11 +15,6 @@ use Illuminate\Support\Str;
  */
 class FakeRegaGateway implements RegaGateway
 {
-    public function name(): string
-    {
-        return 'fake';
-    }
-
     public function checkFal(string $falNumber): LicenceCheck
     {
         return $this->check($falNumber);
@@ -51,14 +46,9 @@ class FakeRegaGateway implements RegaGateway
 
     private function check(string $number): LicenceCheck
     {
-        if (preg_match('/^\d{6,12}$/', $number) !== 1) {
-            return new LicenceCheck(false, $number, reason: 'format');
-        }
-        if (str_ends_with($number, '0000')) {
-            return new LicenceCheck(false, $number, reason: 'not_found');
-        }
+        $valid = preg_match('/^\d{6,12}$/', $number) === 1 && ! str_ends_with($number, '0000');
 
-        return new LicenceCheck(true, $number, self::aYearFromToday());
+        return $valid ? new LicenceCheck(true, $number, self::aYearFromToday()) : new LicenceCheck(false, $number);
     }
 
     private static function aYearFromToday(): CarbonImmutable

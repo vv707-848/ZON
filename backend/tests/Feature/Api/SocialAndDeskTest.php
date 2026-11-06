@@ -10,6 +10,7 @@ use App\Models\Customer;
 use App\Models\InventoryItem;
 use App\Models\Listing;
 use App\Models\Message;
+use App\Models\PropertyOwner;
 use App\Models\SupportTicket;
 use App\Models\TrainingSample;
 use App\Notifications\Notices;
@@ -179,6 +180,36 @@ class SocialAndDeskTest extends TestCase
         $this->signIn($this->seekerWithWish());
         $this->getJson('/api/v1/clients')->assertStatus(403)->assertJsonPath('error.code', 'ROLE_FORBIDDEN');
         $this->getJson('/api/v1/tasks')->assertOk();
+    }
+
+    public function test_the_owners_book_is_private_to_its_broker(): void
+    {
+        $broker = $this->signIn(Customer::factory()->broker()->create());
+        $listing = Listing::factory()->published()->create(['customer_id' => $broker->id]);
+        $owner = $this->postJson('/api/v1/property-owners', ['name' => 'عبدالله الدوسري', 'phone' => '0558889990', 'listing_id' => $listing->id])
+            ->assertCreated()->assertJsonPath('data.phone', '0558889990')->json('data.id');
+        $this->postJson('/api/v1/property-owners', ['name' => 'مكرر', 'phone' => '+966 55 888 9990'])->assertStatus(422);   // the same phone, written another way
+        $this->postJson('/api/v1/property-owners', ['name' => 'مالك', 'phone' => '0551234000', 'listing_id' => Listing::factory()->published()->create()->id])
+            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['fields' => ['listing_id']]]]);            // another advertiser's listing
+
+        $this->postJson("/api/v1/property-owners/{$owner}/notes", ['category' => 'followup', 'body' => 'الدوسري يبي يبيع قبل رمضان، جواله 0558889990'])->assertCreated();
+        $this->assertSame('العميل يبي يبيع قبل رمضان، جواله [رقم]', TrainingSample::query()->sole()->text_masked, 'captured without name or number');
+        $this->getJson("/api/v1/property-owners/{$owner}")->assertJsonPath('data.notes_count', 1);
+        $this->patchJson("/api/v1/property-owners/{$owner}", ['name' => 'عبدالله'])->assertOk()->assertJsonPath('data.phone', '0558889990');
+
+        $this->signIn(Customer::factory()->broker()->create());
+        $this->getJson('/api/v1/property-owners')->assertOk()->assertJsonCount(0, 'data');
+        foreach (['get' => "/api/v1/property-owners/{$owner}", 'patch' => "/api/v1/property-owners/{$owner}", 'delete' => "/api/v1/property-owners/{$owner}"] as $method => $url) {
+            $this->json($method, $url, ['name' => 'غيري'])->assertNotFound();                                                     // as if it did not exist
+        }
+        $this->getJson("/api/v1/property-owners/{$owner}/notes")->assertNotFound();
+
+        $this->signIn($this->seekerWithWish());
+        $this->getJson('/api/v1/property-owners')->assertStatus(403)->assertJsonPath('error.code', 'ROLE_FORBIDDEN');
+
+        $this->signIn($broker);
+        $this->deleteJson("/api/v1/property-owners/{$owner}")->assertOk();
+        $this->assertSame(0, PropertyOwner::query()->count());
     }
 
     public function test_stock_is_published_through_the_normal_path_once(): void

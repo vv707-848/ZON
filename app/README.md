@@ -9,11 +9,8 @@
 | `README.md` (هذا الملف) | التشغيل، الاختبارات، المحاكاة في هذه النسخة، بناء نسخ المتاجر، أين تعدّل ماذا |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | تقسيم المجلدات والطبقات، التخزين لكل حساب، الفوترة والأرصدة، الإشعارات، ونقاط ربط الخادم |
 | [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) | الألوان، الخط وسلّم الأحجام، الظلال، الأزرار، الحقول، التكبير النسبي حسب حجم الجوال |
-| [`docs/CHANGES_v3_1.md`](docs/CHANGES_v3_1.md) | إصلاحات F01–F10: الملف ← الإصلاح ← الدليل، وملخص التسليم بأقسامه الثلاثة |
-| [`docs/CHANGES_v3.md`](docs/CHANGES_v3.md) | ملخص تعديلات النسخة الثالثة: كل رمز ← الملفات ← النتيجة |
-| [`docs/TEST_LOG.md`](docs/TEST_LOG.md) | سجل الاختبارات: الأوامر، البيئة، النتائج، وما لم يُختبر |
 | [`docs/OPEN_POINTS.md`](docs/OPEN_POINTS.md) | النقاط غير المحسومة وما ينتظر خادمًا أو هاتفًا فعليًا |
-| [`docs/screenshots_v3_1.pdf`](docs/screenshots_v3_1.pdf) | صور الشاشات مع شرح كل صورة: المواضع المتأثرة بإصلاحات F01–F10، ثم شاشات النسخة الثالثة كلها بعد تغيير الخط |
+| [`docs/history/`](docs/history/) | **سجل لا يُحدَّث:** تسليما أكتوبر 2026 كما سُلّما (1.2.0+3 و1.2.1+4): ملخص التعديلات (`CHANGES_v3.md`)، وإصلاحات F01–F10 (`CHANGES_v3_1.md`)، وسجل الاختبارات يومها (`TEST_LOG.md`)، وصور الشاشات (`screenshots_v3_1.pdf`). الحالة الآن في الفحص الآلي (`.github/workflows/app.yml`) |
 
 ## المتطلبات
 
@@ -68,7 +65,7 @@ flutter test --dart-define=ZON_SIMULATIONS=false test/no_simulations_test.dart  
 | `test/dictation_timing_test.dart` | F08 · F09: الإيقاف أثناء الإذن أو البدء، مغادرة الصفحة، تبديل الحقل، النتيجة المتأخرة بعد الإيقاف |
 | `test/no_simulations_test.dart` | تعطيل المحاكاة: لا دفع ولا موافقة عقد ولا رقم ترخيص تجريبي (يحتاج `--dart-define=ZON_SIMULATIONS=false`) |
 
-الإملاء الصوتي الحقيقي ومعرض الصور الحقيقي لا يعملان داخل الاختبار الآلي؛ تحل محلهما خدمات وهمية داخل الاختبارات فقط (وفي F08/F09 خدمة تؤخر ردودها عمدًا). سجل التشغيل وما لم يُختبر في [`docs/TEST_LOG.md`](docs/TEST_LOG.md).
+الإملاء الصوتي الحقيقي ومعرض الصور الحقيقي لا يعملان داخل الاختبار الآلي؛ تحل محلهما خدمات وهمية داخل الاختبارات فقط (وفي F08/F09 خدمة تؤخر ردودها عمدًا). وما ينتظر هاتفاً حقيقياً في [`docs/OPEN_POINTS.md`](docs/OPEN_POINTS.md) ← «ما ينتظر هاتفًا فعليًا».
 
 ## فحص جودة الكود
 
@@ -114,8 +111,19 @@ flutter build ipa --release
    - أندرويد: `namespace` و`applicationId` في `android/app/build.gradle.kts`، ومسار الحزمة في `android/app/src/main/kotlin/com/zon/app/MainActivity.kt`.
    - iOS: من Xcode ← Runner ← Signing & Capabilities (أو `PRODUCT_BUNDLE_IDENTIFIER` في `ios/Runner.xcodeproj/project.pbxproj`).
 2. **التوقيع**:
-   - أندرويد: أنشئ keystore واربطه في قسم `release` داخل `android/app/build.gradle.kts` بدل توقيع debug.
-   - iOS: اختر فريق التطوير (Team) في Xcode.
+   - **أندرويد:** مفتاح رفع (upload key) مرة واحدة، ثم ملف `android/key.properties` بجانبه. الملفان خارج git (`android/.gitignore`)، ويُحفظان في مكان آمن. ضياع المفتاح يعني طلب استبداله من Google Play ([Flutter](https://docs.flutter.dev/deployment/android#sign-the-app)):
+     ```bash
+     keytool -genkey -v -keystore ~/zon-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+     ```
+     ```properties
+     # android/key.properties
+     storeFile=/Users/<you>/zon-upload.jks
+     storePassword=…
+     keyAlias=upload
+     keyPassword=…
+     ```
+     `build.gradle.kts` يقرؤه وحده. بدونه تُوقَّع نسخة release بمفتاح debug: تعمل على جوال التجربة، وGoogle Play يرفضها.
+   - **iOS:** اختر فريق التطوير (Team) في Xcode.
 3. **رقم الإصدار**: السطر `version: 1.2.1+4` في `pubspec.yaml` (الرقم بعد `+` يزيد مع كل رفع).
 4. **المحاكاة**: ابنِ نسخة المتجر بـ `--dart-define=ZON_SIMULATIONS=false` إلى أن تُربط الخدمات الحقيقية.
 5. **الخادم والأخطاء والإشعارات** (حين تُربط كل الشرائح):

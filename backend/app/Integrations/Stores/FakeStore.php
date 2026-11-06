@@ -23,11 +23,6 @@ final class FakeStore implements StoreGateway
 {
     public function __construct(private readonly string $store) {}
 
-    public function name(): string
-    {
-        return $this->store;
-    }
-
     public function transaction(string $productId, string $reference, bool $subscription): ?StoreTransaction
     {
         $product = StoreProducts::find($productId);
@@ -52,7 +47,6 @@ final class FakeStore implements StoreGateway
             reference: "sim-{$m[2]}".($renewal > 0 ? "-r{$renewal}" : ''),
             chain: "sim:{$m[1]}:{$m[2]}",
             productId: $productId,
-            purchasedAt: $now,
             expiresAt: $subscription && $package !== null ? $now->addDays((int) $package->days()) : null,
             revokedAt: in_array('revoked', $flags, true) ? $now : null,
             test: in_array('test', $flags, true) || app()->isProduction(),

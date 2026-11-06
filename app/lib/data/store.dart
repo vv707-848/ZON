@@ -162,11 +162,6 @@ class Store extends ChangeNotifier {
     notifyListeners();
   }
 
-  void removeAccountItem(String key) {
-    removeItem(scopedKey(key));
-    notifyListeners();
-  }
-
   // ---------------------------------------------------------------- accounts
 
   /// Accounts created on this device (see `data/auth/local_auth.dart`).

@@ -59,7 +59,6 @@ Route::middleware('throttle:api')->group(function () {
         });
 
         Route::post('account/delete', [V1\AccountController::class, 'requestDeletion']);
-        Route::post('account/delete/cancel', [V1\AccountController::class, 'cancelDeletion']);
         Route::post('account/legacy-claims', [V1\AccountController::class, 'legacyClaim'])->middleware('throttle:reports');
 
         Route::apiResource('preferences', V1\PreferenceController::class)->except('show')->whereNumber('preference');

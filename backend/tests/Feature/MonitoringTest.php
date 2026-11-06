@@ -31,8 +31,8 @@ class MonitoringTest extends TestCase
 {
     private const DSN = 'https://public@o1.ingest.sentry.invalid/1';
 
-    /** @var list<Event> what would have left for Sentry */
-    private array $sent = [];
+    /** @var \ArrayObject<int, Event> what would have left for Sentry */
+    private \ArrayObject $sent;
 
     public function createApplication(): Application
     {
@@ -56,14 +56,15 @@ class MonitoringTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->sent = new \ArrayObject;
         $transport = new class($this->sent) implements TransportInterface
         {
-            /** @param list<Event> $sent */
-            public function __construct(private array &$sent) {}
+            /** @param \ArrayObject<int, Event> $sent */
+            public function __construct(private readonly \ArrayObject $sent) {}
 
             public function send(Event $event): Result
             {
-                $this->sent[] = $event;
+                $this->sent->append($event);
 
                 return new Result(ResultStatus::success(), $event);
             }
@@ -158,6 +159,6 @@ class MonitoringTest extends TestCase
         $this->getJson('/api/v1/listings/999999')->assertNotFound();
         $this->postJson('/api/v1/auth/login', [])->assertUnprocessable();
 
-        $this->assertSame([], $this->sent);
+        $this->assertCount(0, $this->sent);
     }
 }

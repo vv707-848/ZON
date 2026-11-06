@@ -8,8 +8,6 @@ namespace App\Integrations\Nafath;
  */
 interface NafathGateway
 {
-    public function name(): string;
-
     public function start(string $nationalId): NafathChallenge;
 
     public function status(string $transactionId): NafathAnswer;

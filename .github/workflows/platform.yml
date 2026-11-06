@@ -71,7 +71,7 @@ jobs:
         with:
           php-version: "8.5"
           extensions: bcmath, exif, gd, intl, mbstring, pcntl, pdo_mysql, redis, zip
-          coverage: none
+          coverage: pcov
           tools: composer:v2
 
       - name: Composer cache path
@@ -96,11 +96,16 @@ jobs:
         run: ../.github/scripts/annotate.sh error "Backend install" "$RUNNER_TEMP/install.log" 60
 
       # The suite also records what it sends to the agents; the contract step below checks those payloads.
+      # PHPUnit itself, not `php artisan test`: the coverage file is written by this process (pcov is loaded here).
       - name: Tests
         id: tests
         env:
           ZON_CONTRACT_DIR: ${{ github.workspace }}/docs/contracts/fixtures
-        run: php artisan test --compact 2>&1 | tee "$RUNNER_TEMP/tests.log"
+        run: vendor/bin/phpunit --colors=never --coverage-clover "$RUNNER_TEMP/clover.xml" 2>&1 | tee "$RUNNER_TEMP/tests.log"
+
+      - name: Coverage (floor 86%)
+        if: ${{ !cancelled() && steps.tests.outcome == 'success' }}
+        run: python3 -I ../.github/scripts/coverage.py "$RUNNER_TEMP/clover.xml" 86 Backend
 
       - name: Explain a test failure
         if: failure() && steps.tests.outcome == 'failure'
@@ -221,7 +226,11 @@ jobs:
       - name: Tests
         id: tests
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: uv run --locked pytest -q 2>&1 | tee "$RUNNER_TEMP/tests.log"
+        run: uv run --locked pytest -q --cov=zon_agents --cov-report=xml:"$RUNNER_TEMP/coverage.xml" 2>&1 | tee "$RUNNER_TEMP/tests.log"
+
+      - name: Coverage (floor 84%)
+        if: ${{ !cancelled() && steps.tests.outcome == 'success' }}
+        run: python3 -I ../.github/scripts/coverage.py "$RUNNER_TEMP/coverage.xml" 84 Agents
 
       - name: Explain a test failure
         if: failure() && steps.tests.outcome == 'failure'

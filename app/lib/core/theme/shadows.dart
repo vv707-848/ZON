@@ -38,9 +38,3 @@ BoxShadow decorShadow(Color color, double dx, double dy, [double blur = 0, doubl
   final r = blur <= 0 ? 0.0 : ((blur / 2 - 0.5) / 0.57735).clamp(0.0, double.infinity);
   return BoxShadow(color: color, offset: Offset(dx, dy), blurRadius: r.toDouble(), spreadRadius: spread);
 }
-
-/// Uniform border helper.
-Border bAll(Color c, [double w = 1]) => Border.all(color: c, width: w);
-
-/// Colour from red, green, blue (0–255) and opacity (0–1).
-Color rgba(int r, int g, int b, double a) => Color.fromARGB((a * 255).round(), r, g, b);

@@ -30,11 +30,6 @@ final class GooglePlayStore implements StoreGateway
 
     public function __construct(private readonly ServiceAccount $account, private readonly string $package) {}
 
-    public function name(): string
-    {
-        return 'google';
-    }
-
     public function transaction(string $productId, string $reference, bool $subscription): ?StoreTransaction
     {
         $base = $this->base().'purchases/';
@@ -100,7 +95,6 @@ final class GooglePlayStore implements StoreGateway
             reference: is_string($order) ? $order : "pending:{$token}",
             chain: $token,
             productId: (string) ($item['productId'] ?? ''),
-            purchasedAt: isset($purchase['startTime']) ? CarbonImmutable::parse((string) $purchase['startTime']) : CarbonImmutable::now(),
             expiresAt: isset($item['expiryTime']) ? CarbonImmutable::parse((string) $item['expiryTime']) : null,
             revokedAt: null,                                           // a refund arrives as a voided-purchase notice
             test: isset($purchase['testPurchase']),
@@ -131,7 +125,6 @@ final class GooglePlayStore implements StoreGateway
             reference: is_string($order) ? $order : "pending:{$token}",
             chain: $token,
             productId: (string) ($item['productId'] ?? ''),
-            purchasedAt: isset($purchase['purchaseCompletionTime']) ? CarbonImmutable::parse((string) $purchase['purchaseCompletionTime']) : CarbonImmutable::now(),
             expiresAt: null,
             revokedAt: $state === 'CANCELLED' ? CarbonImmutable::now() : null,
             test: isset($purchase['testPurchaseContext']),

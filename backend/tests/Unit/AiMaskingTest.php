@@ -22,6 +22,23 @@ class AiMaskingTest extends TestCase
         $this->assertSame('اتصل بالعميل', AiMasking::text('اتصل بخالد', ['خالد']));
     }
 
+    public function test_a_known_name_is_masked_whole_or_in_part_but_never_inside_another_word(): void
+    {
+        $cases = [
+            ['سلمان مهتم بالفلل', ['سلمان العتيبي'], 'العميل مهتم بالفلل'],                // the first name alone
+            ['العتيبي وافق على السعر', ['سلمان العتيبي'], 'العميل وافق على السعر'],         // the family name alone
+            ['سلمان العتيبي يبي فيلا', ['سلمان العتيبي'], 'العميل يبي فيلا'],               // whole: one «العميل»
+            ['اتفقت مع عبدالله', ['عبد الله الدوسري'], 'اتفقت مع العميل'],                  // «عبد الله» written joined
+            ['عبد الله وافق', ['عبدالله الدوسري'], 'العميل وافق'],                          // and the other way
+            ['وسلمانُ قال', ['سلمان'], 'والعميلُ قال'],                                       // a joined و, a diacritic
+            ['عليه دفعة أولى', ['علي'], 'عليه دفعة أولى'],                                   // «علي» inside «عليه»
+            ['إن شاء الله نتفق', ['عبد الله الدوسري'], 'إن شاء الله نتفق'],                  // a shared part stays a word
+        ];
+        foreach ($cases as [$text, $known, $masked]) {
+            $this->assertSame($masked, AiMasking::text($text, $known), "«{$text}» with ".implode('، ', $known));
+        }
+    }
+
     public function test_the_numbers_of_a_listing_stay(): void
     {
         $text = 'شقة 3 غرف و2 دورات، مساحة 175 م، السعر 880,000 ريال، عمر 4 سنوات، الدور 2، بُنيت 2021-05-10، الصك 1500000';

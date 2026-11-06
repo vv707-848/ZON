@@ -45,10 +45,10 @@ final class Entitlements
     public static function baseCode(CustomerRole $role): string
     {
         return match ($role) {
-            CustomerRole::Seeker => 'free-seeker',
-            CustomerRole::Broker => 'free-broker',
+            CustomerRole::Seeker => Package::FREE_SEEKER,
+            CustomerRole::Broker => Package::FREE_BROKER,
             CustomerRole::Owner => Package::OWNER,
-            CustomerRole::Developer => 'developer',
+            CustomerRole::Developer => Package::DEVELOPER,
         };
     }
 

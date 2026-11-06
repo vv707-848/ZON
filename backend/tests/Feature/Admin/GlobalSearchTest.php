@@ -18,7 +18,9 @@ class GlobalSearchTest extends AdminTestCase
     /** @return list<string> every result's title, by group */
     private function titles(string $search): array
     {
-        $results = Livewire::test(GlobalSearch::class)->set('search', $search)->instance()->getResults();
+        $search = Livewire::test(GlobalSearch::class)->set('search', $search)->instance();
+        assert($search instanceof GlobalSearch);
+        $results = $search->getResults();
 
         return collect($results?->getCategories() ?? [])->flatMap(fn ($group) => collect($group)->map(fn ($r) => (string) $r->title))->values()->all();
     }

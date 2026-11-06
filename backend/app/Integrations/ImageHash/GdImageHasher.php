@@ -5,11 +5,6 @@ namespace App\Integrations\ImageHash;
 /** dHash with GD: 9×8 greyscale, one bit per left-right comparison → 64 bits. */
 class GdImageHasher implements ImageHasher
 {
-    public function name(): string
-    {
-        return 'gd';
-    }
-
     public function hash(string $binary): ?string
     {
         $image = @imagecreatefromstring($binary);

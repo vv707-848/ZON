@@ -38,11 +38,6 @@ final class AppleAppStore implements StoreGateway
         private readonly string $sandboxUrl,
     ) {}
 
-    public function name(): string
-    {
-        return 'apple';
-    }
-
     public function transaction(string $productId, string $reference, bool $subscription): ?StoreTransaction
     {
         if (preg_match('/^\d{1,40}$/', $reference) !== 1) {
@@ -101,7 +96,6 @@ final class AppleAppStore implements StoreGateway
             reference: (string) $tx['transactionId'],
             chain: (string) $tx['originalTransactionId'],
             productId: (string) $tx['productId'],
-            purchasedAt: CarbonImmutable::createFromTimestampMs((int) $tx['purchaseDate']),
             expiresAt: $at('expiresDate'),
             revokedAt: $at('revocationDate'),
             test: ($tx['environment'] ?? 'Production') !== 'Production',

@@ -15,11 +15,6 @@ class TaqnyatSmsGateway implements SmsGateway
         private readonly string $url = 'https://api.taqnyat.sa',
     ) {}
 
-    public function name(): string
-    {
-        return 'taqnyat';
-    }
-
     public function send(string $phone, string $text): void
     {
         try {
