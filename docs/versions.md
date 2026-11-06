@@ -80,6 +80,11 @@
 
 الإصدارات في ملفات `.github/workflows/`، وDependabot يرفعها لآخر إصدار. أول طلب له رفع `actions/checkout` إلى 7 و`actions/cache` إلى 6، ودُمج بعد نجاح الفحص.
 
+| فحص الموقع (`_tools/site-audit`) | المستخدم | آخر مستقر | ملاحظة |
+|---|---|---|---|
+| Lighthouse | 13.6.0 | 13.6.0 (27 أكتوبر 2026) | ومعه chrome-launcher‏ 1.2.3 وpuppeteer-core‏ 25.16.0 بالإصدارات التي يطلبها. `package-lock.json` محفوظ، وDependabot يرفعها أسبوعياً |
+| Node | LTS الحالي (`lts/*` في `actions/setup-node@v7`) | — | Lighthouse يطلب 22.19 فأحدث. المتصفح Google Chrome المثبّت في خادم الفحص |
+
 ## التحديث
 
 - **إصدار فرعي أو تصحيح:** طلب Dependabot الأسبوعي. يُدمج إذا الفحص الآلي أخضر.

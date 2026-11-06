@@ -170,6 +170,50 @@ class PublicPagesTest extends TestCase
         $this->get($this->site('sitemaps/users.xml'))->assertOk()->assertSee('https://zon.sa/users/');
     }
 
+    public function test_robots_txt_opens_every_page_the_sitemap_lists_and_keeps_the_private_ones_closed(): void
+    {
+        $broker = Customer::factory()->broker()->create(['username' => 'alreem']);
+        Listing::factory()->published()->create(['customer_id' => $broker->id]);
+        $project = Project::factory()->published()->create();
+        ProjectUnit::factory()->create(['project_id' => $project->id]);
+        LegalPage::query()->where('slug', 'privacy')->update(['body' => 'نص السياسة.', 'published_at' => now()]);
+        Cache::flush();
+
+        $robots = (string) $this->get($this->site('robots.txt'))->getContent();
+        $listed = [];
+        foreach (['pages', 'listings-1', 'projects', 'users'] as $part) {
+            preg_match_all('#<loc>([^<]+)</loc>#', (string) $this->get($this->site("sitemaps/{$part}.xml"))->getContent(), $m);
+            array_push($listed, ...array_map(fn (string $loc) => html_entity_decode($loc), $m[1]));
+        }
+
+        $this->assertContains('https://zon.sa/account/delete', $listed, 'people look for how to delete their account');
+        $this->assertContains('https://zon.sa/legal/privacy', $listed);
+        foreach ($listed as $url) {
+            $this->assertTrue(self::crawlable($robots, $url), "{$url} is in the sitemap but closed in robots.txt");
+        }
+        foreach (['/account', '/account/invoices', '/login', '/password/forgot', '/pay/1', '/subscribe/broker-year', '/complaints/track', '/admin'] as $private) {
+            $this->assertFalse(self::crawlable($robots, 'https://zon.sa'.$private), "{$private} is open to crawlers");
+        }
+    }
+
+    /** RFC 9309 §2.2.2 for the group `User-agent: *`: the longest matching rule decides, and Allow wins a tie. */
+    private static function crawlable(string $robots, string $url): bool
+    {
+        $path = (string) parse_url($url, PHP_URL_PATH).(($query = parse_url($url, PHP_URL_QUERY)) ? '?'.$query : '');
+        $best = ['length' => -1, 'allow' => true];
+        foreach (explode("\n", $robots) as $line) {
+            if (preg_match('/^(Allow|Disallow):\s*(\S+)$/', trim($line), $rule) !== 1 || ! str_starts_with($path, $rule[2])) {
+                continue;
+            }
+            $length = strlen($rule[2]);
+            if ($length > $best['length'] || ($length === $best['length'] && $rule[1] === 'Allow')) {
+                $best = ['length' => $length, 'allow' => $rule[1] === 'Allow'];
+            }
+        }
+
+        return $best['allow'];
+    }
+
     public function test_links_open_the_app_once_its_identifiers_are_set(): void
     {
         $this->get($this->site('.well-known/apple-app-site-association'))->assertNotFound();

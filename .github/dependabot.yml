@@ -42,6 +42,19 @@ updates:
     commit-message:
       prefix: deps(app)
 
+  - package-ecosystem: npm
+    directory: /_tools/site-audit
+    schedule:
+      interval: weekly
+      day: sunday
+      time: "06:00"
+      timezone: Asia/Riyadh
+    groups:
+      site-audit:
+        patterns: ["*"]
+    commit-message:
+      prefix: deps(site-audit)
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

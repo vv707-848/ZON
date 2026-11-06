@@ -1,7 +1,9 @@
-{{-- A listing card as in the app's feed: cover (card size), featured, price, title, place, the main facts. --}}
+{{-- A listing card as in the app's feed: cover (card size), featured, price, title, place, the main facts.
+     Its title is one level under the section it sits in: h3 under a section's h2, h2 straight under the page's h1 (`level`). --}}
 @php
     use App\Support\Site\Format;
     $cover = $listing->relationLoaded('media') ? $listing->media->first() : null;
+    $heading = ($level ?? 3) === 2 ? 'h2' : 'h3';
 @endphp
 <a class="card" href="{{ \App\Support\Site\Site::url('listings/'.$listing->id) }}">
     <div class="card-media">
@@ -18,7 +20,7 @@
     </div>
     <div class="card-body">
         <div class="card-price">{{ Format::price((float) $listing->price, $listing->purpose) }}</div>
-        <h3 class="card-title">{{ $listing->title }}</h3>
+        <{{ $heading }} class="card-title">{{ $listing->title }}</{{ $heading }}>
         <div class="card-place"><x-site.icon name="MapPin" :size="14" />{{ $listing->neighborhood }}، {{ $listing->city }}</div>
         <div class="chips">
             <span class="chip"><x-site.icon name="Building2" :size="14" />{{ $listing->property_type->label() }}</span>

@@ -1,5 +1,6 @@
-# Backend (API + admin panel) and agents: tests, static analysis, style, security advisories, and the contract
-# between them — on every push that touches either side. Versions follow docs/versions.md.
+# Backend (API + admin panel + website) and agents: tests, static analysis, style, security advisories, the contract
+# between them, and the website as a search engine and a tablet see it — on every push that touches either side.
+# Versions follow docs/versions.md.
 name: Platform
 
 on:
@@ -8,6 +9,7 @@ on:
       - backend/**
       - agents/**
       - docs/contracts/**
+      - _tools/site-audit/**
       - .github/workflows/platform.yml
       - .github/scripts/**
   pull_request:
@@ -15,6 +17,7 @@ on:
       - backend/**
       - agents/**
       - docs/contracts/**
+      - _tools/site-audit/**
       - .github/workflows/platform.yml
       - .github/scripts/**
   workflow_dispatch:
@@ -30,7 +33,7 @@ jobs:
   backend:
     name: Backend · PHP 8.5 · MySQL 9.7 · Redis 8
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     services:
       mysql:
         image: mysql:9.7
@@ -147,6 +150,38 @@ jobs:
       - name: Explain a contract failure
         if: failure() && steps.contract.outcome == 'failure'
         run: ../.github/scripts/annotate.sh error "Contract" "$RUNNER_TEMP/contract.log" 80
+
+      # The website as a search engine and a tablet see it (docs/website.md «الفحص الآلي للموقع»): the development
+      # seed (APP_ENV=local seeds DemoSeeder), served as in «المعاينة محلياً», then Lighthouse and four tablet sizes
+      # on each kind of page the sitemap lists. Last in this job: it rebuilds the test database.
+      - uses: actions/setup-node@v7
+        if: ${{ !cancelled() && steps.tests.outcome == 'success' }}
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: _tools/site-audit/package-lock.json
+
+      - name: Website — Lighthouse and tablets
+        id: site
+        if: ${{ !cancelled() && steps.tests.outcome == 'success' }}
+        env:
+          APP_ENV: local
+          APP_DEBUG: "false"
+          APP_URL: http://127.0.0.1:8099
+          ZON_DEEP_LINK_BASE: http://127.0.0.1:8099
+          DB_DATABASE: zon_test
+          MEDIA_DISK: public
+        run: |
+          php artisan migrate:fresh --seed --force --no-interaction > "$RUNNER_TEMP/site.log" 2>&1
+          (cd public && php -S 127.0.0.1:8099 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php > "$RUNNER_TEMP/site-server.log" 2>&1 &)
+          for _ in $(seq 1 30); do curl -sf -o /dev/null http://127.0.0.1:8099/ && break; sleep 1; done
+          cd ../_tools/site-audit
+          npm ci --no-audit --no-fund
+          node audit.mjs http://127.0.0.1:8099 2>&1 | tee -a "$RUNNER_TEMP/site.log"
+
+      - name: Explain a website failure
+        if: failure() && steps.site.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "Website" "$RUNNER_TEMP/site.log" 60
 
   agents:
     name: Agents · Python 3.14

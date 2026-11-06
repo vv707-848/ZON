@@ -1,6 +1,8 @@
-# Each part keeps its own rules (backend/.gitignore · agents/.gitignore · app/.gitignore); the scripts in _tools/ leave a cache.
+# Each part keeps its own rules (backend/.gitignore · agents/.gitignore · app/.gitignore); the scripts in _tools/ leave a cache
+# and the website's audit its packages.
 .DS_Store
 Thumbs.db
 .idea/
 *.swp
 _tools/__pycache__/
+_tools/site-audit/node_modules/
