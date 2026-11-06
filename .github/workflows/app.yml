@@ -84,9 +84,9 @@ jobs:
         if: failure() && steps.tests.outcome == 'failure'
         run: ../.github/scripts/annotate.sh error "flutter test" "$RUNNER_TEMP/tests.log" 120
 
-      - name: Coverage (floor 0% until the first measurement)
+      - name: Coverage (floor 71%)
         if: ${{ !cancelled() && steps.tests.outcome == 'success' }}
-        run: python3 -I ../.github/scripts/coverage.py coverage/lcov.info 0 App
+        run: python3 -I ../.github/scripts/coverage.py coverage/lcov.info 71 App
 
       - name: Outdated packages (report only)
         if: ${{ !cancelled() && steps.packages.outcome == 'success' }}

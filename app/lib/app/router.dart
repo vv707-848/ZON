@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:zon/core/theme/colors.dart';
-import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/features/account/account_screen.dart';
 import 'package:zon/features/account/service_screen.dart';
 import 'package:zon/features/add/add_screen.dart';
