@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Enums\ExecReportMode;
+use App\Enums\ExecReportStatus;
 use App\Filament\Pages\SuperAgent as SuperAgentPage;
 use App\Models\ClientNote;
 use App\Models\CrmClient;
@@ -62,12 +64,13 @@ class ClientBookReportsTest extends AdminTestCase
         $this->book(Customer::factory()->broker()->create(), 1, 1, 'الملقا');
         $this->book(Customer::factory()->broker()->tester()->create(), 9, 3);          // a review account: nowhere
 
-        $clients = app(SuperAgent::class)->run($staff, Catalog::find('broker_clients'), ['city' => 'الرياض'], 'عملاء الوسطاء', analyse: false);
-        $demand = app(SuperAgent::class)->run($staff, Catalog::find('client_demand'), ['city' => 'الرياض'], 'طلب العملاء', analyse: false);
+        $clients = app(SuperAgent::class)->manual($staff, Catalog::find('broker_clients'), ['city' => 'الرياض'], 'عملاء الوسطاء', analyse: false);
+        $demand = app(SuperAgent::class)->manual($staff, Catalog::find('client_demand'), ['city' => 'الرياض'], 'طلب العملاء', analyse: false);
 
-        $this->assertSame([['1-5', 1, 1, 1], ['6-20', 1, 6, 12]], array_map(fn ($r) => [$r['bucket'], (int) $r['brokers'], (int) $r['clients'], (int) $r['notes']], $clients->rows));
-        $this->assertSame([['النرجس', 'apartment', 6]], array_map(fn ($r) => [$r['neighborhood'], $r['property_type'], (int) $r['clients']], $demand->rows), 'الملقا has one client: under the minimum');
-        $this->assertStringNotContainsString('سالم', json_encode([$clients->rows, $demand->rows], JSON_UNESCAPED_UNICODE));
+        [$clients, $demand] = [$clients->parts[0]['rows'], $demand->parts[0]['rows']];
+        $this->assertSame([['1-5', 1, 1, 1], ['6-20', 1, 6, 12]], array_map(fn ($r) => [$r['bucket'], (int) $r['brokers'], (int) $r['clients'], (int) $r['notes']], $clients));
+        $this->assertSame([['النرجس', 'apartment', 6]], array_map(fn ($r) => [$r['neighborhood'], $r['property_type'], (int) $r['clients']], $demand), 'الملقا has one client: under the minimum');
+        $this->assertStringNotContainsString('سالم', json_encode([$clients, $demand], JSON_UNESCAPED_UNICODE));
     }
 
     public function test_the_superadmin_reads_the_notes_masked_in_a_summary_and_it_is_audited(): void
@@ -82,8 +85,8 @@ class ClientBookReportsTest extends AdminTestCase
         $sent = array_merge(...$this->read);
         $this->assertCount(25, $sent, "the city's notes, none of a review account");
         $this->assertSame([], array_filter($sent, fn (string $t) => str_contains($t, 'سالم') || preg_match('/05\d{6,}/', $t)), 'no client name, no phone left');
-        $this->assertSame(['ok', 'crm_notes_digest', 25], [$report->status, $report->report, $report->params['notes']]);
-        $this->assertSame('قرب المدارس', $report->rows[0]['theme']);
+        $this->assertSame([ExecReportStatus::Ok, ExecReportMode::Notes, 'crm_notes_digest', 25], [$report->status, $report->mode, $report->parts[0]['report'], $report->parts[0]['params']['notes']]);
+        $this->assertSame('قرب المدارس', $report->parts[0]['rows'][0]['theme']);
         $audit = Activity::query()->where('event', 'crm_notes_read')->sole();
         $this->assertSame(25, $audit->properties['notes']);
         $this->assertStringNotContainsString('المدرسة', (string) $audit->properties, 'the log keeps the filters and a count, never the words');
@@ -96,7 +99,7 @@ class ClientBookReportsTest extends AdminTestCase
 
         $report = app(NotesDigest::class)->read($staff, ['city' => 'الرياض']);
 
-        $this->assertSame(['no_analysis', []], [$report->status, $this->read]);
+        $this->assertSame([ExecReportStatus::NoAnalysis, []], [$report->status, $this->read]);
         Livewire::test(SuperAgentPage::class)->callAction('notes_digest', ['city' => 'الرياض', 'days' => 180])->assertSee('أقل من 20 ملاحظة');
 
         $this->expectException(RuntimeException::class);
@@ -107,12 +110,12 @@ class ClientBookReportsTest extends AdminTestCase
     {
         $staff = $this->signInSuperadmin();
 
-        $report = app(SuperAgent::class)->run($staff, Catalog::find('time_to_sell'), ['city' => 'الرياض', 'neighborhood' => 'النرجس'], 'مدة البيع', analyse: false);
-        $this->assertSame(['city' => 'الرياض', 'neighborhood' => 'النرجس', 'days' => 90], $report->params);
-        $this->assertArrayNotHasKey('enum', Catalog::find('time_to_sell')->catalogEntry()['params']['neighborhood'], 'every neighbourhood is checked here, not sent to the model');
+        $report = app(SuperAgent::class)->manual($staff, Catalog::find('time_to_sell'), ['city' => 'الرياض', 'neighborhood' => 'النرجس'], 'مدة البيع', analyse: false);
+        $this->assertEquals(['city' => 'الرياض', 'neighborhood' => 'النرجس', 'days' => 90], $report->parts[0]['params']);
+        $this->assertArrayNotHasKey('enum', ((array) Catalog::find('time_to_sell')->catalogEntry()['params'])['neighborhood'], 'every neighbourhood is checked here, not sent to the model');
 
         $this->expectException(\InvalidArgumentException::class);
-        app(SuperAgent::class)->run($staff, Catalog::find('time_to_sell'), ['neighborhood' => 'حي لا وجود له'], 'مدة البيع', analyse: false);
+        app(SuperAgent::class)->manual($staff, Catalog::find('time_to_sell'), ['neighborhood' => 'حي لا وجود له'], 'مدة البيع', analyse: false);
     }
 
     public function test_the_catalog_counts_twenty_reports(): void

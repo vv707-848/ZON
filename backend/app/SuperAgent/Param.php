@@ -7,8 +7,9 @@ use App\Models\City;
 use InvalidArgumentException;
 
 /**
- * One parameter of a report template, declared to the model (report_select's catalog) and checked here before
- * any SQL runs: a name outside the list or a number outside its range is refused, never adjusted.
+ * One parameter of a report template or a proposal, declared to the model (the catalogs report_select and
+ * report_write receive) and checked here before anything runs: a name outside the list or a number outside its
+ * range is refused, never adjusted.
  */
 final readonly class Param
 {
@@ -59,6 +60,33 @@ final readonly class Param
     public static function limit(int $default = 10): self
     {
         return new self('integer', 'عدد الصفوف', $default, false, null, 1, 50);
+    }
+
+    /** @param list<string> $values an enum's values (App\Enums) */
+    public static function oneOf(string $label, array $values, bool $required = false): self
+    {
+        return new self('string', $label, null, $required, $values);
+    }
+
+    /**
+     * Every declared parameter checked, the absent ones at their default; an undeclared name is refused.
+     *
+     * @param  array<string, self>  $declared
+     * @param  array<string, mixed>  $given
+     * @return array<string, mixed>
+     */
+    public static function checkAll(array $declared, array $given): array
+    {
+        $unknown = array_diff(array_keys($given), array_keys($declared));
+        if ($unknown !== []) {
+            throw new InvalidArgumentException('unknown parameters: '.implode(', ', $unknown));
+        }
+        $checked = [];
+        foreach ($declared as $name => $param) {
+            $checked[$name] = $param->check($name, $given[$name] ?? null);
+        }
+
+        return $checked;
     }
 
     /** @return array<string, mixed> JSON schema of the parameter (contract §3.5) */

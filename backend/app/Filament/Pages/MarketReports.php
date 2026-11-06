@@ -25,8 +25,9 @@ use Throwable;
 use UnitEnum;
 
 /**
- * «تقارير السوق» (superadmin): the four market reports, built only from daily snapshots and wishes whose owners
- * allowed it, each row standing for at least the minimum number of requests (never under 5).
+ * «تقارير السوق» (superadmin): the market reports, built only from daily snapshots and wishes whose owners allowed
+ * it, each row standing for at least the minimum number of requests (never under 5). Each runs in the background
+ * with its analysis, like the SuperAgent's (the page polls).
  */
 class MarketReports extends Page
 {
@@ -70,7 +71,7 @@ class MarketReports extends Page
     {
         try {
             $params = array_intersect_key($data, $template->params());
-            $this->reportId = app(Agent::class)->run(Staff::user(), $template, $params, $template->title(), analyse: true)->id;
+            $this->reportId = app(Agent::class)->manual(Staff::user(), $template, $params, $template->title(), analyse: true)->id;
         } catch (Throwable $e) {
             Notification::make()->title($e->getMessage())->danger()->send();
         }

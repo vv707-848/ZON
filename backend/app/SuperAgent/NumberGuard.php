@@ -5,14 +5,14 @@ namespace App\SuperAgent;
 use App\Support\ArabicText;
 
 /**
- * Every number in the model's analysis must come from the rows (or the question's parameters): a number the
- * model made up rejects the analysis — the rows are still shown, without it.
+ * Every number in the model's analysis must come from the rows (or the parameters) of the reports it read: a
+ * number the model made up rejects the analysis — the rows are still shown, without it.
  */
 final class NumberGuard
 {
     /**
-     * @param  list<array<string, mixed>>  $rows
-     * @param  array<string, mixed>  $params
+     * @param  list<array<string, mixed>>  $rows  of every report the analysis covers
+     * @param  array<mixed>  $params  the values of their parameters
      */
     public function passes(string $text, array $rows, array $params): bool
     {

@@ -1,30 +1,36 @@
-{"id":"select-001","agent":"report_select","input":{"question":"وش أكثر الأحياء طلباً في الرياض آخر شهر؟"},"expect":{"report":"top_demand_by_neighborhood","params":{"city":"الرياض","days":30}}}
-{"id":"select-002","agent":"report_select","input":{"question":"أعطني أعلى 5 أحياء طلب في جدة خلال آخر 7 أيام"},"expect":{"report":"top_demand_by_neighborhood","params":{"city":"جدة","days":7,"limit":5}}}
-{"id":"select-003","agent":"report_select","input":{"question":"أي نوع عقار عليه طلب أكثر في الدمام هالشهر؟"},"expect":{"report":"top_property_types","params":{"city":"الدمام","days":30}}}
-{"id":"select-004","agent":"report_select","input":{"question":"وين الطلب أكثر من العرض في الخبر؟"},"expect":{"report":["supply_vs_demand","demand_supply_gap"],"params":{"city":"الخبر"}}}
-{"id":"select-005","agent":"report_select","input":{"question":"كم عرض انضاف آخر 30 يوم وكم منها انباع؟"},"expect":{"report":"listing_funnel","params":{"days":30}}}
-{"id":"select-006","agent":"report_select","input":{"question":"كم مستخدم جديد سجل هالأسبوع؟"},"expect":{"report":"user_growth","params":{"days":7}}}
-{"id":"select-007","agent":"report_select","input":{"question":"كيف نشاط الوسطاء آخر 3 شهور؟"},"expect":{"report":"broker_activity","params":{"days":90}}}
-{"id":"select-008","agent":"report_select","input":{"question":"هل المطابقة شغالة زين؟ كم نسبة مطابق؟"},"expect":{"report":"matching_performance","params":{}}}
-{"id":"select-009","agent":"report_select","input":{"question":"كم اشتراك ساري الحين لكل باقة؟"},"expect":{"report":"subscriptions_summary","params":{}}}
-{"id":"select-010","agent":"report_select","input":{"question":"كيف تغيرت أسعار الشقق في الرياض آخر سنة؟"},"expect":{"report":"price_trend","params":{"city":"الرياض","property_type":"apartment","months":12}}}
-{"id":"select-011","agent":"report_select","input":{"question":"متوسط أسعار الفلل في حي الشاطئ بجدة آخر 6 شهور"},"expect":{"report":"price_trend","params":{"city":"جدة","neighborhood":"الشاطئ","property_type":"villa","months":6}}}
-{"id":"select-012","agent":"report_select","input":{"question":"كم ياخذ العقار وقت لين يتباع في الخبر؟"},"expect":{"report":"time_to_sell","params":{"city":"الخبر"}}}
-{"id":"select-013","agent":"report_select","input":{"question":"وش أكثر شي يدورون عليه الناس وما يلقونه؟"},"expect":{"report":"search_no_results","params":{}}}
-{"id":"select-014","agent":"report_select","input":{"question":"من المسجلين الجدد آخر شهر كم واحد دفع؟"},"expect":{"report":"user_funnel","params":{"days":30}}}
-{"id":"select-015","agent":"report_select","input":{"question":"كم دخلنا هالشهر؟"},"expect":{"report":"revenue_summary","params":{"days":30}}}
-{"id":"select-016","agent":"report_select","input":{"question":"كيف أداء مشاريع المطورين في الرياض؟"},"expect":{"report":"developer_project_perf","params":{"city":"الرياض"}}}
-{"id":"select-017","agent":"report_select","input":{"question":"كم عميل مسجل عند الوسطاء في جدة؟"},"expect":{"report":"broker_clients","params":{"city":"جدة"}}}
-{"id":"select-018","agent":"report_select","input":{"question":"وش الرغبات اللي ما لها أي عرض في الدمام؟"},"expect":{"report":"unmet_features","params":{"city":"الدمام"}}}
-{"id":"select-019","agent":"report_select","input":{"question":"وين الناس تقول غير مطابق أكثر في الرياض؟"},"expect":{"report":"rejection_reasons","params":{"city":"الرياض"}}}
-{"id":"select-020","agent":"report_select","input":{"question":"ميزانيات الناس واقعية ولا لا للشقق في الرياض؟"},"expect":{"report":"real_budget_index","params":{"city":"الرياض","property_type":"apartment"}}}
-{"id":"select-021","agent":"report_select","input":{"question":"وش يطلبون عملاء الوسطاء في حي الملقا؟"},"expect":{"report":"client_demand","params":{"city":"الرياض","neighborhood":"الملقا"}}}
-{"id":"select-022","agent":"report_select","input":{"question":"عطني توزيع الطلبات على أنواع العقار في كل المدن آخر 60 يوم"},"expect":{"report":"top_property_types","params":{"days":60,"city":null}}}
-{"id":"select-023","agent":"report_select","input":{"question":"الفجوة بين العرض والطلب في جدة آخر 3 شهور"},"expect":{"report":["supply_vs_demand","demand_supply_gap"],"params":{"city":"جدة","days":90}}}
-{"id":"select-024","agent":"report_select","input":{"question":"متوسط مدة بيع العقارات في الرياض آخر 6 شهور"},"expect":{"report":"time_to_sell","params":{"city":"الرياض","days":180}}}
-{"id":"select-025","agent":"report_select","input":{"question":"كم طلب عاجل في كل حي بالرياض؟"},"expect":{"report":"top_demand_by_neighborhood","params":{"city":"الرياض"}}}
-{"id":"select-026","agent":"report_select","input":{"question":"كم اشتراك جديد آخر سنة؟"},"expect":{"report":"subscriptions_summary","params":{"days":365}}}
-{"id":"select-027","agent":"report_select","input":{"question":"قارن ميزانية الناس بأسعار الفلل في الخبر"},"expect":{"report":"real_budget_index","params":{"city":"الخبر","property_type":"villa"}}}
-{"id":"select-028","agent":"report_select","input":{"question":"وش نسبة غير مطابق في جدة الشهر الماضي؟"},"expect":{"report":"rejection_reasons","params":{"city":"جدة","days":30}}}
-{"id":"select-029","agent":"report_select","input":{"question":"كم مشترك جديد هالأسبوع؟"},"expect":{"report":"subscriptions_summary","params":{"days":7}}}
-{"id":"select-030","agent":"report_select","input":{"question":"كم الإيرادات آخر 90 يوم؟"},"expect":{"report":"revenue_summary","params":{"days":90}}}
+{"id":"select-001","agent":"report_select","input":{"question":"وش أكثر الأحياء طلباً في الرياض آخر شهر؟"},"expect":{"reports":[{"report":"top_demand_by_neighborhood","params":{"city":"الرياض","days":30}}]}}
+{"id":"select-002","agent":"report_select","input":{"question":"أعطني أعلى 5 أحياء طلب في جدة خلال آخر 7 أيام"},"expect":{"reports":[{"report":"top_demand_by_neighborhood","params":{"city":"جدة","days":7,"limit":5}}]}}
+{"id":"select-003","agent":"report_select","input":{"question":"أي نوع عقار عليه طلب أكثر في الدمام هالشهر؟"},"expect":{"reports":[{"report":"top_property_types","params":{"city":"الدمام","days":30}}]}}
+{"id":"select-004","agent":"report_select","input":{"question":"وين الطلب أكثر من العرض في الخبر؟"},"expect":{"reports":[{"report":["supply_vs_demand","demand_supply_gap"],"params":{"city":"الخبر"}}]}}
+{"id":"select-005","agent":"report_select","input":{"question":"كم عرض انضاف آخر 30 يوم وكم منها انباع؟"},"expect":{"reports":[{"report":"listing_funnel","params":{"days":30}}]}}
+{"id":"select-006","agent":"report_select","input":{"question":"كم مستخدم جديد سجل هالأسبوع؟"},"expect":{"reports":[{"report":"user_growth","params":{"days":7}}]}}
+{"id":"select-007","agent":"report_select","input":{"question":"كيف نشاط الوسطاء آخر 3 شهور؟"},"expect":{"reports":[{"report":"broker_activity","params":{"days":90}}]}}
+{"id":"select-008","agent":"report_select","input":{"question":"هل المطابقة شغالة زين؟ كم نسبة مطابق؟"},"expect":{"reports":[{"report":"matching_performance","params":{}}]}}
+{"id":"select-009","agent":"report_select","input":{"question":"كم اشتراك ساري الحين لكل باقة؟"},"expect":{"reports":[{"report":"subscriptions_summary","params":{}}]}}
+{"id":"select-010","agent":"report_select","input":{"question":"كيف تغيرت أسعار الشقق في الرياض آخر سنة؟"},"expect":{"reports":[{"report":"price_trend","params":{"city":"الرياض","property_type":"apartment","months":12}}]}}
+{"id":"select-011","agent":"report_select","input":{"question":"متوسط أسعار الفلل في حي الشاطئ بجدة آخر 6 شهور"},"expect":{"reports":[{"report":"price_trend","params":{"city":"جدة","neighborhood":"الشاطئ","property_type":"villa","months":6}}]}}
+{"id":"select-012","agent":"report_select","input":{"question":"كم ياخذ العقار وقت لين يتباع في الخبر؟"},"expect":{"reports":[{"report":"time_to_sell","params":{"city":"الخبر"}}]}}
+{"id":"select-013","agent":"report_select","input":{"question":"وش أكثر شي يدورون عليه الناس وما يلقونه؟"},"expect":{"reports":[{"report":"search_no_results","params":{}}]}}
+{"id":"select-014","agent":"report_select","input":{"question":"من المسجلين الجدد آخر شهر كم واحد دفع؟"},"expect":{"reports":[{"report":"user_funnel","params":{"days":30}}]}}
+{"id":"select-015","agent":"report_select","input":{"question":"كم دخلنا هالشهر؟"},"expect":{"reports":[{"report":"revenue_summary","params":{"days":30}}]}}
+{"id":"select-016","agent":"report_select","input":{"question":"كيف أداء مشاريع المطورين في الرياض؟"},"expect":{"reports":[{"report":"developer_project_perf","params":{"city":"الرياض"}}]}}
+{"id":"select-017","agent":"report_select","input":{"question":"كم عميل مسجل عند الوسطاء في جدة؟"},"expect":{"reports":[{"report":"broker_clients","params":{"city":"جدة"}}]}}
+{"id":"select-018","agent":"report_select","input":{"question":"وش الرغبات اللي ما لها أي عرض في الدمام؟"},"expect":{"reports":[{"report":"unmet_features","params":{"city":"الدمام"}}]}}
+{"id":"select-019","agent":"report_select","input":{"question":"وين الناس تقول غير مطابق أكثر في الرياض؟"},"expect":{"reports":[{"report":"rejection_reasons","params":{"city":"الرياض"}}]}}
+{"id":"select-020","agent":"report_select","input":{"question":"ميزانيات الناس واقعية ولا لا للشقق في الرياض؟"},"expect":{"reports":[{"report":"real_budget_index","params":{"city":"الرياض","property_type":"apartment"}}]}}
+{"id":"select-021","agent":"report_select","input":{"question":"وش يطلبون عملاء الوسطاء في حي الملقا؟"},"expect":{"reports":[{"report":"client_demand","params":{"city":"الرياض","neighborhood":"الملقا"}}]}}
+{"id":"select-022","agent":"report_select","input":{"question":"عطني توزيع الطلبات على أنواع العقار في كل المدن آخر 60 يوم"},"expect":{"reports":[{"report":"top_property_types","params":{"days":60,"city":null}}]}}
+{"id":"select-023","agent":"report_select","input":{"question":"الفجوة بين العرض والطلب في جدة آخر 3 شهور"},"expect":{"reports":[{"report":["supply_vs_demand","demand_supply_gap"],"params":{"city":"جدة","days":90}}]}}
+{"id":"select-024","agent":"report_select","input":{"question":"متوسط مدة بيع العقارات في الرياض آخر 6 شهور"},"expect":{"reports":[{"report":"time_to_sell","params":{"city":"الرياض","days":180}}]}}
+{"id":"select-025","agent":"report_select","input":{"question":"كم طلب عاجل في كل حي بالرياض؟"},"expect":{"reports":[{"report":"top_demand_by_neighborhood","params":{"city":"الرياض"}}]}}
+{"id":"select-026","agent":"report_select","input":{"question":"كم اشتراك جديد آخر سنة؟"},"expect":{"reports":[{"report":"subscriptions_summary","params":{"days":365}}]}}
+{"id":"select-027","agent":"report_select","input":{"question":"قارن ميزانية الناس بأسعار الفلل في الخبر"},"expect":{"reports":[{"report":"real_budget_index","params":{"city":"الخبر","property_type":"villa"}}]}}
+{"id":"select-028","agent":"report_select","input":{"question":"وش نسبة غير مطابق في جدة الشهر الماضي؟"},"expect":{"reports":[{"report":"rejection_reasons","params":{"city":"جدة","days":30}}]}}
+{"id":"select-029","agent":"report_select","input":{"question":"كم مشترك جديد هالأسبوع؟"},"expect":{"reports":[{"report":"subscriptions_summary","params":{"days":7}}]}}
+{"id":"select-030","agent":"report_select","input":{"question":"كم الإيرادات آخر 90 يوم؟"},"expect":{"reports":[{"report":"revenue_summary","params":{"days":90}}]}}
+{"id":"select-031","agent":"report_select","tags":["several"],"input":{"question":"كم مستخدم جديد سجل هالأسبوع؟ وكم دخلنا هالشهر؟"},"expect":{"reports":[{"report":"user_growth","params":{"days":7}},{"report":"revenue_summary","params":{"days":30}}]}}
+{"id":"select-032","agent":"report_select","tags":["several"],"input":{"question":"وش أكثر الأحياء طلباً في جدة آخر شهر؟ وكيف تغيرت أسعار الشقق فيها آخر 6 شهور؟"},"expect":{"reports":[{"report":"top_demand_by_neighborhood","params":{"city":"جدة","days":30}},{"report":"price_trend","params":{"city":"جدة","property_type":"apartment","months":6}}]}}
+{"id":"select-033","agent":"report_select","tags":["several"],"input":{"question":"ثلاث أسئلة: كم عرض انضاف آخر 30 يوم؟ كم اشتراك ساري لكل باقة؟ وهل المطابقة شغالة زين؟"},"expect":{"reports":[{"report":"listing_funnel","params":{"days":30}},{"report":"subscriptions_summary","params":{}},{"report":"matching_performance","params":{}}]}}
+{"id":"select-034","agent":"report_select","tags":["several"],"input":{"question":"وين الطلب أكثر من العرض في الرياض، ووش الرغبات اللي ما لها عرض هناك؟"},"expect":{"reports":[{"report":["supply_vs_demand","demand_supply_gap"],"params":{"city":"الرياض"}},{"report":"unmet_features","params":{"city":"الرياض"}}]}}
+{"id":"select-035","agent":"report_select","tags":["unanswerable"],"input":{"question":"كم عدد سكان الرياض؟"},"expect":{"reports":[]},"note":"ليس في بيانات المنصة: لا تقرير"}
+{"id":"select-036","agent":"report_select","tags":["unanswerable"],"input":{"question":"اكتب لي إعلان تسويقي لفيلا في حطين"},"expect":{"reports":[]},"note":"طلب كتابة لا سؤال عن البيانات"}

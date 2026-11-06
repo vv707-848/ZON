@@ -36,8 +36,10 @@ use Throwable;
 use UnitEnum;
 
 /**
- * «الوكيل الأعلى» (superadmin only): ask in Arabic, get an approved report with an analysis whose every number comes
- * from its rows — or pick a template yourself (manual, no model). Reports are archived (exec_reports).
+ * «الوكيل الأعلى» (superadmin only): ask one question or a few in Arabic, or let it explore, and get approved
+ * reports with one analysis whose every number comes from their rows, and buttons that open the screen a
+ * recommendation needs — or pick a template yourself (manual, no model). Reports are archived (exec_reports) and
+ * run in the background: the page polls until the report is ready.
  *
  * @property-read Schema $form
  */
@@ -75,7 +77,9 @@ class SuperAgent extends Page
         $templates = collect(Catalog::all())->mapWithKeys(fn (Template $t, string $name) => [$name => $t->title()])->all();
 
         return $schema->statePath('data')->components([
-            Textarea::make('question')->label('سؤالك')->rows(2)->maxLength(500)->placeholder('مثال: أين يزيد الطلب على العرض في الرياض هذا الشهر؟'),
+            Textarea::make('question')->label('سؤالك، أو ما تريد استكشافه')->rows(2)->maxLength(500)
+                ->placeholder('مثال: أين يزيد الطلب على العرض في الرياض هذا الشهر؟ وكم دخلنا من الاشتراكات؟')
+                ->helperText('حتى '.Agent::MAX_QUESTIONS.' أسئلة في رسالة واحدة. «استكشف» يختار التقارير بنفسه ('.Agent::EXPLORE_STEPS.' على الأكثر)، وما تكتبه هنا يوجّهه، ولو تركته فارغاً ينظر في المنصة كلها.'),
             Section::make('الوضع اليدوي (بلا نموذج)')->collapsed()->columns(3)->schema([
                 Select::make('template')->label('التقرير')->options($templates)->live()->columnSpanFull(),
                 Select::make('city')->label('المدينة')->options(fn () => array_combine(array_keys(City::catalog()), array_keys(City::catalog())))->live()
@@ -96,6 +100,7 @@ class SuperAgent extends Page
             Text::make(fn () => 'المتبقي اليوم: '.DailyCap::left(Staff::user()).' تقرير'),
             Form::make([EmbeddedSchema::make('form')])->id('form')->livewireSubmitHandler('ask')->footer([Actions::make([
                 Action::make('ask')->label('اسأل')->submit('ask'),
+                Action::make('explore')->label('استكشف')->color('info')->action('explore'),
                 Action::make('manual')->label('تشغيل التقرير المختار')->color('gray')->action('manual'),
             ])]),
             Section::make('التقرير')->visible(fn () => $this->report() !== null)->schema([Html::make(fn () => ReportView::render($this->report()))]),
@@ -139,6 +144,11 @@ class SuperAgent extends Page
         $this->runSafely(fn () => app(Agent::class)->ask(Staff::user(), $question));
     }
 
+    public function explore(): void
+    {
+        $this->runSafely(fn () => app(Agent::class)->explore(Staff::user(), trim((string) ($this->form->getState()['question'] ?? ''))));
+    }
+
     public function manual(): void
     {
         $state = $this->form->getState();
@@ -149,7 +159,7 @@ class SuperAgent extends Page
             return;
         }
         $params = array_intersect_key($state, $template->params());
-        $this->runSafely(fn () => app(Agent::class)->run(Staff::user(), $template, $params, trim((string) ($state['question'] ?? '')) ?: $template->title(), analyse: false));
+        $this->runSafely(fn () => app(Agent::class)->manual(Staff::user(), $template, $params, trim((string) ($state['question'] ?? '')) ?: $template->title(), analyse: false));
     }
 
     private function runSafely(\Closure $run): void
@@ -162,9 +172,6 @@ class SuperAgent extends Page
             return;
         }
         $this->reportId = $report->id;
-        if ($report->status === 'failed') {
-            Notification::make()->title('لم يُفهم السؤال ضمن التقارير المعتمدة — جرّب صياغة أخرى أو الوضع اليدوي')->warning()->send();
-        }
     }
 
     private function report(): ?ExecReport
@@ -180,7 +187,7 @@ class SuperAgent extends Page
     private function history(): HtmlString
     {
         $rows = ExecReport::query()->where('staff_id', Staff::user()->id)->latest('id')->limit(20)->get()
-            ->map(fn (ExecReport $r) => '<li><a class="underline" href="?report='.$r->id.'">'.e($r->created_at?->format('Y-m-d H:i').' — '.$r->question).'</a> ('.e($r->status).')</li>');
+            ->map(fn (ExecReport $r) => '<li><a class="underline" href="?report='.$r->id.'">'.e($r->created_at?->format('Y-m-d H:i').' — '.($r->question !== '' ? $r->question : $r->mode->label())).'</a> ('.e($r->mode->label().' · '.$r->shownStatus()->label()).')</li>');
 
         return new HtmlString($rows->isEmpty() ? '<p>لا تقارير بعد.</p>' : '<ul class="space-y-1">'.$rows->implode('').'</ul>');
     }

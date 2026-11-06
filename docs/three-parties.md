@@ -29,7 +29,7 @@ flowchart LR
   Q -->|"POST /agents/{agent} — X-Internal-Key"| AGENTS
   Q -->|"POST /index/{entity} — HMAC"| AGENTS
   API -->|AiGateway| AGENTS
-  ADMIN -->|"الوكيل الأعلى: report_select / report_write"| AGENTS
+  ADMIN -->|"الوكيل الأعلى: report_select / report_explore / report_write (طابور ai)"| AGENTS
   ADMIN -->|"ai_reader: مشاهد ai_v_* فقط"| MYSQL
   AGENTS --> QDRANT
   AGENTS --> LLM
@@ -45,7 +45,7 @@ flowchart LR
 | Push | Laravel ← FCM ← الجوال | حساب خدمة Firebase | `app/Notifications/PushChannel.php` · `app/Integrations/Push` | جرس التطبيق (`notifications`) يبقى |
 | الذكاء: الوكلاء | Laravel ← `POST /agents/{agent}`، مهلة 20 ث وإعادة سريعة واحدة | `X-Internal-Key` + `X-Request-Id` | `app/Ai/AiGateway.php` ← `AgentsClient.php` ↔ `agents/zon_agents/main.py` · `pipelines/` | ترتيب SQL (`meta.ai.status = fallback`) ولا خصم |
 | الذكاء: الفهرسة | Laravel ← `POST /index/{entity}` من طابور `index` | HMAC (`X-Timestamp` · `X-Signature`) بمفتاح `INDEX_SHARED_SECRET` | `app/Indexing/IndexSync.php` ← `app/Jobs/PushIndexEvent.php` ↔ `agents/zon_agents/indexing.py` | الإشارة تبقى في `index_events` وتُعاد كل 15 دقيقة |
-| الوكيل الأعلى | اللوحة ← `report_select` ← SQL معتمد على `ai_v_*` ← `report_write` | المدير العام وحده | `app/SuperAgent` ↔ `agents/zon_agents/pipelines/reports.py` | الصفوف تُحفظ، والتحليل يُسقط إن ذكر رقماً ليس في الصفوف |
+| الوكيل الأعلى | اللوحة ← مهمة `RunExecReport` (طابور `ai`) ← `report_select` أو `report_explore` ← SQL معتمد على `ai_v_*` ← `report_write` | المدير العام وحده | `app/SuperAgent` ↔ `agents/zon_agents/pipelines/reports.py` | الصفوف تُحفظ، والتحليل يُسقط إن ذكر رقماً ليس في الصفوف، والتقرير العالق يُعرض متعذراً بعد 6 دقائق |
 
 العقد التفصيلي بين Laravel والوكلاء: `docs/contracts/agents-api.md`. فحص الحمولات الفعلية: `docs/operations.md` ← «عقد Laravel ↔ الوكلاء».
 

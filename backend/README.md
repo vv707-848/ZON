@@ -28,7 +28,7 @@ Laravel 13 (PHP 8.5) يخدم طرفين من موضع واحد:
 | `app/Jobs` · `app/Jobs/Scheduled` | مهام الطوابير، والمجدولة (17) | كل مجدولة لها سطر في `routes/console.php` |
 | `app/Notifications` | `Notices` (كل إشعار بنصه ووجهته) · `AppNotice` · `PushChannel` | تفضيلات الإشعار الست تُحترم |
 | `app/Filament` | اللوحة: `Resources` · `Pages` · `Widgets` · `Support` · `Concerns` | كل شاشة تعلن صلاحيتها (`AuthorizesByPermission`) |
-| `app/SuperAgent` | الوكيل الأعلى: القوالب الـ 18 · المعاملات · المنفّذ · حارس الأرقام · السقف اليومي | النموذج يختار قالباً، ولا يكتب SQL |
+| `app/SuperAgent` | الوكيل الأعلى: القوالب الـ 20 · المعاملات · المنفّذ · حارس الأرقام · السقف اليومي · الأفعال المقترحة · الأرشيف (مهمة `RunExecReport` في الخلفية) | النموذج يختار قوالب وأفعالاً بأسمائها، ولا يكتب SQL ولا ينفّذ شيئاً |
 | `app/Support` | `Api` (الغلاف) · `Trace` · `Money` · `Phone` · `Settings` · `Permissions` · `Health` | |
 | `database/migrations` | 6 مهاجرات للمجالات + مشاهد `ai_v_*` | `../docs/data-model.md` |
 | `tests` | `Feature/Api` · `Feature/Admin` · `Feature/Integrations` · `Unit/ArchitectureTest` | MySQL حقيقي، ولا طلب يغادر الجهاز |

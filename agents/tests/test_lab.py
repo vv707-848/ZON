@@ -66,18 +66,64 @@ def test_text_scorers_reward_the_facts_and_punish_what_was_never_said() -> None:
     assert bad.metrics == {"features": 0.0, "keep": 0.0, "invented": 0.0, "numbers": 0.0}
 
 
-def test_the_superagent_scorers_know_the_report_and_its_parameters() -> None:
-    gap = next(c for c in load_cases() if c.id == "select-023")  # two reports answer it; city and days matter
-    all_cities = next(c for c in load_cases() if c.id == "select-022")  # «في كل المدن»: no city
+def _case(case_id: str) -> Case:
+    return next(c for c in load_cases() if c.id == case_id)
 
-    assert score(gap, {"report": "demand_supply_gap", "params": {"city": "جدة", "days": 90}}).value == 1.0
-    assert score(gap, {"report": "supply_vs_demand", "params": {"city": "جدة", "days": 30}}).value == 0.5
-    assert score(gap, {"report": "listing_funnel", "params": {}}).value == 0.0
-    assert score(all_cities, {"report": "top_property_types", "params": {"days": 60, "city": "الرياض"}}).value == 0.5
+
+def test_the_superagent_scorers_know_the_report_and_its_parameters() -> None:
+    gap = _case("select-023")  # two reports answer it; city and days matter
+    all_cities = _case("select-022")  # «في كل المدن»: no city
+
+    def one(report: str, params: dict[str, Any]) -> dict[str, Any]:
+        return {"reports": [{"report": report, "params": params}]}
+
+    assert score(gap, one("demand_supply_gap", {"city": "جدة", "days": 90})).value == 1.0
+    assert score(gap, one("supply_vs_demand", {"city": "جدة", "days": 30})).value == 0.5
+    assert score(gap, one("listing_funnel", {})).value == 0.0
+    assert score(all_cities, one("top_property_types", {"days": 60, "city": "الرياض"})).value == 0.5
+
+
+def test_several_questions_score_a_report_for_each_and_an_unasked_one_costs() -> None:
+    two = _case("select-031")  # new users this week · revenue this month
+    users, revenue = (
+        {"report": "user_growth", "params": {"days": 7}},
+        {"report": "revenue_summary", "params": {"days": 30}},
+    )
+    extra = {"report": "listing_funnel", "params": {"days": 30}}
+
+    assert score(two, {"reports": [users, revenue]}).value == 1.0
+    assert score(two, {"reports": [users]}).value == 0.5
+    assert score(two, {"reports": [users, revenue, extra]}).value == 2 / 3
+    assert score(_case("select-035"), {"reports": []}).value == 1.0, "no report answers the population of a city"
+    assert score(_case("select-035"), {"reports": [users]}).value == 0.0
+
+
+def test_an_exploration_step_deepens_what_was_found_and_stopping_is_right_only_when_it_is() -> None:
+    deepen = _case("explore-003")  # النرجس leads Riyadh's demand
+    clear = _case("explore-007")  # the last step after a clear picture
+
+    assert score(deepen, {"report": "price_trend", "params": {"city": "الرياض", "neighborhood": "النرجس"}}).value == 1.0
+    assert score(deepen, {"report": "price_trend", "params": {"city": "جدة"}}).value == 0.5
+    assert score(deepen, {"report": "revenue_summary", "params": {}}).value == 0.0
+    assert score(deepen, {"report": None, "params": {}}).value == 0.0, "one step in is too soon to stop"
+    assert score(clear, {"report": None, "params": {}}).value == 1.0
+
+
+def test_the_writer_is_scored_on_every_parts_rows_and_on_the_screen_it_proposes() -> None:
+    explore = _case("write-012")  # demand · the gap · the price trend in النرجس
+    text = "النرجس الأعلى طلباً بـ38 طلباً، وفجوة الفلل فيه 23، ومتوسط سعرها ارتفع إلى 2450000."
+    announce = [{"text": "دعوة وسطاء الرياض إلى فلل النرجس", "action": "announce", "params": {"audience": "broker"}}]
+    no_button = [{"text": "دعوة وسطاء الرياض إلى فلل النرجس", "action": None, "params": {}}]
+
+    assert score(explore, {"analysis": text, "recommendations": announce}).value == 1.0
+    assert score(explore, {"analysis": text, "recommendations": no_button}).metrics["action"] == 0.0
+    assert score(explore, {"analysis": "ارتفع السعر 17%.", "recommendations": announce}).value == 0.0, (
+        "17% is not in the rows"
+    )
 
 
 def _answers(model: ScriptedModel) -> None:
-    """A plausible model for every agent: candidates as they came, short texts, the first report."""
+    """A plausible model for every agent: candidates as they came, short texts, the first report, no further step."""
 
     def ranked(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         return [{"id": c["id"], "score": round(1 - n / 40, 3)} for n, c in enumerate(items)]
@@ -92,7 +138,8 @@ def _answers(model: ScriptedModel) -> None:
         "clean_listing": lambda p: {"desc_clean": p["text"][:200], "features": []},
         "summarize": {"summary": "ملخص", "signals": [], "recommended_action": "متابعة", "confidence": "medium"},
         "chat": {"answer": "جواب من المكتبة", "covered": True, "citations": [{"passage": 1, "quote_ar": ""}]},
-        "report_select": lambda p: {"report": p["catalog"][0]["report"], "params": {}},
+        "report_select": lambda p: {"reports": [{"report": p["catalog"][0]["report"], "params": {}}]},
+        "report_explore": {"report": None, "params": {}},
         "report_write": {"analysis": "تحليل الصفوف", "recommendations": []},
     }
 

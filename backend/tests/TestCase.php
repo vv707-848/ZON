@@ -67,7 +67,7 @@ abstract class TestCase extends BaseTestCase
             $key = "{$m[1]}/{$m[2]}";
             $body = $event->request->body();
             if (count(self::$samples[$key] ?? []) < 5) {
-                self::$samples[$key][md5($body)] = json_decode($body, true);
+                self::$samples[$key][md5($body)] = json_decode($body);   // objects, not arrays: an empty {} stays {}
             }
             File::ensureDirectoryExists(dirname("{$dir}/{$key}.json"));
             File::put("{$dir}/{$key}.json", json_encode(array_values(self::$samples[$key] ?? []), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n");

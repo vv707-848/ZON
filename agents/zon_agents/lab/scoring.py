@@ -20,7 +20,9 @@ from typing import Any
 from zon_agents.lab.cases import (
     Case,
     ChatExpect,
+    Chosen,
     CleanExpect,
+    ExploreExpect,
     Grades,
     MatchingExpect,
     SearchersExpect,
@@ -289,25 +291,58 @@ def _same(given: Any, wanted: Any) -> bool:
     return norm(str(given)) == norm(str(wanted))
 
 
-def score_report_select(case: Case, output: dict[str, Any]) -> Score:
-    expect = case.expected(SelectExpect)
-    if output.get("report") not in expect.reports:
-        return Score(0.0, {"report": 0.0})
-    params = output.get("params", {})
-    exact = all(
+def _params_exact(params: dict[str, Any], wanted: dict[str, Any]) -> bool:
+    return all(
         params.get(name) is None if value is None else name in params and _same(params[name], value)
-        for name, value in expect.params.items()
+        for name, value in wanted.items()
     )
-    return Score(1.0 if exact else 0.5, {"report": 1.0, "params": float(exact)})
+
+
+def _chosen(item: Chosen, given: dict[str, Any]) -> float:
+    """1 · the right report with the right parameters, 0.5 · the right report, 0 · another."""
+    if given.get("report") not in item.reports:
+        return 0.0
+    return 1.0 if _params_exact(given.get("params", {}), item.params) else 0.5
+
+
+def score_report_select(case: Case, output: dict[str, Any]) -> Score:
+    """Each question's report found among the answer's; a report nobody asked for costs as much as a missing one."""
+    expect = case.expected(SelectExpect)
+    given = [g for g in output.get("reports", []) if isinstance(g, dict)]
+    if not expect.reports:
+        right = float(not given)  # no report answers the message: running one is wrong
+        return Score(right, {"reports": right})
+    best = [max((_chosen(item, g) for g in given), default=0.0) for item in expect.reports]
+    metrics = {"reports": sum(b > 0 for b in best) / len(best), "params": sum(b == 1.0 for b in best) / len(best)}
+    return Score(sum(best) / max(len(best), len(given)), metrics)
+
+
+def score_report_explore(case: Case, output: dict[str, Any]) -> Score:
+    expect = case.expected(ExploreExpect)
+    report = output.get("report")
+    if report not in expect.report:
+        return Score(0.0, {"step": 0.0})
+    if report is None:
+        return Score(1.0, {"step": 1.0})
+    exact = _params_exact(output.get("params", {}), expect.params)
+    return Score(1.0 if exact else 0.5, {"step": 1.0, "params": float(exact)})
 
 
 def score_report_write(case: Case, output: dict[str, Any]) -> Score:
     expect = case.expected(WriteExpect)
-    text = " ".join([str(output.get("analysis", "")), *output.get("recommendations", [])])
-    if not number_guard(text, case.input["rows"], case.context.get("params", {})):
+    recommendations = [r for r in output.get("recommendations", []) if isinstance(r, dict)]
+    text = " ".join([str(output.get("analysis", "")), *(str(r.get("text", "")) for r in recommendations)])
+    parts = case.input["parts"]
+    rows = [row for part in parts for row in part["rows"]]
+    params = {f"{i}.{name}": value for i, part in enumerate(parts) for name, value in part.get("params", {}).items()}
+    if not number_guard(text, rows, params):
         return Score(0.0, {"guard": 0.0})  # Laravel drops this analysis: the panel shows the rows alone
     mention = recall(text, expect.mention)
-    return Score(1.0 if mention is None else mention, _present(guard=1.0, mention=mention))
+    action = float(any(r.get("action") in expect.actions for r in recommendations)) if expect.actions else None
+    measured = [m for m in (mention, action) if m is not None]
+    return Score(
+        sum(measured) / len(measured) if measured else 1.0, _present(guard=1.0, mention=mention, action=action)
+    )
 
 
 def score(case: Case, output: dict[str, Any]) -> Score:
@@ -318,6 +353,7 @@ def score(case: Case, output: dict[str, Any]) -> Score:
         "summarize": score_summarize,
         "chat": score_chat,
         "report_select": score_report_select,
+        "report_explore": score_report_explore,
         "report_write": score_report_write,
     }[case.agent]
     return scorer(case, output)

@@ -2,36 +2,39 @@
 
 namespace App\Console\Commands;
 
-use App\SuperAgent\Catalog;
-use App\SuperAgent\Template;
+use App\SuperAgent\Proposal;
+use App\SuperAgent\SuperAgent;
 use Illuminate\Console\Command;
 
 /**
- * `php artisan zon:lab-catalog` — writes the SuperAgent's catalog, as report_select receives it, to the model lab
- * (agents/zon_agents/lab/cases/catalog.json): the lab measures the choice of a report against the very catalog
- * Laravel sends. Run it after adding or changing a template; LabCatalogTest fails until then.
+ * `php artisan zon:lab-catalog` — writes what the SuperAgent's agents receive from Laravel to the model lab: the
+ * report catalog (report_select, report_explore) and the proposals (report_write), so the lab measures the choices
+ * against the very lists Laravel sends. Run it after adding or changing a template or a proposal; LabCatalogTest
+ * fails until then.
  */
 class LabCatalog extends Command
 {
-    public const FILE = 'agents/zon_agents/lab/cases/catalog.json';
+    public const DIR = 'agents/zon_agents/lab/cases';
 
     protected $signature = 'zon:lab-catalog';
 
-    protected $description = "Writes the SuperAgent's report catalog to the model lab";
+    protected $description = "Writes the SuperAgent's report catalog and proposals to the model lab";
 
     public function handle(): int
     {
-        file_put_contents(dirname(base_path()).'/'.self::FILE, self::json());
-        $this->info(count(Catalog::all()).' reports → '.self::FILE);
+        foreach (self::files() as $name => $json) {
+            file_put_contents(dirname(base_path()).'/'.self::DIR.'/'.$name, $json);
+        }
+        $this->info(count(SuperAgent::catalog()).' reports, '.count(Proposal::cases()).' proposals → '.self::DIR);
 
         return self::SUCCESS;
     }
 
-    /** The catalog exactly as SuperAgent::ask sends it (with the reference cities of the seeded database). */
-    public static function json(): string
+    /** @return array<string, string> file name => its content, as Laravel sends it (with the seeded reference cities) */
+    public static function files(): array
     {
-        $catalog = array_values(array_map(fn (Template $t) => $t->catalogEntry(), Catalog::all()));
+        $json = fn (array $list) => json_encode($list, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n";
 
-        return json_encode($catalog, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n";
+        return ['catalog.json' => $json(SuperAgent::catalog()), 'proposals.json' => $json(Proposal::catalog())];
     }
 }

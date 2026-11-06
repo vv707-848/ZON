@@ -5,11 +5,12 @@ namespace App\SuperAgent;
 use App\Ai\AiGateway;
 use App\Ai\Masking\AiMasking;
 use App\Enums\AiAgent;
+use App\Enums\ExecReportMode;
+use App\Enums\ExecReportStatus;
 use App\Enums\NoteCategory;
 use App\Filament\Support\Audit;
 use App\Models\ExecReport;
 use App\Models\User;
-use App\Support\Trace;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
@@ -22,11 +23,15 @@ use RuntimeException;
  *   clients). Each note is masked first (the client's name, phones, links), and only the summary comes back.
  * - **Map/reduce** (summarize_batch): batches of 500 notes, then one reduce of their summaries.
  * - **Audited** (`crm_notes_read`: the filters and how many notes — never a word of them) and archived like a
- *   report (`exec_reports`), within the SuperAgent's daily cap.
+ *   report (`exec_reports`), within the SuperAgent's daily cap. Up to eleven AI calls: it runs in the background
+ *   (App\Jobs\RunExecReport).
  */
 final class NotesDigest
 {
     public const MINIMUM = 20;
+
+    /** Its name in the archive (exec_reports.parts.report) and in ReportView. */
+    public const REPORT = 'crm_notes_digest';
 
     private const BATCH = 500;
 
@@ -34,20 +39,37 @@ final class NotesDigest
 
     public function __construct(private readonly AiGateway $ai) {}
 
-    /** @param array{city: string, neighborhood?: ?string, property_type?: ?string, category?: ?string, days?: ?int} $filters */
+    /**
+     * The filters are checked here, then the reading runs in the background (RunExecReport → digest).
+     *
+     * @param  array{city: string, neighborhood?: ?string, property_type?: ?string, category?: ?string, days?: ?int}  $filters
+     */
     public function read(User $staff, array $filters): ExecReport
     {
         if (! $staff->isSuperadmin()) {
             throw new RuntimeException('The notes are read by the superadmin alone.');
         }
-        if (DailyCap::left($staff) < 1) {
-            throw new RuntimeException('بلغت سقف التقارير اليومي.');
-        }
         $filters = $this->checked($filters);
+
+        return Archive::open($staff, ExecReportMode::Notes, 'قراءة ملاحظات العملاء — '.$filters['city'], [['report' => self::REPORT, 'params' => $filters]]);
+    }
+
+    /** The job's work: the masked notes, audited, summarised batch by batch, archived. */
+    public function digest(ExecReport $report): void
+    {
+        $staff = $report->staff;
+        if ($staff === null) {
+            $report->update(['status' => ExecReportStatus::Failed]);
+
+            return;
+        }
+        $filters = $this->checked($report->parts[0]['params']);
         $notes = $this->notes($filters);
         Audit::log('crm_notes_read', 'قراءة ملاحظات العملاء', null, ['filters' => $filters, 'notes' => count($notes)], $staff);
         if (count($notes) < self::MINIMUM) {
-            return $this->archive($staff, $filters, count($notes), 'no_analysis', null, []);
+            $this->finish($report, $filters, count($notes), ExecReportStatus::NoAnalysis, null, []);
+
+            return;
         }
 
         $purpose = 'ملاحظات الوسطاء على عملائهم الباحثين عن عقار في '.$filters['city'].($filters['neighborhood'] ? ' — '.$filters['neighborhood'] : '')
@@ -57,7 +79,9 @@ final class NotesDigest
         foreach (array_chunk($notes, self::BATCH) as $batch) {
             $out = $this->batch(['mode' => 'map', 'purpose' => $purpose, 'texts' => $batch], $staff);
             if ($out === null) {
-                return $this->archive($staff, $filters, count($notes), 'failed', null, []);
+                $this->finish($report, $filters, count($notes), ExecReportStatus::Failed, null, []);
+
+                return;
             }
             $summaries[] = $out['summary'];
             $themes = $out['themes'];
@@ -65,12 +89,14 @@ final class NotesDigest
         if (count($summaries) > 1) {
             $out = $this->batch(['mode' => 'reduce', 'purpose' => $purpose, 'summaries' => $summaries], $staff);
             if ($out === null) {
-                return $this->archive($staff, $filters, count($notes), 'failed', null, []);
+                $this->finish($report, $filters, count($notes), ExecReportStatus::Failed, null, []);
+
+                return;
             }
             [$summaries, $themes] = [[$out['summary']], $out['themes']];
         }
 
-        return $this->archive($staff, $filters, count($notes), 'ok', $summaries[0], $themes);
+        $this->finish($report, $filters, count($notes), ExecReportStatus::Ok, $summaries[0], $themes);
     }
 
     /**
@@ -134,20 +160,12 @@ final class NotesDigest
      * @param  array<string, mixed>  $filters
      * @param  list<array{theme: string, share: string}>  $themes
      */
-    private function archive(User $staff, array $filters, int $notes, string $status, ?string $summary, array $themes): ExecReport
+    private function finish(ExecReport $report, array $filters, int $notes, ExecReportStatus $status, ?string $summary, array $themes): void
     {
-        return ExecReport::query()->create([
-            'staff_id' => $staff->id,
-            'question' => 'قراءة ملاحظات العملاء — '.$filters['city'],
-            'report' => 'crm_notes_digest',
-            'params' => $filters + ['notes' => $notes],
-            'rows' => $themes,
-            'row_count' => count($themes),
-            'analysis' => $summary ?? ($status === 'no_analysis' ? 'أقل من '.self::MINIMUM.' ملاحظة في هذا النطاق: لا تُقرأ كي لا تصف عملاء بأعيانهم.' : null),
-            'recommendations' => null,
+        $report->update([
+            'parts' => [['report' => self::REPORT, 'params' => $filters + ['notes' => $notes], 'rows' => $themes, 'row_count' => count($themes), 'status' => 'ok']],
+            'analysis' => $summary ?? ($status === ExecReportStatus::NoAnalysis ? 'أقل من '.self::MINIMUM.' ملاحظة في هذا النطاق: لا تُقرأ كي لا تصف عملاء بأعيانهم.' : null),
             'status' => $status,
-            'trace_id' => Trace::id(),
-            'created_at' => now(),
         ]);
     }
 }
