@@ -12,6 +12,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 /**
@@ -55,6 +56,7 @@ class PhotosTest extends TestCase
         return [($rgb >> 16) & 0xFF, ($rgb >> 8) & 0xFF, $rgb & 0xFF];
     }
 
+    /** @return TestResponse<Response> */
     private function upload(UploadedFile $file): TestResponse
     {
         return $this->post('/api/v1/media', ['photo' => $file], ['Accept' => 'application/json']);

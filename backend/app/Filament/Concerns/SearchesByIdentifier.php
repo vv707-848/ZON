@@ -4,6 +4,7 @@ namespace App\Filament\Concerns;
 
 use App\Support\ArabicText;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The panel's global search (⌘K / Ctrl+K) finds a record by what staff hold in hand — a phone in any Saudi format,
@@ -12,9 +13,16 @@ use Illuminate\Database\Eloquent\Builder;
  */
 trait SearchesByIdentifier
 {
-    /** Adds orWhere(…) clauses for the identifiers in $search (Arabic digits already ASCII). */
+    /**
+     * Adds orWhere(…) clauses for the identifiers in $search (Arabic digits already ASCII).
+     *
+     * @param  Builder<Model>  $query
+     */
     abstract protected static function identifierMatches(Builder $query, string $search): void;
 
+    /**
+     * @param  Builder<Model>  $query
+     */
     protected static function applyGlobalSearchAttributeConstraints(Builder $query, string $search): void
     {
         $query->where(function (Builder $either) use ($search) {

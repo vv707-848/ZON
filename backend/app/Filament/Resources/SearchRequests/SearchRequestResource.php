@@ -63,6 +63,9 @@ class SearchRequestResource extends Resource
         return ['description'];
     }
 
+    /**
+     * @param  Builder<Model>  $query
+     */
     protected static function identifierMatches(Builder $query, string $search): void
     {
         if (preg_match('/^\d{1,12}$/', $search) === 1) {

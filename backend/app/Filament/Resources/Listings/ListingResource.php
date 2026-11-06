@@ -73,7 +73,11 @@ class ListingResource extends Resource
         return Permission::ViewListings;
     }
 
-    /** Its number, or any advertising licence it carried. */
+    /**
+     * Its number, or any advertising licence it carried.
+     *
+     * @param  Builder<Model>  $query
+     */
     protected static function identifierMatches(Builder $query, string $search): void
     {
         if (preg_match('/^\d{1,12}$/', $search) === 1) {

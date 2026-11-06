@@ -19,7 +19,7 @@
 
 - **الباك إند:** Laravel 13 · PHP 8.5 · MySQL 9.7 LTS (الإصدارات الحالية وسببها في [`versions.md`](versions.md)) · Dragonfly متوافق Redis (كاش، عدّادات، طوابير) · MinIO (قرص s3) · Reverb · Sanctum 4.
 - **لوحة الإدارة:** Filament 5 · Livewire 4 · spatie/laravel-permission · spatie/laravel-activitylog 5.
-- **أدوات الكود:** brick/math للمبالغ والنطاقات · Larastan مستوى 5 (`parseModelCastsMethod: true`) · Pint بإعداد laravel.
+- **أدوات الكود:** brick/math للمبالغ والنطاقات · Larastan مستوى 6 (`parseModelCastsMethod: true`)، والاختبارات معها · Pint بإعداد laravel.
 - **خدمة الوكلاء:** Python 3.14 · FastAPI · pydantic-ai-slim · mcp (‏MCPServer · streamable HTTP · stateless · JSON) · qdrant-client · httpx — بإدارة uv.
   - أدوات الفحص: ruff · mypy · pytest.
 

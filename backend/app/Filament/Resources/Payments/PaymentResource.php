@@ -64,7 +64,11 @@ class PaymentResource extends Resource
         return ['public_id'];
     }
 
-    /** Our payment id, or the provider's reference (a Moyasar payment, Apple's transaction, Google's order). */
+    /**
+     * Our payment id, or the provider's reference (a Moyasar payment, Apple's transaction, Google's order).
+     *
+     * @param  Builder<Model>  $query
+     */
     protected static function identifierMatches(Builder $query, string $search): void
     {
         if (preg_match('/^[\w.:-]{6,80}$/u', $search) === 1) {

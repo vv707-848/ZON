@@ -14,7 +14,10 @@ class EditLegalPage extends EditRecord
 {
     protected static string $resource = LegalPageResource::class;
 
-    /** @param array<string, mixed> $data @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $page = $this->page();

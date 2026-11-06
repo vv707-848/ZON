@@ -11,6 +11,7 @@ use App\Models\Subscription;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use InvalidArgumentException;
+use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 /**
@@ -29,6 +30,10 @@ class StorePurchasesTest extends TestCase
         return $this->signIn($seeker);
     }
 
+    /**
+     * @param  ?array<string, mixed>  $target
+     * @return TestResponse<Response>
+     */
     private function buy(string $store, string $product, string $reference, ?array $target = null): TestResponse
     {
         return $this->postJson('/api/v1/store/purchases', array_filter(['store' => $store, 'product_id' => $product, 'reference' => $reference, 'target' => $target]));

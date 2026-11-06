@@ -70,7 +70,11 @@ class SupportTicketResource extends Resource
         return ['subject'];
     }
 
-    /** The reference the user quotes (ZT-261103-AB12C). */
+    /**
+     * The reference the user quotes (ZT-261103-AB12C).
+     *
+     * @param  Builder<Model>  $query
+     */
     protected static function identifierMatches(Builder $query, string $search): void
     {
         if (preg_match('/^ZT-\d{6}-[A-Z0-9]{5}$/i', $search) === 1) {

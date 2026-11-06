@@ -49,6 +49,7 @@ class StoreDriversTest extends TestCase
         return $part(['alg' => 'ES256', 'x5c' => []]).'.'.$part($payload).'.c2lnbmF0dXJl';
     }
 
+    /** @return array{AppleAppStore, string} the store, and the public key that checks what it signs */
     private function apple(): array
     {
         $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);

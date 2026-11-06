@@ -22,6 +22,7 @@ use App\Models\TrainingSample;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\TestResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
 /**
@@ -30,7 +31,10 @@ use Tests\TestCase;
  */
 class SandboxTest extends TestCase
 {
-    /** @return list<int> */
+    /**
+     * @param  TestResponse<Response>  $response
+     * @return list<int>
+     */
     private function ids(TestResponse $response, string $key = 'id'): array
     {
         return array_column($response->assertOk()->json('data'), $key);

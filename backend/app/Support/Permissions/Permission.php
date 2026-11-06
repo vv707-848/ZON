@@ -80,7 +80,11 @@ enum Permission: string
         };
     }
 
-    /** The superadmin's alone: no role carries them (Staff::can). @return list<self> */
+    /**
+     * The superadmin's alone: no role carries them (Staff::can).
+     *
+     * @return list<self>
+     */
     public static function superadminOnly(): array
     {
         return [
