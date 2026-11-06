@@ -330,7 +330,7 @@
 | `licenceFormatOk` | `features/add/add_helpers.dart` | التحقق من رقم الترخيص الإعلاني لكل وحدة لدى الهيئة |
 | `polishCopy` | `features/add/add_helpers.dart` | خدمة صياغة الذكاء الاصطناعي |
 
-ثم احذف دمج البيانات التجريبية (`data/seed/`) عندما تصبح بيانات الخادم حقيقية، وابنِ بـ `ZON_SIMULATIONS=false`.
+ثم احذف دمج البيانات التجريبية (`data/seed/`) عندما تصبح بيانات الخادم حقيقية، وابنِ بـ `ZON_SIMULATIONS=false`. ونسخة `ZON_SIMULATIONS=false` لا تعرض اليوم أي عيّنة: لا عروض ولا طلبات ولا محادثات ولا عملاء ولا ملاك ولا مخزون ولا متابَعون ولا مهام تجريبية، ولا أسماء في مسح المطابقة، ولا أرقام في الملف العام، ولا رقم اتصال لم يعطه أحد (`lib/core/simulations.dart`، واختبارها `test/no_simulations_test.dart`).
 
 ## الاختبارات
 

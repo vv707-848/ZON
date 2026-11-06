@@ -1,6 +1,8 @@
 // The build with the simulations OFF must not pretend: no simulated payment,
-// contract approval or licence number. These tests need the define, so they
-// are skipped in the normal run. Run them with:
+// contract approval or licence number, and nothing made up on screen: no
+// sample listing, request, chat, client, owner, follower or task, no made-up
+// count or name, no number to call that nobody gave. These tests need the
+// define, so they are skipped in the normal run. Run them with:
 //
 //   flutter test --dart-define=ZON_SIMULATIONS=false test/no_simulations_test.dart
 
@@ -8,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/billing/owner_cases.dart';
+import 'package:zon/data/store.dart';
 
 import 'support/test_env.dart';
 
@@ -48,6 +51,38 @@ void main() {
       expect(receipt.ok, isFalse);
       expect(ownerCases.byId(c.id)!.licenceNumber, isNull);
       expect(ownerCases.planActive(), isFalse);
+    });
+
+    test('a new account sees only what it made: no sample of any kind', () async {
+      await freshDevice();
+      signUp('nosim.empty', role: 'broker');
+      expect(store.allListings(), isEmpty);
+      expect(store.allRequests(), isEmpty);
+      expect(store.chats(), isEmpty);
+      expect(store.clients(), isEmpty);
+      expect(store.owners(), isEmpty);
+      expect(store.inventory(), isEmpty);
+      expect(store.follows().followers, isEmpty);
+      expect(store.follows().following, isEmpty);
+      expect(store.tasks(), isEmpty);
+    });
+
+    testWidgets('a public profile shows no made-up counts and no rating that saves nothing', (tester) async {
+      await freshDevice();
+      signUp('nosim.profile', role: 'seeker');
+      await pumpApp(tester, '/users/${Uri.encodeComponent('فهد العتيبي')}');
+      expect(find.text('المتابِعون'), findsNothing);
+      expect(find.text('تقييم'), findsNothing);
+      expect(find.text('متابعة'), findsOneWidget);
+    });
+
+    testWidgets('the main screens open empty without an error', (tester) async {
+      await freshDevice();
+      signUp('nosim.screens', role: 'broker');
+      for (final route in <String>['/', '/requests', '/chats', '/account']) {
+        await pumpApp(tester, route);
+        expect(tester.takeException(), isNull, reason: route);
+      }
     });
   });
 }

@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:zon/core/services/photo_store.dart';
+import 'package:zon/core/simulations.dart';
 import 'package:zon/core/utils/input.dart';
 import 'package:zon/data/auth/password_hash.dart';
 import 'package:zon/data/catalog/catalog.dart';
@@ -443,7 +444,7 @@ class Store extends ChangeNotifier {
     final extra = _extraListings();
     final stockIds = inventory().map((l) => l.id).toSet();
     final overlay = _patches();
-    final seed = getListings();
+    final seed = kSimulations ? getListings() : const <Listing>[];
     final seedIds = seed.map((s) => s.id).toSet();
     final merged = <Listing>[...seed, ...extra.where((l) => !seedIds.contains(l.id) && !stockIds.contains(l.id))];
     final map = <String, Listing>{};
@@ -600,7 +601,7 @@ class Store extends ChangeNotifier {
   List<RequestItem> allRequests() {
     final extra = _extraRequests();
     final ids = extra.map((r) => r.id).toSet();
-    return <RequestItem>[...extra, ...kRequests.where((r) => !ids.contains(r.id))];
+    return <RequestItem>[...extra, if (kSimulations) ...kRequests.where((r) => !ids.contains(r.id))];
   }
 
   RequestItem? requestById(String id) {
@@ -668,7 +669,7 @@ class Store extends ChangeNotifier {
   List<Client> clients() {
     final extra = _read<List<Client>>(_ck, <Client>[], (j) => (j as List).map((e) => Client.fromJson((e as Map).cast<String, Object?>())).toList());
     final ids = extra.map((c) => c.id).toSet();
-    return <Client>[...extra, ..._seedClients.where((c) => !ids.contains(c.id))];
+    return <Client>[...extra, if (kSimulations) ..._seedClients.where((c) => !ids.contains(c.id))];
   }
 
   void saveClient(Client c) {
@@ -713,7 +714,7 @@ class Store extends ChangeNotifier {
   List<Owner> owners() {
     final extra = _read<List<Owner>>(_ok, <Owner>[], (j) => (j as List).map((e) => Owner.fromJson((e as Map).cast<String, Object?>())).toList());
     final ids = extra.map((o) => o.id).toSet();
-    return <Owner>[...extra, ..._seedOwners.where((o) => !ids.contains(o.id))];
+    return <Owner>[...extra, if (kSimulations) ..._seedOwners.where((o) => !ids.contains(o.id))];
   }
 
   void saveOwner(Owner o) {
@@ -734,6 +735,7 @@ class Store extends ChangeNotifier {
     if (_mem[_k(_tk)] != null) {
       return _read<List<Task>>(_tk, <Task>[], (j) => (j as List).map((e) => Task.fromJson((e as Map).cast<String, Object?>())).toList());
     }
+    if (!kSimulations) return const <Task>[];
     return const <Task>[
       Task(id: 't1', title: 'متابعة عميل الملقا', pri: 'مهم', body: 'أكلم فيصل بخصوص الفيلا'),
       Task(id: 't2', title: 'تحديث عرض العليا', pri: 'عادي'),
@@ -756,7 +758,7 @@ class Store extends ChangeNotifier {
   List<Chat> chats() {
     final extra = _read<List<Chat>>(_ch, <Chat>[], (j) => (j as List).map((e) => Chat.fromJson((e as Map).cast<String, Object?>())).toList());
     final ids = extra.map((c) => c.id).toSet();
-    return <Chat>[...extra, ..._seedChats.where((c) => !ids.contains(c.id))];
+    return <Chat>[...extra, if (kSimulations) ..._seedChats.where((c) => !ids.contains(c.id))];
   }
 
   Chat? chatById(String id) {
@@ -913,7 +915,7 @@ class Store extends ChangeNotifier {
     final ids = extra.map((l) => l.id).toSet();
     // A sample draft that was published lives in the public listings now.
     final published = _extraListings().map((l) => l.id).toSet();
-    _inventoryCache = <Listing>[...extra, ..._seedStock.where((s) => !ids.contains(s.id) && !published.contains(s.id))];
+    _inventoryCache = <Listing>[...extra, if (kSimulations) ..._seedStock.where((s) => !ids.contains(s.id) && !published.contains(s.id))];
     return _inventoryCache!;
   }
 
@@ -954,7 +956,9 @@ class Store extends ChangeNotifier {
   ({List<Person> followers, List<Person> following}) follows() {
     return _read<({List<Person> followers, List<Person> following})>(
       _flk,
-      (followers: List<Person>.of(_seedFollowers), following: List<Person>.of(_seedFollowers.take(8))),
+      kSimulations
+          ? (followers: List<Person>.of(_seedFollowers), following: List<Person>.of(_seedFollowers.take(8)))
+          : (followers: <Person>[], following: <Person>[]),
       (j) {
         final m = (j as Map).cast<String, Object?>();
         List<Person> list(Object? v) => (v as List? ?? const <Object?>[]).map((e) => Person.fromJson((e as Map).cast<String, Object?>())).toList();

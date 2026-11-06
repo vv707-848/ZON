@@ -12,11 +12,9 @@
 
 import 'package:flutter/foundation.dart';
 
-/// Turns the simulations of this build on or off (payments, REGA contract
-/// approval, licence issuing). Build with `--dart-define=ZON_SIMULATIONS=false`
-/// to hide them: the paths then stop at "waiting for the service" instead of
-/// pretending to complete.
-const bool kSimulations = bool.fromEnvironment('ZON_SIMULATIONS', defaultValue: true);
+import 'package:zon/core/simulations.dart';
+
+export 'package:zon/core/simulations.dart';
 
 /// Outcome of a simulated charge.
 enum PaymentStatus { paid, failed, unavailable }

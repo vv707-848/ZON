@@ -198,7 +198,7 @@ class _ListingFormState extends State<ListingForm> {
         Owner(
           id: 'o-$id',
           name: ownerName.trim().isNotEmpty ? ownerName.trim() : 'مالك',
-          phone: ownerPhone.trim().isNotEmpty ? ownerPhone.trim() : '0550000000',
+          phone: ownerPhone.trim(),
           listingTitle: title.isNotEmpty ? title : 'عرض جديد',
           listingId: id,
           notes: ownerNote.trim().isNotEmpty ? <Note>[Note(id: 'n0', kind: 'متابعة', text: ownerNote.trim())] : const <Note>[],

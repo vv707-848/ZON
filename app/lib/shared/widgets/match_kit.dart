@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:zon/core/simulations.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
@@ -63,6 +64,9 @@ const Map<String, List<(String, String)>> _huntRows = <String, List<(String, Str
 };
 const List<String> _huntMark = <String>['يفحص', 'يفكر', 'يصنّف', 'مطابق'];
 
+/// The people rows without simulations: roles, never a made-up name.
+const List<(String, String)> _huntRoles = <(String, String)>[('رغبة باحث', 'باحث'), ('عميل وسيط', 'وسيط'), ('رغبة باحث', 'باحث'), ('عميل وسيط', 'وسيط')];
+
 /// The AI "scanning…" card shown while matches are being searched.
 class Hunt extends StatefulWidget {
   const Hunt({super.key, required this.title, this.hint, this.steps = kHuntSteps, this.kind = 'listings'});
@@ -100,7 +104,7 @@ class _HuntState extends State<Hunt> {
 
   @override
   Widget build(BuildContext context) {
-    final rows = _huntRows[widget.kind] ?? _huntRows['listings']!;
+    final rows = !kSimulations && widget.kind == 'people' ? _huntRoles : _huntRows[widget.kind] ?? _huntRows['listings']!;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

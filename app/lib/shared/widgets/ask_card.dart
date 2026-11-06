@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:zon/app/external_links.dart';
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/theme/theme.dart';
@@ -433,7 +432,8 @@ class _AskFoot extends StatelessWidget {
   }
 }
 
-/// Call / chat buttons (only for signed-in users).
+/// The chat button (only for signed-in users). No call: the server never
+/// shares a request author's phone.
 class AskContact extends StatelessWidget {
   const AskContact({super.key, required this.name, required this.role, this.requestId});
 
@@ -459,8 +459,6 @@ class AskContact extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        btn(Lu.phone, () => callPhone('0550000000')),
-        const SizedBox(width: 8),
         btn(Lu.messageCircle, () {
           store.openChat(Chat(id: id, name: name, role: role, last: 'طلب مسحوب', requestId: requestId));
           Nav.go(context, '/chats/$id');
