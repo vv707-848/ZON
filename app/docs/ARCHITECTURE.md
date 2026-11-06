@@ -41,6 +41,8 @@
 | `zon_app.dart` | `MaterialApp`: الثيم، اللغة العربية واتجاه RTL، المسارات، التكبير النسبي `UiScale`، وحد تكبير الخط من إعدادات الهاتف (`kMaxTextScale` = 1.2) |
 | `router.dart` | جدول المسارات (`screenFor`)، والمساعد `Nav` (`Nav.go` / `Nav.back`)، و`RedirectTo` |
 | `external_links.dart` | فتح الخرائط والروابط والاتصال |
+| `server.dart` | `startApp()` قبل `runApp`: هوية الجهاز دائماً، وفي نسخة فيها خادم (`ZON_API_URL`): العميل، والجلسة المحفوظة، والإشعارات، وفحص البوابة عند البدء وعند كل عودة للتطبيق. ومعه فتح صفحة الإشعار المنقور (`openPushTarget`) والعودة لصفحة الدخول حين ينهي الخادم الجلسة |
+| `gate_overlay.dart` | `GateOverlay` فوق كل الصفحات: «حدّث زون للمتابعة» (426) و«زون في الصيانة» (503). الصفحات تبقى حية تحتها |
 
 ### `lib/core/` — أساسات عامة
 
@@ -51,6 +53,8 @@
 | `widgets/` | `AppButton` و`ButtonPair` (زرّان متجاوران إن اتسعت التسميتان، وإلا زر في كل سطر)، `showAppDialog`/`showAppNotice`/`showAppFrame` و`AppDialogCard`، `FieldBox`، `FormError` (رسالة خطأ النماذج)، `AsciiDigitsFormatter` (يحوّل الأرقام العربية أثناء الكتابة)، `ZonLogo`، `BackLink`، `AppImage`، `Tap`، `SarText`… كلها عبر `core/widgets/widgets.dart` |
 | `icons/` | أيقونات Lucide كمتجهات (`LucideIcon(Lu.heart)`) ومحلّل مسارات SVG |
 | `services/` | خدمات الهاتف، وكل منها متغير عام يمكن استبداله في الاختبارات: `dictation.dart` (`DictationService` و`dictation` = `SystemDictation` عبر حزمة speech_to_text)، `photo_picker.dart` (`photoPicker` عبر image_picker، و`pickPhotos` الذي تستخدمه النماذج: يفتح الاستوديو وينسخ كل صورة فورًا إلى مجلد التطبيق)، `photo_store.dart` (`PhotoStore`: مجلد الصور الدائم ومراجع `zon-photo:` — انظر «صور العروض» أدناه) |
+| `net/` | **الطريق الوحيد إلى الخادم.** `api.dart` (`kApiUrl` و`Api.client`)، `api_client.dart` (`ApiClient`: ترويسات كل طلب — المنصة والإصدار ورقم الجهاز ورقم تتبّع جديد والتوكن — وقراءة الغلاف `{success, data}` أو `{error}`)، `api_error.dart` (`ApiError` ورسالة الحقل الأولى)، `app_gate.dart` (`AppGate`: التحديث الإجباري والصيانة والنسخة الأحدث، و`compareVersions`)، `app_identity.dart` (`AppIdentity`: المنصة، إصدار المتجر، رقم التثبيت، اسم الجهاز)، `secret_store.dart` (التوكن ورقم التثبيت في keychain/keystore، لا في shared_preferences) |
+| `monitoring/` | `Monitoring`: Sentry (مشروع zon-app) بنسخة فيها `SENTRY_DSN` فقط. الخطأ برقم الحساب ورقم تتبّع الطلب، بلا محتوى ولا لقطات شاشة ولا ما كتبه المستخدم |
 | `utils/` | تنسيق الأرقام والترتيب، `input.dart` (`toAsciiDigits`، `parseUserNumber`، `normalizeSaudiMobile`)، `clock.dart` (`appNow` — ساعة يمكن تقديمها في الاختبارات)، `dates.dart` (`arDate`، `arTime`، `arDateTime`، `arRelative` بالعربية) |
 
 ### `lib/data/` — البيانات
@@ -59,7 +63,8 @@
 |---|---|
 | `models/` | النماذج: `Listing` (ومعه `ownerId` و`premiumUntil` و`urgentUntil`)، `UnitModel` (ومعه `license` و`licenseVerified` لكل وحدة)، `RequestItem` (`urgent` و`ownerId` و`createdAt`)، `LocalAccount`، `Session` (بلا كلمة سر)، `AppNotification`، `Client`، `Owner`، `Task`، `Chat`… لكل نموذج `fromJson`/`toJson` |
 | `catalog/` | أنواع العقار (`property_types.dart` — **المصدر الوحيد** للأنواع)، المدن، التسميات وصلاحيات الخدمات `kSvcRoles`، ودوال العروض (`listing_helpers.dart`، ومنها `projectIsReady`) |
-| `auth/` | `local_auth.dart` (`LocalAuth`: التسجيل، الدخول، الخروج، تعديل الملف — **محاكاة**)، `password_hash.dart` (PBKDF2-HMAC-SHA256 بملح، 12000 دورة، مقارنة ثابتة الزمن) |
+| `auth/` | `auth.dart` (`Auth`: باب الشاشات — الخادم إن وُجد، وإلا الجهاز)، `server_auth.dart` (`ServerSession` و`ServerAuth`: الدخول، التسجيل برمز SMS، الخروج، «أجهزتي»، مفاتيح الإشعارات، الاسم والمدينة)، `local_auth.dart` (`LocalAuth`: التسجيل، الدخول، الخروج، تعديل الملف — **محاكاة** حين لا خادم)، `password_hash.dart` (PBKDF2-HMAC-SHA256 بملح، 12000 دورة، مقارنة ثابتة الزمن) |
+| `push/` | `push.dart` (`Push` و`PushProvider`: الإذن مرة، ومعرّف التثبيت (FID) إلى الخادم بعد الدخول وعند كل بدء وعند تغيّره)، `firebase_push.dart` (`FirebasePush`: FCM بواجهة FID الجديدة — `register` و`onRegistered` — في نسخة فيها `ZON_PUSH`) |
 | `billing/` | `pricing.dart` (**كل الأسعار والنِّسب والأرصدة**: `Pricing`، `Plans`، `kPlanQuotas`)، `billing.dart` (`billing`: الاشتراكات، الرصيد، الخصم، سجل العمليات)، `billing_models.dart` (`BoostKind`، `Subscription`، `LedgerEntry`، `BoostQuote`، `BoostOutcome`)، `payment_simulator.dart` (**محاكاة الدفع** ومفتاح `ZON_SIMULATIONS`)، `owner_cases.dart` (`ownerCases`: خطوات باقة المالك لكل عقار) |
 | `notifications/` | `notification_center.dart` (`notifications`: القائمة، العدد غير المقروء، الإضافة بمفتاح يمنع التكرار، القراءة، والإشعارات المحسوبة من البيانات) |
 | `seed/seed_data.dart` | البيانات التجريبية التي تظهر مع بيانات المستخدم |
@@ -80,6 +85,7 @@
 | `lens.dart` | شريط الفرز والتصفية في الرئيسية والطلبات |
 | `match_kit.dart` | عناصر شاشات المطابقة |
 | `talk.dart` | عناصر المحادثات |
+| `push_banner.dart` | الإشعار الذي يصل والتطبيق مفتوح: بطاقة أعلى الشاشة خمس ثوانٍ، والنقر يفتح صفحته |
 
 ### `lib/features/` — الشاشات
 
@@ -151,12 +157,20 @@
 
 **ملكية العروض والطلبات القديمة (F01)** — `_migrateOwnership` في `store.dart`، مرة واحدة: عرض أو طلب محفوظ بلا `ownerId` يُنسب إلى الحساب المُنشأ من جلسة 1.1 على الجهاز **فقط** إذا طابق اسم كاتبه ودوره معًا اسم تلك الجلسة ودورها (الإصدار 1.1 كان يكتب اسم الجلسة الوحيدة على الجهاز). غير ذلك يُعلَّم `unclaimed: true`: يبقى منشورًا كما هو، ولا يأخذه أي حساب (ولا حساب لاحق بالاسم نفسه، ولا `saveListing`/`saveRequest`)، ويظهر في «الإعدادات» تحت «بيانات من الإصدار السابق» مع «طلب استعادة» الذي يسجّل الطلب في `zon.legacy.claims.v1` فقط. التحقق ونقل الملكية عند وجود خادم.
 
-## الحسابات والدخول (محاكاة)
+## الحسابات والدخول
 
+**مع خادم** (`ZON_API_URL`) — `ServerAuth`:
+- الدخول: `POST /auth/login` ومعه اسم الجهاز ومنصته وإصداره، فتظهر الجلسة باسمه في «أجهزتي».
+- التسجيل: `POST /auth/register` يرسل رمز SMS، و`POST /auth/otp/verify` ينشئ الحساب ويفتح الجلسة. «أعد الإرسال» في خطوة الرمز.
+- التوكن في keychain/keystore (`ServerSession`)، والحساب نفسه `Session` كما تقرؤه الشاشات (`srv-<id>`).
+- 401 في أي طلب (جلسة أنهيت من جهاز آخر أو من اللوحة، أو انتهت) يُخرج الجهاز ويعيده لصفحة الدخول.
+- الخروج يرسل معرّف Push لهذا الجهاز فيحذفه الخادم مع الجلسة. وبلا إنترنت يخرج الجهاز على أي حال.
+- رغبة الباحث في التسجيل تبقى على الجهاز إلى أن تُربط الرغبات (`POST /preferences`). وتغيير رقم الجوال (رمز إلى الرقم الجديد) لم يُربط بعد.
+
+**بلا خادم** (النموذج المعتمد) — `LocalAuth`، محاكاة:
 - `LocalAuth.signUp` يتحقق من الاسم، الجوال (صيغة سعودية قبل خطوة الرمز)، اسم المستخدم (3–32 من الحروف اللاتينية والأرقام والنقطة والشرطة، غير مستخدم)، كلمة السر (8 أحرف على الأقل)، ثم يحفظ الحساب ويفتح الجلسة.
 - `LocalAuth.signIn` يقارن الملخّص؛ الخطأ برسالة واحدة «اسم المستخدم أو كلمة السر غير صحيحة».
 - `LocalAuth.signOut` يغلق الجلسة فقط.
-- **عند الربط** يتولى الخادم: إنشاء الحساب وتخزين كلمة السر والتحقق منها، رمز SMS، التحقق من رخصة فال، رموز الجلسة. استبدل أجسام دوال `LocalAuth`؛ الشاشات لا تتغير.
 
 ## الفوترة والأرصدة (`data/billing`)
 
@@ -198,7 +212,9 @@
 - كل إشعار يحفظ: المعرّف، النوع (`NoteKind`)، العنوان، السطر التوضيحي، الوجهة، الوقت، حالة القراءة، ومفتاحًا يمنع التكرار، و`demo` للصفوف التجريبية.
 - المصادر في هذه النسخة: أحداث التطبيق (نفاد رصيد، تفعيل باقة المالك)، وحالات محسوبة من البيانات (عروض مطابقة للرغبة للباحث والمطوّر، طلبات جديدة في مدينة الوسيط من حسابات أخرى، انتهاء تمييز عرض).
 - الوجهات: المطابقة ← `/account/matching`، الرسالة ← المحادثة، العرض أو المشروع ← صفحته، الطلب ← تفاصيله، الاشتراك أو الرصيد ← الباقة أو الخدمة. العنصر المحذوف يُظهر «لم يعد هذا العنصر متاحًا» بدل صفحة مكسورة.
-- نوع «رسالة جديدة» جاهز للخادم، ولا تنتجه النسخة الحالية (لا رسائل واردة حقيقية)؛ أداة الصور تضيف صفًا تجريبيًا معلَّمًا `demo`. **لا يوجد إرسال Push** من خادم أو APNs/FCM.
+- نوع «رسالة جديدة» جاهز للخادم، ولا تنتجه النسخة الحالية (لا رسائل واردة حقيقية)؛ أداة الصور تضيف صفًا تجريبيًا معلَّمًا `demo`.
+- **Push** (`data/push`، نسخة فيها خادم و`ZON_PUSH`): الإذن يُطلب مرة بعد الدخول، ومعرّف التثبيت (Firebase Installation ID — رموز التسجيل القديمة مهملة) يذهب للخادم مربوطاً بجلسة الجهاز. النقر على إشعار يفتح وجهته، والإشعار والتطبيق مفتوح بطاقة أعلى الشاشة. الجرس نفسه ما زال محلياً حتى تُربط الإشعارات (`GET /notifications`).
+- **مفاتيح الإشعارات** في الإعدادات سبعة: الستة مفعّلة حتى تُطفأ، و«العروض والتسويق» مطفأ حتى يفعّله صاحب الحساب. مع خادم تُحفظ فيه (`PUT /me/notification-preferences`)، ويعود المفتاح لحاله إن لم يُحفظ.
 
 ## خدمات الهاتف (`core/services`)
 
@@ -278,17 +294,39 @@
 
 ## ربط خادم (backend)
 
-الواجهات تعتمد على أسماء الدوال فقط. عند الربط تتغير أجسام هذه الأصناف، ويصبح **الخادم مصدر الحقيقة** للاستحقاق والخصم والتحقق:
+النسخة التي فيها خادم تُبنى بـ `--dart-define=ZON_API_URL=https://api.zon.sa/api/v1`، وبدونه يبقى التطبيق النموذج المعتمد كما هو. الربط شريحة بعد شريحة، وكل نداء يمر بـ `ApiClient` (`core/net`)، فيحمل كل طلب المنصة والإصدار ويعمل عليه التحديث الإجباري.
+
+**الشريحة الأولى — الحساب والجهاز (مربوطة):**
+
+| ما رُبط | الملفات | الواجهة |
+|---|---|---|
+| التحديث الإجباري والصيانة والنسخة الأحدث | `core/net/app_gate.dart` · `app/gate_overlay.dart` · `app/server.dart` | `GET /app/config` عند البدء وعند العودة، و426/503 من أي طلب |
+| الدخول والتسجيل والخروج | `data/auth/server_auth.dart` · `features/auth/login_screen.dart` | `/auth/login` · `/auth/register` · `/auth/otp/verify` · `/auth/otp/resend` · `/auth/logout` |
+| «أجهزتي» | `features/account/services/devices_view.dart` | `GET /me/sessions` · `DELETE /me/sessions/{id}` |
+| Push | `data/push/` · `shared/widgets/push_banner.dart` | `POST /me/devices` |
+| مفاتيح الإشعارات، والاسم والمدينة | `features/account/services/settings_view.dart` | `PUT /me/notification-preferences` · `PATCH /me` · `GET /me` |
+| تتبّع الأخطاء | `core/monitoring/monitoring.dart` | Sentry، بلا خادم زون |
+
+**مفاتيح البناء:**
+
+| المفتاح | ما يفعله |
+|---|---|
+| `ZON_API_URL` | عنوان الخادم. فارغ = النموذج المحلي |
+| `SENTRY_DSN` · `SENTRY_ENVIRONMENT` | تتبّع الأخطاء (مشروع zon-app). فارغ = لا يُرسل شيء |
+| `ZON_PUSH=true` | الإشعارات، مع ملفي Firebase (`docs/integrations.md` في المستودع: «الإشعارات — Firebase») |
+| `ZON_SIMULATIONS=false` | لا محاكاة دفع ولا موافقة عقد ولا رقم ترخيص |
+
+**الشرائح التالية:** الواجهات تعتمد على أسماء الدوال فقط. عند الربط تتغير أجسام هذه الأصناف، ويصبح **الخادم مصدر الحقيقة** للاستحقاق والخصم والتحقق:
 
 | الصنف | الملف | ما ينتقل للخادم |
 |---|---|---|
 | `Store` | `data/store.dart` | العروض والطلبات وملكيتها (`ownerId` يصبح من الخادم)، البيانات الخاصة بكل حساب، طلبات استعادة بيانات 1.1 |
 | `PhotoStore` | `core/services/photo_store.dart` | رفع الصور وحفظ مراجعها الدائمة بعد اكتمال الرفع |
-| `LocalAuth` | `data/auth/local_auth.dart` | الحسابات، كلمات السر، رمز SMS، رخصة فال، الجلسة |
+| `LocalAuth` | `data/auth/local_auth.dart` | ما بقي: رغبة التسجيل (`POST /preferences`)، وتغيير الجوال برمز (`POST /me/phone`)، ونسيان كلمة السر |
 | `Billing` | `data/billing/billing.dart` | الباقات والأسعار (جدول `packages`)، الاستحقاق، عدّادات الرصيد، تسجيل الخصم |
 | `PaymentSimulator` | `data/billing/payment_simulator.dart` | بوابة الدفع والتحقق من الدفعة، ومطابقة العمليات المعلّقة (`PaymentRecord`) |
 | `OwnerCases` | `data/billing/owner_cases.dart` | عقد الوساطة وموافقته (الهيئة عبر نفاذ)، رسوم الترخيص وإصداره |
-| `NotificationCenter` | `data/notifications/notification_center.dart` | إنشاء الإشعارات وإرسال Push (APNs/FCM) |
+| `NotificationCenter` | `data/notifications/notification_center.dart` | الجرس من الخادم (`GET /notifications` · `POST /notifications/read`). الإرسال Push نفسه مربوط |
 | `licenceFormatOk` | `features/add/add_helpers.dart` | التحقق من رقم الترخيص الإعلاني لكل وحدة لدى الهيئة |
 | `polishCopy` | `features/add/add_helpers.dart` | خدمة صياغة الذكاء الاصطناعي |
 

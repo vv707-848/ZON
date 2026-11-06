@@ -28,7 +28,7 @@
 | الجدول | النموذج | ما يحفظه |
 |---|---|---|
 | `customers` | `Customer` | مستخدمو التطبيق بأدوارهم الأربعة: الحالة، فال، نفاذ، `notification_prefs`، بصمات التسجيل المجزّأة، `is_tester` (حساب مراجعة معزول: يعبر الصيانة، ولا يصل شيء منه للمستخدمين؛ يُصنع من اللوحة فقط)، `store_token` (يرفقه التطبيق بمشترياته من المتجر) |
-| `customer_devices` | `CustomerDevice` | أجهزة الحساب ورموز Push وآخر ظهور؛ `access_token_id` يربط الجهاز بجلسته، فإنهاء الجلسة يحذف تسجيله (لا Push لجوال خرج من الحساب) |
+| `customer_devices` | `CustomerDevice` | أجهزة الحساب ومعرّف Push لكل جهاز (`push_token`: معرّف التثبيت FID من Firebase) وآخر ظهور؛ `access_token_id` يربط الجهاز بجلسته، فإنهاء الجلسة يحذف تسجيله (لا Push لجوال خرج من الحساب)، ولكل جلسة معرّف واحد |
 | `personal_access_tokens` | Sanctum | رموز الدخول (90 يوماً، والمنتهي يُحذف يومياً 03:15) |
 | `buyer_preferences` | `BuyerPreference` | رغبات الباحث؛ `share_in_reports` يحدد دخولها في تقارير السوق |
 | `deletion_requests` | `DeletionRequest` | طلب الحذف ومهلته و`hidden_items` لإرجاع المحتوى عند الإلغاء |

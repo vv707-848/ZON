@@ -7,6 +7,8 @@ analyzer:
     - build/**
     # the screenshot harness is a separate tool package (see its README)
     - tool/**
+    - android/**
+    - ios/**
   language:
     strict-raw-types: true
 

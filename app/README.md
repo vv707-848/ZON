@@ -25,12 +25,15 @@
 
 ```bash
 flutter pub get
-flutter run
+flutter run                                                           # النموذج المعتمد: بلا خادم
+flutter run --dart-define=ZON_API_URL=http://10.0.2.2:8000/api/v1     # مع الخادم (محاكي أندرويد ← الخادم على جهازك)
 ```
+
+مفاتيح البناء كلها في `docs/ARCHITECTURE.md` ← «ربط خادم»: `ZON_API_URL` و`SENTRY_DSN` و`ZON_PUSH` و`ZON_SIMULATIONS`.
 
 ### حسابات التجربة
 
-لا يوجد خادم بعد؛ التسجيل والدخول **محاكاة محلية** على الجهاز (التفاصيل في `docs/ARCHITECTURE.md`):
+بلا `ZON_API_URL` التسجيل والدخول **محاكاة محلية** على الجهاز (التفاصيل في `docs/ARCHITECTURE.md`). مع الخادم يُرسل الرمز برسالة SMS، وفي خادم التطوير (`SMS_DRIVER=fake` و`OTP_TEST_CODE`) يقبل الرمز الثابت نفسه:
 
 - أنشئ حسابًا من «حساب جديد». رمز التحقق من الجوال في هذه النسخة ثابت: **204815** (`kTestOtp` في `lib/data/auth/local_auth.dart`) — لا تُرسل رسالة SMS.
 - كلمة السر لا تُحفظ نصًا؛ يُحفظ ملخّصها (PBKDF2) فقط. الخروج يغلق الجلسة ويُبقي الحساب، فيعمل الدخول بالبيانات نفسها لاحقًا.
@@ -93,7 +96,7 @@ flutter analyze          # يجب أن تكون النتيجة: No issues found!
 flutter run --dart-define=ZON_SIMULATIONS=false
 ```
 
-لا توجد في هذه النسخة بوابة دفع، ولا ربط بالهيئة العامة للعقار أو نفاذ أو مزوّد SMS، ولا إشعارات Push من خادم.
+بلا خادم لا توجد بوابة دفع، ولا ربط بالهيئة العامة للعقار أو نفاذ أو مزوّد SMS، ولا إشعارات Push. مع الخادم: الحساب والجلسات والإشعارات وتتبّع الأخطاء مربوطة، والباقي شريحة بعد شريحة (`docs/ARCHITECTURE.md` ← «ربط خادم»).
 
 ## بناء نسخ المتاجر
 
@@ -115,6 +118,14 @@ flutter build ipa --release
    - iOS: اختر فريق التطوير (Team) في Xcode.
 3. **رقم الإصدار**: السطر `version: 1.2.1+4` في `pubspec.yaml` (الرقم بعد `+` يزيد مع كل رفع).
 4. **المحاكاة**: ابنِ نسخة المتجر بـ `--dart-define=ZON_SIMULATIONS=false` إلى أن تُربط الخدمات الحقيقية.
+5. **الخادم والأخطاء والإشعارات** (حين تُربط كل الشرائح):
+   ```bash
+   flutter build appbundle --release \
+     --dart-define=ZON_API_URL=https://api.zon.sa/api/v1 \
+     --dart-define=SENTRY_DSN=<DSN مشروع zon-app> \
+     --dart-define=ZON_PUSH=true --dart-define=ZON_SIMULATIONS=false
+   ```
+   `ZON_PUSH` يحتاج ملفي Firebase: `android/app/google-services.json` و`ios/Runner/GoogleService-Info.plist` (`flutterfire configure` يضعهما)، ومفتاح APNs في مشروع Firebase، وقدرة Push Notifications في توقيع iOS (`ios/Runner/Runner.entitlements`).
 
 ## الاسم والشعار والأيقونات
 
@@ -136,6 +147,7 @@ flutter build ipa --release
 - الميكروفون والتعرّف على الكلام: كتابة الوصف بالصوت في البحث الدلالي (العروض والطلبات) ومساعد المطابقة، عبر خدمة الإملاء في نظام الهاتف. يعتمد العمل دون إنترنت على دعم الهاتف واللغة.
 - الكاميرا ومكتبة الصور: صور العقار والمشروع والوحدات، وتعديل صور العرض المنشور، وإرفاق صورة في المحادثة.
 - فتح الروابط الخارجية والاتصال الهاتفي: الخريطة، وصفحة الهيئة، وزر الاتصال بالمعلن.
+- الإشعارات (نسخة فيها `ZON_PUSH`): يُطلب الإذن مرة بعد الدخول. «العروض والتسويق» لا يصل للجوال إلا بموافقة صريحة من الإعدادات.
 
 ## بنية المشروع باختصار
 

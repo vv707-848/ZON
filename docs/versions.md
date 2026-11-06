@@ -68,6 +68,10 @@
 |---|---|---|---|
 | Flutter / Dart | 3.47.9 / 3.13.7 | نفسها (29 أكتوبر 2026) | مثبّت في `.github/workflows/app.yml` |
 | الحزم المباشرة | — | — | كلها آخر إصدار (`flutter pub outdated`) |
+| http · flutter_secure_storage | 1.6.0 · 11.2.0 | نفسها (5 نوفمبر 2026) | الخادم (`lib/core/net`)، والتوكن في keychain/keystore |
+| package_info_plus · device_info_plus | 10.2.2 · 13.3.0 | نفسها | إصدار المتجر (X-App-Version)، واسم الجهاز في «أجهزتي» |
+| sentry_flutter | 10.3.0 | نفسه | تتبّع الأخطاء، بنسخة فيها `SENTRY_DSN` |
+| firebase_core · firebase_messaging | 5.1.0 · 17.0.1 | نفسها | الإشعارات، بنسخة فيها `ZON_PUSH` وملفا Firebase |
 | حزم غير مباشرة | — | — | ثلاث حزم مثبّتة بالـ SDK أو بإضافة: `cross_file` و`material_color_utilities` و`test_api` |
 
 `pubspec.lock` محفوظ في المستودع: التطبيق يُبنى بالحزم نفسها في كل مرة.

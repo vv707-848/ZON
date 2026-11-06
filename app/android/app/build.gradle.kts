@@ -4,6 +4,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Push (Firebase): google-services.json comes from the Firebase project (docs/integrations.md «الإشعارات —
+// Firebase»). Without it the app builds and runs without push.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.zon.app"
     compileSdk = flutter.compileSdkVersion
@@ -19,7 +25,8 @@ android {
         applicationId = "com.zon.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Android 8.0 or newer: Sentry's Android SDK (sentry_flutter 10) needs it; Flutter's default is 24.
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)

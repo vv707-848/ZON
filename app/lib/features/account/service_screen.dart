@@ -10,6 +10,7 @@ import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/clients_view.dart';
+import 'package:zon/features/account/services/devices_view.dart';
 import 'package:zon/features/account/services/inventory_view.dart';
 import 'package:zon/features/account/services/matching_view.dart';
 import 'package:zon/features/account/services/my_listings_view.dart';
@@ -34,6 +35,7 @@ const Map<String, String> _titles = <String, String>{
   'plans': 'الاشتراكات',
   'people': 'المتابعون',
   'notifications': 'الإشعارات',
+  'devices': 'أجهزتي',
 };
 
 const Set<String> _full = <String>{
@@ -102,6 +104,8 @@ class ServiceScreen extends StatelessWidget {
         content = const TasksView();
       case 'settings':
         content = const SettingsView();
+      case 'devices':
+        content = const DevicesView();
       case 'plans':
         content = const PlansView();
       case 'people':
@@ -120,7 +124,7 @@ class ServiceScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             if (!full) ...<Widget>[
-              BackLink(onTap: () => Nav.go(context, '/account')),
+              BackLink(onTap: () => Nav.go(context, svc == 'devices' ? '/account/settings' : '/account')),
               const SizedBox(height: 12),
               Tx(title, style: ts(20, w: 700, lh: 28, c: AppColors.ink)),
               const SizedBox(height: 16),

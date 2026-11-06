@@ -1,5 +1,5 @@
-# The Flutter app: format, analysis (0 issues), tests — on every push that touches it. The SDK is pinned to
-# the latest stable at the last audit (docs/versions.md); the run prints its exact version.
+# The Flutter app: format, analysis (0 issues), tests, and an Android build — on every push that touches it. The
+# SDK is pinned to the latest stable at the last audit (docs/versions.md); the run prints its exact version.
 name: App
 
 on:
@@ -22,10 +22,6 @@ concurrency:
 permissions:
   contents: read
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   app:
     name: App · Flutter stable
@@ -33,6 +29,9 @@ jobs:
     timeout-minutes: 25
     defaults:
       run:
+        # bash -eo pipefail: a failing command before `| tee` fails its step. The workflow-level default does not
+        # reach a job with its own defaults.run — without this line the tests could fail and the run stay green.
+        shell: bash
         working-directory: app
     steps:
       - uses: actions/checkout@v7
@@ -98,3 +97,43 @@ jobs:
           name: app-pubspec-lock
           path: app/pubspec.lock
           retention-days: 7
+
+  # The Gradle side the tests cannot see: SDK levels, merged manifests, plugin versions, Kotlin. A debug APK,
+  # without the Firebase files (the app then builds without push). It found minSdk 26 for Sentry's Android SDK.
+  android:
+    name: App · Android build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+          cache-dependency-path: |
+            app/android/*.gradle.kts
+            app/android/app/*.gradle.kts
+            app/android/gradle/wrapper/gradle-wrapper.properties
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.9
+          channel: stable
+          cache: true
+
+      - name: Packages
+        run: flutter pub get
+
+      - name: Debug APK
+        id: build
+        run: flutter build apk --debug 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      - name: Explain a build failure
+        if: failure() && steps.build.outcome == 'failure'
+        run: ../.github/scripts/annotate.sh error "Android build" "$RUNNER_TEMP/build.log" 80

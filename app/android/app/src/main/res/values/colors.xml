@@ -2,4 +2,6 @@
 <resources>
     <!-- Background of the adaptive launcher icon: the logo's green. -->
     <color name="ic_launcher_background">#173124</color>
+    <!-- A notification's accent (AndroidManifest: default_notification_color). -->
+    <color name="notification">#173124</color>
 </resources>
