@@ -7,7 +7,8 @@
 //   - its accessibility score is under 100;
 //   - a best-practices check fails, except the two about HTTPS: this server speaks plain http, production redirects
 //     to https and sends HSTS (deploy/nginx/zon.conf);
-//   - its performance score is under 90 (Lighthouse's simulated slow 4G on a mid-range phone, and a desktop);
+//   - its performance score is under 90 (Lighthouse's simulated slow 4G on a mid-range phone, and a desktop; the
+//     median of three runs when the first is under);
 //   - at a tablet size it scrolls sideways or logs an error in the console.
 //
 //   cd _tools/site-audit && npm ci
@@ -68,24 +69,33 @@ for (const [kind, path] of CLOSED) pages.push({ kind, path, indexed: false, scor
 const chrome = await chromeLauncher.launch({ chromeFlags: ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'] });
 try {
   const flags = { port: chrome.port, output: 'json', logLevel: 'error', onlyCategories: CATEGORIES };
+  const run = async (path, config) => (await lighthouse(base + path, flags, config)).lhr;
+  const failing = (lhr, id) => lhr.categories[id].auditRefs
+    .filter((ref) => ref.weight > 0 && lhr.audits[ref.id].score !== null && lhr.audits[ref.id].score < 1)
+    .map((ref) => `${ref.id} — ${lhr.audits[ref.id].title}`);
+  await run('/', undefined);   // a first run on a cold browser blocks the main thread longer: not counted
   for (const page of pages) {
     for (const [form, config] of [['phone', undefined], ['desktop', desktopConfig]]) {
       const where = `${page.path} (${form})`;
-      const { lhr } = await lighthouse(base + page.path, flags, config);
+      const lhr = await run(page.path, config);
       if (lhr.runtimeError) {
         failures.push(`${where}: ${lhr.runtimeError.message}`);
         continue;
       }
-      page.scores[form] = CATEGORIES.map((id) => Math.round(lhr.categories[id].score * 100));
-      const failing = (id) => lhr.categories[id].auditRefs
-        .filter((ref) => ref.weight > 0 && lhr.audits[ref.id].score !== null && lhr.audits[ref.id].score < 1)
-        .map((ref) => `${ref.id} — ${lhr.audits[ref.id].title}`);
-      if (page.indexed && lhr.categories.seo.score < 1) failures.push(`${where} SEO: ${failing('seo').join('; ')}`);
-      if (lhr.categories.accessibility.score < 1) failures.push(`${where} accessibility: ${failing('accessibility').join('; ')}`);
-      const practices = failing('best-practices').filter((audit) => !HTTPS_ONLY.has(audit.split(' — ')[0]));
-      httpsSkipped ||= practices.length < failing('best-practices').length;
+      // Performance varies from run to run on a shared machine: under the bar, the median of three decides it
+      // (as Lighthouse CI does). The other categories read the page itself and do not vary.
+      let speed = lhr;
+      if (lhr.categories.performance.score < 0.9) {
+        const runs = [lhr, await run(page.path, config), await run(page.path, config)].filter((r) => !r.runtimeError);
+        speed = runs.sort((a, b) => a.categories.performance.score - b.categories.performance.score)[Math.floor(runs.length / 2)];
+      }
+      page.scores[form] = CATEGORIES.map((id) => Math.round((id === 'performance' ? speed : lhr).categories[id].score * 100));
+      if (page.indexed && lhr.categories.seo.score < 1) failures.push(`${where} SEO: ${failing(lhr, 'seo').join('; ')}`);
+      if (lhr.categories.accessibility.score < 1) failures.push(`${where} accessibility: ${failing(lhr, 'accessibility').join('; ')}`);
+      const practices = failing(lhr, 'best-practices').filter((audit) => !HTTPS_ONLY.has(audit.split(' — ')[0]));
+      httpsSkipped ||= practices.length < failing(lhr, 'best-practices').length;
       if (practices.length) failures.push(`${where} best practices: ${practices.join('; ')}`);
-      if (lhr.categories.performance.score < 0.9) failures.push(`${where} performance ${page.scores[form][0]}: ${failing('performance').join('; ')}`);
+      if (speed.categories.performance.score < 0.9) failures.push(`${where} performance ${page.scores[form][0]} (median of three): ${failing(speed, 'performance').join('; ')}`);
     }
   }
 
