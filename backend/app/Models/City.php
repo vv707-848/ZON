@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Enums\Region;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
 
-/** A city offered in the app's filters and forms (the app's kCities, now edited from the panel). */
+/**
+ * A city offered in the app's filters and forms (the app's kCities, now edited from the panel). Its region is for the
+ * market map alone, and stays out of the app's catalog.
+ */
 class City extends Model
 {
     public const CACHE_KEY = 'zon.cities';
@@ -15,7 +19,7 @@ class City extends Model
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return ['is_active' => 'boolean', 'region' => Region::class];
     }
 
     protected static function booted(): void

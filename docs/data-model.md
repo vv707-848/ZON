@@ -120,14 +120,14 @@
 | `model_evaluations` | `ModelEvaluation` | مختبر النماذج: جولة قياس لكل تقرير يُرفع (ملف النموذج، البطاقة، مجموعة الأسئلة ببصمتها، درجة كل وكيل، والتقرير كاملاً بأجوبته) |
 | `activity_log` | spatie | سجل التدقيق لكل إجراء موظف واطلاع حساس، مع `trace_id` |
 | `settings` | `SettingValue` | ما غيّرته اللوحة من القيم التجارية؛ الافتراضي في `App\Support\Settings\Setting` |
-| `cities` · `neighborhoods` | `City` · `Neighborhood` | المرجع الجغرافي |
+| `cities` · `neighborhoods` | `City` · `Neighborhood` | المرجع الجغرافي. و`cities.region` المنطقة الإدارية (رمز ISO 3166-2، `App\Enums\Region`) لخريطة السوق وحدها، لا تصل التطبيق |
 | `app_configs` · `legal_pages` | `AppConfig` · `LegalPage` | الإصدار الأدنى والصيانة ورابط المتجر لكل منصة (فارغ حتى يُنشر التطبيق فيه). ونصوص السياسات بأرقام نسخها، وكل سياسة مسودة (`published_at` فارغ) حتى يحفظها صاحبها أول مرة |
 
 ## مشاهد التقارير `ai_v_*`
 
 13 مشهداً يقرؤها حساب `ai_reader` وحده (`deploy/mysql/ai_reader.sql`)، ولا يرى أي جدول:
 
-- **المشاهد:** `ai_v_listings` · `ai_v_listing_history` · `ai_v_requests` · `ai_v_projects` · `ai_v_project_units` · `ai_v_customers` · `ai_v_subscriptions` · `ai_v_payments` · `ai_v_search_misses` · `ai_v_search_feedback` · `ai_v_ai_requests` · `ai_v_daily_area_stats` · `ai_v_preferences` · `ai_v_crm_clients` · `ai_v_crm_notes`.
+- **المشاهد:** `ai_v_listings` · `ai_v_listing_history` · `ai_v_requests` · `ai_v_projects` · `ai_v_project_units` · `ai_v_customers` · `ai_v_subscriptions` · `ai_v_payments` · `ai_v_search_misses` · `ai_v_search_feedback` · `ai_v_ai_requests` · `ai_v_daily_area_stats` (ومعها منطقة المدينة) · `ai_v_preferences` · `ai_v_crm_clients` · `ai_v_crm_notes`.
 - **ما لا تحمله:** لا اسم، ولا جوال، ولا بريد، ولا نص حر لشخص. سبب «غير مطابق» مثلاً يظهر في المشهد بوجوده فقط (`has_reason`)، ونصه للموظفين في اللوحة.
 - **الرغبات:** `ai_v_preferences` تضم الرغبات التي وافق أصحابها على مشاركتها فقط.
 - **إضافة مشهد:** تتطلب ثلاث خطوات معاً:

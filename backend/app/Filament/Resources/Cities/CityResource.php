@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Cities;
 
+use App\Enums\Region;
 use App\Filament\Concerns\AuthorizesByPermission;
 use App\Filament\NavigationGroup;
 use App\Filament\Resources\Cities\Pages\CreateCity;
@@ -12,6 +13,7 @@ use App\Models\City;
 use App\Support\Permissions\Permission;
 use BackedEnum;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -48,6 +50,8 @@ class CityResource extends Resource
     {
         return $schema->components([
             TextInput::make('name')->label('المدينة')->required()->maxLength(80)->unique(ignoreRecord: true),
+            Select::make('region')->label('المنطقة الإدارية')->options(Region::options())->required()
+                ->helperText('للوحة السوق وحدها: لا تظهر في التطبيق.'),
             TextInput::make('sort')->label('الترتيب')->integer()->default(0),
             Toggle::make('is_active')->label('ظاهرة في التطبيق')->default(true),
         ]);
@@ -59,6 +63,7 @@ class CityResource extends Resource
             ->modifyQueryUsing(fn ($query) => $query->withCount('neighborhoods'))
             ->columns([
                 TextColumn::make('name')->label('المدينة'),
+                TextColumn::make('region')->label('المنطقة')->formatStateUsing(fn (Region $state) => $state->label())->placeholder('—'),
                 TextColumn::make('neighborhoods_count')->label('الأحياء'),
                 IconColumn::make('is_active')->label('ظاهرة')->boolean(),
             ])

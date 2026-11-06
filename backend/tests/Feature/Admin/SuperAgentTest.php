@@ -253,7 +253,7 @@ class SuperAgentTest extends AdminTestCase
         Settings::put(Setting::SuperAgentDailyCap, 100);
 
         foreach (Catalog::all() as $name => $template) {
-            $params = array_filter(['city' => 'الرياض', 'property_type' => 'apartment'], fn ($v, $k) => isset($template->params()[$k]), ARRAY_FILTER_USE_BOTH);
+            $params = array_filter(['city' => 'الرياض', 'property_type' => 'apartment', 'region' => 'منطقة الرياض'], fn ($v, $k) => isset($template->params()[$k]), ARRAY_FILTER_USE_BOTH);
             $report = app(SuperAgent::class)->manual($staff, $template, $params, $template->title(), analyse: false);
             $this->assertSame('ok', $report->parts[0]['status'], "{$name} failed to run");
         }

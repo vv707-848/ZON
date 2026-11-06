@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Region;
 use App\Models\AppConfig;
 use App\Models\City;
 use App\Models\LegalPage;
@@ -17,6 +18,9 @@ class ReferenceSeeder extends Seeder
      * keeps the app in this repository above it.
      */
     public const FIRST_APP_VERSION = '1.2.1';
+
+    /** Each city's administrative region (the market map; not in the app). */
+    private const REGIONS = ['الرياض' => Region::Riyadh, 'جدة' => Region::Makkah, 'الدمام' => Region::Eastern, 'الخبر' => Region::Eastern];
 
     /** The app's kCities (lib/data/catalog/cities.dart). */
     private const CITIES = [
@@ -52,7 +56,7 @@ class ReferenceSeeder extends Seeder
     {
         $sort = 0;
         foreach (self::CITIES as $name => $neighborhoods) {
-            $city = City::query()->firstOrCreate(['name' => $name], ['sort' => $sort++]);
+            $city = City::query()->firstOrCreate(['name' => $name], ['sort' => $sort++, 'region' => self::REGIONS[$name]]);
             foreach ($neighborhoods as $neighborhood) {
                 $city->neighborhoods()->firstOrCreate(['name' => $neighborhood]);
             }
