@@ -403,5 +403,77 @@
                 "default": 20
             }
         }
+    },
+    {
+        "report": "region_demand_supply",
+        "description": "لكل منطقة إدارية: طلبات الفترة مقابل متوسط العروض المنشورة يومياً، والطلب لكل عرض (فوق 1: الطلب أكثر من العرض). للمقارنة بين المناطق.",
+        "params": {
+            "property_type": {
+                "type": "string",
+                "enum": [
+                    "apartment",
+                    "studio",
+                    "floor",
+                    "villa",
+                    "house",
+                    "resthouse",
+                    "land",
+                    "building",
+                    "shop",
+                    "office"
+                ]
+            },
+            "days": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 365,
+                "default": 30
+            }
+        }
+    },
+    {
+        "report": "city_demand_supply",
+        "description": "لكل مدينة في منطقة إدارية: طلبات الفترة مقابل متوسط العروض المنشورة يومياً، والطلب لكل عرض (فوق 1: الطلب أكثر من العرض).",
+        "params": {
+            "region": {
+                "type": "string",
+                "enum": [
+                    "منطقة الرياض",
+                    "منطقة مكة المكرمة",
+                    "منطقة المدينة المنورة",
+                    "المنطقة الشرقية",
+                    "منطقة القصيم",
+                    "منطقة حائل",
+                    "منطقة تبوك",
+                    "منطقة الحدود الشمالية",
+                    "منطقة جازان",
+                    "منطقة نجران",
+                    "منطقة الباحة",
+                    "منطقة الجوف",
+                    "منطقة عسير"
+                ]
+            },
+            "property_type": {
+                "type": "string",
+                "enum": [
+                    "apartment",
+                    "studio",
+                    "floor",
+                    "villa",
+                    "house",
+                    "resthouse",
+                    "land",
+                    "building",
+                    "shop",
+                    "office"
+                ]
+            },
+            "days": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 365,
+                "default": 30
+            }
+        }
     }
 ]

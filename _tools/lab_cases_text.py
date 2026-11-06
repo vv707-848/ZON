@@ -753,6 +753,13 @@ _SELECT: list[tuple[str, str, str | list[str], dict[str, Any]]] = [
     ("select-028", "وش نسبة غير مطابق في جدة الشهر الماضي؟", "rejection_reasons", {"city": "جدة", "days": 30}),
     ("select-029", "كم مشترك جديد هالأسبوع؟", "subscriptions_summary", {"days": 7}),
     ("select-030", "كم الإيرادات آخر 90 يوم؟", "revenue_summary", {"days": 90}),
+    ("select-037", "وين الطلب أعلى من العرض على مستوى المناطق آخر 3 شهور؟", "region_demand_supply", {"days": 90}),
+    (
+        "select-038",
+        "قارن مدن المنطقة الشرقية في الطلب والعرض على الفلل",
+        "city_demand_supply",
+        {"region": "المنطقة الشرقية", "property_type": "villa"},
+    ),
 ]
 
 _SEVERAL: list[tuple[str, str, list[tuple[str | list[str], dict[str, Any]]], str]] = [
@@ -1088,9 +1095,10 @@ _EXPLORE: list[
             "subscriptions_summary",
             "matching_performance",
             "broker_activity",
+            "region_demand_supply",
         ],
         {},
-        "بلا تركيز: نظرة على المنصة كلها، لا تقرير حي بعينه",
+        "بلا تركيز: نظرة على المنصة كلها (أو على المناطق)، لا تقرير حي بعينه",
     ),
     (
         "explore-003",

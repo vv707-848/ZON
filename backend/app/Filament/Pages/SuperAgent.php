@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\NoteCategory;
 use App\Enums\PropertyType;
+use App\Enums\Region;
 use App\Filament\NavigationGroup;
 use App\Filament\Support\ReportView;
 use App\Filament\Support\Staff;
@@ -86,6 +87,8 @@ class SuperAgent extends Page
                     ->visible(fn (Get $get) => $this->uses($get('template'), 'city')),
                 Select::make('neighborhood')->label('الحي')->options(fn (Get $get) => self::neighborhoods($get('city')))
                     ->visible(fn (Get $get) => $this->uses($get('template'), 'neighborhood')),
+                Select::make('region')->label('المنطقة')->options(array_combine($regions = array_map(fn (Region $r) => $r->label(), Region::cases()), $regions))
+                    ->visible(fn (Get $get) => $this->uses($get('template'), 'region')),
                 Select::make('property_type')->label('النوع')->options(PropertyType::options())->visible(fn (Get $get) => $this->uses($get('template'), 'property_type')),
                 TextInput::make('days')->label('الأيام')->integer()->minValue(1)->maxValue(365)->visible(fn (Get $get) => $this->uses($get('template'), 'days')),
                 TextInput::make('months')->label('الأشهر')->integer()->minValue(1)->maxValue(24)->visible(fn (Get $get) => $this->uses($get('template'), 'months')),
