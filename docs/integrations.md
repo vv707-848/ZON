@@ -101,21 +101,29 @@
 7. التحقق بحساب مراجعة: شراء تجربة من TestFlight وحساب sandbox، ومن Google Play بحساب مختبِر ترخيص. ثم ظهوره في «المدفوعات»، وتجديده، واسترداده.
 
 ### الإشعارات — Firebase
-1. مشروع Firebase يضم تطبيقي iOS (مع مفتاح APNs) وAndroid.
+1. مشروع Firebase يضم تطبيقي iOS وAndroid بالمعرّف `com.zon.app`:
+   - **مفتاح APNs** (ملف ‎.p8 من حساب آبل للمطورين) في إعدادات المشروع ← Cloud Messaging. بدونه لا يصل شيء لآيفون.
+   - **ملفا الإعداد في التطبيق:** `flutterfire configure --project=<المشروع>` من مجلد `app/`، أو تنزيلهما من لوحة Firebase: `android/app/google-services.json` و`ios/Runner/GoogleService-Info.plist` (يُضاف للـ Runner في Xcode). حين يوجد الأول يطبّق أندرويد إضافة google-services وحده (`android/app/build.gradle.kts`).
+   - **البناء:** `--dart-define=ZON_PUSH=true`. بدونه، أو بدون الملفين، يعمل التطبيق بلا Push ولا شيء آخر يتغير.
+   - **iOS:** قدرة Push Notifications في التوقيع (`ios/Runner/Runner.entitlements`: `aps-environment`)، وRemote notifications في الخلفية (`Info.plist`).
+   - **أندرويد:** الأيقونة الصغيرة `drawable/ic_stat_zon` (حرف Z بالأبيض)، ولونها، وقناة «إشعارات زون» التي ينشئها `MainActivity`.
 2. حساب خدمة بصلاحية Firebase Cloud Messaging، وملف JSON في `/etc/zon/fcm-service-account.json` بقراءة لمستخدم التطبيق فقط.
 3. في `.env`:
    - `PUSH_DRIVER=fcm`
    - `FCM_PROJECT_ID=…`
    - `FCM_CREDENTIALS=/etc/zon/fcm-service-account.json`
-4. **الرموز عندنا لا عند Firebase** — الطريقة التي يوصي بها Firebase، **بلا Device Groups** التي تتوقف بعد 29 سبتمبر 2027 ([Firebase](https://firebase.google.com/docs/cloud-messaging/migrate-off-device-groups)):
-   - كل جوال مسجّل الدخول له سطر في `customer_devices`: رمزه ومنصته وإصداره ووقت آخر تسجيل (`last_seen_at`)، مربوط بجلسته.
-   - التطبيق يرسل رمزه عند الدخول، وعند كل فتح، وعند تجدده (`POST /me/devices`). الرمز الذي استبدله FCM يُحذف، فلا يصل الإشعار للجوال مرتين.
-   - إنهاء الجلسة لأي سبب (الخروج، «أجهزتي»، اللوحة، تغيير كلمة السر، انتهاء الـ 90 يوماً) يحذف رمزها.
-   - الإرسال رسالة لكل رمز (HTTP v1). يُحذف الرمز الذي يقول FCM إنه لن يعمل أبداً، ويُكمل الإرسال لبقية الرموز ([Firebase](https://firebase.google.com/docs/cloud-messaging/manage-tokens)):
+4. **المعرّفات عندنا لا عند Firebase** — الطريقة التي يوصي بها Firebase، **بلا Device Groups** التي تتوقف بعد 29 سبتمبر 2027 ([Firebase](https://firebase.google.com/docs/cloud-messaging/migrate-off-device-groups)):
+   - **المعرّف هو Firebase Installation ID (FID)**، لا رمز التسجيل القديم: firebase_messaging 17 أهمل `getToken`، وواجهة FCM v1 تقول عن `message.token` «Deprecated: Use fid instead». التطبيق يأخذه من `onRegistered` (مفعّل بـ `firebase_messaging_installation_id_enabled` في أندرويد و`FirebaseMessagingInstallationIdEnabled` في iOS)، والخادم يرسل بـ `message.fid`. اسم الحقل في واجهتنا بقي `push_token`.
+   - كل جوال مسجّل الدخول له سطر في `customer_devices`: معرّفه ومنصته وإصداره ووقت آخر تسجيل (`last_seen_at`)، مربوط بجلسته.
+   - التطبيق يرسل معرّفه عند الدخول، وعند كل فتح، وعند تغيّره (`POST /me/devices`، `app/lib/data/push/push.dart`). المعرّف القديم للجوال نفسه يُحذف، فلا يصل الإشعار مرتين.
+   - الإذن يُطلب مرة بعد الدخول، لا عند أول فتح. من رفض لا يُسأل مجدداً من التطبيق.
+   - النقر على الإشعار يفتح وجهته (`target`)، والإشعار والتطبيق مفتوح بطاقة أعلى الشاشة على النظامين.
+   - إنهاء الجلسة لأي سبب (الخروج، «أجهزتي»، اللوحة، تغيير كلمة السر، انتهاء الـ 90 يوماً) يحذف معرّفها.
+   - الإرسال رسالة لكل جوال (HTTP v1). يُحذف المعرّف الذي يقول FCM إنه لن يعمل أبداً، ويُكمل الإرسال للبقية ([Firebase](https://firebase.google.com/docs/cloud-messaging/manage-tokens)):
      - `UNREGISTERED` (404).
-     - `INVALID_ARGUMENT` على الرمز نفسه (400 مع `message.token`). أما الخطأ في محتوى الرسالة فلا يحذف شيئاً.
-     - `SENDER_ID_MISMATCH` (403): رمز مشروع Firebase آخر.
-   - أي خطأ آخر يخص كل الرموز (الدخول، المحتوى، FCM نفسه): يتوقف الإرسال ويُسجَّل، والإشعار باقٍ في الجرس.
+     - `INVALID_ARGUMENT` على المعرّف نفسه (400 مع `message.fid` أو `message.token`). أما الخطأ في محتوى الرسالة فلا يحذف شيئاً.
+     - `SENDER_ID_MISMATCH` (403): معرّف مشروع Firebase آخر.
+   - أي خطأ آخر يخص الجميع (الدخول، المحتوى، FCM نفسه): يتوقف الإرسال ويُسجَّل، والإشعار باقٍ في الجرس.
 
 ### الهيئة العامة للعقار ونفاذ (عند توفر الواجهة أو العقد)
 1. صنف جديد يطبّق العقد نفسه، مثل `Rega\RegaApiGateway`:

@@ -105,7 +105,7 @@ class LiveDriversTest extends TestCase
                 ->push(['name' => 'projects/zon-app/messages/1'])
                 ->pushResponse($tokenError('NOT_FOUND', 'UNREGISTERED', 404))
                 ->pushResponse($tokenError('INVALID_ARGUMENT', 'INVALID_ARGUMENT', 400, [['@type' => 'type.googleapis.com/google.rpc.BadRequest',
-                    'fieldViolations' => [['field' => 'message.token', 'description' => 'The registration token is not a valid FCM registration token']]]]))
+                    'fieldViolations' => [['field' => 'message.fid', 'description' => 'The Firebase Installation ID is not valid']]]]))
                 ->pushResponse($tokenError('PERMISSION_DENIED', 'SENDER_ID_MISMATCH', 403))
                 ->push(['name' => 'projects/zon-app/messages/5'])
                 // Our payload, not a token: every token would fail the same way — stop, delete nothing.
@@ -118,7 +118,9 @@ class LiveDriversTest extends TestCase
         $dead = $fcm->send(['alive', 'uninstalled', 'malformed', 'other-project', 'alive-too'], 'عرض جديد', 'في حي النرجس');
 
         $this->assertSame(['uninstalled', 'malformed', 'other-project'], $dead);
-        Http::assertSentCount(1 + 5);   // one sign-in, and every token was tried
+        Http::assertSentCount(1 + 5);   // one sign-in, and every phone was tried
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'messages:send') && $request['message']['fid'] === 'alive-too'
+            && ! isset($request['message']['token']));   // the Firebase Installation ID, not the deprecated token
         foreach (['payload', 'fcm-down'] as $case) {
             try {
                 $fcm->send(['alive'], 'عرض', 'نص');

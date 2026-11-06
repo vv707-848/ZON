@@ -370,7 +370,7 @@ class _SignInState extends State<_SignIn> {
       setState(() => err = result.error!);
       return;
     }
-    Nav.replace(context, '/');
+    unawaited(Nav.replace(context, '/'));
   }
 
   @override
@@ -427,7 +427,10 @@ class _SignUpState extends State<_SignUp> {
   Future<void> _toCode() async {
     if (_busy) return;
     final error = Auth.server
-        ? LocalAuth.nameError(_name.text) ?? LocalAuth.phoneError(_phone.text) ?? LocalAuth.usernameError(_user.text) ?? LocalAuth.passwordError(_pass.text)
+        ? LocalAuth.nameError(_name.text) ??
+              LocalAuth.phoneError(_phone.text) ??
+              LocalAuth.usernameError(_user.text) ??
+              LocalAuth.passwordError(_pass.text)
         : LocalAuth.validateSignUp(name: _name.text, phone: _phone.text, username: _user.text, password: _pass.text);
     setState(() => err = error ?? '');
     if (error != null) return;
@@ -862,7 +865,11 @@ class _OtpStepState extends State<_OtpStep> {
             onTap: _resend,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Tx(_resent.isEmpty ? 'لم يصلك الرمز؟ أعد الإرسال' : _resent, style: ts(14, w: 600, lh: 21, c: AppColors.teal), align: TextAlign.center),
+              child: Tx(
+                _resent.isEmpty ? 'لم يصلك الرمز؟ أعد الإرسال' : _resent,
+                style: ts(14, w: 600, lh: 21, c: AppColors.teal),
+                align: TextAlign.center,
+              ),
             ),
           ),
       ],

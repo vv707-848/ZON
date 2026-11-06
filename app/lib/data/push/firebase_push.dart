@@ -38,23 +38,26 @@ class FirebasePush implements PushProvider {
     return settings.authorizationStatus == AuthorizationStatus.authorized || settings.authorizationStatus == AuthorizationStatus.provisional;
   }
 
+  /// On iOS FCM needs the APNs token first, which can take a moment after the permission (Firebase's guide).
   @override
-  Future<String?> token() async {
+  Future<void> register() async {
     try {
       if (defaultTargetPlatform == TargetPlatform.iOS) {
-        // On iOS the FCM token needs the APNs one first, which can take a moment after the permission.
         for (var i = 0; i < 5 && await _messaging.getAPNSToken() == null; i++) {
           await Future<void>.delayed(const Duration(seconds: 1));
         }
       }
-      return await _messaging.getToken();
+      await _messaging.register();
     } catch (_) {
-      return null; // no token now: the next start asks again
+      // Not registered now: the next start tries again.
     }
   }
 
+  /// The Firebase Installation ID; registration tokens (getToken, onTokenRefresh) are deprecated since
+  /// firebase_messaging 17. Enabled by `firebase_messaging_installation_id_enabled` (AndroidManifest.xml) and
+  /// `FirebaseMessagingInstallationIdEnabled` (Info.plist).
   @override
-  Stream<String> get tokenRefresh => _messaging.onTokenRefresh;
+  Stream<String> get registrations => _messaging.onRegistered;
 
   @override
   Stream<PushMessage> get opened => FirebaseMessaging.onMessageOpenedApp.map(_message);

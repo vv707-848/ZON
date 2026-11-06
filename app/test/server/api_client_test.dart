@@ -48,7 +48,7 @@ void main() {
       'GET',
       'catalog',
       426,
-      fail(
+      apiFail(
         'UPDATE_REQUIRED',
         'حدّث التطبيق للمتابعة.',
         details: <String, Object?>{'min_version': '1.3.0', 'latest_version': '1.3.2', 'store_url': 'https://apps.apple.com/app/id1'},
@@ -66,12 +66,7 @@ void main() {
   test('503 closes it for maintenance, with the server\'s message and the expected time', () async {
     await freshDevice();
     final server = serverDevice();
-    server.on(
-      'GET',
-      'catalog',
-      503,
-      fail('MAINTENANCE_MODE', 'نحدّث الخوادم', details: <String, Object?>{'until': '2026-11-06T03:00:00+03:00'}),
-    );
+    server.on('GET', 'catalog', 503, apiFail('MAINTENANCE_MODE', 'نحدّث الخوادم', details: <String, Object?>{'until': '2026-11-06T03:00:00+03:00'}));
 
     await expectLater(Api.client!.get('catalog'), throwsA(isA<ApiError>()));
 
@@ -86,7 +81,7 @@ void main() {
     await serverSignIn(server);
     var ended = 0;
     ServerSession.onEnded = () => ended++;
-    server.on('GET', 'me/sessions', 401, fail('UNAUTHENTICATED', 'سجّل الدخول للمتابعة.'));
+    server.on('GET', 'me/sessions', 401, apiFail('UNAUTHENTICATED', 'سجّل الدخول للمتابعة.'));
 
     await expectLater(ServerAuth.sessions(), throwsA(isA<ApiError>()));
     await Future<void>.delayed(const Duration(milliseconds: 1));
@@ -117,7 +112,7 @@ void main() {
       'POST',
       'auth/register',
       422,
-      fail(
+      apiFail(
         'VALIDATION_FAILED',
         'تحقق من الحقول المطلوبة.',
         details: <String, Object?>{
@@ -127,9 +122,16 @@ void main() {
         },
       ),
     );
-    server.on('POST', 'auth/otp/resend', 500, fail('SERVER_ERROR', 'حدث خطأ غير متوقع.', trace: 'srv-trace-9'));
+    server.on('POST', 'auth/otp/resend', 500, apiFail('SERVER_ERROR', 'حدث خطأ غير متوقع.', trace: 'srv-trace-9'));
 
-    final taken = await ServerAuth.register(role: 'seeker', name: 'فيصل', phone: '0551234567', city: 'الرياض', username: 'faisal', password: 'a-good-secret');
+    final taken = await ServerAuth.register(
+      role: 'seeker',
+      name: 'فيصل',
+      phone: '0551234567',
+      city: 'الرياض',
+      username: 'faisal',
+      password: 'a-good-secret',
+    );
     final broken = await ServerAuth.resend('0551234567');
 
     expect(taken, 'اسم المستخدم مستخدم من حساب آخر.');

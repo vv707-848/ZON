@@ -1,6 +1,7 @@
-// Push notifications the way Firebase recommends now (lib/data/push/push.dart): the token goes to our server,
-// tied to this phone's session — after signing in, at every start, whenever FCM replaces it — and nowhere else
-// (no device groups). A tap opens the notification's page; in the foreground the app shows its own banner.
+// Push notifications the way Firebase recommends now (lib/data/push/push.dart): this installation's id (FID —
+// registration tokens are deprecated) goes to our server, tied to this phone's session — after signing in, at
+// every start, whenever it changes — and nowhere else (no device groups). A tap opens the notification's page; in
+// the foreground the app shows its own banner.
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -14,7 +15,7 @@ import '../support/server_env.dart';
 import '../support/test_env.dart';
 
 void main() {
-  test('after signing in: one permission prompt, then this phone\'s token to the server', () async {
+  test('after signing in: one permission prompt, then this installation\'s id to the server', () async {
     await freshDevice();
     final server = serverDevice();
     server.on('POST', 'me/devices', 200, ok());
@@ -26,12 +27,12 @@ void main() {
 
     expect(push.asked, 1);
     final registered = server.sent('POST', 'me/devices').single;
-    expect(FakeServer.body(registered), <String, Object?>{'push_token': 'fcm-token-1', 'platform': 'ios', 'app_version': '1.2.1'});
+    expect(FakeServer.body(registered), <String, Object?>{'push_token': 'fid-0001', 'platform': 'ios', 'app_version': '1.2.1'});
     expect(registered.headers['Authorization'], 'Bearer 7|server-token', reason: 'tied to this phone\'s session');
-    expect(Push.token, 'fcm-token-1');
+    expect(Push.token, 'fid-0001');
   });
 
-  test('a token FCM replaced is sent again; signed out, nothing is sent', () async {
+  test('an id FCM changed is sent again, the same one only once; signed out, nothing is sent', () async {
     await freshDevice();
     final server = serverDevice();
     server.on('POST', 'me/devices', 200, ok());
@@ -42,15 +43,34 @@ void main() {
     await serverSignIn(server);
     await Future<void>.delayed(const Duration(milliseconds: 1));
 
-    push.refresh.add('fcm-token-2');
+    push.registered
+      ..add('fid-0001') // FCM's routine sync: the same id
+      ..add('fid-0002'); // a new one (the app's data was cleared)
     await Future<void>.delayed(const Duration(milliseconds: 1));
-    expect(server.sent('POST', 'me/devices').map((r) => FakeServer.body(r)['push_token']), <Object?>['fcm-token-1', 'fcm-token-2']);
-    expect(Push.token, 'fcm-token-2');
+    expect(server.sent('POST', 'me/devices').map((r) => FakeServer.body(r)['push_token']), <Object?>['fid-0001', 'fid-0002']);
+    expect(Push.token, 'fid-0002');
 
     await ServerAuth.signOut();
-    push.refresh.add('fcm-token-3');
+    push.registered.add('fid-0003');
     await Future<void>.delayed(const Duration(milliseconds: 1));
     expect(server.sent('POST', 'me/devices'), hasLength(2), reason: 'no session, no registration');
+  });
+
+  test('an id FCM gave before the sign-in reaches the server once signed in', () async {
+    await freshDevice();
+    final server = serverDevice();
+    server.on('POST', 'me/devices', 200, ok());
+    final push = FakePush()..current = null;
+    Push.provider = push;
+    await Push.listen();
+    push.registered.add('fid-early'); // FCM's sync at the start, signed out
+    await Future<void>.delayed(const Duration(milliseconds: 1));
+    expect(server.sent('POST', 'me/devices'), isEmpty);
+
+    await serverSignIn(server);
+    await Future<void>.delayed(const Duration(milliseconds: 1));
+
+    expect(server.sent('POST', 'me/devices').map((r) => FakeServer.body(r)['push_token']), <Object?>['fid-early']);
   });
 
   test('notifications refused: nothing is registered, and the app does not ask again by itself', () async {

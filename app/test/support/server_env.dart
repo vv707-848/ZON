@@ -23,7 +23,7 @@ Map<String, Object?> ok([Object? data, Map<String, Object?> meta = const <String
 };
 
 /// The server's error envelope.
-Map<String, Object?> fail(String code, String message, {Map<String, Object?> details = const <String, Object?>{}, String trace = 'srv-trace-0001'}) =>
+Map<String, Object?> apiFail(String code, String message, {Map<String, Object?> details = const <String, Object?>{}, String trace = 'srv-trace-0001'}) =>
     <String, Object?>{
       'success': false,
       'error': <String, Object?>{'code': code, 'message': message, 'details': details, 'trace_id': trace},
@@ -77,7 +77,7 @@ class FakeServer {
     requests.add(request);
     final answer = _answers['${request.method} ${_path(request.url)}'];
     if (answer == null) {
-      return _json(404, fail('NOT_FOUND', 'العنصر غير موجود.'));
+      return _json(404, apiFail('NOT_FOUND', 'العنصر غير موجود.'));
     }
     final (status, body) = answer;
     if (status == 0) throw http.ClientException('offline', request.url);
@@ -123,12 +123,13 @@ Future<void> serverSignIn(FakeServer server, {Map<String, Object?>? account, Str
   expect(result.ok, isTrue, reason: result.error);
 }
 
-/// A push service for the tests: its answers are set by the test, its streams fed by it.
+/// FCM for the tests: the test sets its answers and feeds its streams. [register] gives [current], as FCM
+/// gives the installation's id (FID) on its registration stream.
 class FakePush implements PushProvider {
   bool allowed = true;
-  String? current = 'fcm-token-1';
+  String? current = 'fid-0001';
   int asked = 0;
-  final StreamController<String> refresh = StreamController<String>.broadcast();
+  final StreamController<String> registered = StreamController<String>.broadcast();
   final StreamController<PushMessage> tapped = StreamController<PushMessage>.broadcast();
   final StreamController<PushMessage> arrived = StreamController<PushMessage>.broadcast();
   PushMessage? launch;
@@ -140,10 +141,13 @@ class FakePush implements PushProvider {
   }
 
   @override
-  Future<String?> token() async => current;
+  Future<void> register() async {
+    final id = current;
+    if (id != null) registered.add(id);
+  }
 
   @override
-  Stream<String> get tokenRefresh => refresh.stream;
+  Stream<String> get registrations => registered.stream;
 
   @override
   Stream<PushMessage> get opened => tapped.stream;

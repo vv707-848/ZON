@@ -16,22 +16,27 @@ import 'package:zon/features/account/services/devices_view.dart';
 import '../support/server_env.dart';
 import '../support/test_env.dart';
 
-Map<String, Object?> _session(int id, String device, {bool current = false, String? platform = 'ios', String? lastUsed = '2026-11-05T09:30:00+03:00'}) =>
-    <String, Object?>{
-      'id': id,
-      'device': device,
-      'platform': platform,
-      'app_version': '1.2.1',
-      'signed_in_at': '2026-10-01T12:00:00+03:00',
-      'last_used_at': lastUsed,
-      'current': current,
-    };
+Map<String, Object?> _session(
+  int id,
+  String device, {
+  bool current = false,
+  String? platform = 'ios',
+  String? lastUsed = '2026-11-05T09:30:00+03:00',
+}) => <String, Object?>{
+  'id': id,
+  'device': device,
+  'platform': platform,
+  'app_version': '1.2.1',
+  'signed_in_at': '2026-10-01T12:00:00+03:00',
+  'last_used_at': lastUsed,
+  'current': current,
+};
 
 void main() {
   testWidgets('signing in from the app\'s screen names this phone to the server and opens the account', (tester) async {
     await freshDevice();
     final server = serverDevice();
-    server.on('POST', 'auth/login', 401, fail('INVALID_CREDENTIALS', 'اسم المستخدم أو كلمة السر غير صحيحة.'));
+    server.on('POST', 'auth/login', 401, apiFail('INVALID_CREDENTIALS', 'اسم المستخدم أو كلمة السر غير صحيحة.'));
 
     await pumpApp(tester, '/login');
     await tapText(tester, 'تسجيل الدخول');
@@ -73,7 +78,7 @@ void main() {
     await Push.start();
     await Auth.signOut();
 
-    expect(FakeServer.body(server.sent('POST', 'auth/logout').single), <String, Object?>{'push_token': 'fcm-token-1'});
+    expect(FakeServer.body(server.sent('POST', 'auth/logout').single), <String, Object?>{'push_token': 'fid-0001'});
     expect(server.sent('POST', 'auth/logout').single.headers['Authorization'], 'Bearer 9|secret-token');
     expect(keychain.values, isNot(contains('zon.api.token')));
     expect(store.readSession(), isNull);
@@ -116,7 +121,7 @@ void main() {
     await freshDevice();
     final server = serverDevice();
     server.on('POST', 'auth/register', 202, ok(<String, Object?>{'phone': '0551234567', 'expires_in': 900}));
-    server.on('POST', 'auth/otp/verify', 422, fail('OTP_INVALID', 'رمز التحقق غير صحيح أو انتهت صلاحيته.'));
+    server.on('POST', 'auth/otp/verify', 422, apiFail('OTP_INVALID', 'رمز التحقق غير صحيح أو انتهت صلاحيته.'));
 
     final sent = await ServerAuth.register(
       role: 'broker',

@@ -153,7 +153,15 @@ abstract final class ServerSession {
 /// One phone signed in to the account, as «أجهزتي» lists it.
 @immutable
 class DeviceSession {
-  const DeviceSession({required this.id, required this.device, required this.current, this.platform, this.appVersion, this.signedInAt, this.lastUsedAt});
+  const DeviceSession({
+    required this.id,
+    required this.device,
+    required this.current,
+    this.platform,
+    this.appVersion,
+    this.signedInAt,
+    this.lastUsedAt,
+  });
 
   factory DeviceSession.fromJson(Map<String, Object?> j) {
     final id = j['id'];
@@ -198,7 +206,7 @@ abstract final class ServerAuth {
       'device_name': id.deviceName,
       if (id.platform != 'web') 'platform': id.platform,
       'app_version': id.version,
-      if (push != null) 'push_token': push,
+      'push_token': ?push,
     };
   }
 
@@ -264,7 +272,7 @@ abstract final class ServerAuth {
     if (ServerSession.token != null) {
       final push = Push.token;
       try {
-        await _api.post('auth/logout', <String, Object?>{if (push != null) 'push_token': push});
+        await _api.post('auth/logout', <String, Object?>{'push_token': ?push});
       } on ApiError {
         // Offline or already ended: the session ends on this phone anyway; the server's expires in 90 days.
       }
@@ -293,7 +301,9 @@ abstract final class ServerAuth {
   }
 
   /// «أجهزتي»: one session per phone, the most recently used first, this phone marked.
-  static Future<List<DeviceSession>> sessions() async => <DeviceSession>[for (final s in (await _api.get('me/sessions')).list) DeviceSession.fromJson(s)];
+  static Future<List<DeviceSession>> sessions() async => <DeviceSession>[
+    for (final s in (await _api.get('me/sessions')).list) DeviceSession.fromJson(s),
+  ];
 
   /// Ends a phone's session; this phone's own is a sign-out.
   static Future<void> endSession(DeviceSession session) async {

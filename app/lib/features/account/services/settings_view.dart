@@ -475,7 +475,10 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Tx('العروض والتسويق: عروض زون وحملاتها على جوالك. مطفأ حتى تفعّله، وتوقفه متى شئت.', style: ts(12, lh: 18, c: AppColors.muted)),
+                  child: Tx(
+                    'العروض والتسويق: عروض زون وحملاتها على جوالك. مطفأ حتى تفعّله، وتوقفه متى شئت.',
+                    style: ts(12, lh: 18, c: AppColors.muted),
+                  ),
                 ),
                 if (prefError.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 12), child: FormError(prefError)),
               ],

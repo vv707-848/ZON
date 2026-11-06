@@ -10,10 +10,11 @@ import 'package:zon/core/net/app_gate.dart';
 import '../support/server_env.dart';
 import '../support/test_env.dart';
 
-Map<String, Object?> _config({String min = '1.2.1', String latest = '1.2.1', String? store, Map<String, Object?>? maintenance}) => ok(<String, Object?>{
-  'platform': <String, Object?>{'min_version': min, 'latest_version': latest, 'store_url': store, 'maintenance': maintenance},
-  'deep_link_base': 'https://zon.sa',
-});
+Map<String, Object?> _config({String min = '1.2.1', String latest = '1.2.1', String? store, Map<String, Object?>? maintenance}) =>
+    ok(<String, Object?>{
+      'platform': <String, Object?>{'min_version': min, 'latest_version': latest, 'store_url': store, 'maintenance': maintenance},
+      'deep_link_base': 'https://zon.sa',
+    });
 
 void main() {
   testWidgets('below the minimum the app stops at «حدّث زون», with the way to the store', (tester) async {
@@ -71,7 +72,7 @@ void main() {
     await AppGate.check(Api.client!);
     expect(AppGate.state.value, isA<GateOpen>(), reason: 'the server let this account through');
 
-    server.on('GET', 'me', 503, fail('MAINTENANCE_MODE', 'صيانة'));
+    server.on('GET', 'me', 503, apiFail('MAINTENANCE_MODE', 'صيانة'));
     await AppGate.check(Api.client!);
     expect(AppGate.state.value, isA<GateMaintenance>(), reason: 'an ordinary account is stopped');
   });

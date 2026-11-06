@@ -75,15 +75,30 @@ class PushBanner extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        if (message.title.isNotEmpty) Tx(message.title, style: ts(15, w: 700, lh: 22.5, c: AppColors.ink), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        if (message.body.isNotEmpty) Tx(message.body, style: ts(13, lh: 19.5, c: AppColors.muted), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        if (message.title.isNotEmpty)
+                          Tx(
+                            message.title,
+                            style: ts(15, w: 700, lh: 22.5, c: AppColors.ink),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        if (message.body.isNotEmpty)
+                          Tx(
+                            message.body,
+                            style: ts(13, lh: 19.5, c: AppColors.muted),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
                   Tap(
                     onTap: onClose,
-                    child: const Padding(padding: EdgeInsets.all(6), child: LucideIcon(Lu.x, size: 16, color: AppColors.muted)),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: LucideIcon(Lu.x, size: 16, color: AppColors.muted),
+                    ),
                   ),
                 ],
               ),

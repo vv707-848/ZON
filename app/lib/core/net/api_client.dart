@@ -172,7 +172,10 @@ class ApiClient {
     switch (error.code) {
       case 'UPDATE_REQUIRED':
         final store = error.details['store_url'];
-        AppGate.state.value = GateUpdate(minVersion: '${error.details['min_version'] ?? ''}', storeUrl: store is String && store.isNotEmpty ? store : null);
+        AppGate.state.value = GateUpdate(
+          minVersion: '${error.details['min_version'] ?? ''}',
+          storeUrl: store is String && store.isNotEmpty ? store : null,
+        );
       case 'MAINTENANCE_MODE':
         AppGate.state.value = GateMaintenance(message: error.message, until: DateTime.tryParse('${error.details['until'] ?? ''}')?.toLocal());
       case 'UNAUTHENTICATED':

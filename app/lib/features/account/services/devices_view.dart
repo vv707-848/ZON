@@ -2,6 +2,8 @@
 // signed out from here: a lost or sold phone leaves the account and stops receiving its notifications. Without a
 // server (the prototype) only this phone is known.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
@@ -65,7 +67,7 @@ class _DevicesViewState extends State<DevicesView> {
     }
     if (!mounted) return;
     if (session.current) {
-      Nav.replace(context, '/');
+      unawaited(Nav.replace(context, '/'));
       return;
     }
     setState(() {
@@ -106,11 +108,7 @@ class _DevicesViewState extends State<DevicesView> {
             if (_notice.isNotEmpty) ...<Widget>[Tx(_notice, style: ts(14, w: 600, lh: 21, c: AppColors.teal)), const SizedBox(height: 12)],
             for (var i = 0; i < sessions.length; i++) ...<Widget>[
               if (i > 0) const SizedBox(height: 10),
-              DeviceCard(
-                session: sessions[i],
-                busy: _ending == sessions[i].id,
-                onEnd: Api.on && _ending == null ? () => _end(sessions[i]) : null,
-              ),
+              DeviceCard(session: sessions[i], busy: _ending == sessions[i].id, onEnd: Api.on && _ending == null ? () => _end(sessions[i]) : null),
             ],
           ],
         );
@@ -159,7 +157,12 @@ class DeviceCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Tx(s.device, style: ts(15, w: 700, lh: 22.5, c: AppColors.ink), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Tx(
+                      s.device,
+                      style: ts(15, w: 700, lh: 22.5, c: AppColors.ink),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     if (meta.isNotEmpty) Tx(meta.join(' · '), style: ts(13, lh: 19.5, c: AppColors.muted)),
                   ],
                 ),

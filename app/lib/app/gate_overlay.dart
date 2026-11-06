@@ -127,12 +127,24 @@ class _GateScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Tx(title, style: ts(24, w: 700, lh: 36, c: AppColors.ink), align: TextAlign.center),
+                Tx(
+                  title,
+                  style: ts(24, w: 700, lh: 36, c: AppColors.ink),
+                  align: TextAlign.center,
+                ),
                 const SizedBox(height: 8),
-                Tx(message, style: ts(15, lh: 24, c: AppColors.muted), align: TextAlign.center),
+                Tx(
+                  message,
+                  style: ts(15, lh: 24, c: AppColors.muted),
+                  align: TextAlign.center,
+                ),
                 if (note != null) ...<Widget>[
                   const SizedBox(height: 8),
-                  Tx(note, style: ts(13, w: 600, lh: 19.5, c: AppColors.teal), align: TextAlign.center),
+                  Tx(
+                    note,
+                    style: ts(13, w: 600, lh: 19.5, c: AppColors.teal),
+                    align: TextAlign.center,
+                  ),
                 ],
                 if (action != null) ...<Widget>[const SizedBox(height: 24), action],
               ],
