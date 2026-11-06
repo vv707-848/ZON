@@ -38,8 +38,15 @@ def estimate_tokens(text: str) -> int:
 
 
 class HttpEmbedder:
-    def __init__(self, url: str, timeout_seconds: float, max_tokens_per_call: int) -> None:
-        self._client = httpx.AsyncClient(base_url=url, timeout=timeout_seconds)
+    def __init__(
+        self,
+        url: str,
+        timeout_seconds: float,
+        max_tokens_per_call: int,
+        *,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
+        self._client = httpx.AsyncClient(base_url=url, timeout=timeout_seconds, transport=transport)
         self._max_tokens = max_tokens_per_call
 
     async def embed(self, texts: Sequence[str]) -> list[Embedding]:
