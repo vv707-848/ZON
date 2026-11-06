@@ -91,7 +91,7 @@
 | `POST` | `/account/legacy-claims` | 🔒 · reports: 20/س | طلب استعادة بيانات الإصدار السابق؛ تراجعه اللوحة يدوياً | `AccountController@legacyClaim` |
 | `GET` | `/me` | 🔒 | حسابي: الدور، الحالة، فال، نفاذ، الباقة وحدودها، تفضيلات الإشعار | `MeController@show` |
 | `PATCH` | `/me` | 🔒 | تعديل الاسم والمدينة | `MeController@update` |
-| `POST` | `/me/devices` | 🔒 | تسجيل رمز Push للجهاز (FCM) ومنصته — مربوط بجلسة هذا الجهاز | `MeController@registerDevice` |
+| `POST` | `/me/devices` | 🔒 | تسجيل معرّف Push للجهاز (`push_token`: معرّف التثبيت FID من FCM) ومنصته — مربوط بجلسة هذا الجهاز، وعند كل فتح للتطبيق | `MeController@registerDevice` |
 | `POST` | `/me/nafath` | 🔒 · otp: 3/10د للجوال · 10/س للعنوان | بدء التحقق عبر نفاذ: الرقم الذي يختاره المستخدم في تطبيق نفاذ ومهلته؛ طلب واحد في الوقت نفسه | `MeController@startNafath` |
 | `GET` | `/me/nafath` | 🔒 | حالة التحقق، و`attempt`: waiting · verified · rejected · expired (يبدأ من جديد) | `MeController@nafathStatus` |
 | `PUT` | `/me/notification-preferences` | 🔒 | مفاتيح الإشعارات: الست مفعّلة افتراضياً (رسائل · نشر المتابَعين · طلبات المنطقة · حالة الإعلان · تقييمات · مطابقة)، و`marketing` (العروض والتسويق) مطفأ حتى يوافق المستخدم | `MeController@notificationPrefs` |
