@@ -23,6 +23,7 @@ from zon_agents.schemas.agents import (
     CleanUnitsInput,
     MatchingInput,
     MatchSearchersInput,
+    ReportExploreInput,
     ReportSelectInput,
     ReportWriteInput,
     SearchListingsInput,
@@ -44,6 +45,7 @@ INPUTS: dict[str, type[BaseModel]] = {
     "clean_project": CleanProjectInput,
     "clean_units": CleanUnitsInput,
     "report_select": ReportSelectInput,
+    "report_explore": ReportExploreInput,
     "report_write": ReportWriteInput,
     "summarize_batch": BatchInput,
 }

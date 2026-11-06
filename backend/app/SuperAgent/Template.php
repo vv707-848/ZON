@@ -2,11 +2,9 @@
 
 namespace App\SuperAgent;
 
-use InvalidArgumentException;
-
 /**
  * An approved report: a fixed SQL on the ai_v_* views with declared parameters. The model only CHOOSES a template
- * and its parameters (report_select); it never writes SQL.
+ * and its parameters (report_select for a question, report_explore step by step); it never writes SQL.
  */
 abstract class Template
 {
@@ -36,25 +34,16 @@ abstract class Template
      */
     public function checkParams(array $given): array
     {
-        $unknown = array_diff(array_keys($given), array_keys($this->params()));
-        if ($unknown !== []) {
-            throw new InvalidArgumentException('unknown parameters: '.implode(', ', $unknown));
-        }
-        $checked = [];
-        foreach ($this->params() as $name => $param) {
-            $checked[$name] = $param->check($name, $given[$name] ?? null);
-        }
-
-        return $checked;
+        return Param::checkAll($this->params(), $given);
     }
 
-    /** @return array<string, mixed> the template as report_select sees it */
+    /** @return array<string, mixed> the template as the model sees it in the catalog */
     public function catalogEntry(): array
     {
         return [
             'report' => $this->name(),
             'description' => $this->description(),
-            'params' => array_map(fn (Param $p) => $p->schema(), $this->params()),
+            'params' => (object) array_map(fn (Param $p) => $p->schema(), $this->params()),   // {} when none, never []
         ];
     }
 

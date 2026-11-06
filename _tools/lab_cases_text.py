@@ -672,9 +672,10 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
     ),
 ]
 
-# ── The SuperAgent's choice of a report (report_select) ─────────────────────────────────────────
+# ── The SuperAgent's choice of reports (report_select) ──────────────────────────────────────────
 # report: the right template (a list when two answer the question equally) · params: what must be chosen, and
-# None for a parameter that must stay unset.
+# None for a parameter that must stay unset. A message of several questions expects a report for each, in order;
+# a message no report answers expects none.
 
 _SELECT: list[tuple[str, str, str | list[str], dict[str, Any]]] = [
     (
@@ -754,7 +755,41 @@ _SELECT: list[tuple[str, str, str | list[str], dict[str, Any]]] = [
     ("select-030", "كم الإيرادات آخر 90 يوم؟", "revenue_summary", {"days": 90}),
 ]
 
+_SEVERAL: list[tuple[str, str, list[tuple[str | list[str], dict[str, Any]]], str]] = [
+    (
+        "select-031",
+        "كم مستخدم جديد سجل هالأسبوع؟ وكم دخلنا هالشهر؟",
+        [("user_growth", {"days": 7}), ("revenue_summary", {"days": 30})],
+        "",
+    ),
+    (
+        "select-032",
+        "وش أكثر الأحياء طلباً في جدة آخر شهر؟ وكيف تغيرت أسعار الشقق فيها آخر 6 شهور؟",
+        [
+            ("top_demand_by_neighborhood", {"city": "جدة", "days": 30}),
+            ("price_trend", {"city": "جدة", "property_type": "apartment", "months": 6}),
+        ],
+        "",
+    ),
+    (
+        "select-033",
+        "ثلاث أسئلة: كم عرض انضاف آخر 30 يوم؟ كم اشتراك ساري لكل باقة؟ وهل المطابقة شغالة زين؟",
+        [("listing_funnel", {"days": 30}), ("subscriptions_summary", {}), ("matching_performance", {})],
+        "",
+    ),
+    (
+        "select-034",
+        "وين الطلب أكثر من العرض في الرياض، ووش الرغبات اللي ما لها عرض هناك؟",
+        [(["supply_vs_demand", "demand_supply_gap"], {"city": "الرياض"}), ("unmet_features", {"city": "الرياض"})],
+        "",
+    ),
+    ("select-035", "كم عدد سكان الرياض؟", [], "ليس في بيانات المنصة: لا تقرير"),
+    ("select-036", "اكتب لي إعلان تسويقي لفيلا في حطين", [], "طلب كتابة لا سؤال عن البيانات"),
+]
+
 # ── The SuperAgent's analysis (report_write) ────────────────────────────────────────────────────
+# One report or several (a message of questions, an exploration): every number of the text must be in the rows of
+# one of them (NumberGuard), the facts must be mentioned, and a recommendation should open one of `actions`.
 
 _COLUMNS = {
     "top_demand_by_neighborhood": {
@@ -803,7 +838,23 @@ _COLUMNS = {
     },
 }
 
-_WRITE: list[tuple[str, str, str, list[dict[str, Any]], dict[str, Any], list[list[str]]]] = [
+# Riyadh as an exploration finds it: the demand, the gap, the villas' prices in النرجس.
+_DEMAND_RIYADH = [
+    {"neighborhood": "النرجس", "requests": 38, "urgent": 6, "avg_budget_max": 1150000},
+    {"neighborhood": "الملقا", "requests": 31, "urgent": 4, "avg_budget_max": 1480000},
+    {"neighborhood": "الياسمين", "requests": 24, "urgent": 2, "avg_budget_max": 990000},
+]
+_GAP_RIYADH = [
+    {"neighborhood": "النرجس", "property_type": "villa", "requests": 29, "listings": 6, "gap": 23},
+    {"neighborhood": "الملقا", "property_type": "apartment", "requests": 14, "listings": 19, "gap": -5},
+]
+_TREND_NARJIS = [
+    {"month": "2026-08", "listings": 5, "avg_price": 2310000},
+    {"month": "2026-09", "listings": 4, "avg_price": 2390000},
+    {"month": "2026-10", "listings": 6, "avg_price": 2450000},
+]
+
+_WRITE: list[tuple[str, str, str, list[dict[str, Any]], dict[str, Any], list[list[str]], list[str]]] = [
     (
         "write-001",
         "وش أكثر الأحياء طلباً في الرياض آخر شهر؟",
@@ -816,6 +867,7 @@ _WRITE: list[tuple[str, str, str, list[dict[str, Any]], dict[str, Any], list[lis
         ],
         {"city": "الرياض", "days": 30, "limit": 10},
         [["النرجس"]],
+        ["announce", "review_requests"],
     ),
     (
         "write-002",
@@ -828,6 +880,7 @@ _WRITE: list[tuple[str, str, str, list[dict[str, Any]], dict[str, Any], list[lis
         ],
         {"city": "جدة", "days": 30},
         [["الروضة"]],
+        ["announce", "review_listings", "review_requests"],
     ),
     (
         "write-003",
@@ -841,6 +894,7 @@ _WRITE: list[tuple[str, str, str, list[dict[str, Any]], dict[str, Any], list[lis
         ],
         {"days": 30},
         [["214"], ["23"]],
+        [],
     ),
     (
         "write-004",
@@ -853,6 +907,7 @@ _WRITE: list[tuple[str, str, str, list[dict[str, Any]], dict[str, Any], list[lis
         ],
         {"days": 7},
         [["320"]],
+        [],
     ),
     (
         "write-005",
@@ -878,6 +933,7 @@ _WRITE: list[tuple[str, str, str, list[dict[str, Any]], dict[str, Any], list[lis
         ],
         {"days": 30},
         [["71", "0.71"]],
+        ["ai_monitor"],
     ),
     (
         "write-006",
@@ -893,6 +949,7 @@ _WRITE: list[tuple[str, str, str, list[dict[str, Any]], dict[str, Any], list[lis
         ],
         {"city": "الرياض", "property_type": "apartment", "months": 6},
         [["952"]],
+        [],
     ),
     (
         "write-007",
@@ -905,6 +962,7 @@ _WRITE: list[tuple[str, str, str, list[dict[str, Any]], dict[str, Any], list[lis
         ],
         {"days": 30},
         [["31640", "31,640"]],
+        ["review_packages"],
     ),
     (
         "write-008",
@@ -928,6 +986,7 @@ _WRITE: list[tuple[str, str, str, list[dict[str, Any]], dict[str, Any], list[lis
         ],
         {"city": "الخبر", "property_type": "villa"},
         [["الكورنيش"]],
+        [],
     ),
     (
         "write-009",
@@ -938,6 +997,7 @@ _WRITE: list[tuple[str, str, str, list[dict[str, Any]], dict[str, Any], list[lis
         ],
         {"days": 30, "limit": 10},
         [["الملقا"], ["قليل", "محدود", "صف واحد", "واحد فقط", "غير كاف"]],
+        [],
     ),
     (
         "write-010",
@@ -949,8 +1009,195 @@ _WRITE: list[tuple[str, str, str, list[dict[str, Any]], dict[str, Any], list[lis
         ],
         {"city": "الرياض", "days": 30},
         [["العليا"]],
+        ["ai_monitor"],
     ),
 ]
+
+_WRITE_PARTS: list[
+    tuple[str, str, list[tuple[str, dict[str, Any], list[dict[str, Any]]]], list[list[str]], list[str], str]
+] = [
+    (
+        "write-011",
+        "كم مستخدم جديد سجل هالأسبوع؟ وكم دخلنا هالشهر؟",
+        [
+            (
+                "user_growth",
+                {"days": 7},
+                [
+                    {"role": "seeker", "new_accounts": 320, "total_active": 4180},
+                    {"role": "broker", "new_accounts": 41, "total_active": 690},
+                ],
+            ),
+            (
+                "revenue_summary",
+                {"days": 30},
+                [
+                    {"purpose": "subscription", "payments": 96, "revenue_sar": 31640, "failed": 4},
+                    {"purpose": "featured", "payments": 41, "revenue_sar": 2050, "failed": 1},
+                ],
+            ),
+        ],
+        [["320"], ["31640", "31,640"]],
+        [],
+        "سؤالان في رسالة: التحليل يجيب الاثنين، وكل رقم من صفوف أحدهما",
+    ),
+    (
+        "write-012",
+        "استكشاف: السوق في الرياض — ما الذي يستحق انتباه الإدارة في هذه البيانات؟",
+        [
+            ("top_demand_by_neighborhood", {"city": "الرياض", "days": 30, "limit": 10}, _DEMAND_RIYADH[:2]),
+            ("supply_vs_demand", {"city": "الرياض", "days": 30}, _GAP_RIYADH),
+            (
+                "price_trend",
+                {"city": "الرياض", "neighborhood": "النرجس", "property_type": "villa", "months": 6},
+                _TREND_NARJIS,
+            ),
+        ],
+        [["النرجس"], ["فلل", "فيلا", "الفلل"]],
+        ["announce", "review_listings", "review_requests"],
+        "استكشاف بثلاث خطوات: الفجوة في فلل النرجس تُربط بارتفاع أسعارها، والتوصية تفتح إشعاراً لوسطاء الرياض أو عروضها",
+    ),
+]
+
+# ── The SuperAgent's exploration (report_explore) ───────────────────────────────────────────────
+# found: what the earlier steps ran · report: the steps that deepen it (None: stopping is right too) · params: what
+# the step must keep (the focus's city).
+
+_EXPLORE: list[
+    tuple[str, str, list[tuple[str, dict[str, Any], list[dict[str, Any]]]], list[str | None], dict[str, Any], str]
+] = [
+    (
+        "explore-001",
+        "السوق في الرياض",
+        [],
+        ["top_demand_by_neighborhood", "supply_vs_demand", "demand_supply_gap", "top_property_types"],
+        {"city": "الرياض"},
+        "أول خطوة: نظرة عامة على الطلب والعرض في مدينة التركيز",
+    ),
+    (
+        "explore-002",
+        "",
+        [],
+        [
+            "listing_funnel",
+            "user_growth",
+            "user_funnel",
+            "supply_vs_demand",
+            "top_property_types",
+            "revenue_summary",
+            "subscriptions_summary",
+            "matching_performance",
+            "broker_activity",
+        ],
+        {},
+        "بلا تركيز: نظرة على المنصة كلها، لا تقرير حي بعينه",
+    ),
+    (
+        "explore-003",
+        "السوق في الرياض",
+        [("top_demand_by_neighborhood", {"city": "الرياض", "days": 30, "limit": 10}, _DEMAND_RIYADH)],
+        [
+            "supply_vs_demand",
+            "demand_supply_gap",
+            "price_trend",
+            "time_to_sell",
+            "client_demand",
+            "unmet_features",
+            "real_budget_index",
+        ],
+        {"city": "الرياض"},
+        "النرجس الأعلى طلباً: الخطوة التالية تعمّق الرياض (الفجوة أو الأسعار أو مدة البيع)، لا مدينة أخرى",
+    ),
+    (
+        "explore-004",
+        "السوق في الرياض",
+        [
+            ("top_demand_by_neighborhood", {"city": "الرياض", "days": 30, "limit": 10}, _DEMAND_RIYADH),
+            ("supply_vs_demand", {"city": "الرياض", "days": 30}, _GAP_RIYADH),
+        ],
+        ["price_trend", "time_to_sell", "unmet_features", "real_budget_index", "client_demand"],
+        {"city": "الرياض"},
+        "فجوة 23 في فلل النرجس: الأسعار أو مدة البيع أو الرغبات غير المغطاة هناك",
+    ),
+    (
+        "explore-005",
+        "المطابقة",
+        [
+            (
+                "matching_performance",
+                {"days": 30},
+                [
+                    {
+                        "agent": "matching",
+                        "calls": 1840,
+                        "full_rate": 0.71,
+                        "fallback_rate": 0.26,
+                        "avg_latency_ms": 6310,
+                        "match_rate": 0.44,
+                    }
+                ],
+            )
+        ],
+        ["rejection_reasons", "search_no_results", "unmet_features"],
+        {},
+        "البديل 26% ونسبة مطابق 44%: أين يقول الناس «غير مطابق»، أو ما يبحثون عنه ولا يجدونه",
+    ),
+    (
+        "explore-006",
+        "السوق في تبوك",
+        [("top_demand_by_neighborhood", {"city": "تبوك", "days": 30, "limit": 10}, [])],
+        [None, "supply_vs_demand", "top_property_types", "listing_funnel"],
+        {},
+        "لا طلبات في تبوك: التوقف صحيح، أو نظرة أوسع؛ لا تعميق لحي غير موجود",
+    ),
+    (
+        "explore-007",
+        "السوق في الرياض",
+        [
+            ("top_demand_by_neighborhood", {"city": "الرياض", "days": 30, "limit": 10}, _DEMAND_RIYADH),
+            ("supply_vs_demand", {"city": "الرياض", "days": 30}, _GAP_RIYADH),
+            (
+                "price_trend",
+                {"city": "الرياض", "neighborhood": "النرجس", "property_type": "villa", "months": 6},
+                _TREND_NARJIS,
+            ),
+        ],
+        [None, "time_to_sell", "unmet_features", "real_budget_index", "client_demand"],
+        {},
+        "آخر خطوة بعد صورة واضحة: التوقف صحيح، وكذلك تقرير يكمل الصورة؛ لا تكرار لما شُغّل",
+    ),
+    (
+        "explore-008",
+        "",
+        [
+            (
+                "listing_funnel",
+                {"days": 30},
+                [
+                    {"status": "published", "listings": 214},
+                    {"status": "pending_review", "listings": 61},
+                    {"status": "sold", "listings": 23},
+                ],
+            )
+        ],
+        [
+            "user_funnel",
+            "user_growth",
+            "broker_activity",
+            "matching_performance",
+            "supply_vs_demand",
+            "top_property_types",
+            "time_to_sell",
+        ],
+        {},
+        "61 عرضاً تنتظر مراجعة أصحابها من 214: نشاط المعلنين أو مسارهم، لا تكرار مسار العروض",
+    ),
+]
+
+
+def _part(report: str, params: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """A report as Laravel sends it to report_write, and to report_explore once it ran."""
+    return {"report": report, "params": params, "columns": _COLUMNS[report], "rows": rows, "row_count": len(rows)}
 
 
 def _cases() -> list[dict[str, Any]]:
@@ -992,18 +1239,48 @@ def _cases() -> list[dict[str, Any]]:
                 "id": case_id,
                 "agent": "report_select",
                 "input": {"question": question},
-                "expect": {"report": report, "params": params},
+                "expect": {"reports": [{"report": report, "params": params}]},
             }
         )
-    for case_id, question, report, rows, params, mention in _WRITE:
+    for case_id, question, reports, note in _SEVERAL:
+        case = {
+            "id": case_id,
+            "agent": "report_select",
+            "tags": ["several" if reports else "unanswerable"],
+            "input": {"question": question},
+            "expect": {"reports": [{"report": report, "params": params} for report, params in reports]},
+        }
+        cases.append(case | ({"note": note} if note else {}))
+    for case_id, question, report, rows, params, mention, actions in _WRITE:
         cases.append(
             {
                 "id": case_id,
                 "agent": "report_write",
                 "tags": [report],
-                "input": {"question": question, "report": report, "columns": _COLUMNS[report], "rows": rows},
-                "context": {"params": params},
-                "expect": {"mention": mention},
+                "input": {"question": question, "parts": [_part(report, params, rows)]},
+                "expect": {"mention": mention} | ({"actions": actions} if actions else {}),
+            }
+        )
+    for case_id, question, parts, mention, actions, note in _WRITE_PARTS:
+        cases.append(
+            {
+                "id": case_id,
+                "agent": "report_write",
+                "tags": ["several" if question.endswith("؟") else "explore", *(report for report, _, _ in parts)],
+                "input": {"question": question, "parts": [_part(*part) for part in parts]},
+                "expect": {"mention": mention} | ({"actions": actions} if actions else {}),
+                "note": note,
+            }
+        )
+    for case_id, focus, found, report, params, note in _EXPLORE:
+        cases.append(
+            {
+                "id": case_id,
+                "agent": "report_explore",
+                "tags": ["first" if not found else "stop" if None in report else "deepen"],
+                "input": {"focus": focus, "found": [_part(*part) for part in found], "steps_left": 4 - len(found)},
+                "expect": {"report": report} | ({"params": params} if params else {}),
+                "note": note,
             }
         )
     return cases

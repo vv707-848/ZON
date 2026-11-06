@@ -38,7 +38,7 @@ backend/app/
   Integrations/  Drivers · IntegrationException · Sms · Rega · Nafath · Payments · Push · Invoicing · ImageHash
   Jobs/ (+ Scheduled/)   Models/   Notifications/{AppNotice,Notices}
   Services/Billing/Entitlements (scoped لكل طلب)
-  SuperAgent/    ReportRunner · Template · MarketTemplate · Param · NumberGuard · DailyCap · Archive · ReportTable · Templates/*
+  SuperAgent/    SuperAgent · Catalog · Template · MarketTemplate · Param · ReportRunner · NumberGuard · DailyCap · Archive · Proposal · NotesDigest · Templates/*
   Support/       Trace · Money · Actor · Ownership · ArabicText · Settings/{Setting,Settings} · Permissions/Permission · Health/*
 agents/zon_agents/  main.py · config.py · pipelines/ · tools/ · llm.py · embeddings.py · store.py · indexing.py · schemas/ · prompts/*.md
 docs/contracts/agents-api.md     العقد بين Laravel وخدمة الوكلاء
@@ -366,9 +366,9 @@ deploy/                          nginx · supervisor · cron · ssh · mysql · 
 - `/index/{entity}`: النسخة ≤ المحفوظة تُهمل وترد 200 `ignored_stale`.
 - `/agents/health` يرد `{status, llm, embed, qdrant}` بكاش 5 ث.
 
-### الوكلاء الاثنا عشر
+### الوكلاء الثلاثة عشر
 
-search_listings · search_requests · matching · match_searchers · chat · summarize · clean_listing · clean_project · clean_units · report_select · report_write · summarize_batch.
+search_listings · search_requests · matching · match_searchers · chat · summarize · clean_listing · clean_project · clean_units · report_select · report_explore · report_write · summarize_batch.
 
 ### الإعدادات (`.env`)
 
@@ -449,14 +449,20 @@ search_listings · search_requests · matching · match_searchers · chat · sum
   - **الحي** معامل اختياري (`Param::neighborhood`) في PriceTrend وTimeToSell وClientDemand. يُتحقق منه هنا بالمرجع، ولا تُرسل قائمة الأحياء كلها للنموذج.
 - **دفتر العملاء:** `ai_v_crm_clients` و`ai_v_crm_notes` أعداد وأماكن وأنواع وميزانيات، بلا اسم ولا جوال ولا وصف ولا كلمة من ملاحظة، وبلا حسابات المراجعة.
 - **قراءة ملاحظات العملاء** (`NotesDigest`، للمدير العام وحده): المدينة والحي والنوع والتصنيف والمدة. كل ملاحظة مُخفاة الاسم والأرقام. لا تُقرأ أقل من 20 ملاحظة. `summarize_batch` بدفعات 500 ثم تجميع. يعود ملخص وموضوعات فقط. القراءة في سجل التدقيق (المرشحات والعدد، لا الكلمات)، وتُحفظ في الأرشيف ضمن السقف اليومي.
+- **الأنماط:**
+  - **سؤال:** رسالة من سؤال إلى ثلاثة. `report_select` يختار تقريراً لكل سؤال، أو لا شيء حين لا يجيبه تقرير.
+  - **استكشاف:** `report_explore` يختار تقريراً بعد تقرير مما وجده السابق، أربعة على الأكثر، ويتوقف حين تتضح الصورة. وما يكتبه المدير يوجّهه، ولو تركه فارغاً نظر في المنصة كلها.
+  - **يدوي:** المدير يختار القالب ومعاملاته بلا نداء ذكاء. و«تقارير السوق» يدوية بتحليل.
 - **التدفق:**
-  1. `report_select`: يختار القالب ومعاملاته من الكتالوج.
-  2. التحقق من المعاملات (`Param`).
-  3. SQL على المشاهد (`ReportRunner`).
-  4. `report_write`.
-  5. `NumberGuard`: كل رقم في النص من الصفوف.
-  6. الأرشفة في `exec_reports`.
-- **حدود وأنماط:** سقف 30 يومياً. وضع يدوي يختار القالب بلا نداء ذكاء.
+  1. الأرشفة أولاً «قيد الإعداد» (`Archive`)، ضمن السقف اليومي، وتقرير واحد قيد الإعداد لكل مدير.
+  2. المهمة `RunExecReport` (طابور `ai`، حتى 300 ثانية): اللوحة لا تنتظر الذكاء، والصفحة تتحدّث كل ثانيتين حتى يكتمل. سبب ذلك: nginx يقطع طلب اللوحة بعد 30 ثانية، والسؤال وحده نداءان قد يبلغ كل منهما 20 ثانية.
+  3. الاختيار: `report_select` أو `report_explore`.
+  4. التحقق من المعاملات (`Param`): اسم أو رقم خارج المدى يُرفض ولا يُعدَّل.
+  5. SQL على المشاهد (`ReportRunner`)، لكل تقرير جزؤه في `exec_reports.parts`.
+  6. `report_write`: تحليل واحد لكل الأجزاء، وتوصيات قد يحمل كل منها فعلاً مقترحاً (`Proposal`).
+  7. `NumberGuard`: كل رقم في النص من صفوف الأجزاء أو معاملاتها.
+- **الأفعال المقترحة** (`Proposal`): إشعار عام لدور في مدينة · مراجعة العروض · مراجعة الطلبات · مراجعة الحسابات · مراجعة الباقات · مراقبة الذكاء. كل فعل زر يفتح شاشته في اللوحة على المرشح أو النموذج المناسب، ولا يظهر لمن لا يملك فتحها. الوكيل يقرأ ولا يعدّل شيئاً.
+- **حدود:** سقف 30 تقريراً يومياً (الاستكشاف تقرير واحد). تقرير بقي «قيد الإعداد» أكثر من 6 دقائق يُعرض متعذراً.
 
 ## 10. المهام المجدولة (`routes/console.php` — بتوقيت الرياض · `onOneServer` · كلها idempotent)
 

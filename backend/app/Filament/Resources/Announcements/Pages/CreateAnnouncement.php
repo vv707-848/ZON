@@ -14,6 +14,18 @@ class CreateAnnouncement extends CreateRecord
 {
     protected static string $resource = AnnouncementResource::class;
 
+    /** A SuperAgent proposal (App\SuperAgent\Proposal::Announce) opens the form on its audience, city and kind; the words are the person's. */
+    protected function fillForm(): void
+    {
+        $this->callHook('beforeFill');
+        $this->form->fill();
+        $proposed = array_filter(request()->only(['audience', 'city', 'kind']), 'is_string');
+        if ($proposed !== []) {
+            $this->form->fill([...$this->form->getRawState(), ...$proposed]);
+        }
+        $this->callHook('afterFill');
+    }
+
     /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>

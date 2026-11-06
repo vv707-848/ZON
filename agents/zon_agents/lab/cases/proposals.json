@@ -1,0 +1,135 @@
+[
+    {
+        "action": "announce",
+        "description": "إشعار عام لدور في مدينة (مثلاً: دعوة الوسطاء أو الملاك لإضافة عروض حيث الطلب أعلى من العرض). يُفتح النموذج ويكتب المدير نصه ويرسله",
+        "params": {
+            "audience": {
+                "type": "string",
+                "enum": [
+                    "seeker",
+                    "broker",
+                    "owner",
+                    "developer"
+                ]
+            },
+            "city": {
+                "type": "string",
+                "enum": [
+                    "الرياض",
+                    "جدة",
+                    "الدمام",
+                    "الخبر"
+                ]
+            },
+            "kind": {
+                "type": "string",
+                "enum": [
+                    "service",
+                    "promotion"
+                ]
+            }
+        }
+    },
+    {
+        "action": "review_listings",
+        "description": "قائمة العروض مصفّاة بالمدينة والنوع والحالة (مثلاً: عروض تنتظر مراجعة، أو عروض نوع قليل المعروض)",
+        "params": {
+            "city": {
+                "type": "string",
+                "enum": [
+                    "الرياض",
+                    "جدة",
+                    "الدمام",
+                    "الخبر"
+                ]
+            },
+            "property_type": {
+                "type": "string",
+                "enum": [
+                    "apartment",
+                    "studio",
+                    "floor",
+                    "villa",
+                    "house",
+                    "resthouse",
+                    "land",
+                    "building",
+                    "shop",
+                    "office"
+                ]
+            },
+            "status": {
+                "type": "string",
+                "enum": [
+                    "draft",
+                    "indexing",
+                    "pending_review",
+                    "published",
+                    "paused",
+                    "inactive",
+                    "sold",
+                    "hidden",
+                    "rejected",
+                    "licence_expired"
+                ]
+            }
+        }
+    },
+    {
+        "action": "review_requests",
+        "description": "قائمة طلبات البحث مصفّاة بالمدينة والحالة (طلب بلا عرض يقابله)",
+        "params": {
+            "city": {
+                "type": "string",
+                "enum": [
+                    "الرياض",
+                    "جدة",
+                    "الدمام",
+                    "الخبر"
+                ]
+            },
+            "status": {
+                "type": "string",
+                "enum": [
+                    "published",
+                    "closed",
+                    "hidden"
+                ]
+            }
+        }
+    },
+    {
+        "action": "review_accounts",
+        "description": "قائمة الحسابات مصفّاة بالدور والمدينة (مثلاً: وسطاء سجّلوا ولم ينشروا)",
+        "params": {
+            "role": {
+                "type": "string",
+                "enum": [
+                    "seeker",
+                    "broker",
+                    "owner",
+                    "developer"
+                ]
+            },
+            "city": {
+                "type": "string",
+                "enum": [
+                    "الرياض",
+                    "جدة",
+                    "الدمام",
+                    "الخبر"
+                ]
+            }
+        }
+    },
+    {
+        "action": "review_packages",
+        "description": "الباقات وأسعارها ومزاياها، حين تضعف الاشتراكات أو الإيراد. قرار السعر لصاحب المنصة",
+        "params": {}
+    },
+    {
+        "action": "ai_monitor",
+        "description": "مراقبة الذكاء: نسب الرد الكامل والبديل والزمن وأسباب «غير مطابق»، حين تتراجع المطابقة أو البحث",
+        "params": {}
+    }
+]

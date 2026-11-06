@@ -3,8 +3,9 @@
     {"id": "...", "agent": "...", "tags": [...], "input": {what Laravel sends}, "context": {what the fixed retrieval
      returns}, "expect": {what a right answer satisfies}, "note": "..."}
 
-`report_select` cases carry only the question: the catalog is `cases/catalog.json`, the one Laravel builds (a backend
-test keeps the two identical).
+`report_select` and `report_explore` cases carry no catalog, and `report_write` cases no proposals: they are
+`cases/catalog.json` and `cases/proposals.json`, the ones Laravel builds (`php artisan zon:lab-catalog`; a backend
+test keeps them identical).
 """
 
 import hashlib
@@ -18,6 +19,7 @@ from zon_agents.schemas import agents as schemas
 
 CASES_DIR = Path(__file__).parent / "cases"
 CATALOG_FILE = CASES_DIR / "catalog.json"
+PROPOSALS_FILE = CASES_DIR / "proposals.json"
 
 Agent = Literal[
     "search_listings",
@@ -28,6 +30,7 @@ Agent = Literal[
     "summarize",
     "chat",
     "report_select",
+    "report_explore",
     "report_write",
 ]
 Terms = list[list[str]]  # groups of synonyms: a group is met when any of its words is in the text
@@ -41,6 +44,7 @@ INPUTS: dict[str, type[BaseModel]] = {
     "summarize": schemas.SummarizeInput,
     "chat": schemas.ChatInput,
     "report_select": schemas.ReportSelectInput,
+    "report_explore": schemas.ReportExploreInput,
     "report_write": schemas.ReportWriteInput,
 }
 
@@ -85,7 +89,7 @@ class ChatExpect(_Strict):
     lang: Literal["en", "ur"] | None = None  # the answer is in the asker's language
 
 
-class SelectExpect(_Strict):
+class Chosen(_Strict):
     report: str | list[str]  # a list when two reports answer the question equally
     params: dict[str, Any] = {}  # None: the parameter stays unset
 
@@ -94,8 +98,18 @@ class SelectExpect(_Strict):
         return [self.report] if isinstance(self.report, str) else self.report
 
 
+class SelectExpect(_Strict):
+    reports: list[Chosen]  # one per question, in order; none when no report answers the message
+
+
+class ExploreExpect(_Strict):
+    report: list[str | None]  # the steps that deepen what was found; None: stopping is right too
+    params: dict[str, Any] = {}
+
+
 class WriteExpect(_Strict):
     mention: Terms = []
+    actions: list[str] = []  # a recommendation should open one of these screens
 
 
 EXPECTS: dict[str, type[BaseModel]] = {
@@ -107,6 +121,7 @@ EXPECTS: dict[str, type[BaseModel]] = {
     "summarize": SummaryExpect,
     "chat": ChatExpect,
     "report_select": SelectExpect,
+    "report_explore": ExploreExpect,
     "report_write": WriteExpect,
 }
 
@@ -128,9 +143,14 @@ def catalog() -> list[dict[str, Any]]:
     return list(json.loads(CATALOG_FILE.read_text(encoding="utf-8")))
 
 
+def proposals() -> list[dict[str, Any]]:
+    return list(json.loads(PROPOSALS_FILE.read_text(encoding="utf-8")))
+
+
 def load_cases(directory: Path = CASES_DIR) -> list[Case]:
     cases: list[Case] = []
     report_catalog = catalog() if (directory / CATALOG_FILE.name).exists() else []
+    report_proposals = proposals() if (directory / PROPOSALS_FILE.name).exists() else []
     for path in sorted(directory.glob("*.jsonl")):
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
             if not line.strip():
@@ -139,8 +159,10 @@ def load_cases(directory: Path = CASES_DIR) -> list[Case]:
                 case = Case.model_validate_json(line)
             except ValidationError as exc:
                 raise ValueError(f"{path.name}:{number}: {exc.errors()[0]['msg']}") from exc
-            if case.agent == "report_select" and "catalog" not in case.input:
+            if case.agent in ("report_select", "report_explore") and "catalog" not in case.input:
                 case = case.model_copy(update={"input": {**case.input, "catalog": report_catalog}})
+            if case.agent == "report_write" and "proposals" not in case.input:
+                case = case.model_copy(update={"input": {**case.input, "proposals": report_proposals}})
             cases.append(case)
     return cases
 
@@ -210,12 +232,29 @@ def check(cases: list[Case]) -> list[str]:
                 found.append("cite: documents of the case's passages")
             if expect.covered and case.input["intent"] == "knowledge" and not expect.cite:
                 found.append("cite: a covered knowledge answer names its documents")
-        elif isinstance(expect, SelectExpect):
-            names = {entry["report"]: entry for entry in case.input["catalog"]}
-            for report in expect.reports:
-                if report not in names:
-                    found.append(f"report {report!r} is not in the catalog")
-                elif not set(expect.params) <= set(names[report]["params"]):
-                    found.append(f"params: declared parameters of {report}")
+        elif isinstance(expect, SelectExpect | ExploreExpect):
+            catalog = {entry["report"]: entry["params"] for entry in case.input["catalog"]}
+            chosen = expect.reports if isinstance(expect, SelectExpect) else [expect]
+            for item in chosen:
+                found += _declared(catalog, item.reports if isinstance(item, Chosen) else item.report, item.params)
+            for step in case.input.get("found", []):
+                found += _declared(catalog, [step["report"]], step["params"])
+        elif isinstance(expect, WriteExpect):
+            actions = {entry["action"] for entry in case.input["proposals"]}
+            found += [f"action {a!r} is not a proposal" for a in expect.actions if a not in actions]
         problems += [f"{where}: {p}" for p in found]
+    return problems
+
+
+def _declared(
+    catalog: dict[str, dict[str, Any]], reports: list[str] | list[str | None], params: dict[str, Any]
+) -> list[str]:
+    problems = []
+    for report in reports:
+        if report is None:
+            continue
+        if report not in catalog:
+            problems.append(f"report {report!r} is not in the catalog")
+        elif not set(params) <= set(catalog[report]):
+            problems.append(f"params: declared parameters of {report}")
     return problems

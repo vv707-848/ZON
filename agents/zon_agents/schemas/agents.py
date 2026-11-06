@@ -252,9 +252,15 @@ class CleanUnitsAnswer(BaseModel):
 
 # ── SuperAgent ──────────────────────────────────────────────────────────────────────────────────
 
+MAX_QUESTIONS = 3  # reports one message may ask for (App\SuperAgent\SuperAgent::MAX_QUESTIONS)
+EXPLORE_STEPS = 4  # reports one exploration may run (SuperAgent::EXPLORE_STEPS)
+
+ReportName = Annotated[str, Field(pattern=r"^[a-z_]{3,60}$")]
+Rows = list[dict[str, Any]]
+
 
 class CatalogEntry(Payload):
-    report: Annotated[str, Field(pattern=r"^[a-z_]{3,60}$")]
+    report: ReportName
     description: str
     params: dict[str, dict[str, Any]] = {}  # JSON schema of every parameter of the template
 
@@ -264,16 +270,41 @@ class ReportSelectInput(Payload):
     catalog: Annotated[list[CatalogEntry], Field(min_length=1, max_length=40)]
 
 
-class ReportWriteInput(Payload):
-    question: Annotated[str, Field(max_length=500)]
-    report: str
+class FoundReport(Payload):
+    """A report an exploration already ran: its first rows are enough to see what stands out."""
+
+    report: ReportName
+    params: dict[str, Any] = {}
     columns: dict[str, str] = {}
-    rows: Annotated[list[dict[str, Any]], Field(max_length=200)]
+    rows: Annotated[Rows, Field(max_length=20)]
+    row_count: Annotated[int, Field(ge=0)]
 
 
-class ReportWriteAnswer(BaseModel):
-    analysis: Annotated[str, Field(min_length=1, max_length=2500)]
-    recommendations: Annotated[list[Annotated[str, Field(max_length=300)]], Field(max_length=5)] = []
+class ReportExploreInput(Payload):
+    focus: Annotated[str, Field(max_length=500)] = ""  # what to look into, or nothing: the whole platform
+    catalog: Annotated[list[CatalogEntry], Field(min_length=1, max_length=40)]
+    found: Annotated[list[FoundReport], Field(max_length=EXPLORE_STEPS - 1)] = []
+    steps_left: Annotated[int, Field(ge=1, le=EXPLORE_STEPS)]
+
+
+class ReportPart(Payload):
+    report: ReportName
+    params: dict[str, Any] = {}
+    columns: dict[str, str] = {}
+    rows: Annotated[Rows, Field(max_length=200)]
+    row_count: Annotated[int, Field(ge=0)]  # all the rows the report found; `rows` may hold only the first
+
+
+class ProposalEntry(Payload):
+    action: ReportName
+    description: str
+    params: dict[str, dict[str, Any]] = {}
+
+
+class ReportWriteInput(Payload):
+    question: Annotated[str, Field(max_length=700)]
+    parts: Annotated[list[ReportPart], Field(min_length=1, max_length=EXPLORE_STEPS)]
+    proposals: Annotated[list[ProposalEntry], Field(max_length=20)] = []
 
 
 class BatchInput(Payload):

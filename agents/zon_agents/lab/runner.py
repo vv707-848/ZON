@@ -37,6 +37,7 @@ WEIGHTS = {
     "match_searchers": 1,
     "summarize": 1,
     "report_select": 1,
+    "report_explore": 1,
     "report_write": 1,
 }
 

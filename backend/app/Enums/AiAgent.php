@@ -17,6 +17,7 @@ enum AiAgent: string
     case CleanProject = 'clean_project';
     case CleanUnits = 'clean_units';
     case ReportSelect = 'report_select';
+    case ReportExplore = 'report_explore';
     case ReportWrite = 'report_write';
     case SummarizeBatch = 'summarize_batch';
 
@@ -32,7 +33,8 @@ enum AiAgent: string
             self::CleanListing => 'تنقية وصف العرض',
             self::CleanProject => 'تنقية وصف المشروع',
             self::CleanUnits => 'تنقية أوصاف النماذج',
-            self::ReportSelect => 'اختيار تقرير الوكيل الأعلى',
+            self::ReportSelect => 'اختيار تقارير الوكيل الأعلى',
+            self::ReportExplore => 'استكشاف الوكيل الأعلى',
             self::ReportWrite => 'كتابة تقرير الوكيل الأعلى',
             self::SummarizeBatch => 'تلخيص الدفعات',
         };

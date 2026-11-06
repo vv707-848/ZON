@@ -1,0 +1,2150 @@
+[
+    {
+        "focus": "الطلب في الرياض",
+        "catalog": [
+            {
+                "report": "top_demand_by_neighborhood",
+                "description": "عدد طلبات البحث في كل حي من أحياء المدينة خلال الفترة، والعاجل منها.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 10
+                    }
+                }
+            },
+            {
+                "report": "top_property_types",
+                "description": "عدد الطلبات لكل نوع عقار خلال الفترة، في مدينة أو في كل المدن.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "supply_vs_demand",
+                "description": "لكل حي ونوع: طلبات الفترة مقابل العروض المنشورة الآن، والفجوة بينهما.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "listing_funnel",
+                "description": "العروض التي أُنشئت في الفترة: كم نُشر، كم بانتظار الصياغة، كم بيع، كم أُخفي — حسب حالتها اليوم.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "user_growth",
+                "description": "الحسابات الجديدة في الفترة حسب الدور، ومجموع الحسابات النشطة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "broker_activity",
+                "description": "توزيع الوسطاء حسب عدد العروض التي نشروها في الفترة (بلا أسماء).",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "matching_performance",
+                "description": "نداءات المطابقة والبحث في الفترة: نسبة الردود الكاملة، والبديل، ومتوسط الزمن، ونسبة «مطابق».",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "subscriptions_summary",
+                "description": "الاشتراكات السارية الآن لكل باقة ومصدر، والجديد منها في الفترة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "price_trend",
+                "description": "متوسط أسعار العروض المنشورة شهرياً لنوع في مدينة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    },
+                    "months": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 24,
+                        "default": 6
+                    }
+                }
+            },
+            {
+                "report": "time_to_sell",
+                "description": "متوسط الأيام من النشر إلى البيع لكل نوع عقار، للعروض المباعة في الفترة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 90
+                    }
+                }
+            },
+            {
+                "report": "search_no_results",
+                "description": "أكثر ما بحث عنه الناس ولم يجدوا له أي عرض — طلب غير مغطى.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 10
+                    }
+                }
+            },
+            {
+                "report": "user_funnel",
+                "description": "من الحسابات الجديدة في الفترة: كم سجّل رغبة، وكم نشر طلباً أو عرضاً، وكم دفع.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "revenue_summary",
+                "description": "المبالغ المدفوعة في الفترة حسب الغرض بالريال، وعدد الدفعات والفاشلة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "developer_project_perf",
+                "description": "لكل مشروع منشور: المشاهدات، والنماذج، والوحدات المتاحة، وأقل سعر.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 20
+                    }
+                }
+            },
+            {
+                "report": "broker_clients",
+                "description": "توزيع الوسطاء حسب عدد عملائهم في إدارة العملاء، ومجموع العملاء والملاحظات في كل فئة (بلا أسماء).",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "demand_supply_gap",
+                "description": "لكل حي ونوع: مجموع طلبات الفترة مقابل متوسط العروض المنشورة يومياً — الأحياء ذات الطلبات الكافية فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "real_budget_index",
+                "description": "وسيط أعلى ميزانية الطالبين مقابل وسيط أسعار المعروض لكل حي، وفارقهما بالنسبة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "unmet_features",
+                "description": "الرغبات النشطة التي لا يقابلها أي عرض منشور في حيها ونوعها ضمن ميزانيتها — من شاركوا في التقارير فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "rejection_reasons",
+                "description": "نسبة الردود «غير مطابق» لكل حي وخدمة خلال الفترة — الأحياء ذات الردود الكافية فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "client_demand",
+                "description": "ما يطلبه عملاء الوسطاء المسجّلون في إدارة العملاء لكل حي ونوع: عددهم ومتوسط أعلى ميزانيتهم، للحي الذي يجمع خمسة على الأقل.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 180
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 20
+                    }
+                }
+            }
+        ],
+        "found": [],
+        "steps_left": 4
+    },
+    {
+        "focus": "الطلب في الرياض",
+        "catalog": [
+            {
+                "report": "top_demand_by_neighborhood",
+                "description": "عدد طلبات البحث في كل حي من أحياء المدينة خلال الفترة، والعاجل منها.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 10
+                    }
+                }
+            },
+            {
+                "report": "top_property_types",
+                "description": "عدد الطلبات لكل نوع عقار خلال الفترة، في مدينة أو في كل المدن.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "supply_vs_demand",
+                "description": "لكل حي ونوع: طلبات الفترة مقابل العروض المنشورة الآن، والفجوة بينهما.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "listing_funnel",
+                "description": "العروض التي أُنشئت في الفترة: كم نُشر، كم بانتظار الصياغة، كم بيع، كم أُخفي — حسب حالتها اليوم.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "user_growth",
+                "description": "الحسابات الجديدة في الفترة حسب الدور، ومجموع الحسابات النشطة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "broker_activity",
+                "description": "توزيع الوسطاء حسب عدد العروض التي نشروها في الفترة (بلا أسماء).",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "matching_performance",
+                "description": "نداءات المطابقة والبحث في الفترة: نسبة الردود الكاملة، والبديل، ومتوسط الزمن، ونسبة «مطابق».",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "subscriptions_summary",
+                "description": "الاشتراكات السارية الآن لكل باقة ومصدر، والجديد منها في الفترة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "price_trend",
+                "description": "متوسط أسعار العروض المنشورة شهرياً لنوع في مدينة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    },
+                    "months": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 24,
+                        "default": 6
+                    }
+                }
+            },
+            {
+                "report": "time_to_sell",
+                "description": "متوسط الأيام من النشر إلى البيع لكل نوع عقار، للعروض المباعة في الفترة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 90
+                    }
+                }
+            },
+            {
+                "report": "search_no_results",
+                "description": "أكثر ما بحث عنه الناس ولم يجدوا له أي عرض — طلب غير مغطى.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 10
+                    }
+                }
+            },
+            {
+                "report": "user_funnel",
+                "description": "من الحسابات الجديدة في الفترة: كم سجّل رغبة، وكم نشر طلباً أو عرضاً، وكم دفع.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "revenue_summary",
+                "description": "المبالغ المدفوعة في الفترة حسب الغرض بالريال، وعدد الدفعات والفاشلة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "developer_project_perf",
+                "description": "لكل مشروع منشور: المشاهدات، والنماذج، والوحدات المتاحة، وأقل سعر.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 20
+                    }
+                }
+            },
+            {
+                "report": "broker_clients",
+                "description": "توزيع الوسطاء حسب عدد عملائهم في إدارة العملاء، ومجموع العملاء والملاحظات في كل فئة (بلا أسماء).",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "demand_supply_gap",
+                "description": "لكل حي ونوع: مجموع طلبات الفترة مقابل متوسط العروض المنشورة يومياً — الأحياء ذات الطلبات الكافية فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "real_budget_index",
+                "description": "وسيط أعلى ميزانية الطالبين مقابل وسيط أسعار المعروض لكل حي، وفارقهما بالنسبة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "unmet_features",
+                "description": "الرغبات النشطة التي لا يقابلها أي عرض منشور في حيها ونوعها ضمن ميزانيتها — من شاركوا في التقارير فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "rejection_reasons",
+                "description": "نسبة الردود «غير مطابق» لكل حي وخدمة خلال الفترة — الأحياء ذات الردود الكافية فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "client_demand",
+                "description": "ما يطلبه عملاء الوسطاء المسجّلون في إدارة العملاء لكل حي ونوع: عددهم ومتوسط أعلى ميزانيتهم، للحي الذي يجمع خمسة على الأقل.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 180
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 20
+                    }
+                }
+            }
+        ],
+        "found": [
+            {
+                "report": "top_demand_by_neighborhood",
+                "params": {
+                    "city": "الرياض",
+                    "days": 30,
+                    "limit": 10
+                },
+                "columns": {
+                    "neighborhood": "الحي",
+                    "requests": "الطلبات",
+                    "urgent": "العاجل",
+                    "avg_budget_max": "متوسط أعلى ميزانية"
+                },
+                "rows": [
+                    {
+                        "neighborhood": "النرجس",
+                        "requests": 3,
+                        "urgent": 0,
+                        "avg_budget_max": 2200000
+                    },
+                    {
+                        "neighborhood": "الملقا",
+                        "requests": 1,
+                        "urgent": 0,
+                        "avg_budget_max": 2200000
+                    }
+                ],
+                "row_count": 2
+            }
+        ],
+        "steps_left": 3
+    },
+    {
+        "focus": "الطلب في الرياض",
+        "catalog": [
+            {
+                "report": "top_demand_by_neighborhood",
+                "description": "عدد طلبات البحث في كل حي من أحياء المدينة خلال الفترة، والعاجل منها.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 10
+                    }
+                }
+            },
+            {
+                "report": "top_property_types",
+                "description": "عدد الطلبات لكل نوع عقار خلال الفترة، في مدينة أو في كل المدن.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "supply_vs_demand",
+                "description": "لكل حي ونوع: طلبات الفترة مقابل العروض المنشورة الآن، والفجوة بينهما.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "listing_funnel",
+                "description": "العروض التي أُنشئت في الفترة: كم نُشر، كم بانتظار الصياغة، كم بيع، كم أُخفي — حسب حالتها اليوم.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "user_growth",
+                "description": "الحسابات الجديدة في الفترة حسب الدور، ومجموع الحسابات النشطة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "broker_activity",
+                "description": "توزيع الوسطاء حسب عدد العروض التي نشروها في الفترة (بلا أسماء).",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "matching_performance",
+                "description": "نداءات المطابقة والبحث في الفترة: نسبة الردود الكاملة، والبديل، ومتوسط الزمن، ونسبة «مطابق».",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "subscriptions_summary",
+                "description": "الاشتراكات السارية الآن لكل باقة ومصدر، والجديد منها في الفترة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "price_trend",
+                "description": "متوسط أسعار العروض المنشورة شهرياً لنوع في مدينة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    },
+                    "months": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 24,
+                        "default": 6
+                    }
+                }
+            },
+            {
+                "report": "time_to_sell",
+                "description": "متوسط الأيام من النشر إلى البيع لكل نوع عقار، للعروض المباعة في الفترة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 90
+                    }
+                }
+            },
+            {
+                "report": "search_no_results",
+                "description": "أكثر ما بحث عنه الناس ولم يجدوا له أي عرض — طلب غير مغطى.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 10
+                    }
+                }
+            },
+            {
+                "report": "user_funnel",
+                "description": "من الحسابات الجديدة في الفترة: كم سجّل رغبة، وكم نشر طلباً أو عرضاً، وكم دفع.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "revenue_summary",
+                "description": "المبالغ المدفوعة في الفترة حسب الغرض بالريال، وعدد الدفعات والفاشلة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "developer_project_perf",
+                "description": "لكل مشروع منشور: المشاهدات، والنماذج، والوحدات المتاحة، وأقل سعر.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 20
+                    }
+                }
+            },
+            {
+                "report": "broker_clients",
+                "description": "توزيع الوسطاء حسب عدد عملائهم في إدارة العملاء، ومجموع العملاء والملاحظات في كل فئة (بلا أسماء).",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "demand_supply_gap",
+                "description": "لكل حي ونوع: مجموع طلبات الفترة مقابل متوسط العروض المنشورة يومياً — الأحياء ذات الطلبات الكافية فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "real_budget_index",
+                "description": "وسيط أعلى ميزانية الطالبين مقابل وسيط أسعار المعروض لكل حي، وفارقهما بالنسبة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "unmet_features",
+                "description": "الرغبات النشطة التي لا يقابلها أي عرض منشور في حيها ونوعها ضمن ميزانيتها — من شاركوا في التقارير فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "rejection_reasons",
+                "description": "نسبة الردود «غير مطابق» لكل حي وخدمة خلال الفترة — الأحياء ذات الردود الكافية فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "client_demand",
+                "description": "ما يطلبه عملاء الوسطاء المسجّلون في إدارة العملاء لكل حي ونوع: عددهم ومتوسط أعلى ميزانيتهم، للحي الذي يجمع خمسة على الأقل.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 180
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 20
+                    }
+                }
+            }
+        ],
+        "found": [
+            {
+                "report": "top_demand_by_neighborhood",
+                "params": {
+                    "city": "الرياض",
+                    "days": 30,
+                    "limit": 10
+                },
+                "columns": {
+                    "neighborhood": "الحي",
+                    "requests": "الطلبات",
+                    "urgent": "العاجل",
+                    "avg_budget_max": "متوسط أعلى ميزانية"
+                },
+                "rows": [
+                    {
+                        "neighborhood": "النرجس",
+                        "requests": 3,
+                        "urgent": 0,
+                        "avg_budget_max": 2200000
+                    },
+                    {
+                        "neighborhood": "الملقا",
+                        "requests": 1,
+                        "urgent": 0,
+                        "avg_budget_max": 2200000
+                    }
+                ],
+                "row_count": 2
+            },
+            {
+                "report": "time_to_sell",
+                "params": {
+                    "city": "الرياض",
+                    "neighborhood": "النرجس",
+                    "days": 90
+                },
+                "columns": {
+                    "property_type": "النوع",
+                    "sold": "المباع",
+                    "avg_days": "متوسط الأيام"
+                },
+                "rows": [],
+                "row_count": 0
+            }
+        ],
+        "steps_left": 2
+    },
+    {
+        "focus": "",
+        "catalog": [
+            {
+                "report": "top_demand_by_neighborhood",
+                "description": "عدد طلبات البحث في كل حي من أحياء المدينة خلال الفترة، والعاجل منها.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 10
+                    }
+                }
+            },
+            {
+                "report": "top_property_types",
+                "description": "عدد الطلبات لكل نوع عقار خلال الفترة، في مدينة أو في كل المدن.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "supply_vs_demand",
+                "description": "لكل حي ونوع: طلبات الفترة مقابل العروض المنشورة الآن، والفجوة بينهما.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "listing_funnel",
+                "description": "العروض التي أُنشئت في الفترة: كم نُشر، كم بانتظار الصياغة، كم بيع، كم أُخفي — حسب حالتها اليوم.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "user_growth",
+                "description": "الحسابات الجديدة في الفترة حسب الدور، ومجموع الحسابات النشطة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "broker_activity",
+                "description": "توزيع الوسطاء حسب عدد العروض التي نشروها في الفترة (بلا أسماء).",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "matching_performance",
+                "description": "نداءات المطابقة والبحث في الفترة: نسبة الردود الكاملة، والبديل، ومتوسط الزمن، ونسبة «مطابق».",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "subscriptions_summary",
+                "description": "الاشتراكات السارية الآن لكل باقة ومصدر، والجديد منها في الفترة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "price_trend",
+                "description": "متوسط أسعار العروض المنشورة شهرياً لنوع في مدينة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    },
+                    "months": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 24,
+                        "default": 6
+                    }
+                }
+            },
+            {
+                "report": "time_to_sell",
+                "description": "متوسط الأيام من النشر إلى البيع لكل نوع عقار، للعروض المباعة في الفترة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 90
+                    }
+                }
+            },
+            {
+                "report": "search_no_results",
+                "description": "أكثر ما بحث عنه الناس ولم يجدوا له أي عرض — طلب غير مغطى.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 10
+                    }
+                }
+            },
+            {
+                "report": "user_funnel",
+                "description": "من الحسابات الجديدة في الفترة: كم سجّل رغبة، وكم نشر طلباً أو عرضاً، وكم دفع.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "revenue_summary",
+                "description": "المبالغ المدفوعة في الفترة حسب الغرض بالريال، وعدد الدفعات والفاشلة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "developer_project_perf",
+                "description": "لكل مشروع منشور: المشاهدات، والنماذج، والوحدات المتاحة، وأقل سعر.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 20
+                    }
+                }
+            },
+            {
+                "report": "broker_clients",
+                "description": "توزيع الوسطاء حسب عدد عملائهم في إدارة العملاء، ومجموع العملاء والملاحظات في كل فئة (بلا أسماء).",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "demand_supply_gap",
+                "description": "لكل حي ونوع: مجموع طلبات الفترة مقابل متوسط العروض المنشورة يومياً — الأحياء ذات الطلبات الكافية فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "real_budget_index",
+                "description": "وسيط أعلى ميزانية الطالبين مقابل وسيط أسعار المعروض لكل حي، وفارقهما بالنسبة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "unmet_features",
+                "description": "الرغبات النشطة التي لا يقابلها أي عرض منشور في حيها ونوعها ضمن ميزانيتها — من شاركوا في التقارير فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "rejection_reasons",
+                "description": "نسبة الردود «غير مطابق» لكل حي وخدمة خلال الفترة — الأحياء ذات الردود الكافية فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "client_demand",
+                "description": "ما يطلبه عملاء الوسطاء المسجّلون في إدارة العملاء لكل حي ونوع: عددهم ومتوسط أعلى ميزانيتهم، للحي الذي يجمع خمسة على الأقل.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 180
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 20
+                    }
+                }
+            }
+        ],
+        "found": [],
+        "steps_left": 4
+    },
+    {
+        "focus": "",
+        "catalog": [
+            {
+                "report": "top_demand_by_neighborhood",
+                "description": "عدد طلبات البحث في كل حي من أحياء المدينة خلال الفترة، والعاجل منها.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 10
+                    }
+                }
+            },
+            {
+                "report": "top_property_types",
+                "description": "عدد الطلبات لكل نوع عقار خلال الفترة، في مدينة أو في كل المدن.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "supply_vs_demand",
+                "description": "لكل حي ونوع: طلبات الفترة مقابل العروض المنشورة الآن، والفجوة بينهما.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "listing_funnel",
+                "description": "العروض التي أُنشئت في الفترة: كم نُشر، كم بانتظار الصياغة، كم بيع، كم أُخفي — حسب حالتها اليوم.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "user_growth",
+                "description": "الحسابات الجديدة في الفترة حسب الدور، ومجموع الحسابات النشطة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "broker_activity",
+                "description": "توزيع الوسطاء حسب عدد العروض التي نشروها في الفترة (بلا أسماء).",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "matching_performance",
+                "description": "نداءات المطابقة والبحث في الفترة: نسبة الردود الكاملة، والبديل، ومتوسط الزمن، ونسبة «مطابق».",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "subscriptions_summary",
+                "description": "الاشتراكات السارية الآن لكل باقة ومصدر، والجديد منها في الفترة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "price_trend",
+                "description": "متوسط أسعار العروض المنشورة شهرياً لنوع في مدينة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    },
+                    "months": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 24,
+                        "default": 6
+                    }
+                }
+            },
+            {
+                "report": "time_to_sell",
+                "description": "متوسط الأيام من النشر إلى البيع لكل نوع عقار، للعروض المباعة في الفترة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 90
+                    }
+                }
+            },
+            {
+                "report": "search_no_results",
+                "description": "أكثر ما بحث عنه الناس ولم يجدوا له أي عرض — طلب غير مغطى.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 10
+                    }
+                }
+            },
+            {
+                "report": "user_funnel",
+                "description": "من الحسابات الجديدة في الفترة: كم سجّل رغبة، وكم نشر طلباً أو عرضاً، وكم دفع.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "revenue_summary",
+                "description": "المبالغ المدفوعة في الفترة حسب الغرض بالريال، وعدد الدفعات والفاشلة.",
+                "params": {
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "developer_project_perf",
+                "description": "لكل مشروع منشور: المشاهدات، والنماذج، والوحدات المتاحة، وأقل سعر.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 20
+                    }
+                }
+            },
+            {
+                "report": "broker_clients",
+                "description": "توزيع الوسطاء حسب عدد عملائهم في إدارة العملاء، ومجموع العملاء والملاحظات في كل فئة (بلا أسماء).",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "demand_supply_gap",
+                "description": "لكل حي ونوع: مجموع طلبات الفترة مقابل متوسط العروض المنشورة يومياً — الأحياء ذات الطلبات الكافية فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "real_budget_index",
+                "description": "وسيط أعلى ميزانية الطالبين مقابل وسيط أسعار المعروض لكل حي، وفارقهما بالنسبة.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "unmet_features",
+                "description": "الرغبات النشطة التي لا يقابلها أي عرض منشور في حيها ونوعها ضمن ميزانيتها — من شاركوا في التقارير فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    }
+                }
+            },
+            {
+                "report": "rejection_reasons",
+                "description": "نسبة الردود «غير مطابق» لكل حي وخدمة خلال الفترة — الأحياء ذات الردود الكافية فقط.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 30
+                    }
+                }
+            },
+            {
+                "report": "client_demand",
+                "description": "ما يطلبه عملاء الوسطاء المسجّلون في إدارة العملاء لكل حي ونوع: عددهم ومتوسط أعلى ميزانيتهم، للحي الذي يجمع خمسة على الأقل.",
+                "params": {
+                    "city": {
+                        "type": "string",
+                        "enum": [
+                            "الرياض",
+                            "جدة",
+                            "الدمام",
+                            "الخبر"
+                        ]
+                    },
+                    "neighborhood": {
+                        "type": "string",
+                        "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+                    },
+                    "property_type": {
+                        "type": "string",
+                        "enum": [
+                            "apartment",
+                            "studio",
+                            "floor",
+                            "villa",
+                            "house",
+                            "resthouse",
+                            "land",
+                            "building",
+                            "shop",
+                            "office"
+                        ]
+                    },
+                    "days": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 365,
+                        "default": 180
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 20
+                    }
+                }
+            }
+        ],
+        "found": [
+            {
+                "report": "listing_funnel",
+                "params": {
+                    "days": 30
+                },
+                "columns": {
+                    "status": "الحالة",
+                    "listings": "العروض"
+                },
+                "rows": [],
+                "row_count": 0
+            }
+        ],
+        "steps_left": 3
+    }
+]
