@@ -3,6 +3,11 @@
 A signal carries the entity's version; the last indexed version of every `(entity, entity_id)` is kept here, so a
 resent or out-of-order signal is ignored (`ignored_stale`) — resending is always safe. Only approved, published
 text reaches the index: Laravel sends `delete` for anything that is not public.
+
+One signal per entity at a time, from the version check to the saved version: Laravel gives up on a slow signal
+(its HTTP timeout) and sends the next while the first may still wait on the embedder, and a delete must not be
+undone by the update before it. The service runs as one process (`zon-agents serve`), so an asyncio lock per
+entity is enough.
 """
 
 import asyncio
@@ -93,7 +98,7 @@ class VersionStore:
         async with self._lock:
             self._db.execute(
                 "INSERT INTO versions (entity, entity_id, version) VALUES (?, ?, ?)"
-                " ON CONFLICT (entity, entity_id) DO UPDATE SET version = excluded.version",
+                " ON CONFLICT (entity, entity_id) DO UPDATE SET version = max(version, excluded.version)",
                 (entity, entity_id, version),
             )
             self._db.commit()
@@ -107,8 +112,23 @@ class Indexer:
         self._embedder = embedder
         self._store = store
         self._versions = versions
+        self._locks: dict[tuple[str, int], tuple[asyncio.Lock, int]] = {}  # entity → its lock, and who holds or waits
 
     async def handle(self, signal: IndexSignal) -> str:
+        key = (signal.entity, signal.entity_id)
+        lock, users = self._locks.get(key, (asyncio.Lock(), 0))
+        self._locks[key] = (lock, users + 1)
+        try:
+            async with lock:
+                return await self._handle(signal)
+        finally:
+            lock, users = self._locks[key]
+            if users == 1:
+                del self._locks[key]  # nobody waits: the entity's lock goes
+            else:
+                self._locks[key] = (lock, users - 1)
+
+    async def _handle(self, signal: IndexSignal) -> str:
         last = await self._versions.last(signal.entity, signal.entity_id)
         if last is not None and signal.version <= last:
             return "ignored_stale"
