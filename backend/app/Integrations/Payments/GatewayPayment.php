@@ -20,5 +20,12 @@ final readonly class GatewayPayment
         public string $currency,
         public ?string $paymentPublicId,
         public ?string $failureReason = null,
+        public int $refundedHalalas = 0,
     ) {}
+
+    /** Every halala of it went back to the customer (a refund made at the provider, the whole amount). */
+    public function fullyRefunded(): bool
+    {
+        return $this->status === self::REFUNDED && $this->amountHalalas > 0 && $this->refundedHalalas >= $this->amountHalalas;
+    }
 }

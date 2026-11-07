@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /** A period of a plan: bought, granted by staff, or opened by a developer's marketing contract. */
 class Subscription extends Model
@@ -29,6 +31,20 @@ class Subscription extends Model
     {
         $query->whereNull('cancelled_at')->where('starts_at', '<=', now())
             ->where(fn (Builder $q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', now()));
+    }
+
+    /**
+     * Where a new period of this plan starts for this account: at the end of its last period still to come —
+     * running or bought ahead — or now. The account's row is locked first, so two periods never start from the
+     * same end: call it in the transaction that creates the period.
+     */
+    public static function nextStart(int $customerId, int $packageId): Carbon
+    {
+        DB::table('customers')->where('id', $customerId)->lockForUpdate()->value('id');
+        $last = self::query()->where('customer_id', $customerId)->where('package_id', $packageId)
+            ->whereNull('cancelled_at')->where('ends_at', '>', now())->max('ends_at');
+
+        return $last === null ? now() : Carbon::parse($last);
     }
 
     public function isCurrent(): bool

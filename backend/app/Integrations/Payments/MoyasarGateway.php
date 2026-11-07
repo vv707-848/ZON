@@ -55,6 +55,7 @@ class MoyasarGateway implements PaymentGateway
             strtoupper((string) ($data['currency'] ?? '')),
             isset($data['metadata']['payment_id']) ? (string) $data['metadata']['payment_id'] : null,
             isset($data['source']['message']) ? (string) $data['source']['message'] : null,
+            (int) ($data['refunded'] ?? 0),
         );
     }
 

@@ -117,13 +117,12 @@ final class ConfirmPayment
         return true;
     }
 
-    /** A new period; the same plan bought before its end continues from that end. */
+    /** A new period; the same plan bought again continues from the end of its last period, even one bought ahead. */
     private function subscribe(Payment $payment): void
     {
         $package = $payment->target;
         assert($package instanceof Package);
-        $current = Subscription::query()->where('customer_id', $payment->customer_id)->where('package_id', $package->id)->current()->latest('ends_at')->first();
-        $starts = $current->ends_at ?? now();
+        $starts = Subscription::nextStart($payment->customer_id, $package->id);
 
         Subscription::query()->create([
             'customer_id' => $payment->customer_id,
