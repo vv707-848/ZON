@@ -111,7 +111,8 @@ def numbers(text: str) -> list[str]:
 
 
 def _free(number: str) -> bool:
-    """Small counts and ordinals («3 أحياء», «الثاني») are never checked — NumberGuard's rule."""
+    """Small counts and ordinals («3 أحياء», «الثاني») are not checked in the texts the lab scores itself.
+    The SuperAgent's NumberGuard checks them too (number_guard)."""
     return "." not in number and float(number) <= 12
 
 
@@ -137,7 +138,7 @@ def numbers_ok(text: str, permitted: set[str]) -> bool:
 
 
 def number_guard(text: str, rows: Sequence[dict[str, Any]], params: dict[str, Any]) -> bool:
-    """App\\SuperAgent\\NumberGuard::passes, line for line."""
+    """App\\SuperAgent\\NumberGuard::passes, line for line: every number, small ones too (no `_free`)."""
     permitted: set[str] = set()
     for row in rows:
         for value in row.values():
@@ -147,7 +148,7 @@ def number_guard(text: str, rows: Sequence[dict[str, Any]], params: dict[str, An
     for value in params.values():
         if _numeric(value) is not None:
             permitted.add(plain(str(value)))
-    return numbers_ok(text, permitted)
+    return all(n in permitted for n in numbers(text))
 
 
 # ── Ranking ─────────────────────────────────────────────────────────────────────────────────────
@@ -335,6 +336,7 @@ def score_report_write(case: Case, output: dict[str, Any]) -> Score:
     parts = case.input["parts"]
     rows = [row for part in parts for row in part["rows"]]
     params = {f"{i}.{name}": value for i, part in enumerate(parts) for name, value in part.get("params", {}).items()}
+    params |= {f"{i}.row_count": part["row_count"] for i, part in enumerate(parts)}  # «3 أحياء»: how many rows it read
     if not number_guard(text, rows, params):
         return Score(0.0, {"guard": 0.0})  # Laravel drops this analysis: the panel shows the rows alone
     mention = recall(text, expect.mention)

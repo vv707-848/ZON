@@ -23,6 +23,7 @@ use App\Support\Trace;
  *   1 blocked words → a fixed answer · 2 language (ar · en · ur) · 3 intent by rules; out of scope → a fixed
  *   answer, no call · 4 the call with a closed context (knowledge passages, or the packages' exact numbers) ·
  *   5 ChatGuard · 6 packages answered from the table itself when the AI is down · 7 saved (masked) in chat_messages.
+ * The account's own name is masked with the rest («أنا خالد…» reaches no model, no row, no training sample).
  */
 final class ChatAssistant
 {
@@ -67,7 +68,7 @@ final class ChatAssistant
             'answer' => trim((string) $out['answer']),
             'covered' => (bool) ($out['covered'] ?? false),
             'sources' => array_values(array_filter((array) ($out['sources'] ?? []), 'is_array')),
-        ], customer: $customer, cache: false);
+        ], customer: $customer, cache: false, known: [$customer->name]);
 
         if (! $result->usable()) {
             $fallback = $intent === ChatIntent::Packages ? $this->packagesText($packages, $lang) : self::FIXED['unavailable'][$lang];
@@ -114,7 +115,7 @@ final class ChatAssistant
      */
     private function answer(Customer $customer, string $message, string $lang, ChatIntent $intent, string $answer, bool $covered, array $sources, string $guard, ?AiResult $result): array
     {
-        $masked = AiMasking::text($message);
+        $masked = AiMasking::text($message, [$customer->name]);
         ChatMessage::query()->create([
             'customer_id' => $customer->id,
             'lang' => $lang,

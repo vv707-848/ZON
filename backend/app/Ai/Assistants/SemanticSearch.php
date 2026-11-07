@@ -65,7 +65,7 @@ final class SemanticSearch
             'candidates' => $candidates->map($toAgent)->values()->all(),
             'limit' => (int) config('zon.ai.results'),
         ], check: fn (array $out) => ['results' => AiGateway::ranked($out['results'] ?? [], $byId->keys()->all())],
-            customer: $customer);
+            customer: $customer, known: [$customer->name]);
 
         $ranked = $result->output['results'] ?? null;
         $rows = $ranked === null

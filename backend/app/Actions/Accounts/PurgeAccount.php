@@ -2,7 +2,9 @@
 
 namespace App\Actions\Accounts;
 
+use App\Ai\Masking\AiMasking;
 use App\Models\ChatMessage;
+use App\Models\Customer;
 use App\Models\DeletionRequest;
 use App\Models\Media;
 use App\Models\Message;
@@ -22,6 +24,9 @@ final class PurgeAccount
 {
     /** What a photo of his may illustrate and is deleted with the account (docs/website.md, «حذف الحساب»). */
     private const PHOTO_OWNERS = ['listing', 'project', 'project_unit', 'inventory_item'];
+
+    /** The short columns a scrubbed text must still fit («العميل» can be longer than the name it replaces). */
+    private const LENGTHS = ['title' => 160, 'model_name' => 40];
 
     public function __invoke(DeletionRequest $deletion): void
     {
@@ -48,8 +53,7 @@ final class PurgeAccount
             $customer->preferences()->delete();
             NoteSummary::query()->where('customer_id', $customer->id)->delete();           // summaries of his clients' notes
             ChatMessage::query()->where('customer_id', $customer->id)->delete();           // his questions to the chat
-            $customer->listings()->withTrashed()->update(['phones' => null]);
-            $customer->projects()->withTrashed()->update(['phones' => null]);
+            $this->scrubRecords($customer);
             Message::query()->where('sender_id', $customer->id)->update(['body' => '—']);
             // Support threads keep their record (number, dates, what was done), not his words or his number.
             SupportMessage::query()->where('author', 'customer')
@@ -77,6 +81,36 @@ final class PurgeAccount
         // Files go once the rows are gone for good (a rolled-back purge keeps both).
         foreach ($photos as $disk => $paths) {
             Storage::disk($disk)->delete(array_values(array_unique($paths)));
+        }
+    }
+
+    /**
+     * The record of what he advertised or asked for stays (type, place, price, description) with no way to reach him:
+     * the phone column emptied, and his texts rid of numbers, e-mails, links and his name (AiMasking, while the name
+     * is known). The tables themselves: deleted rows included, and no model events (nothing is re-indexed or re-worded).
+     */
+    private function scrubRecords(Customer $customer): void
+    {
+        $texts = ['title', 'desc_raw', 'desc_suggested', 'desc_clean'];
+        $projects = DB::table('projects')->where('developer_id', $customer->id)->pluck('id');
+        foreach ([
+            'listings' => [DB::table('listings')->where('customer_id', $customer->id), [...$texts, 'phones']],
+            'projects' => [DB::table('projects')->whereIn('id', $projects), [...$texts, 'phones']],
+            'project_units' => [DB::table('project_units')->whereIn('project_id', $projects), ['model_name', 'desc_raw', 'desc_suggested', 'desc_clean']],
+            'requests' => [DB::table('requests')->where('customer_id', $customer->id), ['description']],
+        ] as $table => [$query, $columns]) {
+            $query->select(['id', ...$columns])->chunkById(200, function ($rows) use ($table, $columns, $customer) {
+                foreach ($rows as $row) {
+                    $clean = [];
+                    foreach ($columns as $column) {
+                        $clean[$column] = match (true) {
+                            $column === 'phones', $row->{$column} === null => null,
+                            default => mb_substr(AiMasking::text((string) $row->{$column}, [$customer->name]), 0, self::LENGTHS[$column] ?? null),
+                        };
+                    }
+                    DB::table($table)->where('id', $row->id)->update($clean);
+                }
+            });
         }
     }
 }

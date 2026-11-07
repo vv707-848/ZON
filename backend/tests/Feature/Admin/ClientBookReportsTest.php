@@ -89,7 +89,7 @@ class ClientBookReportsTest extends AdminTestCase
         $this->assertSame('قرب المدارس', $report->parts[0]['rows'][0]['theme']);
         $audit = Activity::query()->where('event', 'crm_notes_read')->sole();
         $this->assertSame(25, $audit->properties['notes']);
-        $this->assertStringNotContainsString('المدرسة', (string) $audit->properties, 'the log keeps the filters and a count, never the words');
+        $this->assertStringNotContainsString('المدرسة', json_encode($audit->properties, JSON_UNESCAPED_UNICODE), 'the log keeps the filters and a count, never the words');
     }
 
     public function test_under_twenty_notes_nothing_is_read_and_no_one_else_reads_them(): void

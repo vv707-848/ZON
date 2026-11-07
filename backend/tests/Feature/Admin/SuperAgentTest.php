@@ -17,6 +17,7 @@ use App\SuperAgent\Archive;
 use App\SuperAgent\Catalog;
 use App\SuperAgent\MarketTemplate;
 use App\SuperAgent\NotesDigest;
+use App\SuperAgent\NumberGuard;
 use App\SuperAgent\Proposal;
 use App\SuperAgent\SuperAgent;
 use App\Support\Permissions\Permission;
@@ -144,6 +145,21 @@ class SuperAgentTest extends AdminTestCase
 
         $this->assertSame([ExecReportStatus::NoAnalysis, null], [$report->status, $report->analysis], 'the analysis with a made-up 47 is not kept');
         $this->assertNotEmpty($report->parts[0]['rows']);
+    }
+
+    public function test_a_small_number_is_checked_too_and_a_count_of_rows_is_data(): void
+    {
+        $guard = new NumberGuard;
+        $this->assertFalse($guard->passes('الإيراد 12 مليون ريال', [['revenue' => 280]], []), 'no blanket pass for numbers up to 12');
+        $this->assertTrue($guard->passes('ثلاثة أحياء، والثاني منها النرجس', [['requests' => 38]], []), 'counts in words are not numbers');
+
+        $this->demand();                                       // two neighbourhoods: النرجس and الملقا
+        $this->answers('report_select', ['reports' => [['report' => 'top_demand_by_neighborhood', 'params' => ['city' => 'الرياض']]]]);
+        $this->answers('report_write', ['analysis' => 'أعلى 2 من الأحياء: النرجس ثم الملقا.', 'recommendations' => []]);
+
+        $report = app(SuperAgent::class)->ask($this->signInSuperadmin(), 'وين الطلب أعلى؟');
+
+        $this->assertSame(ExecReportStatus::Ok, $report->status, 'the report has 2 rows: «2» is data');
     }
 
     public function test_an_exploration_takes_each_step_from_what_it_found_and_stops_when_the_picture_is_clear(): void

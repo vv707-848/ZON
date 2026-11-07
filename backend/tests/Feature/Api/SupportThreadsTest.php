@@ -39,7 +39,7 @@ class SupportThreadsTest extends TestCase
         $thread = $this->getJson("/api/v1/support-tickets/{$reference}")->assertOk()
             ->assertJsonPath('data.status', 'answered')
             ->assertJsonPath('data.messages.0.author', 'me')->assertJsonPath('data.messages.1.author', 'zon');
-        $this->assertStringNotContainsString('نورة', $thread->getContent(), 'staff are «فريق زون», never a name');
+        $this->assertStringNotContainsString('نورة', json_encode($thread->json(), JSON_UNESCAPED_UNICODE), 'staff are «فريق زون», never a name');
         $this->getJson('/api/v1/support-tickets')->assertJsonPath('data.0.unread', false);
 
         $this->postJson("/api/v1/support-tickets/{$reference}/messages", ['body' => 'شكراً'])->assertOk()->assertJsonPath('data.status', 'open');

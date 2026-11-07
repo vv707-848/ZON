@@ -7,9 +7,10 @@ use App\Models\Customer;
 use App\Models\TrainingSample;
 
 /**
- * The capture layer (§10.9): what will one day teach the local model — de-identified at the source (AiMasking)
- * and never linked to an account (no customer id is stored). Who wrote it is asked only to leave a tester's words
- * out (Sandbox): a store reviewer's «تجربة» teaches nothing.
+ * The capture layer (§10.9): what will one day teach the local model — de-identified at the source (AiMasking,
+ * with the author's own name) and never linked to an account (no customer id is stored), so a sample cannot be
+ * found again to delete. Who wrote it also leaves a tester's words out (Sandbox): a store reviewer's «تجربة»
+ * teaches nothing.
  */
 final class TrainingCapture
 {
@@ -38,7 +39,7 @@ final class TrainingCapture
         if ($from !== null && $from->is_tester) {
             return;
         }
-        $text = trim(AiMasking::text($text));
+        $text = trim(AiMasking::text($text, $from === null ? [] : [$from->name]));
         if ($text === '') {
             return;
         }

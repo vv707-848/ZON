@@ -25,4 +25,17 @@ class DeletionRequest extends Model
     {
         return $this->cancelled_at === null && $this->purged_at === null;
     }
+
+    /**
+     * Something of the account was about to be published during the grace period (an automatic publication, a
+     * moderator's decision): it stays hidden, and a cancellation publishes it (CancelDeletion).
+     *
+     * @param  'listings'|'projects'|'requests'  $kind
+     */
+    public function keepHidden(string $kind, int $id): void
+    {
+        $items = $this->hidden_items ?? [];
+        $items[$kind][$id] = 'published';
+        $this->forceFill(['hidden_items' => $items])->save();
+    }
 }
