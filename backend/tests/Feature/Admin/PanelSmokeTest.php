@@ -124,4 +124,22 @@ class PanelSmokeTest extends AdminTestCase
         $this->signInSuperadmin();
         $this->get(Dashboard::getUrl())->assertForbidden();
     }
+
+    public function test_the_allowed_addresses_hold_for_every_livewire_update_too(): void
+    {
+        $this->signInSuperadmin();
+        config(['zon.admin_allowed_ips' => ['127.0.0.1']]);
+        $html = (string) $this->get(Dashboard::getUrl())->assertOk()->getContent();
+        $this->assertSame(1, preg_match('/wire:snapshot="([^"]+)"/', $html, $m));
+        $update = function (string $ip) use ($m) {
+            Livewire::flushState();                                       // each update is a request of its own
+
+            return $this->withServerVariables(['REMOTE_ADDR' => $ip])->postJson(Livewire::getUpdateUri(), [
+                'components' => [['snapshot' => html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5), 'updates' => [], 'calls' => []]],
+            ], ['X-Livewire' => 'true']);
+        };
+
+        $update('127.0.0.1')->assertOk();                                 // the session itself is valid
+        $update('203.0.113.9')->assertForbidden();                       // from elsewhere, the same session is refused
+    }
 }

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Site;
 
 use App\Actions\Accounts\PurgeAccount;
+use App\Actions\Accounts\ResetPassword;
 use App\Enums\ListingStatus;
 use App\Models\Customer;
 use App\Models\DeletionRequest;
@@ -108,6 +109,24 @@ class AccountTest extends TestCase
         $sent = count($this->sms()->sent());
         $this->post($this->site('password/forgot'), ['phone' => '0559999999'])->assertRedirect('https://zon.sa/password/reset');
         $this->assertCount($sent, $this->sms()->sent());
+    }
+
+    public function test_a_password_reset_ends_the_websites_sessions_opened_before_it(): void
+    {
+        $broker = $this->broker();
+        $this->post($this->site('login'), ['login' => 'fahad', 'password' => 'a-good-secret'])->assertRedirect('https://zon.sa/account');
+        $this->get($this->site('account/invoices'))->assertOk();
+
+        $reset = app(ResetPassword::class);                               // from the app, on another phone
+        $reset->start('+966551234567');
+        $reset->finish('+966551234567', $this->lastCode('+966551234567'), 'new-secret-1');
+        $this->app['auth']->forgetGuards();                               // the next request is another process
+
+        $this->get($this->site('account/invoices'))->assertRedirect('https://zon.sa/login');
+        $this->get($this->site('account'))->assertDontSee($broker->name);
+        $this->post($this->site('login'), ['login' => 'fahad', 'password' => 'new-secret-1'])
+            ->assertRedirect('https://zon.sa/account/invoices');            // back to the page that asked for it
+        $this->get($this->site('account/invoices'))->assertOk();          // a session opened with the new one stays
     }
 
     public function test_the_purge_deletes_the_photos_of_what_was_advertised_and_keeps_a_contracts_documents(): void

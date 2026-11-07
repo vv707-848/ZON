@@ -22,7 +22,8 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /**
  * The admin panel on /admin: staff (users) only, an authenticator app required before any screen (with recovery
- * codes), optionally limited to ADMIN_ALLOWED_IPS. Every screen checks its own permission (App\Filament\Support\Staff).
+ * codes), optionally limited to ADMIN_ALLOWED_IPS — on every request, a screen's Livewire updates included. Every
+ * screen checks its own permission (App\Filament\Support\Staff).
  */
 class AdminPanelProvider extends PanelProvider
 {
@@ -44,8 +45,9 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->pages([Dashboard::class])
+            // Persistent: Livewire runs it again on every update of a screen, not on its first load only.
+            ->middleware([RestrictAdminIps::class], isPersistent: true)
             ->middleware([
-                RestrictAdminIps::class,
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
