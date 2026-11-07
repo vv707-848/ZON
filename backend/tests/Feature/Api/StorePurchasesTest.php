@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Actions\Admin\RefundPayment;
+use App\Jobs\Scheduled\RemindSubscriptionRenewals;
 use App\Models\BuyerPreference;
 use App\Models\Customer;
 use App\Models\Listing;
@@ -127,6 +128,27 @@ class StorePurchasesTest extends TestCase
         $notice(['reference' => 'sim:'.Str::uuid().':strange'])->assertOk();  // a purchase we never saw: nothing changes
         $notice(['reference' => "{$chain}:renewal-2"], 'wrong-key')->assertForbidden();
         $this->assertSame(2, Payment::query()->count());
+    }
+
+    public function test_a_charge_whose_expiry_google_moves_later_keeps_the_plan_with_no_second_payment(): void
+    {
+        $seeker = $this->seeker();
+        $chain = "sim:{$seeker->storeToken()}:grace1";
+        $this->buy('google', self::SEEKER_PLAN, $chain)->assertOk();
+        $period = Subscription::query()->sole();
+        $end = $period->ends_at->toImmutable();
+        $this->travel(28)->days();
+        (new RemindSubscriptionRenewals)->handle();
+        $this->assertSame(0, $seeker->notifications()->where('data->key', 'like', 'renewal:%')->count(), 'the store renews its own plans: no «it ends» reminder');
+
+        $this->travel(2)->days();                     // the renewal's charge fails; Google retries it for 3 days (grace)
+        $this->postJson('/api/v1/store/notices/google?key=test-notices-key', ['simulation' => ['chain' => $chain, 'reference' => "{$chain}:grace-3"]])->assertOk();
+
+        $this->assertTrue($period->fresh()->ends_at->equalTo($end->addDays(3)));
+        $this->getJson('/api/v1/subscription')->assertJsonPath('data.plan.subscribed', true);
+        $this->buy('google', self::SEEKER_PLAN, $chain)->assertOk();              // sent again as the store has it now
+        $this->assertTrue($period->fresh()->ends_at->equalTo($end->addDays(3)), 'a later read never moves it back');
+        $this->assertSame([1, 1], [Payment::query()->count(), Subscription::query()->count()]);
     }
 
     public function test_a_refund_google_reports_ends_the_boost_it_paid_for(): void

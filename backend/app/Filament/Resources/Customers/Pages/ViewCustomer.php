@@ -95,12 +95,13 @@ class ViewCustomer extends ViewRecord
                     ->schema([
                         Select::make('package_id')->label('الباقة')->required()
                             ->options(fn () => Package::query()->where('audience', $customer()->role->value)->where('price_halalas', '>', 0)->pluck('name', 'id')),
-                        TextInput::make('days')->label('عدد الأيام')->integer()->minValue(1)->maxValue(400)->required()->default(30),
+                        TextInput::make('days')->label('عدد الأيام')->integer()->minValue(1)->maxValue(400)->required()->default(30)
+                            ->helperText('إن كانت الباقة نفسها سارية أو مدفوعة مقدماً، تُضاف الأيام بعد آخر مدة لها.'),
                         Textarea::make('reason')->label('السبب')->required()->maxLength(255),
                     ])
                     ->action(function (array $data) use ($customer) {
-                        app(GrantSubscription::class)($customer(), Package::query()->findOrFail($data['package_id']), (int) $data['days'], $data['reason']);
-                        Notification::make()->title('مُنحت الباقة')->success()->send();
+                        $period = app(GrantSubscription::class)($customer(), Package::query()->findOrFail($data['package_id']), (int) $data['days'], $data['reason']);
+                        Notification::make()->title('مُنحت الباقة حتى '.$period->ends_at?->format('Y-m-d'))->success()->send();
                     }),
                 Action::make('cancel_deletion')->label('إلغاء طلب الحذف')->icon('heroicon-o-arrow-uturn-left')
                     ->visible(fn () => $manage() && $customer()->pendingDeletion()->exists())

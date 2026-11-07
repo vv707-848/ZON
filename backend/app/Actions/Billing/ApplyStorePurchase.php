@@ -42,6 +42,9 @@ use Illuminate\Support\Facades\DB;
  *   days.
  * - **Notices** (renewal, refund) are read back from the store: a renewal of a purchase we know is a new period, a
  *   refund ends what its charge bought.
+ * - **A charge's expiry moved later** by the store (Google's grace period, while a failed renewal is retried: the
+ *   customer keeps the plan) moves its period's end with it — read from the store on a notice or a claim sent again,
+ *   with no second payment, invoice or balance. Never earlier: an account hold's past expiry ends nothing sooner.
  * - **No invoice of ours:** Apple sells as our commissionaire and remits the tax; Google too, unless our VAT number is
  *   registered with Google (Setting::GooglePlayVatByZon) — then each Google purchase gets our invoice.
  */
@@ -59,7 +62,12 @@ final class ApplyStorePurchase
 
         $known = self::payment($store, $tx->reference);
         if ($known !== null) {
-            return $known->customer_id === $customer->id ? $known : throw self::refused('other_account');
+            if ($known->customer_id !== $customer->id) {
+                throw self::refused('other_account');
+            }
+            $this->extend($known, $tx);
+
+            return $known;
         }
         if (($problem = self::problem($customer, $tx, $productId)) !== null) {
             throw self::refused($problem);
@@ -92,7 +100,12 @@ final class ApplyStorePurchase
 
             return;
         }
-        if ($known === null && $product['purpose'] === PaymentPurpose::Subscription && self::problem($first->customer, $tx, $productId) === null) {
+        if ($known !== null) {
+            $this->extend($known, $tx);
+
+            return;
+        }
+        if ($product['purpose'] === PaymentPurpose::Subscription && self::problem($first->customer, $tx, $productId) === null) {
             $this->record($first->customer, $tx, $product, null);    // a renewal: the next period
         }
     }
@@ -204,6 +217,23 @@ final class ApplyStorePurchase
         Entitlements::forget($payment->customer);
         if ($previous === null) {
             $payment->customer->notify(Notices::planActivated($package));
+        }
+    }
+
+    /** The store moved this charge's expiry later: its period ends then too (only later, only for that very product). */
+    private function extend(Payment $payment, StoreTransaction $tx): void
+    {
+        if ($payment->status !== PaymentStatus::Paid || $payment->purpose !== PaymentPurpose::Subscription || $tx->expiresAt === null
+            || $tx->pending || $tx->revokedAt !== null || $tx->productId !== ($payment->meta['product_id'] ?? null)) {
+            return;
+        }
+        $moved = Subscription::query()->where('payment_id', $payment->id)->whereNull('cancelled_at')
+            ->where('ends_at', '<', $tx->expiresAt)->update(['ends_at' => $tx->expiresAt]);       // one statement: a stale read never moves it back
+        if ($moved > 0) {
+            $payment->forceFill(['meta' => [...(array) $payment->meta, 'expires_at' => $tx->expiresAt->toIso8601String()]])->save();
+            Entitlements::forget($payment->customer);
+            activity('payments')->performedOn($payment)->event('store_extended')
+                ->withProperties(['store' => $payment->provider, 'until' => $tx->expiresAt->toIso8601String()])->log('مدّد المتجر الاشتراك');
         }
     }
 

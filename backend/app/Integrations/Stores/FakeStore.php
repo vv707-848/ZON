@@ -9,12 +9,15 @@ use App\Models\Package;
 use App\Support\StoreProducts;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * SIMULATION — no store, no money. It replaces a store until its keys arrive; the app's simulated sheet (and the
  * tests) send `sim:{account token}:{id}`, with flags appended: `:pending`, `:revoked`, `:test`, `:renewal-N` (the
- * Nth renewal: a new charge of the same purchase). A subscription runs its plan's length; the amount is the plan's
- * or the boost's listed price. Its notices are `{"simulation": {chain, reference, product_id?, voided?}}`.
+ * Nth renewal: a new charge of the same purchase), `:grace-N` (the charge's expiry moved N days later, as Google
+ * does while it retries a failed renewal). A subscription charge runs its plan's length from the moment the store
+ * first saw it — fixed, as a real store's is; the amount is the plan's or the boost's listed price. Its notices are
+ * `{"simulation": {chain, reference, product_id?, voided?}}`.
  *
  * In production — only if PRODUCTION_ALLOWS_FAKE names the store — every simulated purchase is a test one, so it
  * reaches review and test accounts only.
@@ -30,13 +33,15 @@ final class FakeStore implements StoreGateway
             return null;
         }
         $flags = array_values(array_filter(explode(':', $m[3])));
-        $renewal = 0;
+        $renewal = $grace = 0;
         foreach ($flags as $flag) {
-            if (preg_match('/^renewal-(\d+)$/', $flag, $r) === 1) {
-                $renewal = (int) $r[1];
+            if (preg_match('/^(renewal|grace)-(\d+)$/', $flag, $r) === 1) {
+                $r[1] === 'renewal' ? $renewal = (int) $r[2] : $grace = (int) $r[2];
             }
         }
         $now = CarbonImmutable::now();
+        $charge = "sim-{$m[2]}".($renewal > 0 ? "-r{$renewal}" : '');
+        $seen = CarbonImmutable::parse((string) Cache::rememberForever("fake-store:{$this->store}:{$charge}", fn () => $now->toIso8601String()));
         $package = $product['package'] === null ? null : Package::query()->where('code', $product['package'])->first();
         $price = $product['purpose'] === PaymentPurpose::Subscription
             ? $package?->price()->halalas
@@ -44,10 +49,10 @@ final class FakeStore implements StoreGateway
 
         return new StoreTransaction(
             store: $this->store,
-            reference: "sim-{$m[2]}".($renewal > 0 ? "-r{$renewal}" : ''),
+            reference: $charge,
             chain: "sim:{$m[1]}:{$m[2]}",
             productId: $productId,
-            expiresAt: $subscription && $package !== null ? $now->addDays((int) $package->days()) : null,
+            expiresAt: $subscription && $package !== null ? $seen->addDays((int) $package->days() + $grace) : null,
             revokedAt: in_array('revoked', $flags, true) ? $now : null,
             test: in_array('test', $flags, true) || app()->isProduction(),
             accountToken: $m[1],
