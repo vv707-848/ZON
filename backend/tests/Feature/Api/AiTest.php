@@ -15,6 +15,7 @@ use App\Models\ProjectUnit;
 use App\Models\SearchMiss;
 use App\Models\SearchRequest;
 use App\Models\Subscription;
+use App\Models\TrainingSample;
 use Illuminate\Http\Client\Request as Sent;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -58,6 +59,27 @@ class AiTest extends TestCase
             && ! str_contains($r->body(), '0551234567') && in_array('فناء', $r['terms'], true)
             && $r['candidates'][0]['id'] === $near->id && $r->hasHeader('X-Request-Id'));
         $this->assertSame('ok', AiRequest::query()->sole()->status->value);
+    }
+
+    public function test_the_accounts_own_name_reaches_no_model_no_row_and_no_training_sample(): void
+    {
+        $seeker = $this->seeker();
+        $seeker->update(['name' => 'خالد المطيري']);
+        Listing::factory()->published()->create(['neighborhood' => 'النرجس', 'property_type' => 'apartment']);
+        $this->agent(['answer' => 'باقة الباحث 199 ريال شهرياً.', 'covered' => true, 'sources' => [], 'results' => []]);
+
+        $this->postJson('/api/v1/ai/chat', ['message' => 'أنا خالد المطيري، كم سعر الباقة؟'])->assertOk();
+        $this->postJson('/api/v1/ai/search', ['city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'query' => 'لخالد وعائلته'])->assertOk();
+        $this->postJson('/api/v1/ai/search', ['city' => 'الرياض', 'neighborhood' => 'العليا', 'property_type' => 'villa', 'query' => 'أنا المطيري أبحث عن فيلا'])->assertOk();
+
+        $sent = Http::recorded()->map(fn (array $pair) => json_encode($pair[0]->data(), JSON_UNESCAPED_UNICODE))->implode("\n");   // readable, not \u-escaped
+        $stored = implode("\n", [ChatMessage::query()->value('question'), SearchMiss::query()->value('free_text'), ...TrainingSample::query()->pluck('text_masked')]);
+        foreach (['خالد', 'المطيري'] as $part) {
+            $this->assertStringNotContainsString($part, $sent, "«{$part}» went to the model");
+            $this->assertStringNotContainsString($part, $stored, "«{$part}» was kept");
+        }
+        $this->assertStringContainsString('لالعميل', $sent, 'masked as a word, with the letter joined to it');
+        $this->assertSame(2, TrainingSample::query()->count(), 'the chat and the miss teach, without the name');
     }
 
     public function test_nothing_to_rank_is_a_recorded_miss_without_a_call_or_a_charge(): void
@@ -181,7 +203,7 @@ class AiTest extends TestCase
         $this->postJson('/api/v1/ai/summaries', ['scope' => 'client', 'id' => $client->id])->assertOk()->assertJsonPath('data.signals.0', 'كاش')->assertJsonPath('meta.ai.status', 'ok');
         $this->postJson('/api/v1/ai/summaries', ['scope' => 'client', 'id' => $client->id])->assertOk()->assertJsonPath('meta.ai.status', 'cached');
         Http::assertSentCount(1);
-        Http::assertSent(fn (Sent $r) => ! str_contains($r->body(), 'خالد') && str_contains($r['notes'][0]['text'], 'العميل'));
+        Http::assertSent(fn (Sent $r) => ! str_contains(json_encode($r->data(), JSON_UNESCAPED_UNICODE), 'خالد') && str_contains($r['notes'][0]['text'], 'العميل'));
 
         $other = CrmClient::query()->create(['broker_id' => Customer::factory()->broker()->create()->id, 'name' => 'آخر', 'city' => 'الرياض']);
         $this->postJson('/api/v1/ai/summaries', ['scope' => 'client', 'id' => $other->id])->assertNotFound();

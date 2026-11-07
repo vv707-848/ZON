@@ -10,7 +10,11 @@ use App\Models\Project;
 use App\Support\Actor;
 use Illuminate\Support\Facades\DB;
 
-/** The same state machine as listings; a project's status decides whether each of its unit models is searchable. */
+/**
+ * The same state machine as listings; a project's status decides whether each of its unit models is searchable.
+ * Nothing is published while the developer's account is being deleted: it stays hidden, and a cancellation
+ * publishes it (as ChangeListingStatus).
+ */
 final class ChangeProjectStatus
 {
     public function __construct(private readonly IndexSync $index) {}
@@ -18,6 +22,10 @@ final class ChangeProjectStatus
     /** @param array<string, mixed> $also other columns saved with the change (auto_hidden_at) */
     public function __invoke(Project $project, ListingStatus $to, Actor $actor, array $also = []): Project
     {
+        if ($to === ListingStatus::Published && ($deletion = $project->developer?->pendingDeletion) !== null) {
+            $deletion->keepHidden('projects', $project->id);
+            $to = ListingStatus::Hidden;
+        }
         $from = $project->status;
         if ($from === $to) {
             return $project;

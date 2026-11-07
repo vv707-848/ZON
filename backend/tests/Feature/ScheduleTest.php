@@ -2,8 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Actions\Accounts\CancelDeletion;
+use App\Actions\Accounts\PurgeAccount;
 use App\Actions\Accounts\RequestDeletion;
+use App\Actions\Moderation\ModerateContent;
 use App\Enums\ListingStatus;
+use App\Enums\RequestStatus;
 use App\Enums\TextReview;
 use App\Indexing\IndexSync;
 use App\Jobs\Scheduled\AutoPublishPendingReviews;
@@ -23,12 +27,18 @@ use App\Models\CrmClient;
 use App\Models\Customer;
 use App\Models\DailyAreaStat;
 use App\Models\DailyMetric;
+use App\Models\DeletionRequest;
 use App\Models\IndexEvent;
 use App\Models\Listing;
 use App\Models\ListingHistory;
+use App\Models\Project;
+use App\Models\ProjectUnit;
 use App\Models\SearchRequest;
 use App\Models\Task;
+use App\Models\User;
+use App\Support\PublicView;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 use Tests\TestCase;
 
 /** The schedule's jobs: each does its work once, and running it again changes nothing. */
@@ -57,6 +67,26 @@ class ScheduleTest extends TestCase
         $this->assertSame(['published', 'auto'], [$overdue->fresh()->status->value, $overdue->fresh()->text_review->value]);
         $this->assertSame('مقترح', $overdue->fresh()->desc_suggested, 'the review button stays');
         $this->assertSame('pending_review', $reminded->fresh()->status->value);
+    }
+
+    public function test_nothing_of_an_account_being_deleted_is_published_and_a_cancellation_publishes_it(): void
+    {
+        $listing = $this->pendingReview(73);                 // its wording deadline passed: the job would publish it
+        $deletion = app(RequestDeletion::class)($listing->customer);
+        $request = SearchRequest::factory()->create(['customer_id' => $listing->customer_id]);   // hidden by the deletion
+
+        (new AutoPublishPendingReviews)->handle();
+        $this->actingAs(User::factory()->superadmin()->create(), 'web');   // a moderator restores the request
+        app(ModerateContent::class)->request($request->fresh(), RequestStatus::Published, 'بلاغ غير صحيح');
+
+        $this->assertSame([ListingStatus::Hidden, RequestStatus::Hidden], [$listing->fresh()->status, $request->fresh()->status]);
+        $this->assertFalse(PublicView::listing($listing->fresh(), null));
+        $this->assertSame(['listings' => [$listing->id => 'published'], 'requests' => [$request->id => 'published']],
+            array_filter(array_intersect_key($deletion->fresh()->hidden_items, array_flip(['listings', 'requests']))));
+
+        app(CancelDeletion::class)($deletion->fresh(), 'owner');
+
+        $this->assertSame([ListingStatus::Published, RequestStatus::Published], [$listing->fresh()->status, $request->fresh()->status]);
     }
 
     public function test_pauses_end_and_stale_listings_become_inactive(): void
@@ -140,6 +170,69 @@ class ScheduleTest extends TestCase
         $this->assertNotNull($broker->anonymized_at);
         $this->assertSame(0, CrmClient::query()->count());
         $this->postJson('/api/v1/auth/login', ['login' => "deleted-{$broker->id}", 'password' => 'password'])->assertStatus(401);
+    }
+
+    public function test_the_record_a_purged_account_leaves_neither_reaches_nor_names_him(): void
+    {
+        $broker = Customer::factory()->broker()->create(['name' => 'فهد القحطاني']);
+        $listing = Listing::factory()->published()->create([
+            'customer_id' => $broker->id,
+            'title' => str_repeat('ب', 156).' فهد',                  // 160, the column: «العميل» is longer than «فهد»
+            'desc_raw' => 'فيلا للبيع، تواصل مع فهد على 0551234567 أو fahad@example.com',
+            'desc_clean' => 'فيلا للبيع، للتواصل: 055 123 4567',
+            'phones' => ['0551234567'],
+        ]);
+        $removed = Listing::factory()->create(['customer_id' => $broker->id, 'desc_raw' => 'اتصل على 0559876543']);
+        $removed->delete();
+        $request = SearchRequest::factory()->create(['customer_id' => $broker->id, 'description' => 'شقة قريبة، القحطاني 0551234567']);
+        $developer = Customer::factory()->developer()->create(['name' => 'نورة الشمري']);
+        $project = Project::factory()->published()->create(['developer_id' => $developer->id, 'desc_raw' => 'مشروع نورة: 0501112223', 'phones' => ['0501112223']]);
+        $unit = ProjectUnit::factory()->create(['project_id' => $project->id, 'model_name' => 'نموذج الشمري', 'desc_raw' => 'للحجز 0501112223']);
+        app(RequestDeletion::class)($broker);
+        app(RequestDeletion::class)($developer);
+        $this->travel(31)->days();
+
+        (new PurgeDueAccounts)->handle();
+
+        $kept = json_encode([
+            Listing::withTrashed()->whereKey([$listing->id, $removed->id])->get(['title', 'desc_raw', 'desc_suggested', 'desc_clean', 'phones']),
+            SearchRequest::query()->whereKey($request->id)->get(['description']),
+            Project::withTrashed()->whereKey($project->id)->get(['title', 'desc_raw', 'desc_suggested', 'desc_clean', 'phones']),
+            ProjectUnit::query()->whereKey($unit->id)->get(['model_name', 'desc_raw', 'desc_suggested', 'desc_clean']),
+        ], JSON_UNESCAPED_UNICODE);
+        foreach (['0551234567', '123 4567', '0559876543', 'fahad@example.com', 'فهد', 'القحطاني', '0501112223', 'نورة', 'الشمري'] as $trace) {
+            $this->assertStringNotContainsString($trace, $kept);
+        }
+        foreach (['فيلا للبيع', 'شقة قريبة', 'مشروع العميل', 'نموذج العميل', 'للحجز [رقم]'] as $record) {
+            $this->assertStringContainsString($record, $kept);                         // the record itself stays
+        }
+        $this->assertNull($listing->fresh()->phones);
+        $this->assertSame(160, mb_strlen((string) $listing->fresh()->title));
+    }
+
+    public function test_one_account_that_fails_to_purge_holds_back_no_other(): void
+    {
+        $first = Customer::factory()->broker()->create();
+        $second = Customer::factory()->broker()->create();
+        app(RequestDeletion::class)($first);
+        app(RequestDeletion::class)($second);
+        $this->travel(31)->days();
+        $real = app(PurgeAccount::class);
+        $this->app->instance(PurgeAccount::class, new class($real, $first->id)
+        {
+            public function __construct(private PurgeAccount $real, private int $failing) {}
+
+            public function __invoke(DeletionRequest $deletion): void
+            {
+                throw_if($deletion->customer_id === $this->failing, new RuntimeException('down'));
+                ($this->real)($deletion);
+            }
+        });
+
+        (new PurgeDueAccounts)->handle();
+
+        $this->assertNull($first->fresh()->anonymized_at);
+        $this->assertNotNull($second->fresh()->anonymized_at);
     }
 
     public function test_unacknowledged_index_signals_are_sent_again(): void

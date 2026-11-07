@@ -170,7 +170,7 @@
 **`report_write`**
 - المدخل: `{"question","parts":[{"report","params","columns","rows","row_count"}],"proposals":[{"action","description","params"}]}`. الصفوف كلها 200 على الأكثر، مقسومة على التقارير، و`row_count` عددها الكامل.
 - المخرج: `{"analysis":"…","recommendations":[{"text":"…","action":"announce","params":{"audience":"broker","city":"الرياض"}}]}`. ‏`action` اسم من `proposals` أو `null`.
-- كل رقم في التحليل والتوصيات من صفوف أحد التقارير أو معاملاته، وإلا رفض `NumberGuard` التحليل في Laravel.
+- كل رقم في التحليل والتوصيات من صفوف أحد التقارير أو معاملاته أو `row_count`، وإلا رفض `NumberGuard` التحليل في Laravel. لا استثناء للأعداد الصغيرة: ما ليس في البيانات يُكتب بالكلمات.
 - **الأفعال المقترحة** (`App\SuperAgent\Proposal`): شاشة في اللوحة تُفتح على المرشح أو النموذج المناسب، والمدير يقرر فيها بنفسه. الوكيل لا ينفّذ شيئاً. وفعل خارج القائمة أو بمعامل خارج مداه يفقد زره، وتبقى توصيته.
 
 **`summarize_batch`**

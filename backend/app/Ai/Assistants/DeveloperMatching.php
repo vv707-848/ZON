@@ -38,7 +38,7 @@ final class DeveloperMatching
         ], check: fn (array $out) => ['results' => array_map(
             fn (array $r) => [...$r, 'unit_id' => isset($r['unit_id']) && $units->has((int) $r['unit_id']) ? (int) $r['unit_id'] : null],   // an invented unit becomes none
             AiGateway::ranked($out['results'] ?? [], $byId->keys()->all(), extra: ['unit_id']),
-        )], customer: $developer);
+        )], customer: $developer, known: $wishes->map(fn (BuyerPreference $w) => (string) $w->customer?->name)->filter()->values()->all());
 
         $ranked = $result->output['results'] ?? null;
         $rows = $ranked === null

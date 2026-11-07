@@ -173,7 +173,7 @@ final class SuperAgent
             'row_count' => $part['row_count'],
         ], $parts);
         $rows = array_merge(...array_column($shown, 'rows'));
-        $params = array_merge(...array_map(fn (array $part) => array_values($part['params']), $shown));
+        $params = [...array_merge(...array_map(fn (array $part) => array_values($part['params']), $shown)), ...array_column($shown, 'row_count')];
 
         $written = $this->ai->call(AiAgent::ReportWrite, ['question' => self::asked($report), 'parts' => $shown, 'proposals' => Proposal::catalog()],
             check: function (array $out) use ($rows, $params): ?array {

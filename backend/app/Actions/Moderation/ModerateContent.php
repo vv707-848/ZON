@@ -68,6 +68,10 @@ final class ModerateContent
 
     public function request(SearchRequest $request, RequestStatus $to, string $reason): void
     {
+        if ($to === RequestStatus::Published && ($deletion = $request->customer?->pendingDeletion) !== null) {
+            $deletion->keepHidden('requests', $request->id);     // the account is being deleted: a cancellation publishes it
+            $to = RequestStatus::Hidden;
+        }
         $request->forceFill(['status' => $to, 'auto_hidden_at' => null, 'closed_at' => $to === RequestStatus::Closed ? now() : $request->closed_at])->save();
         $this->index->request($request);
         Audit::log("request_{$to->value}", 'إشراف طلب', $request, ['reason' => $reason]);

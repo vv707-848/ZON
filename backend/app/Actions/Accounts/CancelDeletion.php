@@ -32,6 +32,7 @@ final class CancelDeletion
         }
 
         DB::transaction(function () use ($deletion, $by) {
+            $deletion->forceFill(['cancelled_at' => now(), 'cancelled_by' => $by])->save();   // first: no longer pending, so what follows may be published
             $customer = $deletion->customer;
             $actor = Actor::customer($customer);
             $hidden = $deletion->hidden_items ?? [];
@@ -54,7 +55,6 @@ final class CancelDeletion
                 ->when($customer->is_tester, fn ($q) => $q->whereIn('customer_id', Sandbox::accounts()))   // a real side stays out of the sandbox
                 ->update(['hidden_at' => null]);
 
-            $deletion->forceFill(['cancelled_at' => now(), 'cancelled_by' => $by])->save();
             activity('accounts')->performedOn($customer)->event('deletion_cancelled')->withProperties(['by' => $by])->log('إلغاء حذف الحساب');
         });
     }

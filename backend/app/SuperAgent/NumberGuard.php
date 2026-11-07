@@ -5,14 +5,15 @@ namespace App\SuperAgent;
 use App\Support\ArabicText;
 
 /**
- * Every number in the model's analysis must come from the rows (or the parameters) of the reports it read: a
- * number the model made up rejects the analysis — the rows are still shown, without it.
+ * Every number in the model's analysis must come from what it read — the rows, the parameters, how many rows each
+ * report has: a number the model made up rejects the analysis, and the rows are still shown without it. Small
+ * numbers too («الإيراد 12 مليون»): a count the data does not hold is written in words («ثلاثة أحياء»).
  */
 final class NumberGuard
 {
     /**
      * @param  list<array<string, mixed>>  $rows  of every report the analysis covers
-     * @param  array<mixed>  $params  the values of their parameters
+     * @param  array<mixed>  $params  the values of their parameters, and their row counts
      */
     public function passes(string $text, array $rows, array $params): bool
     {
@@ -34,11 +35,7 @@ final class NumberGuard
 
         preg_match_all('/\d[\d,٬]*(?:\.\d+)?/u', ArabicText::asciiDigits($text), $matches);
         foreach ($matches[0] as $number) {
-            $plain = $this->plain($number);
-            if ((float) $plain <= 12 && ! str_contains($plain, '.')) {
-                continue;                                  // small counts and ordinals («الثاني», «3 أحياء»)
-            }
-            if (! isset($allowed[$plain])) {
+            if (! isset($allowed[$this->plain($number)])) {
                 return false;
             }
         }

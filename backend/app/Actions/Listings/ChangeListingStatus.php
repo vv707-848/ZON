@@ -18,6 +18,9 @@ use Illuminate\Support\Facades\DB;
  * No listing becomes public without a current advertising licence: whoever asks for «published» (the advertiser
  * resuming, an update, a job, staff), a listing whose licence has ended goes to «منتهي الترخيص» instead, and a
  * renewal (ListingController::renewLicence) publishes it.
+ *
+ * Nor while its owner's account is being deleted: it goes to «مخفي» instead (the automatic publication of a
+ * wording nobody decided, a moderator's decision), and a cancellation of the deletion publishes it.
  */
 final class ChangeListingStatus
 {
@@ -26,6 +29,10 @@ final class ChangeListingStatus
     /** @param array<string, mixed> $also other columns saved with the change (paused_until, …) */
     public function __invoke(Listing $listing, ListingStatus $to, Actor $actor, array $also = []): Listing
     {
+        if ($to === ListingStatus::Published && ($deletion = $listing->customer?->pendingDeletion) !== null) {
+            $deletion->keepHidden('listings', $listing->id);
+            $to = ListingStatus::Hidden;
+        }
         if ($to === ListingStatus::Published && ! $listing->hasCurrentLicence()) {
             $to = ListingStatus::LicenceExpired;
         }

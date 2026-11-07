@@ -24,7 +24,7 @@ final class SearchMisses
             'property_type' => $need->types[0] ?? null,
             'budget_min' => $need->budgetMin,
             'budget_max' => $need->budgetMax,
-            'free_text' => $need->freeText === '' ? null : AiMasking::text($need->freeText),
+            'free_text' => $need->freeText === '' ? null : AiMasking::text($need->freeText, $customer === null ? [] : [$customer->name]),
             'created_at' => now(),
         ]);
         if ($need->freeText !== '') {

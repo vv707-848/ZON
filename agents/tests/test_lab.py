@@ -46,7 +46,9 @@ def test_the_number_guard_is_laravels() -> None:
     rows = [{"neighborhood": "النرجس", "requests": 38, "avg_budget_max": 1150000, "rate": 0.71}]
 
     assert number_guard("النرجس الأعلى بـ38 طلباً ومتوسط ميزانية 1150 ألف، ونسبة مطابق 71%", rows, {})
-    assert number_guard("ثلاثة أحياء، الثاني منها 3", rows, {}), "small counts and ordinals are free"
+    assert number_guard("ثلاثة أحياء، والثاني منها", rows, {}), "counts and ordinals in words are not numbers"
+    assert not number_guard("الإيراد 12 مليون ريال", [{"revenue": 280}], {}), "a small number the data does not hold"
+    assert number_guard("أعلى 3 أحياء", rows, {"row_count": 3}), "how many rows the report has"
     assert not number_guard("زادت الطلبات 45%", rows, {}), "a percentage the rows do not hold"
     assert not number_guard("متوسط الميزانية 1.15 مليون", rows, {}), "PHP rounds 1.15 to 1.2: NumberGuard refuses it"
     assert number_guard("آخر 30 يوماً", [], {"days": 30}), "a number from the question's parameters"

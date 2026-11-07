@@ -55,7 +55,7 @@ final class MatchingAssistant
             'matched' => AiGateway::ranked($out['matched'] ?? [], $matched->modelKeys()),
             'broaden' => AiGateway::ranked($out['broaden'] ?? [], $broaden->modelKeys()),
             'units' => AiGateway::ranked($out['units'] ?? [], $units->modelKeys(), 30),
-        ], customer: $customer);
+        ], customer: $customer, known: [$customer->name]);
 
         $pick = function (string $list, $models) use ($result, $limit): array {
             $byId = $models->keyBy('id');

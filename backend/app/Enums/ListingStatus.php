@@ -23,14 +23,14 @@ enum ListingStatus: string
 
     /** from => the states it may go to */
     private const ALLOWED = [
-        'draft' => ['indexing', 'pending_review', 'published'],
-        'indexing' => ['pending_review', 'published', 'draft', 'licence_expired'],
-        'pending_review' => ['published', 'draft', 'indexing', 'licence_expired'],
+        'draft' => ['indexing', 'pending_review', 'published', 'hidden'],
+        'indexing' => ['pending_review', 'published', 'draft', 'licence_expired', 'hidden'],
+        'pending_review' => ['published', 'draft', 'indexing', 'licence_expired', 'hidden'],
         'published' => ['indexing', 'paused', 'inactive', 'sold', 'hidden', 'rejected', 'licence_expired'],
         'paused' => ['published', 'sold', 'hidden', 'rejected', 'licence_expired'],
         'inactive' => ['published', 'indexing', 'sold', 'hidden', 'rejected', 'licence_expired'],
         'hidden' => ['published', 'paused', 'rejected', 'licence_expired'],
-        'rejected' => ['published'],
+        'rejected' => ['published', 'hidden'],
         'licence_expired' => ['published', 'sold', 'hidden', 'rejected'],
         'sold' => [],
     ];
