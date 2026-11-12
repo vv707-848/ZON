@@ -48,10 +48,12 @@ use App\Support\Permissions\Permission;
 use App\Support\Settings\Setting;
 use App\Support\Settings\Settings;
 use Illuminate\Http\Client\Request as Sent;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
+use Tests\Unit\DocumentTextTest;
 
 /** What staff do from the panel — each through the same rules as the app, each written to the audit log. */
 class AdminActionsTest extends AdminTestCase
@@ -261,6 +263,18 @@ class AdminActionsTest extends AdminTestCase
             ->assertHasNoActionErrors();
 
         $this->assertSame('broker-year', Entitlements::for($broker->fresh())->package()->code);
+    }
+
+    public function test_an_uploaded_word_file_fills_the_text_for_review_and_is_not_kept(): void
+    {
+        $this->signInStaff(Permission::ManageKnowledge);
+        $word = UploadedFile::fake()->createWithContent('سياسة الباقات.docx', (string) file_get_contents(DocumentTextTest::word(tempnam(sys_get_temp_dir(), 'kb').'.docx')));
+
+        Livewire::test(CreateKbDocument::class)->fillForm(['upload' => $word])
+            ->assertSchemaStateSet(['title' => 'سياسة الباقات', 'body' => "## سياسة الباقات\n\nالمدة\t30 يوماً، ولا تُسترد.\n\n- باقة الوسيط: 199 ريالاً."]);
+
+        Livewire::test(CreateKbDocument::class)->fillForm(['title' => 'كما هو', 'upload' => UploadedFile::fake()->createWithContent('a.pdf', '%PDF-1.7')])
+            ->assertSchemaStateSet(['title' => 'كما هو', 'body' => null]);
     }
 
     public function test_a_knowledge_document_saved_in_the_panel_reaches_the_index_and_leaves_it_when_inactive(): void

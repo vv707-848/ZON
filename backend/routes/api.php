@@ -15,6 +15,7 @@ Route::middleware('throttle:api')->group(function () {
     // ── Public ────────────────────────────────────────────────────────────────────────────────────────────
     Route::get('app/config', [V1\AppController::class, 'config']);
     Route::get('catalog', [V1\AppController::class, 'catalog']);
+    Route::get('legal', [V1\AppController::class, 'policies']);
     Route::get('legal/{slug}', [V1\AppController::class, 'legal']);
     Route::get('packages', [V1\BillingController::class, 'packages']);
     Route::post('payments/webhook/{provider}', [V1\PaymentWebhookController::class, 'handle'])->withoutMiddleware('throttle:api');

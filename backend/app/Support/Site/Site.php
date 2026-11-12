@@ -110,8 +110,6 @@ final class Site
     public static function policies(): array
     {
         /** @var array<string, string> */
-        return Cache::remember('site.policies', 300, fn () => LegalPage::query()->whereNotNull('published_at')
-            ->orderByRaw('FIELD(slug, '.implode(', ', array_map(fn (string $s) => "'{$s}'", LegalPage::SLUGS)).')')
-            ->pluck('title', 'slug')->all());
+        return Cache::remember('site.policies', 300, fn () => LegalPage::query()->publishedInOrder()->pluck('title', 'slug')->all());
     }
 }
