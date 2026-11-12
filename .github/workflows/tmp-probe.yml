@@ -1,10 +1,14 @@
-# Temporary: why AiMasking misses «055 123 4567» on the runner (passes locally, same PHP 8.5.12).
+# Temporary: AiMasking misses «055 123 4567» on some runners only. Which CPU, and does PCRE's JIT do it?
 name: tmp-probe
 on:
   push:
     branches: [probe-pcre]
 jobs:
   probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        n: [1, 2, 3, 4, 5, 6, 7, 8]
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -17,18 +21,15 @@ jobs:
           extensions: bcmath, exif, gd, intl, mbstring, pcntl, pdo_mysql, redis, zip
           coverage: pcov
       - run: |
-          composer install --no-interaction --prefer-dist --no-progress -q
-          php --ri pcov || true
           cat > /tmp/probe.php <<'PHP'
           <?php
           require 'app/Support/ArabicText.php';
           require 'app/Ai/Masking/AiMasking.php';
-          $file = array_keys((new ReflectionClassConstant(App\Ai\Masking\AiMasking::class, 'PATTERNS'))->getValue())[5];
           $t = 'كلمني 055 123 4567';
-          echo 'pcov=', ini_get('pcov.enabled'), ' dir=', ini_get('pcov.directory'), ' match: ', preg_match($file, $t), ' text(): ', App\Ai\Masking\AiMasking::text($t), "\n";
+          $out = [];
+          foreach (['كلمني 055 123 4567', 'كلمني 055-123-4567', 'كلمني (055) 123 4567', 'كلمني 0551234567', 'اتصل 0501112223', 'كلمني +966 55 123 4567'] as $x) { $out[] = App\Ai\Masking\AiMasking::text($x); }
+          echo 'jit=', ini_get('pcre.jit'), ' ', json_encode($out, JSON_UNESCAPED_UNICODE), "\n";
           PHP
+          grep -m1 "model name" /proc/cpuinfo; grep -m1 -o "avx512[a-z]*" /proc/cpuinfo | head -1; grep -c processor /proc/cpuinfo
           php /tmp/probe.php
-          php -d pcov.enabled=0 /tmp/probe.php
-          php -d pcov.directory=/nowhere /tmp/probe.php
-          vendor/bin/phpunit --colors=never tests/Unit/AiMaskingTest.php 2>&1 | tail -3
-          php -d pcov.enabled=0 vendor/bin/phpunit --colors=never tests/Unit/AiMaskingTest.php 2>&1 | tail -3
+          php -d pcre.jit=0 /tmp/probe.php
