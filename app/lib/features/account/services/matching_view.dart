@@ -338,7 +338,11 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
               textStyle: ts(16, w: 600, lh: 25, c: AppColors.white),
             ),
           ),
-          if (_error.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: Tx(_error, style: ts(14, w: 600, lh: 20, c: const Color(0xFFFFB4A8)))),
+          if (_error.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Tx(_error, style: ts(14, w: 600, lh: 20, c: const Color(0xFFFFB4A8))),
+            ),
           _mxRow(<(String, VoidCallback?)>[
             (_sending ? 'جارٍ الحفظ…' : 'حفظ الرغبة', text.text.trim().isEmpty || _sending ? null : () => _persist(_payload())),
             if (saved != null) ('إلغاء', () => setState(() => edit = false)),

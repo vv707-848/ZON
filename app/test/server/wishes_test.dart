@@ -137,6 +137,7 @@ void main() {
     expect(server.sent('POST', 'preferences'), isEmpty, reason: 'the same wish, not a second one');
     expect(FakeServer.body(server.sent('PUT', 'preferences/$id').single)['notes'], 'فيلا قرب الحديقة');
     expect(store.loadWish()!.text, 'فيلا قرب الحديقة');
+    await tester.pump(const Duration(seconds: 3)); // the radar's scan ends
   });
 
   testWidgets('a seeker whose wish is not on this phone gets it from the server', (tester) async {

@@ -12,6 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Http\Client\Events\RequestSending;
 use Illuminate\Http\Client\Request;
+use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -40,6 +41,10 @@ abstract class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // _tools/readiness.py: which routes the tests reach (ZON_ROUTE_LOG=<file> php artisan test)
+        if (($log = getenv('ZON_ROUTE_LOG')) !== false && $log !== '') {
+            Event::listen(RouteMatched::class, fn (RouteMatched $e) => file_put_contents($log, implode('|', $e->route->methods()).' '.$e->route->uri()."\n", FILE_APPEND));
+        }
         Http::preventStrayRequests();
         Http::fake(fn (Request $request) => str_starts_with($request->url(), 'http://agents.test/index/')
             ? Http::response(...$this->indexAnswer) : null);
