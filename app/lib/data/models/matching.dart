@@ -18,7 +18,10 @@ class SemMark {
 /// The seeker's saved wish (city, neighbourhoods, types, budget, text) that
 /// drives the matching assistant.
 class Wish {
-  const Wish({required this.city, required this.hoods, required this.types, required this.budget, required this.text});
+  const Wish({required this.city, required this.hoods, required this.types, required this.budget, required this.text, this.id});
+
+  /// Its id on the server (a wish saved there); null on this phone only.
+  final String? id;
 
   final String city;
   final List<String> hoods;
@@ -26,9 +29,10 @@ class Wish {
   final String budget;
   final String text;
 
-  Map<String, Object?> toJson() => <String, Object?>{'city': city, 'hoods': hoods, 'types': types, 'budget': budget, 'text': text};
+  Map<String, Object?> toJson() => <String, Object?>{'city': city, 'hoods': hoods, 'types': types, 'budget': budget, 'text': text, 'id': ?id};
 
   factory Wish.fromJson(Map<String, Object?> j) => Wish(
+    id: j['id'] is String ? j['id']! as String : null,
     city: j['city'] as String? ?? '',
     hoods: (j['hoods'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[],
     types: (j['types'] as List?)?.map((e) => normalizeType(e.toString())).toSet().toList() ?? const <String>[],
