@@ -18,6 +18,7 @@ class Feed extends ChangeNotifier {
   int _page = 0;
   int _last = 0;
   int _generation = 0;
+  bool _disposed = false;
   bool _loading = false;
   String? _error;
 
@@ -25,9 +26,7 @@ class Feed extends ChangeNotifier {
   FeedQuery? get query => _query;
 
   /// The rows loaded so far, in the server's order.
-  List<Listing> get items => <Listing>[
-    for (final id in _ids) ?store.listingById(id),
-  ];
+  List<Listing> get items => <Listing>[for (final id in _ids) ?store.listingById(id)];
 
   /// A page is on its way.
   bool get loading => _loading;
@@ -66,21 +65,31 @@ class Feed extends ChangeNotifier {
     notifyListeners();
     try {
       final result = await ServerListings.feed(query, page: page);
-      if (generation != _generation) return;
+      if (generation != _generation || _disposed) return;
       store.keepServer(result.items);
       if (page == 1) _ids.clear();
-      final fresh = <String>[for (final l in result.items) if (!_ids.contains(l.id)) l.id];
+      final fresh = <String>[
+        for (final l in result.items)
+          if (!_ids.contains(l.id)) l.id,
+      ];
       _ids.addAll(fresh);
       _page = result.page;
       _last = result.last;
     } on ApiError catch (e) {
-      if (generation != _generation) return;
+      if (generation != _generation || _disposed) return;
       _error = e.forUser;
     } finally {
-      if (generation == _generation) {
+      // a page that comes after the screen closed, or after the query changed, is dropped
+      if (generation == _generation && !_disposed) {
         _loading = false;
         notifyListeners();
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 }

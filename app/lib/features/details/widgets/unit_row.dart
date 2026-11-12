@@ -7,6 +7,7 @@ import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_listings.dart';
 
 /// "تم البيع" rubber stamp (red outline, rotated −16°).
 class SoldStamp extends StatelessWidget {
@@ -89,7 +90,10 @@ class UnitRow extends StatelessWidget {
                       margin: const EdgeInsets.only(top: 12, bottom: 12, right: 10),
                       clipBehavior: Clip.antiAlias,
                       decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
-                      child: AppImage(u.image.isNotEmpty ? u.image : '/listings/apt-1.jpg', fallback: '/listings/apt-1.jpg'),
+                      // a model of a server project without a photo shows none, not a sample's
+                      child: ServerListings.isServer(projectId)
+                          ? AppImage(u.image.isNotEmpty ? u.image : kNoPhoto, fallback: kNoPhoto)
+                          : AppImage(u.image.isNotEmpty ? u.image : '/listings/apt-1.jpg', fallback: '/listings/apt-1.jpg'),
                     ),
                   ),
                 ),

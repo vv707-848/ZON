@@ -8,8 +8,8 @@ import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/layout/app_shell.dart';
 import 'package:zon/core/net/api.dart';
 import 'package:zon/core/theme/theme.dart';
-import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/core/utils/sort.dart';
+import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/store.dart';
@@ -269,25 +269,25 @@ class _SalesPanel extends StatelessWidget {
           if (sold != null) const SizedBox(height: 14),
           if (sold != null)
             Row(
-            children: <Widget>[
-              Tx('نسبة البيع $pct%', style: ts(13, w: 600, lh: 19.5, c: const Color(0xFFC9D4CC))),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Container(
-                  height: 6,
-                  decoration: BoxDecoration(color: const Color(0xFF2E4A40), borderRadius: BorderRadius.circular(999)),
-                  clipBehavior: Clip.antiAlias,
-                  alignment: AlignmentDirectional.centerStart,
-                  child: FractionallySizedBox(
-                    widthFactor: pct.clamp(0, 100) / 100,
-                    child: Container(
-                      decoration: BoxDecoration(color: const Color(0xFFC4D4A8), borderRadius: BorderRadius.circular(999)),
+              children: <Widget>[
+                Tx('نسبة البيع $pct%', style: ts(13, w: 600, lh: 19.5, c: const Color(0xFFC9D4CC))),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    height: 6,
+                    decoration: BoxDecoration(color: const Color(0xFF2E4A40), borderRadius: BorderRadius.circular(999)),
+                    clipBehavior: Clip.antiAlias,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: FractionallySizedBox(
+                      widthFactor: pct.clamp(0, 100) / 100,
+                      child: Container(
+                        decoration: BoxDecoration(color: const Color(0xFFC4D4A8), borderRadius: BorderRadius.circular(999)),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );

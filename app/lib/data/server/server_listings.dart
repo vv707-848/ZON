@@ -177,7 +177,12 @@ abstract final class ServerListings {
       totalUnits: numOrNull(j['total_units']),
       delivery: _str(j['delivery']),
       landUse: _str(j['land_use']),
-      units: units is List ? <UnitModel>[for (final u in units) if (u is Map) _unit(u.cast<String, Object?>())] : null,
+      units: units is List
+          ? <UnitModel>[
+              for (final u in units)
+                if (u is Map) _unit(u.cast<String, Object?>()),
+            ]
+          : null,
       lat: numOrNull(j['lat']),
       lng: numOrNull(j['lng']),
       mapsLink: _str(j['maps_link']),
@@ -233,5 +238,10 @@ abstract final class ServerListings {
 
   static int? _int(Object? v) => v is num ? v.toInt() : null;
 
-  static List<String>? _strings(Object? v) => v is List ? <String>[for (final e in v) if (e is String) e] : null;
+  static List<String>? _strings(Object? v) => v is List
+      ? <String>[
+          for (final e in v)
+            if (e is String) e,
+        ]
+      : null;
 }

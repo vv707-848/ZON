@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/core/widgets/app_image.dart';
 import 'package:zon/data/models/models.dart';
+import 'package:zon/data/server/feed.dart';
 import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/shared/widgets/listing_card.dart';
 
@@ -113,7 +114,14 @@ void main() {
     test('the filter card, as the server reads it', () {
       expect(const FeedQuery().params(1, 18), <String, String>{'sort': 'new', 'page': '1', 'per_page': '18'});
       expect(
-        const FeedQuery(purpose: 'rent', city: 'الرياض', neighborhood: 'الملقا', source: 'owner', propertyType: 'villa', sort: 'price-asc').params(2, 18),
+        const FeedQuery(
+          purpose: 'rent',
+          city: 'الرياض',
+          neighborhood: 'الملقا',
+          source: 'owner',
+          propertyType: 'villa',
+          sort: 'price-asc',
+        ).params(2, 18),
         <String, String>{
           'purpose': 'rent',
           'city': 'الرياض',
@@ -129,6 +137,17 @@ void main() {
       expect(const FeedQuery(sort: 'area-desc'), const FeedQuery(sort: 'area-desc'));
       expect(const FeedQuery(sort: 'area-desc') == const FeedQuery(sort: 'area-asc'), isFalse);
     });
+  });
+
+  test('a page that comes after the screen closed is dropped', () async {
+    await freshDevice();
+    final server = serverDevice();
+    server.on('GET', 'feed', 200, recorded('feed'));
+    final feed = Feed();
+    final loading = feed.show(const FeedQuery());
+    feed.dispose(); // the answer is still on its way
+    await loading;
+    expect(server.sent('GET', 'feed'), hasLength(1));
   });
 
   group('«الرئيسية» with a server', () {
@@ -147,7 +166,11 @@ void main() {
       expect(find.text('المباع'), findsNothing, reason: 'an unknown sold count is not shown as a number');
       expect(find.text('الصورة غير متاحة'), findsWidgets);
       _noStockPhoto();
-      expect(server.sent('GET', 'feed').single.url.queryParameters, <String, String>{'sort': 'new', 'page': '1', 'per_page': '18'});
+      // (pumpApp opens «الرئيسية» on the start and again on its route: each asks once)
+      expect(
+        <Map<String, String>>[for (final r in server.sent('GET', 'feed')) r.url.queryParameters],
+        allOf(isNotEmpty, everyElement(<String, String>{'sort': 'new', 'page': '1', 'per_page': '18'})),
+      );
       expect(find.byKey(const ValueKey<String>('home-more')), findsNothing, reason: 'one page only');
     });
 
@@ -158,14 +181,16 @@ void main() {
       await pumpApp(tester, '/');
       await _settle(tester);
 
+      final before = server.sent('GET', 'feed').length;
       await tapText(tester, 'للإيجار');
       await _settle(tester);
+      expect(server.sent('GET', 'feed'), hasLength(before + 1), reason: 'one request a change');
       expect(server.sent('GET', 'feed').last.url.queryParameters, <String, String>{'purpose': 'rent', 'sort': 'new', 'page': '1', 'per_page': '18'});
 
       await tapText(tester, 'الأقدم');
       await _settle(tester);
       expect(server.sent('GET', 'feed').last.url.queryParameters, <String, String>{'purpose': 'rent', 'sort': 'old', 'page': '1', 'per_page': '18'});
-      expect(server.sent('GET', 'feed'), hasLength(3));
+      expect(server.sent('GET', 'feed'), hasLength(before + 2));
     });
 
     testWidgets('«عرض المزيد» brings the next page under the first', (tester) async {
@@ -177,7 +202,19 @@ void main() {
       expect(find.byType(ListingCard), findsNWidgets(5));
 
       final next = <String, Object?>{..._rows(recorded('feed'))[2], 'id': 102, 'title': 'شقة للإيجار في العارض'};
-      server.on('GET', 'feed', 200, _paged(<String, Object?>{...recorded('feed'), 'data': <Object?>[next]}, current: 2, last: 2));
+      server.on(
+        'GET',
+        'feed',
+        200,
+        _paged(
+          <String, Object?>{
+            ...recorded('feed'),
+            'data': <Object?>[next],
+          },
+          current: 2,
+          last: 2,
+        ),
+      );
       await tapText(tester, 'عرض المزيد');
       await _settle(tester);
 
