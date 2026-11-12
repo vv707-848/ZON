@@ -156,11 +156,15 @@ void main() {
     final server = serverDevice();
     final row = _rows(recorded('feed')).first;
     // opened at 900,000 (held in detail) …
-    store.keepServer(<Listing>[ServerListings.fromFeed(<String, Object?>{...row, 'price': 900000})], detailed: true);
+    store.keepServer(<Listing>[
+      ServerListings.fromFeed(<String, Object?>{...row, 'price': 900000}),
+    ], detailed: true);
     // … and the feed now says 800,000
     server.on('GET', 'feed', 200, <String, Object?>{
       ...recorded('feed'),
-      'data': <Object?>[<String, Object?>{...row, 'price': 800000}],
+      'data': <Object?>[
+        <String, Object?>{...row, 'price': 800000},
+      ],
     });
     final feed = Feed();
     await feed.show(const FeedQuery());
