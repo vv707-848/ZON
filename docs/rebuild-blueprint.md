@@ -420,7 +420,7 @@ search_listings · search_requests · matching · match_searchers · chat · sum
 - الدور الأولي: «مشرف» (`Permission::supervisor()`): البلاغات، والشكاوى والمراسلات، ومراسلة المستخدمين باسم «فريق زون»، وتحويل العرض بين «نشط» و«غير نشط» بسبب، وإيقاف الحسابات وفك إيقافها.
 - صلاحيات للمدير العام وحده لا يحملها أي دور (`Permission::superadminOnly()`): محتوى المستخدمين الخاص (المحادثات وإدارة العملاء)، والمال والأسعار، وإعدادات المنصة، وسجل التدقيق.
 - الصلاحيات (`Permission` enum): dashboard.view · customers.view/manage/suspend/message · developers.create/activate · listings.view/moderate/activate · requests.view/moderate · reports.handle · packages.manage · payments.view/manage · knowledge.manage · search_terms.manage · ai.view · index.manage · health.view · app_config.manage · settings.manage · reference.manage · announcements.send · audit.view.
-- خارج أي دور، للـ superadmin وحده: الوكيل الأعلى، وتقارير السوق، ومختبر النماذج، وحسابات الموظفين، والأدوار.
+- خارج أي دور، للـ superadmin وحده: الوكيل الأعلى، وتقارير السوق، ومختبر النماذج، وساحة الاختبار، وحسابات الموظفين، والأدوار.
 
 ### الأقسام والشاشات
 
@@ -448,6 +448,10 @@ search_listings · search_requests · matching · match_searchers · chat · sum
   - **15 تشغيلياً:** TopDemandByNeighborhood · TopPropertyTypes · SupplyVsDemand · ListingFunnel · UserGrowth · BrokerActivity · MatchingPerformance · SubscriptionsSummary · PriceTrend · TimeToSell · SearchNoResults · UserFunnel · RevenueSummary · DeveloperProjectPerf · BrokerClients (عملاء الوسطاء وملاحظاتهم، أعداداً).
   - **7 للسوق:** DemandSupplyGap · RealBudgetIndex · UnmetFeatures · RejectionReasons · ClientDemand (طلب عملاء الوسطاء لكل حي ونوع) · RegionDemandSupply (الطلب لكل عرض في كل منطقة إدارية) · CityDemandSupply (مدن منطقة).
   - تقارير السوق تستبعد من رفض المشاركة، ويُرفع حدها الأدنى للطلبات ولا يُخفض. والحد لكل صف: صف المنطقة يجمع كل مدنها، فمدينة تحت الحد في جدول المدن داخلة في مجموع منطقتها.
+- **ساحة الاختبار** (`App\Arena\TestArena`): دفعة عروض وطلبات ورغبات لمدينة، بنصوص كما يكتبها الناس (`ArenaSamples`، بذرة لكل دفعة)، لتجربة البحث والمطابقة والذكاء قبل أول مستخدم، في الإنتاج أيضاً.
+  - ملك حسابات الدفعة نفسها، وهي في بيئة المراجعة (`is_tester`): يراها حساب المراجعة، ولا يراها مستخدم حقيقي ولا تقرير ولا رقم يومي.
+  - الحسابات لا تدخل: كلمة سر لا يعرفها أحد، وجوال `+999` (رمز دولة غير موجود)، فلا تحجز رقم مستخدم حقيقي.
+  - العروض منشورة برخصة «ARENA-…» تنتهي بعد 30 يوماً، وتُفهرس كغيرها. وزر واحد يحذف الدفعة: كل صف، وكل نقطة في الفهرس.
 - **خريطة السوق** (أعلى «تقارير السوق»): المناطق الـ13 ملوّنة بالطلب لكل عرض من RegionDemandSupply، والنقر على منطقة يعرض مدنها من CityDemandSupply.
   - تقرأ القالبين مباشرة على المشاهد: بلا نموذج، ولا أرشيف، ولا سقف يومي.
   - المنطقة خاصية مخفية في `cities.region` (رمز ISO 3166-2)، لا تصل التطبيق.

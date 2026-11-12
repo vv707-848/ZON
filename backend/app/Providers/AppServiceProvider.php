@@ -62,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
         'legal_page' => Models\LegalPage::class,
         'setting' => Models\SettingValue::class,
         'announcement' => Models\Announcement::class,
+        'arena_batch' => Models\ArenaBatch::class,
         'index_event' => Models\IndexEvent::class,
         'exec_report' => Models\ExecReport::class,
         'model_evaluation' => Models\ModelEvaluation::class,
