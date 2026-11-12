@@ -17,20 +17,7 @@ jobs:
           extensions: bcmath, exif, gd, intl, mbstring, pcntl, pdo_mysql, redis, zip
           coverage: pcov
       - run: |
-          cat > /tmp/probe.php <<'PHP'
-          <?php
-          require 'app/Support/ArabicText.php';
-          require 'app/Ai/Masking/AiMasking.php';
-          $file = array_keys((new ReflectionClassConstant(App\Ai\Masking\AiMasking::class, 'PATTERNS'))->getValue())[5];
-          $built = '~(?<!\d)\(?0\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)~';
-          $t = 'كلمني 055 123 4567';
-          echo 'same bytes: ', var_export($file === $built, true), ' ', bin2hex($file), "\n";
-          echo 'built: ', preg_match($built, $t), ' file: ', preg_match($file, $t), "\n";
-          $d = App\Support\ArabicText::asciiDigits($t);
-          echo 'digits same: ', var_export($d === $t, true), ' ', bin2hex($d), "\n";
-          echo 'text(): ', App\Ai\Masking\AiMasking::text($t), "\n";
-          echo 'after text, built: ', preg_match($built, $t), "\n";
-          PHP
-          php /tmp/probe.php
-          php -d opcache.enable_cli=0 /tmp/probe.php
-          php -i | grep -i "opcache.enable\|opcache.jit"
+          printf '%s\n' '<?php' '$t = "كلمني 055 123 4567";' 'echo getcwd(), " jit=", ini_get("pcre.jit"), " => ", preg_match("~(?<!\\d)\\(?0\\d(?:[\\s.\\-()]{0,2}\\d){7,8}(?!\\d)~", $t), " ascii=", preg_match("~(?<!\\d)\\(?0\\d(?:[\\s.\\-()]{0,2}\\d){7,8}(?!\\d)~", "055 123 4567"), PHP_EOL;' > /tmp/lit.php
+          cat /tmp/lit.php
+          for i in 1 2 3; do php /tmp/lit.php; php -d pcre.jit=0 /tmp/lit.php; done
+          cd /tmp && for i in 1 2 3; do php /tmp/lit.php; php -d pcre.jit=0 /tmp/lit.php; done
