@@ -64,7 +64,11 @@ void main() {
       expect(rows.first.author, _authorOf(_rows(recorded('requests')).first));
       expect(rows.first.author, isNotEmpty);
       expect(rows.first.role, 'owner');
-      expect(rows.first.ownerId, 'srv-${(_rows(recorded('requests')).first['author']! as Map)['id']}', reason: 'his account: what makes it «mine» for him');
+      expect(
+        rows.first.ownerId,
+        'srv-${(_rows(recorded('requests')).first['author']! as Map)['id']}',
+        reason: 'his account: what makes it «mine» for him',
+      );
       expect(rows.first.priceMin, 2000000);
       expect(rows.first.closed, isFalse);
       final unpriced = rows.firstWhere((r) => r.description == 'أرض تجارية على شارعين');
