@@ -46,13 +46,14 @@ jobs:
 
       - name: zon:doctor on the stack
         run: |
+          sleep 65                                   # the scheduler's first heartbeat (every minute)
           docker compose exec -T web php artisan zon:doctor --json > doctor.json || true
           python3 -I - doctor.json <<'PY'
           import json, sys
           checks = {c["key"]: c for c in json.load(open(sys.argv[1]))}
           for c in checks.values():
               print(f'{c["status"]:5} {c["key"]:12} {c["detail"]}')
-          required = ["database", "migrations", "redis", "report_db", "masking", "storage", "uploads", "queues"]
+          required = ["database", "migrations", "redis", "scheduler", "queues", "report_db", "masking", "storage", "uploads", "websockets"]
           bad = [k for k in required if checks[k]["status"] != "ok"]
           sys.exit(f"not ok: {bad}" if bad else 0)
           PY
