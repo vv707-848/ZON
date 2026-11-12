@@ -19,22 +19,18 @@ jobs:
       - run: |
           cat > /tmp/probe.php <<'PHP'
           <?php
-          $sep = '[\s.\-()]{0,2}';
-          $P = [
-            '~\b(?:https?://|www\.)\S+~iu' => 'L', '~[\w.+-]+@[\w-]+\.[\w.-]+~u' => 'E', '~\bSA\d{2}(?:[\s-]?\d){18,24}~i' => 'I',
-            '~(?:\+|00)\s?\(?966\)?'.$sep.'\d(?:'.$sep.'\d){7,8}~' => 'P1', '~(?<!\d)\(?966\)?'.$sep.'5(?:'.$sep.'\d){8}(?!\d)~' => 'P2',
-            '~(?<!\d)\(?0\d(?:'.$sep.'\d){7,8}(?!\d)~' => 'P3', '~(?<!\d)5\d(?:'.$sep.'\d){7}(?!\d)~' => 'P4',
-            '~(?<!\d)(?:9200|800)(?:'.$sep.'\d){5,6}(?!\d)~' => 'P5', '~\d{9,}~' => 'P6',
-          ];
+          require 'app/Support/ArabicText.php';
+          require 'app/Ai/Masking/AiMasking.php';
+          $file = array_keys((new ReflectionClassConstant(App\Ai\Masking\AiMasking::class, 'PATTERNS'))->getValue())[5];
+          $built = '~(?<!\d)\(?0\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)~';
           $t = 'كلمني 055 123 4567';
-          $mode = $argv[1];
-          if ($mode === 'single-first') { echo 'P3 alone: ', preg_match(array_keys($P)[5], $t), "\n"; }
-          if ($mode === 'u-first') { preg_match('~x~u', 'x'); echo 'after a /u pattern: ', preg_match(array_keys($P)[5], $t), "\n"; }
-          if ($mode === 'i-first') { preg_match('~x~i', 'x'); echo 'after a /i pattern: ', preg_match(array_keys($P)[5], $t), "\n"; }
-          if ($mode === 'iu-first') { preg_match('~x~iu', 'x'); echo 'after a /iu pattern: ', preg_match(array_keys($P)[5], $t), "\n"; }
-          if ($mode === 'array') { echo 'array: ', preg_replace(array_keys($P), array_values($P), $t), "\n"; }
-          if ($mode === 'loop') { $x = $t; foreach ($P as $re => $to) { $x = preg_replace($re, $to, $x); } echo 'loop: ', $x, "\n"; }
-          if ($mode === 'ascii-sep') { $s2 = '[ \t\n.()-]{0,2}'; echo 'ascii sep after /u: ', preg_match('~x~u','x'), preg_match('~(?<!\d)\(?0\d(?:'.$s2.'\d){7,8}(?!\d)~', $t), "\n"; }
-          if ($mode === 'all-u') { preg_match('~x~u','x'); echo 'P3 with /u after /u: ', preg_match(array_keys($P)[5].'u', $t), "\n"; }
+          echo 'same bytes: ', var_export($file === $built, true), ' ', bin2hex($file), "\n";
+          echo 'built: ', preg_match($built, $t), ' file: ', preg_match($file, $t), "\n";
+          $d = App\Support\ArabicText::asciiDigits($t);
+          echo 'digits same: ', var_export($d === $t, true), ' ', bin2hex($d), "\n";
+          echo 'text(): ', App\Ai\Masking\AiMasking::text($t), "\n";
+          echo 'after text, built: ', preg_match($built, $t), "\n";
           PHP
-          for m in single-first u-first i-first iu-first array loop ascii-sep all-u; do php /tmp/probe.php $m; done
+          php /tmp/probe.php
+          php -d opcache.enable_cli=0 /tmp/probe.php
+          php -i | grep -i "opcache.enable\|opcache.jit"
