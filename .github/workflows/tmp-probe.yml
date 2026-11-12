@@ -1,0 +1,21 @@
+# Temporary: why AiMasking misses «055 123 4567» on the runner (passes locally, same PHP 8.5.12).
+name: tmp-probe
+on:
+  push:
+    branches: [probe-pcre]
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          extensions: bcmath, exif, gd, intl, mbstring, pcntl, pdo_mysql, redis, zip
+          coverage: pcov
+      - run: |
+          php -v
+          php -r 'echo "PCRE ", PCRE_VERSION, " JIT ", ini_get("pcre.jit"), "\n";'
+          php -r '$t="كلمني 055 123 4567"; $sep="[\s.\-()]{0,2}";
+            foreach (["~(?<!\d)\(?0\d(?:".$sep."\d){7,8}(?!\d)~", "~0\d(?:".$sep."\d){7,8}~", "~0\d(?:[\s]{0,2}\d){7,8}~", "~0\d(?: ?\d){7,8}~", "~\s~", "~[\s]~", "~[\s.]~", "~[ .\-()]{0,2}\d~"] as $p) { var_dump($p, preg_match($p, $t, $m), $m, preg_last_error_msg()); }
+            ini_set("pcre.jit", "0"); var_dump("nojit", preg_match("~(?<!\d)\(?0\d(?:".$sep."\d){7,8}(?!\d)~", $t));'
+          php -i | grep -i pcre
