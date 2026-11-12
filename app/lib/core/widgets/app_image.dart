@@ -11,14 +11,19 @@ import 'package:zon/core/theme/theme.dart';
 /// Shown when a listing has no photo at all.
 const String kPhotoFallback = '/listings/tower-1.jpg';
 
+/// A listing of the server without a photo: the neutral «الصورة غير متاحة» box, never a stock photo in its place.
+const String kNoPhoto = 'none:';
+
 /// Resolves an image reference stored in the data to an [ImageProvider].
 ///
 /// * `/listings/<file>` — a bundled sample photo in `assets/images/<file>`
 ///   (the data keeps this short path).
 /// * `assets/…` — any other bundled asset.
 /// * `zon-photo:…` — a photo kept in the app's folder (PhotoStore, QA F05).
+/// * `https://…` — a photo on the server (its signed address).
 /// * anything else — a file path saved by an older version.
 ImageProvider imageFor(String src) {
+  if (src.startsWith('https://') || src.startsWith('http://')) return NetworkImage(src);
   if (src.startsWith('/listings/')) return AssetImage('assets/images/${src.substring('/listings/'.length)}');
   if (src.startsWith('assets/')) return AssetImage(src);
   if (PhotoStore.isRef(src)) return FileImage(PhotoStore.fileOf(src) ?? File(src));
@@ -41,6 +46,7 @@ class AppImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = src.isEmpty ? fallback : src;
+    if (s == kNoPhoto) return PhotoUnavailable(width: width, height: height);
     return Image(
       image: imageFor(s),
       fit: fit,

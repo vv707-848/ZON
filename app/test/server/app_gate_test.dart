@@ -55,7 +55,8 @@ void main() {
     expect(find.text('نحدّث الخوادم، نعود خلال ساعة'), findsOneWidget);
 
     server.on('GET', 'app/config', 200, _config());
-    await tapText(tester, 'أعد المحاولة');
+    // the gate's own button: it lies over the app, whose home may offer a retry of its own under it
+    await tapText(tester, 'أعد المحاولة', last: true);
     await tester.pump();
 
     expect(find.text('زون في الصيانة'), findsNothing);

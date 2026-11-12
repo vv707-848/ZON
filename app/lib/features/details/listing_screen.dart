@@ -1,12 +1,17 @@
-// `/listings/:id` — تفاصيل العرض (a single property for sale or rent).
+// `/listings/:id` — تفاصيل العرض (a single property for sale or rent). A
+// listing of the server is fetched fresh in detail first (ServerDetail).
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/core/layout/app_shell.dart';
+import 'package:zon/core/net/api.dart';
 import 'package:zon/core/theme/theme.dart';
+import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/details/widgets/detail_widgets.dart';
+import 'package:zon/shared/widgets/server_detail.dart';
 
 class ListingScreen extends StatelessWidget {
   const ListingScreen({super.key, required this.id});
@@ -15,6 +20,13 @@ class ListingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (Api.on && ServerListings.isServer(id)) {
+      return ServerDetail(id: id, title: 'العرض', missing: 'العرض غير موجود.', builder: _page);
+    }
+    return _page(context);
+  }
+
+  Widget _page(BuildContext context) {
     final l = store.listingById(id);
     if (l == null) {
       return AppShell(
@@ -26,7 +38,7 @@ class ListingScreen extends StatelessWidget {
       );
     }
     final rent = l.purpose == 'rent';
-    final photos = l.images.isNotEmpty ? l.images : const <String>['/listings/villa-1.jpg'];
+    final photos = l.images.isNotEmpty ? l.images : <String>[if (ServerListings.isServer(l.id)) kNoPhoto else '/listings/villa-1.jpg'];
     return DetailScaffold(
       actions: OfferReact(id: l.id),
       gallery: PhotoGallery(photos: photos, badge: DetailSeal(rent ? 'للإيجار' : 'للبيع')),

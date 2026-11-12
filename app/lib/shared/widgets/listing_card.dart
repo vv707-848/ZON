@@ -10,6 +10,7 @@ import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/utils/clock.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/shared/widgets/boost.dart';
 
 const Map<String, String> _factIcon = <String, String>{
@@ -55,16 +56,19 @@ class ListingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final e = listing;
-    final img = e.images.isNotEmpty ? e.images.first : '/listings/villa-1.jpg';
+    final server = ServerListings.isServer(e.id);
+    final img = e.images.isNotEmpty ? e.images.first : (server ? kNoPhoto : '/listings/villa-1.jpg');
     final now = appNow();
     final featured = e.featuredAt(now);
     final urgent = e.urgentAt(now);
     final project = e.kind == 'project';
-    final startFrom = project && (e.units ?? const <UnitModel>[]).any((u) => !u.sold && u.price > 0);
+    // a server project's card carries its «from» price, not its units
+    final startFrom = project && ((e.units ?? const <UnitModel>[]).any((u) => !u.sold && u.price > 0) || (e.units == null && server && e.price > 0));
     final shownPrice = project ? fromPrice(e) : e.price;
     final facts = <_Fact>[];
     if (project) {
-      final sold = e.sold ?? (e.units?.where((u) => u.sold).length.toDouble()) ?? 0;
+      // the server does not know a project's sold units: nothing is shown rather than a zero
+      final sold = server ? null : (e.sold ?? (e.units?.where((u) => u.sold).length.toDouble()) ?? 0);
       final available = e.available ?? (e.units?.where((u) => !u.sold).length.toDouble()) ?? 0;
       facts.add(_Fact('النوع', kTypePlural[e.propertyType] ?? ''));
       facts.add(
@@ -74,7 +78,7 @@ class ListingCard extends StatelessWidget {
         ),
       );
       facts.add(_Fact('المتاح', sar(available)));
-      facts.add(_Fact('المباع', sar(sold)));
+      if (sold != null) facts.add(_Fact('المباع', sar(sold)));
     } else if (e.propertyType == 'land') {
       facts.add(_Fact('النوع', kTypeLabel[e.propertyType] ?? ''));
       if (e.landUse != null) facts.add(_Fact('الاستخدام', kLandUseLabel[e.landUse] ?? ''));
@@ -111,7 +115,7 @@ class ListingCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: <Widget>[
                   const ColoredBox(color: AppColors.ink),
-                  AppImage(img, fallback: '/listings/villa-1.jpg'),
+                  AppImage(img, fallback: server ? kNoPhoto : '/listings/villa-1.jpg'),
                   const Positioned(
                     left: 0,
                     right: 0,

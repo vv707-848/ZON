@@ -141,6 +141,7 @@ class Listing {
     required this.advertiserRole,
     required this.license,
     this.available,
+    this.totalUnits,
     this.sold,
     this.isPremium,
     this.delivery,
@@ -186,6 +187,9 @@ class Listing {
   final String advertiser;
   final Role advertiserRole;
   final double? available;
+
+  /// A project's units in all, as its developer declared them (server projects; the samples count [sold] instead).
+  final double? totalUnits;
 
   /// Number of sold units (projects) or a 0/1 "sold" flag (unit listings).
   final double? sold;
@@ -263,6 +267,7 @@ class Listing {
     'advertiserRole': advertiserRole,
     'license': license,
     if (available != null) 'available': available,
+    if (totalUnits != null) 'totalUnits': totalUnits,
     if (sold != null) 'sold': sold,
     if (isPremium != null) 'isPremium': isPremium,
     if (delivery != null) 'delivery': delivery,
@@ -312,6 +317,7 @@ class Listing {
       advertiserRole: j['advertiserRole'] as String? ?? 'broker',
       license: j['license'] as String? ?? '',
       available: numOrNull(j['available']),
+      totalUnits: numOrNull(j['totalUnits']),
       sold: soldRaw is bool ? (soldRaw ? 1 : 0) : numOrNull(soldRaw),
       isPremium: j['isPremium'] as bool?,
       delivery: j['delivery'] as String?,

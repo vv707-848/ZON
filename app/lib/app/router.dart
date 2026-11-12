@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:zon/core/net/api.dart';
 import 'package:zon/core/theme/colors.dart';
 import 'package:zon/features/account/account_screen.dart';
 import 'package:zon/features/account/service_screen.dart';
@@ -70,6 +71,10 @@ class Loc {
 /// | `/legal/:slug` | policy pages |
 /// | `/add` | add a listing / project / request |
 /// | `/notifications` | the notifications list (bell) |
+/// A link from outside the app (a shared link, a notification) names a server row by its number
+/// (`/listings/12`); with a server it is the app's `L12` or `P12` (ServerListings).
+String _serverId(String id, String prefix) => Api.on && RegExp(r'^\d+$').hasMatch(id) ? '$prefix$id' : id;
+
 Widget screenFor(String location) {
   final loc = Loc(location);
   final s = loc.segs;
@@ -78,10 +83,10 @@ Widget screenFor(String location) {
     case 'login':
       if (s.length == 1) return const LoginScreen();
     case 'listings':
-      if (s.length == 2) return ListingScreen(id: s[1]);
+      if (s.length == 2) return ListingScreen(id: _serverId(s[1], 'L'));
     case 'projects':
-      if (s.length == 2) return ProjectScreen(id: s[1]);
-      if (s.length == 4 && s[2] == 'units') return UnitScreen(id: s[1], unitId: s[3]);
+      if (s.length == 2) return ProjectScreen(id: _serverId(s[1], 'P'));
+      if (s.length == 4 && s[2] == 'units') return UnitScreen(id: _serverId(s[1], 'P'), unitId: s[3]);
     case 'requests':
       if (s.length == 1) return const RequestsScreen();
       if (s.length == 2) return RequestDetailScreen(id: s[1]);

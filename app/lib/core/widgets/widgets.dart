@@ -8,6 +8,7 @@ export 'digit_input.dart';
 export 'empty_box.dart';
 export 'field_box.dart';
 export 'form_error.dart';
+export 'loading_box.dart';
 export 'riyal.dart';
 export 'select_box.dart';
 export 'tap.dart';

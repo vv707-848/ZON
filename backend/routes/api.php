@@ -30,6 +30,7 @@ Route::middleware('throttle:api')->group(function () {
         Route::post('password/reset', 'reset')->middleware('throttle:login');
     });
 
+    Route::get('feed', [V1\FeedController::class, 'index']);
     Route::get('listings', [V1\ListingController::class, 'index']);
     Route::get('listings/{listing}', [V1\ListingController::class, 'show'])->whereNumber('listing');
     Route::get('projects', [V1\ProjectController::class, 'index']);
