@@ -8,5 +8,10 @@ import 'package:zon/data/store.dart';
 
 /// The feed of the home screen, one query at a time.
 class Feed extends ServerPager<FeedQuery, Listing> {
-  Feed() : super(fetch: (query, page) => ServerListings.feed(query, page: page), idOf: (l) => l.id, keep: store.keepServer);
+  Feed()
+    : super(
+        fetch: (query, page) => ServerListings.feed(query, page: page),
+        idOf: (l) => l.id,
+        keep: store.keepServer,
+      );
 }

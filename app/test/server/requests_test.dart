@@ -33,6 +33,9 @@ Map<String, Object?> _each(Map<String, Object?> answer, Map<String, Object?> Fun
   'data': <Object?>[for (final r in _rows(answer)) change(r)],
 };
 
+/// The name of a recorded request's author (the server's factories name people at random).
+String _authorOf(Map<String, Object?> row) => (row['author']! as Map)['name']! as String;
+
 /// A request of [name] answered as a viewer who may not see its author.
 Map<String, Object?> _hidden(Map<String, Object?> row) => <String, Object?>{...row, 'author': null, 'can_add_to_clients': false};
 
@@ -58,9 +61,10 @@ void main() {
       final rows = _rows(recorded('requests')).map(ServerRequests.fromJson).toList();
       expect(rows.first.id, 'R3');
       expect(rows.first.urgent, isTrue);
-      expect(rows.first.author, 'بنان الصقيه');
+      expect(rows.first.author, _authorOf(_rows(recorded('requests')).first));
+      expect(rows.first.author, isNotEmpty);
       expect(rows.first.role, 'owner');
-      expect(rows.first.ownerId, 'srv-3', reason: 'his account: what makes it «mine» for him');
+      expect(rows.first.ownerId, 'srv-${(_rows(recorded('requests')).first['author']! as Map)['id']}', reason: 'his account: what makes it «mine» for him');
       expect(rows.first.priceMin, 2000000);
       expect(rows.first.closed, isFalse);
       final unpriced = rows.firstWhere((r) => r.description == 'أرض تجارية على شارعين');
@@ -171,7 +175,7 @@ void main() {
       await _settle(tester);
 
       expect(server.sent('GET', 'requests/3'), hasLength(1));
-      expect(find.text('بنان الصقيه'), findsOneWidget);
+      expect(find.text(_authorOf(_one('request'))), findsOneWidget);
       expect(find.text('أضف إلى إدارة العملاء'), findsNothing);
     });
 
@@ -184,7 +188,7 @@ void main() {
       await pumpApp(tester, '/requests/3');
       await _settle(tester);
 
-      expect(find.text('بنان الصقيه'), findsNothing);
+      expect(find.text(_authorOf(_one('request'))), findsNothing);
       expect(find.text('فعّل الخدمة لفتح التواصل'), findsOneWidget);
     });
 
@@ -269,7 +273,11 @@ void main() {
       await freshDevice();
       final server = serverDevice();
       await serverSignIn(server, account: me(role: 'owner'));
-      server.on('POST', 'requests', 422, apiFail(
+      server.on(
+        'POST',
+        'requests',
+        422,
+        apiFail(
           'VALIDATION_FAILED',
           'البيانات غير صحيحة.',
           details: <String, Object?>{
@@ -277,7 +285,8 @@ void main() {
               'neighborhoods': <String>['حي غير معروف.'],
             },
           },
-        ));
+        ),
+      );
 
       await pumpApp(tester, '/add?type=request');
       await fill(tester);
@@ -290,7 +299,11 @@ void main() {
   });
 
   group('«طلباتي» with a server', () {
-    Map<String, Object?> open(Map<String, Object?> row) => <String, Object?>{...row, 'status': 'published', 'author': <String, Object?>{...(row['author']! as Map).cast<String, Object?>(), 'id': 41}};
+    Map<String, Object?> open(Map<String, Object?> row) => <String, Object?>{
+      ...row,
+      'status': 'published',
+      'author': <String, Object?>{...(row['author']! as Map).cast<String, Object?>(), 'id': 41},
+    };
 
     testWidgets('shows mine from the server; closing one keeps it here, closed', (tester) async {
       await freshDevice();

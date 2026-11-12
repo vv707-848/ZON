@@ -133,7 +133,8 @@ abstract final class ServerRequests {
     );
   }
 
-  static Future<RequestItem> update(String appId, RequestItem draft) async => fromJson((await Api.client!.put('requests/${rawId(appId)}', form(draft))).map);
+  static Future<RequestItem> update(String appId, RequestItem draft) async =>
+      fromJson((await Api.client!.put('requests/${rawId(appId)}', form(draft))).map);
 
   /// «عاجل» from the plan's balance; without balance an ApiError 402 whose `details.price` is its price.
   static Future<RequestItem> makeUrgent(String appId) async => fromJson((await Api.client!.post('requests/${rawId(appId)}/urgent')).map);
@@ -204,5 +205,10 @@ abstract final class ServerRequests {
     return rows;
   }
 
-  static List<String> _strings(Object? v) => v is List ? <String>[for (final e in v) if (e is String) e] : const <String>[];
+  static List<String> _strings(Object? v) => v is List
+      ? <String>[
+          for (final e in v)
+            if (e is String) e,
+        ]
+      : const <String>[];
 }

@@ -97,12 +97,20 @@ class _MyRequestsViewState extends State<MyRequestsView> {
         padding: const EdgeInsets.all(20),
         child: _loadError == null
             ? const LoadingBox()
-            : EmptyBox(title: 'تعذّر تحميل طلباتك', text: _loadError!, textStyle: emptyTextStyle(), action: 'أعد المحاولة', onAction: () => unawaited(_load())),
+            : EmptyBox(
+                title: 'تعذّر تحميل طلباتك',
+                text: _loadError!,
+                textStyle: emptyTextStyle(),
+                action: 'أعد المحاولة',
+                onAction: () => unawaited(_load()),
+              ),
       );
     }
     // Mine = written by this account (not matched by display name).
     final mine = server ? _rows(_mineIds!) : store.myRequests();
-    final area = server ? _rows(_areaIds ?? const <String>[]) : store.allRequests().where((r) => r.city == widget.city && !store.ownsRequest(r)).toList();
+    final area = server
+        ? _rows(_areaIds ?? const <String>[])
+        : store.allRequests().where((r) => r.city == widget.city && !store.ownsRequest(r)).toList();
     final pool = broker && tab == 'area' ? area : mine;
     final saleN = pool.where((r) => r.purpose == 'sale').length;
     final rentN = pool.where((r) => r.purpose == 'rent').length;
