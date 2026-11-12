@@ -26,9 +26,9 @@ import '../support/test_env.dart';
 http.Response _reply(int status, Object? body) =>
     http.Response.bytes(utf8.encode(jsonEncode(body)), status, headers: <String, String>{'content-type': 'application/json'});
 
-/// A server whose answers to `METHOD path` wait until the test gives them (a slow network); anything else is ok().
-Map<String, Completer<http.Response>> _slowServer() {
-  final held = <String, Completer<http.Response>>{};
+/// A server whose answers to [slow] (`METHOD path`) wait until the test gives them: a slow network.
+Map<String, Completer<http.Response>> _slowServer(List<String> slow) {
+  final held = <String, Completer<http.Response>>{for (final key in slow) key: Completer<http.Response>()};
   Api.client = ApiClient(
     base: Uri.parse('https://api.test/api/v1'),
     identity: () => testIdentity,
@@ -36,7 +36,7 @@ Map<String, Completer<http.Response>> _slowServer() {
     onUnauthenticated: () => unawaited(ServerSession.expire()),
     client: MockClient((request) {
       final key = '${request.method} ${request.url.path.replaceFirst('/api/v1/', '')}';
-      return (held[key] ??= Completer<http.Response>()).future;
+      return held[key]?.future ?? Future<http.Response>.value(_reply(200, ok()));
     }),
   );
   return held;
@@ -257,11 +257,11 @@ void main() {
   test('a reply that arrives after signing out brings no account back', () async {
     await freshDevice();
     serverDevice();
-    final held = _slowServer();
+    final held = _slowServer(<String>['GET me']);
     await ServerSession.open(<String, Object?>{'token': '7|old', 'me': me()});
 
-    final refresh = ServerSession.refresh();                     // the app's start reads the account again
-    await ServerSession.close();                                 // and the person signs out meanwhile
+    final refresh = ServerSession.refresh(); // the app's start reads the account again
+    await ServerSession.close(); // and the person signs out meanwhile
     held['GET me']!.complete(_reply(200, ok(me())));
     await refresh;
 
@@ -272,7 +272,7 @@ void main() {
   test('late replies of an ended session change nothing of the next one: no account, no switch, no sign-out', () async {
     await freshDevice();
     serverDevice();
-    final held = _slowServer();
+    final held = _slowServer(<String>['GET me', 'PUT me/notification-preferences']);
     await ServerSession.open(<String, Object?>{'token': '7|old', 'me': me()});
     final refresh = ServerSession.refresh();
     final pref = ServerAuth.setPref('marketing', true);
