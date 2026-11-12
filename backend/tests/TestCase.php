@@ -64,7 +64,9 @@ abstract class TestCase extends BaseTestCase
                 return;
             }
             if (self::$samples === []) {
-                File::deleteDirectory($dir);                // a run replaces the samples of the previous one
+                // a run replaces the samples of the previous one: its own folders only (api/ beside them is the app's)
+                File::deleteDirectory("{$dir}/agents");
+                File::deleteDirectory("{$dir}/index");
             }
             $key = "{$m[1]}/{$m[2]}";
             $body = $event->request->body();
