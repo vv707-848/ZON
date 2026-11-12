@@ -19,13 +19,19 @@ jobs:
       - run: |
           cat > /tmp/probe.php <<'PHP'
           <?php
-          require 'app/Support/ArabicText.php';
-          require 'app/Ai/Masking/AiMasking.php';
-          $r = new ReflectionClassConstant(App\Ai\Masking\AiMasking::class, 'PATTERNS');
-          $p = $r->getValue();
-          foreach (['كلمني 055 123 4567', 'كلمني 055-123-4567', 'كلمني +966 55 123 4567'] as $t) {
-            echo $t, ' => ', App\Ai\Masking\AiMasking::text($t), "\n";
-            foreach ($p as $re => $to) { $n = preg_match($re, $t, $m); echo '  ', $n === false ? 'ERR '.preg_last_error_msg() : $n, ' ', $re, ' ', json_encode($m, JSON_UNESCAPED_UNICODE), "\n"; }
-          }
+          $t = 'كلمني 055 123 4567';
+          $variants = [
+            'A first' => '~(?<!\d)\(?0\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)~',
+            'B no lookbehind' => '~\(?0\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)~',
+            'C no paren' => '~(?<!\d)0\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)~',
+            'D no lookahead' => '~(?<!\d)\(?0\d(?:[\s.\-()]{0,2}\d){7,8}~',
+            'E ascii class' => '~(?<![0-9])[(]?0[0-9](?:[ \t.()-]{0,2}[0-9]){7,8}(?![0-9])~',
+            'F u flag' => '~(?<!\d)\(?0\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)~u',
+            'G ascii only' => '~(?<!\d)\(?0\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)~',
+          ];
+          foreach ($variants as $k => $re) { echo $k, ': ', preg_match($re, $t), ' / ascii: ', preg_match($re, '055 123 4567'), ' / prefixed: ', preg_match($re, 'x 055 123 4567'), "\n"; }
+          ini_set('pcre.jit', '0');
+          foreach ($variants as $k => $re) { echo 'nojit ', $k, ': ', preg_match($re.'S', $t), "\n"; }
           PHP
           php /tmp/probe.php
+          php -n /tmp/probe.php
