@@ -22,7 +22,7 @@ if [[ "$role" == "web" ]]; then
     foreach (array_filter(array_map("trim", explode(";", $sql))) as $statement) { $db->exec($statement); }
   ' 
   php artisan storage:link --force >/dev/null
-  exec php artisan serve --host=0.0.0.0 --port=8000
+  exec php artisan serve --host=0.0.0.0 --port=8000 --no-reload   # --no-reload: the server keeps compose's environment
 fi
 
 case "$role" in

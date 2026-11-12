@@ -12,6 +12,7 @@ x-backend: &backend
   volumes: ["./backend:/app/backend", "./deploy:/app/deploy:ro"]
   environment: &env
     APP_ENV: local
+    PHP_CLI_SERVER_WORKERS: "4"                   # `artisan serve` answers four requests at once
     APP_DEBUG: "true"
     APP_URL: http://localhost:8000
     ZON_DEEP_LINK_BASE: http://localhost:8000      # the website on the same host (routes/web.php)
