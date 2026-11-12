@@ -18,24 +18,17 @@ jobs:
           coverage: pcov
       - run: |
           composer install --no-interaction --prefer-dist --no-progress -q
+          php --ri pcov || true
           cat > /tmp/probe.php <<'PHP'
           <?php
-          require 'vendor/autoload.php';
+          require 'app/Support/ArabicText.php';
+          require 'app/Ai/Masking/AiMasking.php';
+          $file = array_keys((new ReflectionClassConstant(App\Ai\Masking\AiMasking::class, 'PATTERNS'))->getValue())[5];
           $t = 'كلمني 055 123 4567';
-          $A = '~(?<!\d)\(?0\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)~';
-          echo 'autoload only: ', preg_match($A, $t), "\n";
-          echo 'text(): ', App\Ai\Masking\AiMasking::text($t), "\n";
-          echo 'after: ', preg_match($A, $t), ' ', preg_match('~0\d(?: ?\d){7,8}~', $t), ' ', preg_match('~\d~', $t), ' ', preg_match('~ ~', $t), "\n";
+          echo 'pcov=', ini_get('pcov.enabled'), ' dir=', ini_get('pcov.directory'), ' match: ', preg_match($file, $t), ' text(): ', App\Ai\Masking\AiMasking::text($t), "\n";
           PHP
           php /tmp/probe.php
-          php -d pcre.jit=0 /tmp/probe.php
-          cat > /tmp/probe2.php <<'PHP'
-          <?php
-          $t = 'كلمني 055 123 4567';
-          echo 'no autoload: ', preg_match('~(?<!\d)\(?0\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)~', $t), "\n";
-          require 'vendor/autoload.php';
-          echo 'after autoload: ', preg_match('~(?<!\d)\(?0\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)~', $t), "\n";
-          var_dump(setlocale(LC_ALL, 0), mb_internal_encoding(), ini_get('default_charset'));
-          foreach (get_included_files() as $f) if (str_contains($f, 'symfony/polyfill') || str_contains($f, 'functions')) echo $f, "\n";
-          PHP
-          php /tmp/probe2.php
+          php -d pcov.enabled=0 /tmp/probe.php
+          php -d pcov.directory=/nowhere /tmp/probe.php
+          vendor/bin/phpunit --colors=never tests/Unit/AiMaskingTest.php 2>&1 | tail -3
+          php -d pcov.enabled=0 vendor/bin/phpunit --colors=never tests/Unit/AiMaskingTest.php 2>&1 | tail -3
