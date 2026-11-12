@@ -40,7 +40,7 @@ Route::middleware('site')->group(function () {
 });
 
 // Forms: a session and CSRF protection (group «web»), and the website's headers.
-Route::middleware(['web', 'site.headers'])->group(function () {
+Route::middleware(['web', 'site.headers', 'site.session'])->group(function () {
     // REGA's rule (Art. 8(8) of the marketing and advertising regulation, 1 May 2026): a complaint form, its number
     // and date, the actions taken and the processing time.
     Route::get('complaints', [Site\ComplaintController::class, 'create'])->name('site.complaints');
@@ -53,7 +53,7 @@ Route::middleware(['web', 'site.headers'])->group(function () {
 
 // The app's account on the website: signing in (to buy a plan here), and «حذف الحساب» (Google Play's rule: a web
 // page where an account is deleted without the app).
-Route::middleware(['web', 'site.headers'])->group(function () {
+Route::middleware(['web', 'site.headers', 'site.session'])->group(function () {
     Route::get('login', [Site\AuthController::class, 'form'])->name('site.login');
     Route::post('login', [Site\AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('logout', [Site\AuthController::class, 'logout'])->name('site.logout');
@@ -68,7 +68,7 @@ Route::middleware(['web', 'site.headers'])->group(function () {
 });
 
 // Buying a plan on the website (Moyasar; the apps sell through the stores): signed in with the app's account.
-Route::middleware(['web', 'site.headers', 'auth:site'])->group(function () {
+Route::middleware(['web', 'site.headers', 'auth:site', 'site.session'])->group(function () {
     Route::get('subscribe/{package:code}', [Site\CheckoutController::class, 'confirm'])->name('site.subscribe');
     Route::post('subscribe/{package:code}', [Site\CheckoutController::class, 'start'])->middleware('throttle:site-forms');
     Route::get('pay/{payment}', [Site\CheckoutController::class, 'pay'])->name('site.pay');

@@ -413,7 +413,7 @@ search_listings · search_requests · matching · match_searchers · chat · sum
 
 - المسار `/admin`.
 - التسجيل الإلزامي في تطبيق المصادقة قبل أي شاشة، مع رموز استرداد.
-- `ADMIN_ALLOWED_IPS` (وسيط `RestrictAdminIps`).
+- `ADMIN_ALLOWED_IPS` (وسيط `RestrictAdminIps`): وسيط دائم (`isPersistent`)، فيُطبَّق على كل تحديث Livewire للشاشة، لا على فتحها الأول فقط. واختبار يرسل تحديثاً بالجلسة نفسها من عنوان آخر فيُرفض.
 
 ### الأدوار والصلاحيات
 
