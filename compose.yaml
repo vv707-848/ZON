@@ -88,6 +88,7 @@ services:
       INDEX_STATE_PATH: /data/index_state.sqlite3
       QDRANT_URL: http://qdrant:6333
       LLM_BASE_URL: http://host.docker.internal:30000/v1     # an SSH tunnel to the AI node, if you open one
+      LLM_API_KEY: ${LLM_API_KEY:-no-ai-node-here}             # that node's key (deploy/README.md «إعدادات الـ Pod»)
       EMBED_URL: http://host.docker.internal:18080
       SENTRY_ENVIRONMENT: local
     extra_hosts: ["host.docker.internal:host-gateway"]
