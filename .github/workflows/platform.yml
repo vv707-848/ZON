@@ -72,6 +72,7 @@ jobs:
           php-version: "8.5"
           extensions: bcmath, exif, gd, intl, mbstring, pcntl, pdo_mysql, redis, zip
           coverage: pcov
+          ini-values: pcre.jit=0                          # as production (deploy/php/zon.ini): the JIT misses on some CPUs
           tools: composer:v2
 
       - name: Composer cache path
