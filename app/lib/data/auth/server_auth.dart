@@ -97,13 +97,19 @@ abstract final class ServerSession {
     store.setItem(_prefsKey, jsonEncode(prefs));
   }
 
+  /// Whether a reply to a request sent with [sent] still belongs to this phone's session: one that arrives after
+  /// a sign-out, or after another sign-in, writes no account and no switch.
+  static bool owns(String? sent) => sent != null && sent == _token;
+
   /// Reads the account again (GET /me): its name or city may have been changed from the admin panel. An ended
   /// session answers 401, and the app goes back to the sign-in page (ApiClient → [expire]).
   static Future<void> refresh() async {
     final api = Api.client;
-    if (api == null || _token == null) return;
+    final sent = _token;
+    if (api == null || sent == null) return;
     try {
-      account((await api.get('me')).map);
+      final me = (await api.get('me')).map;
+      if (owns(sent)) account(me);
     } on ApiError {
       // Offline, or ended (handled by ApiClient).
     }
@@ -282,8 +288,10 @@ abstract final class ServerAuth {
 
   /// The name and the city (PATCH /me). Null when saved, else the error.
   static Future<String?> updateProfile({required String name, required String city}) async {
+    final sent = ServerSession.token;
     try {
-      ServerSession.account((await _api.patch('me', <String, Object?>{'name': name.trim(), 'city': city})).map);
+      final me = (await _api.patch('me', <String, Object?>{'name': name.trim(), 'city': city})).map;
+      if (ServerSession.owns(sent)) ServerSession.account(me);
       return null;
     } on ApiError catch (e) {
       return e.forUser;
@@ -292,8 +300,10 @@ abstract final class ServerAuth {
 
   /// One notification switch. Null when saved, else the error.
   static Future<String?> setPref(String key, bool on) async {
+    final sent = ServerSession.token;
     try {
-      ServerSession.savePrefs((await _api.put('me/notification-preferences', <String, Object?>{key: on})).map);
+      final switches = (await _api.put('me/notification-preferences', <String, Object?>{key: on})).map;
+      if (ServerSession.owns(sent)) ServerSession.savePrefs(switches);
       return null;
     } on ApiError catch (e) {
       return e.forUser;

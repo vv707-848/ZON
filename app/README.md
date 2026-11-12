@@ -39,7 +39,7 @@ flutter run --dart-define=ZON_API_URL=http://10.0.2.2:8000/api/v1     # مع ا�
 ## الاختبارات
 
 ```bash
-flutter test             # 126 اختبارًا في test/: 123 تنجح و3 متروكة عمدًا (تعطيل المحاكاة)
+flutter test             # كل اختبارات test/، وبعضها متروك عمدًا (تعطيل المحاكاة)؛ عددها في سجل CI
 flutter test --dart-define=ZON_SIMULATIONS=false test/no_simulations_test.dart   # الثلاثة المتروكة: 3/3
 ```
 

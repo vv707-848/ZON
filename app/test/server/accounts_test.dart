@@ -2,10 +2,17 @@
 // the keychain (never in shared_preferences), sign-out that takes this phone's push token with it, «أجهزتي» with
 // its sessions, and the notification switches — the marketing consent off until the person turns it on.
 
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_client.dart';
 import 'package:zon/core/net/secret_store.dart';
 import 'package:zon/data/auth/auth.dart';
 import 'package:zon/data/auth/server_auth.dart';
@@ -15,6 +22,25 @@ import 'package:zon/features/account/services/devices_view.dart';
 
 import '../support/server_env.dart';
 import '../support/test_env.dart';
+
+http.Response _reply(int status, Object? body) =>
+    http.Response.bytes(utf8.encode(jsonEncode(body)), status, headers: <String, String>{'content-type': 'application/json'});
+
+/// A server whose answers to [slow] (`METHOD path`) wait until the test gives them: a slow network.
+Map<String, Completer<http.Response>> _slowServer(List<String> slow) {
+  final held = <String, Completer<http.Response>>{for (final key in slow) key: Completer<http.Response>()};
+  Api.client = ApiClient(
+    base: Uri.parse('https://api.test/api/v1'),
+    identity: () => testIdentity,
+    token: () => ServerSession.token,
+    onUnauthenticated: () => unawaited(ServerSession.expire()),
+    client: MockClient((request) {
+      final key = '${request.method} ${request.url.path.replaceFirst('/api/v1/', '')}';
+      return held[key]?.future ?? Future<http.Response>.value(_reply(200, ok()));
+    }),
+  );
+  return held;
+}
 
 Map<String, Object?> _session(
   int id,
@@ -226,5 +252,41 @@ void main() {
     await tapText(tester, 'تقييمات');
     expect(find.textContaining('الإنترنت'), findsOneWidget);
     expect(ServerSession.prefs['ratings'], isTrue, reason: 'not saved, so still on');
+  });
+
+  test('a reply that arrives after signing out brings no account back', () async {
+    await freshDevice();
+    serverDevice();
+    final held = _slowServer(<String>['GET me']);
+    await ServerSession.open(<String, Object?>{'token': '7|old', 'me': me()});
+
+    final refresh = ServerSession.refresh(); // the app's start reads the account again
+    await ServerSession.close(); // and the person signs out meanwhile
+    held['GET me']!.complete(_reply(200, ok(me())));
+    await refresh;
+
+    expect(store.readSession(), isNull);
+    expect(ServerSession.token, isNull);
+  });
+
+  test('late replies of an ended session change nothing of the next one: no account, no switch, no sign-out', () async {
+    await freshDevice();
+    serverDevice();
+    final held = _slowServer(<String>['GET me', 'PUT me/notification-preferences']);
+    await ServerSession.open(<String, Object?>{'token': '7|old', 'me': me()});
+    final refresh = ServerSession.refresh();
+    final pref = ServerAuth.setPref('marketing', true);
+    await ServerSession.close();
+    await ServerSession.open(<String, Object?>{'token': '8|new', 'me': me(id: 52, name: 'سارة القحطاني')});
+
+    held['GET me']!.complete(_reply(200, ok(me())));
+    held['PUT me/notification-preferences']!.complete(_reply(401, apiFail('UNAUTHENTICATED', 'انتهت الجلسة.')));
+    await refresh;
+    await pref;
+
+    expect(ServerSession.token, '8|new', reason: "the old session's 401 does not sign the new one out");
+    expect(store.readSession()!.id, 'srv-52');
+    expect(store.readSession()!.name, 'سارة القحطاني');
+    expect(ServerSession.prefs['marketing'], isFalse);
   });
 }

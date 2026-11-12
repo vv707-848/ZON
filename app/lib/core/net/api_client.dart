@@ -75,10 +75,9 @@ class ApiClient {
 
   Future<ApiResult> delete(String path) => send('DELETE', path);
 
-  /// The headers of every request (docs/api.md «ترويسات يرسلها التطبيق»).
-  Map<String, String> headers(String requestId) {
+  /// The headers of every request (docs/api.md «ترويسات يرسلها التطبيق»), with the session token [t].
+  Map<String, String> headers(String requestId, String? t) {
     final id = identity();
-    final t = token();
     return <String, String>{
       'Accept': 'application/json',
       'Accept-Language': 'ar',
@@ -100,7 +99,8 @@ class ApiClient {
   Future<ApiResult> send(String method, String path, {Map<String, Object?>? body, Map<String, String>? query}) async {
     final requestId = 'app${newId(12)}';
     final uri = resolve(path, query);
-    final request = http.Request(method, uri)..headers.addAll(headers(requestId));
+    final sent = token(); // the session this request belongs to
+    final request = http.Request(method, uri)..headers.addAll(headers(requestId, sent));
     if (body != null) {
       request.bodyBytes = utf8.encode(jsonEncode(body));
       request.headers['Content-Type'] = 'application/json';
@@ -124,7 +124,7 @@ class ApiClient {
       return ApiResult(envelope['data'], meta is Map ? meta.cast<String, Object?>() : const <String, Object?>{}, requestId);
     }
     final error = _error(status, envelope, requestId);
-    _react(error);
+    _react(error, sent);
     throw error;
   }
 
@@ -167,8 +167,10 @@ class ApiClient {
     );
   }
 
-  /// What an error means for the whole app: the gate closes, or the session ended elsewhere.
-  void _react(ApiError error) {
+  /// What an error means for the whole app: the gate closes, or the session ended elsewhere — the session that
+  /// sent the request [sent], and only while it is still this phone's: a late 401 of a signed-out session ends
+  /// nothing of the next one.
+  void _react(ApiError error, String? sent) {
     switch (error.code) {
       case 'UPDATE_REQUIRED':
         final store = error.details['store_url'];
@@ -179,7 +181,7 @@ class ApiClient {
       case 'MAINTENANCE_MODE':
         AppGate.state.value = GateMaintenance(message: error.message, until: DateTime.tryParse('${error.details['until'] ?? ''}')?.toLocal());
       case 'UNAUTHENTICATED':
-        if (token() != null) onUnauthenticated?.call();
+        if (sent != null && token() == sent) onUnauthenticated?.call();
     }
   }
 }
