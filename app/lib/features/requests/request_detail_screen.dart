@@ -1,16 +1,24 @@
-// `/requests/:id` — one search request with contact actions.
+// `/requests/:id` — one search request with contact actions. With a server it is fetched fresh each time it opens
+// (ServerDetail.request): who posted it shows as the viewer's plan lets him see, and «أضف إلى إدارة العملاء» is
+// the server's (POST /requests/{id}/to-client).
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/layout/app_shell.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_requests.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/shared/widgets/ask_card.dart';
+import 'package:zon/shared/widgets/server_detail.dart';
 
 /// "a – b" range text saved into the CRM client record.
 String _range(double a, double b) {
@@ -32,9 +40,35 @@ class RequestDetailScreen extends StatefulWidget {
 
 class _RequestDetailScreenState extends State<RequestDetailScreen> {
   bool added = false;
+  bool adding = false;
 
   @override
   Widget build(BuildContext context) {
+    if (Api.on && ServerRequests.isServer(widget.id)) {
+      return ServerDetail.request(id: widget.id, title: 'الطلب', missing: 'الطلب غير موجود.', builder: _page);
+    }
+    return _page(context);
+  }
+
+  /// «أضف إلى إدارة العملاء» on the server: the client is created there (without the author's phone).
+  Future<void> _toClient(RequestItem r) async {
+    setState(() => adding = true);
+    try {
+      await ServerRequests.toClient(r.id);
+      if (mounted) setState(() => added = true);
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      if (e.status == 402) {
+        unawaited(Nav.go(context, '/account/plans'));
+      } else {
+        await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يُضف إلى العملاء', message: e.forUser);
+      }
+    } finally {
+      if (mounted) setState(() => adding = false);
+    }
+  }
+
+  Widget _page(BuildContext context) {
     final r = store.requestById(widget.id);
     final user = store.readSession();
     if (r == null) {
@@ -47,8 +81,10 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
       );
     }
     final mine = store.ownsRequest(r);
-    final locked = user != null && user.role == 'broker' && !billing.isSubscribed() && !mine;
-    final canCrm = user != null && (user.role == 'broker' || user.role == 'developer') && !mine && !locked;
+    final server = ServerRequests.isServer(r.id);
+    // with a server, what the viewer's plan opens is what the server sent: a hidden author, «can add to clients»
+    final locked = user != null && user.role == 'broker' && !mine && (server ? r.author.isEmpty : !billing.isSubscribed());
+    final canCrm = server ? r.canAddToClients == true : user != null && (user.role == 'broker' || user.role == 'developer') && !mine && !locked;
 
     Widget? actions;
     if (canCrm) {
@@ -58,6 +94,10 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
         icon: added ? Lu.check : Lu.userPlus,
         size: ButtonSize.large,
         onTap: () {
+          if (server) {
+            if (!added && !adding) unawaited(_toClient(r));
+            return;
+          }
           store.saveClient(
             Client(
               id: 'c-${r.id}',
@@ -89,7 +129,7 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            AskCardOpen(item: r, hideWho: locked || user == null, actions: actions),
+            AskCardOpen(item: r, hideWho: locked || user == null || (server && r.author.isEmpty), actions: actions),
             if (user == null) ...<Widget>[
               const SizedBox(height: 12),
               Tap(

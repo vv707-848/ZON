@@ -72,7 +72,7 @@ class Loc {
 /// | `/add` | add a listing / project / request |
 /// | `/notifications` | the notifications list (bell) |
 /// A link from outside the app (a shared link, a notification) names a server row by its number
-/// (`/listings/12`); with a server it is the app's `L12` or `P12` (ServerListings).
+/// (`/listings/12`); with a server it is the app's `L12`, `P12` (ServerListings) or `R12` (ServerRequests).
 String _serverId(String id, String prefix) => Api.on && RegExp(r'^\d+$').hasMatch(id) ? '$prefix$id' : id;
 
 Widget screenFor(String location) {
@@ -89,7 +89,7 @@ Widget screenFor(String location) {
       if (s.length == 4 && s[2] == 'units') return UnitScreen(id: _serverId(s[1], 'P'), unitId: s[3]);
     case 'requests':
       if (s.length == 1) return const RequestsScreen();
-      if (s.length == 2) return RequestDetailScreen(id: s[1]);
+      if (s.length == 2) return RequestDetailScreen(id: _serverId(s[1], 'R'));
     case 'chats':
       if (s.length == 1) return const ChatsScreen();
       if (s.length == 2 && s[1] == 'barq') return const BarqChatScreen();

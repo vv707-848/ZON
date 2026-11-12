@@ -59,7 +59,7 @@
 
 **في التطبيق:** `UNAUTHENTICATED` يعيد إلى صفحة الدخول فقط إن جاء ردّاً على طلب أُرسل بجلسة الهاتف الحالية نفسها. ورد متأخر لجلسة انتهت (خروج، أو دخول بحساب آخر) لا يكتب حساباً ولا مفاتيح إشعارات، ولا يُخرج الجلسة التالية (`ApiClient` و`ServerSession.owns`).
 
-## نقاط الواجهة (145)
+## نقاط الواجهة (147)
 
 الصلاحية: `عام` بلا دخول · 🔒 رمز مميِّز · الدور · `رغبة` = الباحث يحتاج رغبة فعّالة (428) · `حصة` = رصيد الذكاء اليومي. العمود الأخير موضع الكود في `app/Http/Controllers/Api/V1`.
 
@@ -124,7 +124,7 @@
 | `GET` | `/projects` | عام | المشاريع المنشورة مع التصفية | `ProjectController@index` |
 | `GET` | `/projects/{project}` | عام | تفاصيل مشروع ووحداته؛ نموذج المشروع «الجاهز» لا يظهر للعموم إلا بترخيص ساري | `ProjectController@show` |
 | `GET` | `/projects/{project}/units/{unit}` | عام | تفاصيل نموذج وحدة | `ProjectController@unit` |
-| `GET` | `/requests` | عام | طلبات البحث المنشورة: تصفية بالدور والغرض والمدينة والحي والنوع، والفرز `new` أو `urgent`؛ التواصل حسب الحق (`access`) | `RequestController@index` |
+| `GET` | `/requests` | عام | طلبات البحث المنشورة: تصفية بالدور والغرض والمدينة والحي والنوع، والفرز `new` · `old` (العاجل أولاً) · `urgent` (العاجل وحده) · `cheap` (أقل ميزانية، وبلا ميزانية آخراً)؛ التواصل حسب الحق (`access`) | `RequestController@index` |
 | `GET` | `/requests/{searchRequest}` | عام | تفاصيل طلب بحث | `RequestController@show` |
 
 ### ٥. العروض والصور
@@ -179,8 +179,10 @@
 | `POST` | `/requests` | 🔒 · رغبة | إضافة طلب بحث؛ `urgent` من الرصيد أو بالدفع (النتيجة في `meta.urgent`) | `RequestController@store` |
 | `GET` | `/requests/area` | 🔒 · رغبة · وسيط | طلبات مدينة الوسيط من غيره، العاجل أولاً، مع حقه في التواصل (`meta.access`) | `RequestController@area` |
 | `GET` | `/requests/mine` | 🔒 · رغبة | طلباتي | `RequestController@mine` |
+| `PUT` | `/requests/{searchRequest}` | 🔒 · رغبة | تعديل طلبي بنموذجه كاملاً (الحقل الفارغ يُفرَّغ، و`urgent` لا يُعدَّل هنا)؛ المغلق لا يُعدَّل (409) | `RequestController@update` |
 | `POST` | `/requests/{searchRequest}/close` | 🔒 · رغبة | إغلاق طلبي | `RequestController@close` |
 | `POST` | `/requests/{searchRequest}/to-client` | 🔒 · رغبة · وسيط · مطوّر | تحويل طلب إلى عميل في مكتبي | `RequestController@toClient` |
+| `POST` | `/requests/{searchRequest}/urgent` | 🔒 · رغبة | اجعله طلبًا عاجلًا: من رصيد الباقة، وإلا 402 بالسعر | `RequestController@urgent` |
 
 ### ٩. التواصل والمجتمع
 

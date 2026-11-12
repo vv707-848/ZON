@@ -1,0 +1,45 @@
+{
+    "success": true,
+    "data": {
+        "id": 9,
+        "status": "published",
+        "purpose": "sale",
+        "city": "الرياض",
+        "neighborhoods": [
+            "الملقا"
+        ],
+        "property_types": [
+            "apartment"
+        ],
+        "budget_min": 700000,
+        "budget_max": 950000,
+        "area_min": null,
+        "area_max": null,
+        "rooms_min": 3,
+        "rooms_max": null,
+        "description": "شقة عوائل قرب المدارس",
+        "urgent": false,
+        "created_at": "2026-11-12T17:25:36+00:00",
+        "author_role": "broker",
+        "author": {
+            "id": 12,
+            "username": "qxayc2808",
+            "name": "ليلى باشا",
+            "role": "broker",
+            "fal_verified": true,
+            "fal_number": "1137794440"
+        },
+        "can_add_to_clients": false
+    },
+    "meta": {
+        "urgent": {
+            "status": "payment_required",
+            "purpose": "urgent_request",
+            "price": "50.00",
+            "target": {
+                "type": "request",
+                "id": 9
+            }
+        }
+    }
+}
