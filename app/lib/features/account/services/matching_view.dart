@@ -1,16 +1,22 @@
 // مساعد المطابقة — seekers see listings matching their wish; developers see
 // offers and the seekers / brokers who match their projects.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/external_links.dart';
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
+import 'package:zon/core/net/operation_key.dart';
 import 'package:zon/core/simulations.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/notifications/notification_center.dart';
+import 'package:zon/data/server/server_wishes.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/widgets/desk.dart';
 import 'package:zon/shared/widgets/dictation_field.dart';
@@ -66,10 +72,16 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
   late Wish? query = (_seed?.text ?? '').isNotEmpty ? _seed : null;
   late Map<String, SemMark> rankMarks = mark;
 
+  /// With a server: a save or a stop on its way, and what it answered when it refused.
+  bool _sending = false;
+  String _error = '';
+  final OperationKey _operation = OperationKey('wish');
+
   @override
   void initState() {
     super.initState();
     text.addListener(() => setState(() {}));
+    if (Api.on) unawaited(_loadFromServer());
     // useEffect(() => { if (!scan && query) clearRadarPing(); }, [scan, query])
     if (query != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -88,7 +100,73 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
     super.dispose();
   }
 
+  /// The wish kept on the server is the one shown (this phone may hold an older one, or none).
+  Future<void> _loadFromServer() async {
+    try {
+      final w = await ServerWishes.mine();
+      if (!mounted) return;
+      if (w == null) {
+        if (saved != null) store.clearWish();
+        text.text = '';
+        setState(() {
+          saved = null;
+          query = null;
+          edit = true;
+        });
+        return;
+      }
+      store.saveWish(w);
+      setState(() {
+        saved = w;
+        query = w.text.isNotEmpty ? w : null;
+        edit = w.text.isEmpty;
+      });
+    } on ApiError catch (e) {
+      if (mounted) setState(() => _error = e.forUser);
+    }
+  }
+
+  /// [w] saved on the server first; shown once it is there.
+  Future<void> _saveOnServer(Wish w) async {
+    setState(() {
+      _sending = true;
+      _error = '';
+    });
+    try {
+      final kept = await ServerWishes.save(w, operation: _operation.forBody(ServerWishes.form(w)));
+      if (!mounted) return;
+      setState(() => _sending = false);
+      _persistHere(kept);
+    } on ApiError catch (e) {
+      if (mounted) {
+        setState(() {
+          _sending = false;
+          _error = e.forUser;
+        });
+      }
+    }
+  }
+
+  Future<void> _stopOnServer() async {
+    final w = saved;
+    setState(() {
+      _sending = true;
+      _error = '';
+    });
+    try {
+      if (w != null) await ServerWishes.remove(w);
+      if (!mounted) return;
+      setState(() => _sending = false);
+      _stopHere();
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      setState(() => _sending = false);
+      await showAppNotice(context, icon: Lu.circleAlert, title: 'لم تُحذف الرغبة', message: e.forUser);
+    }
+  }
+
   Wish _payload() => Wish(
+    id: saved?.id,
     city: city,
     hoods: hood.isNotEmpty ? <String>[hood] : const <String>[],
     types: type == 'all' ? const <String>[] : <String>[type],
@@ -96,7 +174,9 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
     text: text.text.trim(),
   );
 
-  void _persist(Wish w) {
+  void _persist(Wish w) => Api.on ? unawaited(_saveOnServer(w)) : _persistHere(w);
+
+  void _persistHere(Wish w) {
     final list = store.allListings();
     store.saveWish(w);
     store.markHitsSeen(store.matchingIds(w, list));
@@ -113,10 +193,13 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
       setState(() => scan = false);
       if (query != null) store.clearRadarPing();
     });
-    Future<void>.delayed(const Duration(milliseconds: 4000), store.pingRadar);
+    // the radar's notice: simulated on this phone; with a server it is the server's (twice a day)
+    if (!Api.on) Future<void>.delayed(const Duration(milliseconds: 4000), store.pingRadar);
   }
 
-  void _stop() {
+  void _stop() => Api.on ? unawaited(_stopOnServer()) : _stopHere();
+
+  void _stopHere() {
     store.clearWish();
     text.text = '';
     setState(() {
@@ -255,8 +338,13 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
               textStyle: ts(16, w: 600, lh: 25, c: AppColors.white),
             ),
           ),
+          if (_error.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Tx(_error, style: ts(14, w: 600, lh: 20, c: const Color(0xFFFFB4A8))),
+            ),
           _mxRow(<(String, VoidCallback?)>[
-            ('حفظ الرغبة', text.text.trim().isEmpty ? null : () => _persist(_payload())),
+            (_sending ? 'جارٍ الحفظ…' : 'حفظ الرغبة', text.text.trim().isEmpty || _sending ? null : () => _persist(_payload())),
             if (saved != null) ('إلغاء', () => setState(() => edit = false)),
           ]),
         ],

@@ -1,0 +1,21 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": 2,
+            "purpose": "sale",
+            "city": "الرياض",
+            "neighborhoods": [
+                "الملقا"
+            ],
+            "property_types": [],
+            "budget_min": null,
+            "budget_max": null,
+            "bedrooms": null,
+            "notes": "شقة",
+            "is_active": true,
+            "share_in_reports": true,
+            "updated_at": "2026-11-12T20:10:00+00:00"
+        }
+    ]
+}

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\BuyerPreference;
 use App\Models\CrmClient;
 use App\Models\Customer;
 use App\Models\IndexEvent;
@@ -87,5 +88,28 @@ class RequestsTest extends TestCase
         $this->subscribe($seeker, 'seeker');
         Entitlements::forget($seeker);
         $this->postJson('/api/v1/preferences', $wish)->assertCreated();
+    }
+
+    public function test_the_wish_as_the_app_keeps_it_saved_changed_and_stopped(): void
+    {
+        $other = BuyerPreference::query()->create(['customer_id' => Customer::factory()->seeker()->create()->id, 'city' => 'الرياض', 'neighborhoods' => ['الملقا'], 'property_types' => []]);
+        $this->signIn(Customer::factory()->seeker()->create());
+        $this->getJson('/api/v1/favorites')->assertStatus(428)->assertJsonPath('error.code', 'PREFERENCE_REQUIRED');
+
+        $created = $this->postJson('/api/v1/preferences', ['city' => 'الرياض', 'neighborhoods' => ['النرجس'], 'property_types' => ['villa'], 'notes' => 'فيلا عوائل قرب المدارس'])
+            ->assertCreated()->assertJsonPath('data.is_active', true);
+        $this->apiContract('preference', $created);
+        $id = $created->json('data.id');
+
+        $this->putJson("/api/v1/preferences/{$id}", ['city' => 'الرياض', 'neighborhoods' => ['الملقا'], 'property_types' => [], 'notes' => 'شقة'])->assertOk()
+            ->assertJsonPath('data.neighborhoods', ['الملقا'])->assertJsonPath('data.property_types', []);
+        $this->apiContract('preferences', $this->getJson('/api/v1/preferences')->assertOk()->assertJsonCount(1, 'data'));
+        $this->putJson("/api/v1/preferences/{$other->id}", ['notes' => 'ليست لي'])->assertNotFound();
+        $this->deleteJson("/api/v1/preferences/{$other->id}")->assertNotFound();
+
+        $this->deleteJson("/api/v1/preferences/{$id}")->assertOk();
+        $this->getJson('/api/v1/preferences')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/v1/favorites')->assertStatus(428);        // stopped: asked for one again
+        $this->assertNotNull($other->fresh(), 'another seeker\'s wish is untouched');
     }
 }

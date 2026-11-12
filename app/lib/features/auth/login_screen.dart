@@ -13,6 +13,8 @@ import 'package:flutter/services.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api_error.dart';
+import 'package:zon/core/net/operation_key.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/utils/input.dart';
 import 'package:zon/core/widgets/widgets.dart';
@@ -20,6 +22,7 @@ import 'package:zon/data/auth/auth.dart';
 import 'package:zon/data/auth/local_auth.dart';
 import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_wishes.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/shared/widgets/barq_card.dart';
 
@@ -457,6 +460,17 @@ class _SignUpState extends State<_SignUp> {
   }
 
   /// The server's check of the SMS code: the account is created and signed in.
+  final OperationKey _wishOperation = OperationKey('wish');
+
+  /// The seeker's first wish, on the server (POST /preferences): the wish saved, or the line to show.
+  Future<(Wish?, String?)> _saveWish(Wish wish) async {
+    try {
+      return (await ServerWishes.save(wish, operation: _wishOperation.forBody(ServerWishes.form(wish))), null);
+    } on ApiError catch (e) {
+      return (null, e.forUser);
+    }
+  }
+
   Future<String?> _verify(String code) async {
     final result = await ServerAuth.verify(normalizeSaudiMobile(_phone.text) ?? _phone.text, code);
     return result.ok ? null : result.error;
@@ -471,8 +485,8 @@ class _SignUpState extends State<_SignUp> {
   }
 
   /// Creates the account (and saves the seeker's [wish] in it). With a server
-  /// the account already exists (the code created it); the wish stays on
-  /// this phone until the requests are wired (POST /preferences).
+  /// the account already exists (the code created it), and the wish is saved
+  /// there before this (_WishSetup.save): the server asks a seeker for it first.
   void _finish({Wish? wish}) {
     if (Auth.server) {
       if (wish != null) store.saveWish(wish);
@@ -557,6 +571,7 @@ class _SignUpState extends State<_SignUp> {
     } else {
       body = _WishSetup(
         city: city,
+        save: Auth.server ? _saveWish : null,
         onDone: (w) => _finish(wish: w),
       );
     }
@@ -629,10 +644,13 @@ class _RoleCard extends StatelessWidget {
 }
 
 class _WishSetup extends StatefulWidget {
-  const _WishSetup({required this.city, required this.onDone});
+  const _WishSetup({required this.city, required this.onDone, this.save});
 
   final String city;
   final ValueChanged<Wish> onDone;
+
+  /// With a server: saves the wish there first — the wish saved, or the line to show.
+  final Future<(Wish?, String?)> Function(Wish wish)? save;
 
   @override
   State<_WishSetup> createState() => _WishSetupState();
@@ -646,6 +664,24 @@ class _WishSetupState extends State<_WishSetup> {
   }();
   String type = 'all';
   final TextEditingController _text = TextEditingController();
+  bool _busy = false;
+  String _err = '';
+
+  Future<void> _done(Wish wish) async {
+    final save = widget.save;
+    if (save == null) return widget.onDone(wish);
+    setState(() {
+      _busy = true;
+      _err = '';
+    });
+    final (saved, error) = await save(wish);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _err = error ?? '';
+    });
+    if (saved != null) widget.onDone(saved);
+  }
 
   @override
   void initState() {
@@ -693,10 +729,11 @@ class _WishSetupState extends State<_WishSetup> {
           decoration: _fieldDeco,
           multiline: true,
         ),
+        if (_err.isNotEmpty) FormError(_err),
         GateCta(
-          label: 'حفظ الرغبة والدخول',
-          disabled: _text.text.trim().isEmpty,
-          onTap: () => widget.onDone(
+          label: _busy ? 'جارٍ الحفظ…' : 'حفظ الرغبة والدخول',
+          disabled: _text.text.trim().isEmpty || _busy,
+          onTap: () => _done(
             Wish(
               city: c,
               hoods: hood.isNotEmpty ? <String>[hood] : const <String>[],
