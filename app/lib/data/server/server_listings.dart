@@ -11,6 +11,7 @@
 
 import 'package:zon/core/net/api.dart';
 import 'package:zon/data/models/models.dart';
+import 'package:zon/data/server/server_pages.dart';
 
 /// The filter card of «الرئيسية», as the server reads it (GET /feed).
 class FeedQuery {
@@ -61,16 +62,8 @@ class FeedQuery {
   int get hashCode => Object.hash(purpose, city, neighborhood, source, propertyType, sort);
 }
 
-/// One page of the feed: its rows and whether another follows.
-class FeedPage {
-  const FeedPage(this.items, {required this.page, required this.last});
-
-  final List<Listing> items;
-  final int page;
-  final int last;
-
-  bool get hasMore => page < last;
-}
+/// One page of the feed.
+typedef FeedPage = ServerPage<Listing>;
 
 /// The server's listings and projects.
 abstract final class ServerListings {
@@ -89,9 +82,8 @@ abstract final class ServerListings {
   /// One page of «الرئيسية».
   static Future<FeedPage> feed(FeedQuery query, {int page = 1, int perPage = 18}) async {
     final r = await Api.client!.get('feed', query: query.params(page, perPage));
-    final paging = r.meta['page'];
-    final p = paging is Map ? paging.cast<String, Object?>() : const <String, Object?>{};
-    return FeedPage(<Listing>[for (final row in r.list) fromFeed(row)], page: _int(p['current']) ?? page, last: _int(p['last']) ?? page);
+    final p = ServerPage.paging(r.meta, page);
+    return FeedPage(<Listing>[for (final row in r.list) fromFeed(row)], page: p.page, last: p.last);
   }
 
   /// A listing (`L…`) or a project (`P…`) in detail.
@@ -235,8 +227,6 @@ abstract final class ServerListings {
   static bool? _bool(Object? v) => v is bool ? v : null;
 
   static String? _str(Object? v) => v is String && v.isNotEmpty ? v : null;
-
-  static int? _int(Object? v) => v is num ? v.toInt() : null;
 
   static List<String>? _strings(Object? v) => v is List
       ? <String>[

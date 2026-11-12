@@ -1,13 +1,20 @@
-// `/requests` — الطلبات: filters by role / city / type and the request list.
+// `/requests` — الطلبات: filters by role / city / type and the request list. With a server the board is its
+// (GET /requests, RequestsBoard): the same filters and orders, page by page.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/layout/app_shell.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/utils/sort.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/requests_board.dart';
+import 'package:zon/data/server/server_requests.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/shared/widgets/ask_card.dart';
 import 'package:zon/shared/widgets/lens.dart';
@@ -30,6 +37,23 @@ class _RequestsScreenState extends State<RequestsScreen> {
   String hood = 'all';
   String ptype = 'all';
   String sort = 'new';
+  final RequestsBoard _board = RequestsBoard();
+
+  @override
+  void dispose() {
+    _board.dispose();
+    super.dispose();
+  }
+
+  /// The filter card as the server reads it.
+  RequestQuery _query() => RequestQuery(
+    role: tab == 'all' ? null : tab,
+    purpose: purpose == 'all' ? null : purpose,
+    city: city == 'all' ? null : city,
+    neighborhood: hood == 'all' ? null : hood,
+    propertyType: ptype == 'all' ? null : ptype,
+    sort: sort,
+  );
 
   List<RequestItem> _items() {
     final rows = store.allRequests().where((r) {
@@ -60,11 +84,21 @@ class _RequestsScreenState extends State<RequestsScreen> {
   @override
   Widget build(BuildContext context) {
     final hoods = city == 'all' ? const <String>[] : (kCities[city] ?? const <String>[]);
+    final server = Api.on;
+    if (server && _board.query != _query()) {
+      final query = _query();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_board.show(query));
+      });
+    }
     return AppShell(
       child: ListenableBuilder(
-        listenable: store,
+        listenable: Listenable.merge(<Listenable>[store, _board]),
         builder: (context, _) {
-          final items = _items();
+          final items = server ? _board.items : _items();
+          final waiting = server && items.isEmpty && (_board.loading || _board.firstLoad);
+          final failed = server && items.isEmpty && _board.error != null;
+          final more = server && (_board.hasMore || (_board.error != null && items.isNotEmpty));
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
@@ -121,7 +155,17 @@ class _RequestsScreenState extends State<RequestsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    if (items.isNotEmpty)
+                    if (waiting)
+                      const LoadingBox()
+                    else if (failed)
+                      EmptyBox(
+                        title: 'تعذّر تحميل الطلبات',
+                        text: _board.error!,
+                        textStyle: emptyTextStyle(w: 700),
+                        action: 'أعد المحاولة',
+                        onAction: () => unawaited(_board.retry()),
+                      )
+                    else if (items.isNotEmpty)
                       for (var i = 0; i < items.length; i++) ...<Widget>[if (i > 0) const SizedBox(height: 18), AskCard(item: items[i])]
                     else
                       EmptyBox(
@@ -134,6 +178,23 @@ class _RequestsScreenState extends State<RequestsScreen> {
                   ],
                 ),
               ),
+              if (more)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                  child: Tap(
+                    onTap: () => unawaited(_board.error != null ? _board.retry() : _board.more()),
+                    child: Container(
+                      key: const ValueKey<String>('requests-more'),
+                      height: 48,
+                      decoration: BoxDecoration(color: const Color(0x0D121214), borderRadius: BorderRadius.circular(999)),
+                      alignment: Alignment.center,
+                      child: Tx(
+                        _board.loading ? 'جارٍ التحميل…' : (_board.error != null ? 'تعذّر التحميل — أعد المحاولة' : 'عرض المزيد'),
+                        style: ts(15, w: 600, lh: 21.5, c: AppColors.ink),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           );
         },

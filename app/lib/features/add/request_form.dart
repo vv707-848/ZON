@@ -13,10 +13,13 @@ import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_requests.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/add/add_helpers.dart';
 import 'package:zon/features/add/widgets/add_kit.dart';
@@ -100,6 +103,7 @@ class _RequestFormState extends State<RequestForm> {
     setState(() => error = problem ?? '');
     if (problem != null) return;
     final draft = _draft();
+    if (Api.on) return _publish(draft);
     if (!urgent) {
       // A normal request is free — whatever the quota says.
       store.saveRequest(draft);
@@ -121,6 +125,31 @@ class _RequestFormState extends State<RequestForm> {
           ? 'تعذّر الدفع — لم يُنشر الطلب ولم يُخصم شيء.'
           : 'لم يُنشر الطلب. بياناتك باقية — انشره عاديًا مجانًا أو أكمل الدفع.',
     );
+  }
+
+  /// With a server: it publishes the request (a normal one is free); «عاجل» comes from the plan's balance, and
+  /// without balance the request is published normal and the person is told so, with its price.
+  Future<void> _publish(RequestItem draft) async {
+    setState(() => busy = true);
+    try {
+      final made = await ServerRequests.create(draft, urgent: urgent);
+      store.keepServerRequests(<RequestItem>[made.item]);
+      if (!mounted) return;
+      if (made.urgent == UrgentOutcome.paymentRequired) {
+        await showAppNotice(
+          context,
+          icon: Lu.zap,
+          title: 'نُشر طلبك عاديًا',
+          message: 'لا رصيد للطلبات العاجلة في باقتك، فنُشر الطلب عاديًا دون أي خصم.${made.price == null ? '' : ' سعر «عاجل» ${made.price} ريال.'}',
+        );
+        if (!mounted) return;
+      }
+      unawaited(Nav.go(context, '/requests/${made.item.id}'));
+    } on ApiError catch (e) {
+      if (mounted) setState(() => error = e.forUser);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
 
   @override

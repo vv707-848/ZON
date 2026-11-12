@@ -1,6 +1,7 @@
 // A listing or project of the server, opened fresh: its detail (every photo, the licence, the phones of a
 // signed-in viewer, a project's units) is fetched each time its page opens — photo addresses are signed for an
-// hour, and a price may have changed — then [ServerDetail.builder] shows it as the page always does.
+// hour, and a price may have changed — then [ServerDetail.builder] shows it as the page always does. A search
+// request opens the same way ([ServerDetail.request]).
 
 import 'package:flutter/material.dart';
 
@@ -10,13 +11,18 @@ import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/models/models.dart';
 import 'package:zon/data/server/server_listings.dart';
+import 'package:zon/data/server/server_requests.dart';
 import 'package:zon/data/store.dart';
 
 /// Fetches the server's row [id] (`L…` or `P…`) in detail, then shows [builder].
 class ServerDetail extends StatefulWidget {
-  const ServerDetail({super.key, required this.id, required this.title, required this.missing, required this.builder});
+  const ServerDetail({super.key, required this.id, required this.title, required this.missing, required this.builder}) : _request = false;
+
+  /// A search request (`R…`), fetched fresh into the store (Store.keepServerRequests).
+  const ServerDetail.request({super.key, required this.id, required this.title, required this.missing, required this.builder}) : _request = true;
 
   final String id;
+  final bool _request;
 
   /// The page's title while it loads or when it cannot be shown.
   final String title;
@@ -37,7 +43,11 @@ class _ServerDetailState extends State<ServerDetail> {
 
   Future<void> _fetch() async {
     try {
-      store.keepServer(<Listing>[await ServerListings.detail(widget.id)], detailed: true);
+      if (widget._request) {
+        store.keepServerRequests(<RequestItem>[await ServerRequests.detail(widget.id)]);
+      } else {
+        store.keepServer(<Listing>[await ServerListings.detail(widget.id)], detailed: true);
+      }
     } on ApiError catch (e) {
       if (e.status == 404) {
         _gone = true;
@@ -68,7 +78,7 @@ class _ServerDetailState extends State<ServerDetail> {
           ),
         );
       }
-      if (_gone || store.listingById(widget.id) == null) {
+      if (_gone || (widget._request ? store.requestById(widget.id) : store.listingById(widget.id)) == null) {
         return AppShell(
           title: widget.title,
           child: Padding(

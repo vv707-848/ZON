@@ -87,7 +87,7 @@ DESCRIPTIONS = {
     "GET projects": ("browse", "المشاريع المنشورة مع التصفية"),
     "GET projects/{project}": ("browse", "تفاصيل مشروع ووحداته؛ نموذج المشروع «الجاهز» لا يظهر للعموم إلا بترخيص ساري"),
     "GET projects/{project}/units/{unit}": ("browse", "تفاصيل نموذج وحدة"),
-    "GET requests": ("browse", "طلبات البحث المنشورة: تصفية بالدور والغرض والمدينة والحي والنوع، والفرز `new` أو `urgent`؛ التواصل حسب الحق (`access`)"),
+    "GET requests": ("browse", "طلبات البحث المنشورة: تصفية بالدور والغرض والمدينة والحي والنوع، والفرز `new` · `old` (العاجل أولاً) · `urgent` (العاجل وحده) · `cheap` (أقل ميزانية، وبلا ميزانية آخراً)؛ التواصل حسب الحق (`access`)"),
     "GET requests/{searchRequest}": ("browse", "تفاصيل طلب بحث"),
     "GET customers/{customer}": ("browse", "الملف العام باسم المستخدم: المدينة، التقييم وتقييمي له، أعداد المتابِعين والعروض، وهل أتابعه"),
     "GET customers/{customer}/listings": ("browse", "عروض المعلن المنشورة"),
@@ -128,6 +128,8 @@ DESCRIPTIONS = {
     "GET requests/mine": ("requests", "طلباتي"),
     "GET requests/area": ("requests", "طلبات مدينة الوسيط من غيره، العاجل أولاً، مع حقه في التواصل (`meta.access`)"),
     "POST requests": ("requests", "إضافة طلب بحث؛ `urgent` من الرصيد أو بالدفع (النتيجة في `meta.urgent`)"),
+    "PUT requests/{searchRequest}": ("requests", "تعديل طلبي بنموذجه كاملاً (الحقل الفارغ يُفرَّغ، و`urgent` لا يُعدَّل هنا)؛ المغلق لا يُعدَّل (409)"),
+    "POST requests/{searchRequest}/urgent": ("requests", "اجعله طلبًا عاجلًا: من رصيد الباقة، وإلا 402 بالسعر"),
     "POST requests/{searchRequest}/close": ("requests", "إغلاق طلبي"),
     "POST requests/{searchRequest}/to-client": ("requests", "تحويل طلب إلى عميل في مكتبي"),
     # ── social ──

@@ -252,8 +252,8 @@ cd ../agents && .venv/bin/python -m pytest tests/test_backend_contract.py
 
 ### عقد التطبيق مع الواجهة (`fixtures/api/`)
 
-`docs/contracts/fixtures/api/<الاسم>.json` ردود حقيقية للواجهة كما يستقبلها التطبيق (`feed` · `listing` · `project`)، يكتبها اختبار الخادم بـ `$this->apiContract('<الاسم>', $response)`:
+`docs/contracts/fixtures/api/<الاسم>.json` ردود حقيقية للواجهة كما يستقبلها التطبيق (`feed` · `listing` · `project` · `requests` · `request` · `request_created` · `requests_mine` · `requests_area`)، يكتبها اختبار الخادم بـ `$this->apiContract('<الاسم>', $response)`:
 
 - **دائماً، وفي CI أيضاً،** يُقارن الرد بالمسجَّل شكلاً: كل مفتاح في كل مستوى، والقائمة بأول عناصرها، و`null` في أي طرف يقبل أي قيمة. فاسم يتغيّر أو يُحذف يُسقط اختبار الخادم قبل أن يصل إلى التطبيق.
 - **التسجيل من جديد يدوي ومقصود فقط:** `ZON_RECORD_API=1 php artisan test`، ثم تُراجع التغييرات في `fixtures/api/` وتُرفع مع تعديل التطبيق. و`ZON_CONTRACT_DIR` (تسجيل ما يُرسل للوكلاء) لا علاقة له بها: لو كان يسجّلها لأعاد CI كتابتها وتجاوز المقارنة (`backend/tests/Feature/ApiContractTest.php`).
-- اختبارات التطبيق (`app/test/server/browse_test.dart`) تقرأ الملفات نفسها وتمرّرها على محلّلاته وشاشاته.
+- اختبارات التطبيق (`app/test/server/browse_test.dart` · `requests_test.dart`) تقرأ الملفات نفسها وتمرّرها على محلّلاته وشاشاته.

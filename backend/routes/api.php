@@ -142,6 +142,8 @@ Route::middleware('throttle:api')->group(function () {
             Route::get('requests/mine', [V1\RequestController::class, 'mine']);
             Route::get('requests/area', [V1\RequestController::class, 'area'])->middleware('role:broker');
             Route::post('requests', [V1\RequestController::class, 'store']);
+            Route::put('requests/{searchRequest}', [V1\RequestController::class, 'update'])->whereNumber('searchRequest');
+            Route::post('requests/{searchRequest}/urgent', [V1\RequestController::class, 'urgent'])->whereNumber('searchRequest');
             Route::post('requests/{searchRequest}/close', [V1\RequestController::class, 'close'])->whereNumber('searchRequest');
             Route::post('requests/{searchRequest}/to-client', [V1\RequestController::class, 'toClient'])->whereNumber('searchRequest')->middleware('role:broker,developer');
 

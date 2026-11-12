@@ -51,6 +51,7 @@ class Store extends ChangeNotifier {
     s._mem.clear();
     s._server.clear();
     s._serverDetailed.clear();
+    s._serverRequests.clear();
     s._resetSessionState();
     try {
       s._prefs = await SharedPreferences.getInstance();
@@ -236,6 +237,7 @@ class Store extends ChangeNotifier {
     if (switched) {
       _likes = null;
       _likesInit = false;
+      _forgetServerRows();
     }
     _dropCaches();
     setItem(_session, jsonEncode(s.toJson()));
@@ -249,9 +251,18 @@ class Store extends ChangeNotifier {
     _accountId = null;
     _likes = null;
     _likesInit = false;
+    _forgetServerRows();
     _dropCaches();
     removeItem(_session);
     notifyListeners();
+  }
+
+  /// What the server sent was for the account signed in then (an advertiser's phones, a request's author as
+  /// his plan let him see): another account, or none, gets its own.
+  void _forgetServerRows() {
+    _server.clear();
+    _serverDetailed.clear();
+    _serverRequests.clear();
   }
 
   /// Version 1.1 kept one session with a plain password and saved the
@@ -616,8 +627,20 @@ class Store extends ChangeNotifier {
     (j) => (j as List).map((e) => RequestItem.fromJson((e as Map).cast<String, Object?>())).toList(),
   );
 
-  /// User requests first, then the sample requests.
+  /// Requests the server sent (the board, a request, «طلباتي», the broker's area), by id.
+  final Map<String, RequestItem> _serverRequests = <String, RequestItem>{};
+
+  /// Keeps requests of the server for the screens that look one up by its id; the newest copy wins.
+  void keepServerRequests(Iterable<RequestItem> rows) {
+    for (final row in rows) {
+      _serverRequests[row.id] = row;
+    }
+    notifyListeners();
+  }
+
+  /// User requests first, then the sample requests. With a server: what it sent, and no sample.
   List<RequestItem> allRequests() {
+    if (Api.on) return _serverRequests.values.toList();
     final extra = _extraRequests();
     final ids = extra.map((r) => r.id).toSet();
     return <RequestItem>[...extra, if (kSimulations) ...kRequests.where((r) => !ids.contains(r.id))];

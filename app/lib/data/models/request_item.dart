@@ -23,6 +23,8 @@ class RequestItem {
     this.ownerId,
     this.createdAt,
     this.unclaimed,
+    this.closed,
+    this.canAddToClients,
   });
 
   final String id;
@@ -53,6 +55,12 @@ class RequestItem {
   /// upgrade: public and unchanged, owned by nobody (QA F01).
   final bool? unclaimed;
 
+  /// Closed by its author: off the board, still in «طلباتي» (a request of the server).
+  final bool? closed;
+
+  /// The viewer may add it to his clients («أضف إلى إدارة العملاء»), as the server says.
+  final bool? canAddToClients;
+
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
     'purpose': purpose,
@@ -72,6 +80,8 @@ class RequestItem {
     if (ownerId != null) 'ownerId': ownerId,
     if (createdAt != null) 'createdAt': createdAt,
     if (unclaimed != null) 'unclaimed': unclaimed,
+    if (closed != null) 'closed': closed,
+    if (canAddToClients != null) 'canAddToClients': canAddToClients,
   };
 
   factory RequestItem.fromJson(Map<String, Object?> j) => RequestItem(
@@ -93,6 +103,8 @@ class RequestItem {
     ownerId: j['ownerId'] as String?,
     createdAt: j['createdAt'] as String?,
     unclaimed: j['unclaimed'] as bool?,
+    closed: j['closed'] as bool?,
+    canAddToClients: j['canAddToClients'] as bool?,
   );
 
   /// A copy with the JSON fields of [patch] replaced.

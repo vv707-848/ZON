@@ -4,15 +4,24 @@
 // urgent requests when there is one, else costs Pricing.urgentRequestPrice
 // (50 SAR) after a confirmation; cancelling or a failed payment changes
 // nothing (brief R01).
+//
+// With a server: «طلباتي» and the broker's area are the server's (GET /requests/mine, /requests/area); an edit, «عاجل»
+// and «أغلق الطلب» are its too. «عاجل» comes from the plan's balance; without balance the server says its price and
+// nothing changes. A closed request stays here, off the board.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_requests.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/widgets/desk.dart';
 import 'package:zon/features/add/add_helpers.dart';
@@ -41,11 +50,37 @@ class _MyRequestsViewState extends State<MyRequestsView> {
   String hood = 'all';
   String type = 'all';
 
+  /// With a server: the ids of «طلباتي» and of the broker's area, as it sent them (null until they come).
+  List<String>? _mineIds;
+  List<String>? _areaIds;
+  bool _areaLocked = true;
+  String? _loadError;
+
   @override
   void initState() {
     super.initState();
     _q.addListener(() => setState(() {}));
+    if (Api.on) unawaited(_load());
   }
+
+  Future<void> _load() async {
+    setState(() => _loadError = null);
+    try {
+      final mine = await ServerRequests.mine();
+      final area = widget.role == 'broker' ? await ServerRequests.area() : null;
+      store.keepServerRequests(<RequestItem>[...mine, ...?area?.items]);
+      if (!mounted) return;
+      setState(() {
+        _mineIds = <String>[for (final r in mine) r.id];
+        _areaIds = <String>[for (final r in area?.items ?? const <RequestItem>[]) r.id];
+        _areaLocked = area?.locked ?? true;
+      });
+    } on ApiError catch (e) {
+      if (mounted) setState(() => _loadError = e.forUser);
+    }
+  }
+
+  List<RequestItem> _rows(List<String> ids) => <RequestItem>[for (final id in ids) ?store.requestById(id)];
 
   @override
   void dispose() {
@@ -56,9 +91,18 @@ class _MyRequestsViewState extends State<MyRequestsView> {
   @override
   Widget build(BuildContext context) {
     final broker = widget.role == 'broker';
+    final server = Api.on;
+    if (server && _mineIds == null) {
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: _loadError == null
+            ? const LoadingBox()
+            : EmptyBox(title: 'تعذّر تحميل طلباتك', text: _loadError!, textStyle: emptyTextStyle(), action: 'أعد المحاولة', onAction: () => unawaited(_load())),
+      );
+    }
     // Mine = written by this account (not matched by display name).
-    final mine = store.myRequests();
-    final area = store.allRequests().where((r) => r.city == widget.city && !store.ownsRequest(r)).toList();
+    final mine = server ? _rows(_mineIds!) : store.myRequests();
+    final area = server ? _rows(_areaIds ?? const <String>[]) : store.allRequests().where((r) => r.city == widget.city && !store.ownsRequest(r)).toList();
     final pool = broker && tab == 'area' ? area : mine;
     final saleN = pool.where((r) => r.purpose == 'sale').length;
     final rentN = pool.where((r) => r.purpose == 'rent').length;
@@ -77,7 +121,7 @@ class _MyRequestsViewState extends State<MyRequestsView> {
       if (q.isNotEmpty && !'${r.description} ${r.city} ${r.neighborhoods.join(' ')} ${r.author}'.contains(q)) return false;
       return true;
     }).toList();
-    final locked = !billing.isSubscribed() && broker;
+    final locked = broker && (server ? _areaLocked : !billing.isSubscribed());
     RequestItem? editing;
     for (final r in mine) {
       if (r.id == editId) editing = r;
@@ -200,7 +244,14 @@ class _MyRequestsViewState extends State<MyRequestsView> {
     if (rows.isNotEmpty) {
       for (final r in rows) {
         Widget? actions;
-        if (tab == 'mine') {
+        if (tab == 'mine' && r.closed == true) {
+          actions = Container(
+            height: 48,
+            decoration: BoxDecoration(color: AppColors.paper, borderRadius: BorderRadius.circular(14)),
+            alignment: Alignment.center,
+            child: Tx('طلب مغلق — لا يظهر في «الطلبات»', style: ts(15, w: 600, lh: 22, c: AppColors.muted)),
+          );
+        } else if (tab == 'mine') {
           actions = Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
@@ -208,6 +259,7 @@ class _MyRequestsViewState extends State<MyRequestsView> {
               const SizedBox(height: 8),
               // An urgent request stays urgent (nothing to refund or re-charge).
               _crm(r.urgent == true ? 'طلب عاجل' : 'اجعله طلبًا عاجلًا', r.urgent == true ? null : () => _makeUrgent(r), on: r.urgent == true),
+              if (server) ...<Widget>[const SizedBox(height: 8), _crm('أغلق الطلب', () => _close(r))],
             ],
           );
         } else if (tab == 'area' && locked) {
@@ -239,12 +291,55 @@ class _MyRequestsViewState extends State<MyRequestsView> {
   }
 
   Future<void> _makeUrgent(RequestItem r) async {
+    if (Api.on) return _makeUrgentOnServer(r);
     final out = await runBoost(context, BoostKind.urgentRequest, r.id);
     if (!mounted) return;
     if (out == BoostOutcome.failed) {
       await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يتحول الطلب إلى عاجل', message: 'تعذّر الدفع — لم يُخصم شيء.');
     }
     setState(() {});
+  }
+
+  /// «عاجل» from the plan's balance; without it the server's price, and the plans to get a balance.
+  Future<void> _makeUrgentOnServer(RequestItem r) async {
+    try {
+      store.keepServerRequests(<RequestItem>[await ServerRequests.makeUrgent(r.id)]);
+      if (mounted) setState(() {});
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      if (e.status == 402) {
+        final price = ServerRequests.priceOf(e);
+        final plans = await showAppDialog(
+          context,
+          icon: Lu.zap,
+          title: 'لا رصيد للطلبات العاجلة',
+          message: 'لم يتغير الطلب ولم يُخصم شيء.${price == null ? '' : ' سعر «عاجل» $price ريال.'} الرصيد يأتي مع الباقة.',
+          confirmLabel: 'الباقات',
+        );
+        if (plans && mounted) unawaited(Nav.go(context, '/account/plans'));
+      } else {
+        await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يتحول الطلب إلى عاجل', message: e.forUser);
+      }
+    }
+  }
+
+  /// «أغلق الطلب»: off the board for good (it stays here, closed).
+  Future<void> _close(RequestItem r) async {
+    final ok = await showAppDialog(
+      context,
+      icon: Lu.circleAlert,
+      title: 'إغلاق الطلب',
+      message: 'لن يظهر في «الطلبات» ولن يصلك عليه وسطاء بعد الآن. لا يُعاد فتحه.',
+      confirmLabel: 'أغلق الطلب',
+      destructive: true,
+    );
+    if (!ok) return;
+    try {
+      store.keepServerRequests(<RequestItem>[await ServerRequests.close(r.id)]);
+      if (mounted) setState(() {});
+    } on ApiError catch (e) {
+      if (mounted) await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يُغلق الطلب', message: e.forUser);
+    }
   }
 
   /// An action under one of my requests; [on] marks an active state (urgent).
@@ -354,6 +449,7 @@ class _AskEditState extends State<AskEdit> {
     setState(() => error = problem ?? '');
     if (problem != null) return;
     final edited = _edited();
+    if (Api.on) return _saveOnServer(edited);
     if (!urgent || wasUrgent) {
       store.saveRequest(edited);
       widget.onDone();
@@ -373,6 +469,34 @@ class _AskEditState extends State<AskEdit> {
           ? 'تعذّر الدفع — لم يتغير الطلب ولم يُخصم شيء.'
           : 'لم يُحفظ التعديل بعد. ألغِ «طلب عاجل» للحفظ مجانًا أو أكمل الدفع.',
     );
+  }
+
+  /// The edit is the server's; «عاجل» turned on comes after it, from the plan's balance (else its price).
+  Future<void> _saveOnServer(RequestItem edited) async {
+    setState(() => busy = true);
+    try {
+      store.keepServerRequests(<RequestItem>[await ServerRequests.update(edited.id, edited)]);
+      if (urgent && !wasUrgent) {
+        try {
+          store.keepServerRequests(<RequestItem>[await ServerRequests.makeUrgent(edited.id)]);
+        } on ApiError catch (e) {
+          if (e.status != 402) rethrow;
+          final price = ServerRequests.priceOf(e);
+          if (mounted) {
+            setState(() {
+              urgent = false;
+              error = 'حُفظ التعديل، وبقي الطلب عاديًا: لا رصيد للطلبات العاجلة في باقتك.${price == null ? '' : ' سعر «عاجل» $price ريال.'}';
+            });
+          }
+          return;
+        }
+      }
+      widget.onDone();
+    } on ApiError catch (e) {
+      if (mounted) setState(() => error = e.forUser);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
 
   Widget _label(String t, Widget child) => Column(
