@@ -1,8 +1,9 @@
 // «الرئيسية» with a server: the feed's pages for the filter card's query (GET /feed, ServerListings.feed).
 //
 // A new query starts again from its first page; «عرض المزيد» fetches the next. A page that arrives after the query
-// changed belongs to the old one and is dropped. Rows go to the store (Store.keepServer), so a card opened next
-// already has its row while its detail loads.
+// changed belongs to the old one and is dropped. The cards show the rows of the latest answers as they came, never
+// another copy: a listing opened earlier is held in the store in detail (Store.keepServer), at that moment's
+// price. The rows go to the store as well, for the screens that look a row up by its id.
 
 import 'package:flutter/foundation.dart';
 
@@ -14,7 +15,7 @@ import 'package:zon/data/store.dart';
 /// The feed of the home screen, one query at a time.
 class Feed extends ChangeNotifier {
   FeedQuery? _query;
-  final List<String> _ids = <String>[];
+  final List<Listing> _rows = <Listing>[];
   int _page = 0;
   int _last = 0;
   int _generation = 0;
@@ -26,7 +27,7 @@ class Feed extends ChangeNotifier {
   FeedQuery? get query => _query;
 
   /// The rows loaded so far, in the server's order.
-  List<Listing> get items => <Listing>[for (final id in _ids) ?store.listingById(id)];
+  List<Listing> get items => List<Listing>.unmodifiable(_rows);
 
   /// A page is on its way.
   bool get loading => _loading;
@@ -44,7 +45,7 @@ class Feed extends ChangeNotifier {
   Future<void> show(FeedQuery query) {
     if (query == _query) return Future<void>.value();
     _query = query;
-    _ids.clear();
+    _rows.clear();
     _page = 0;
     _last = 0;
     return _load(1);
@@ -67,12 +68,9 @@ class Feed extends ChangeNotifier {
       final result = await ServerListings.feed(query, page: page);
       if (generation != _generation || _disposed) return;
       store.keepServer(result.items);
-      if (page == 1) _ids.clear();
-      final fresh = <String>[
-        for (final l in result.items)
-          if (!_ids.contains(l.id)) l.id,
-      ];
-      _ids.addAll(fresh);
+      if (page == 1) _rows.clear();
+      final shown = <String>{for (final l in _rows) l.id};
+      _rows.addAll(result.items.where((l) => shown.add(l.id)));
       _page = result.page;
       _last = result.last;
     } on ApiError catch (e) {

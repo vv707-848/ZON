@@ -455,9 +455,6 @@ class Store extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Whether the server's row [id] is held in detail (photos, licence, units).
-  bool hasServerDetail(String id) => _serverDetailed.contains(id);
-
   /// Sample + user listings with the user's edits applied (cached until the
   /// next write). With a server: what it sent, and no sample.
   List<Listing> allListings() {

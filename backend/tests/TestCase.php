@@ -64,7 +64,9 @@ abstract class TestCase extends BaseTestCase
                 return;
             }
             if (self::$samples === []) {
-                File::deleteDirectory($dir);                // a run replaces the samples of the previous one
+                // a run replaces the samples of the previous one: its own folders only (api/ beside them is the app's)
+                File::deleteDirectory("{$dir}/agents");
+                File::deleteDirectory("{$dir}/index");
             }
             $key = "{$m[1]}/{$m[2]}";
             $body = $event->request->body();
@@ -78,23 +80,25 @@ abstract class TestCase extends BaseTestCase
 
     /**
      * The app's contract with the API (docs/contracts/fixtures/api/<name>.json): a real response, which the app's
-     * tests replay through its own parsers (app/test/server). Recorded with ZON_CONTRACT_DIR set; otherwise this
-     * response must have the recorded shape — every key at every level (a value may be null on one side) — so a
-     * key renamed or dropped here fails on the server, not in the app in production.
+     * tests replay through its own parsers (app/test/server). This response must have the recorded shape — every
+     * key at every level (a value may be null on one side) — so a key renamed or dropped here fails on the server,
+     * not in the app in production. Recorded again only by hand, on purpose (the app's tests then run on the new
+     * answers): ZON_RECORD_API=1 php artisan test. Never in CI, which compares; ZON_CONTRACT_DIR, which CI sets to
+     * record what is sent to the agents, has nothing to do with it.
      *
-     * @param  TestResponse<Response>  $response
+     * @param  TestResponse<covariant Response>  $response
      */
     protected function apiContract(string $name, TestResponse $response): void
     {
         $path = base_path("../docs/contracts/fixtures/api/{$name}.json");
         $live = $response->json();
-        if ((string) getenv('ZON_CONTRACT_DIR') !== '') {
+        if (getenv('ZON_RECORD_API') === '1') {
             File::ensureDirectoryExists(dirname($path));
             File::put($path, json_encode($live, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n");
 
             return;
         }
-        $this->assertFileExists($path, "No recorded contract {$name}: ZON_CONTRACT_DIR=../docs/contracts/fixtures php artisan test");
+        $this->assertFileExists($path, "No recorded contract {$name}: ZON_RECORD_API=1 php artisan test");
         $recorded = json_decode((string) File::get($path), true);
         $difference = self::difference($recorded, $live, $name);
         $this->assertNull($difference, "The API's {$name} response is no longer what the app was tested with (docs/contracts/fixtures/api/{$name}.json): {$difference}");
