@@ -1,0 +1,63 @@
+# The one command (compose.yaml) works from a fresh clone: the whole stack comes up, the website, the panel and
+# the agents service answer, and zon:doctor finds the database, its migrations, Redis, the SuperAgent's account,
+# the queues and the masking healthy. What needs the AI node or real keys is reported, not required.
+name: Stack
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - compose.yaml
+      - docker/**
+      - deploy/php/**
+      - deploy/mysql/**
+      - backend/composer.lock
+      - backend/database/**
+      - agents/uv.lock
+      - .github/workflows/stack.yml
+  workflow_dispatch:
+
+concurrency:
+  group: stack-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  stack:
+    name: docker compose up
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Up, from nothing
+        run: docker compose up -d --build --wait --wait-timeout 900
+
+      - name: The website, the panel and the agents service answer
+        run: |
+          for url in http://localhost:8000/up http://localhost:8000/ http://localhost:8000/admin/login http://localhost:8000/api/v1/app/config http://localhost:8100/agents/health; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -H 'X-App-Platform: ios' -H 'X-App-Version: 9.9.9' "$url")
+            echo "$code $url"
+            [[ "$code" == 200 ]]
+          done
+
+      - name: zon:doctor on the stack
+        run: |
+          sleep 65                                   # the scheduler's first heartbeat (every minute)
+          docker compose exec -T web php artisan zon:doctor --json > doctor.json || true
+          python3 -I - doctor.json <<'PY'
+          import json, sys
+          checks = {c["key"]: c for c in json.load(open(sys.argv[1]))}
+          for c in checks.values():
+              print(f'{c["status"]:5} {c["key"]:12} {c["detail"]}')
+          required = ["database", "migrations", "redis", "scheduler", "queues", "report_db", "masking", "storage", "uploads", "websockets"]
+          bad = [k for k in required if checks[k]["status"] != "ok"]
+          sys.exit(f"not ok: {bad}" if bad else 0)
+          PY
+
+      - name: Logs of a failed start
+        if: failure()
+        run: docker compose logs --no-color --tail=200

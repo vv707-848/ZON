@@ -1,0 +1,6 @@
+# The images take only what they copy (docker/*.Dockerfile); the code itself is mounted (compose.yaml).
+*
+!deploy/php/zon.ini
+!docker/backend-entrypoint.sh
+!agents/pyproject.toml
+!agents/uv.lock

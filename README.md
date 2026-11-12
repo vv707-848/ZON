@@ -2,12 +2,29 @@
 
 [![Platform](https://github.com/vv707-848/ZON/actions/workflows/platform.yml/badge.svg)](https://github.com/vv707-848/ZON/actions/workflows/platform.yml)
 [![App](https://github.com/vv707-848/ZON/actions/workflows/app.yml/badge.svg)](https://github.com/vv707-848/ZON/actions/workflows/app.yml)
+[![Stack](https://github.com/vv707-848/ZON/actions/workflows/stack.yml/badge.svg)](https://github.com/vv707-848/ZON/actions/workflows/stack.yml)
 
 المرجعان الحاكمان:
 - تطبيق Flutter **3.1.2** (المعتمد): كل شاشة فيه لها واجهتها هنا.
 - وثيقة المعمارية **v1.4**.
 
 قبل أي عمل: [`docs/rules.md`](docs/rules.md) — قواعد العمل، والفحص الآلي الذي يمر عليه كل رفع.
+
+## التشغيل بأمر واحد
+
+```bash
+docker compose up                       # أول مرة: يبني ويثبّت ويرحّل قاعدة البيانات (دقائق)
+docker compose exec web php artisan zon:create-superadmin you@example.com   # حساب اللوحة، مرة واحدة
+```
+
+| الرابط | ما فيه |
+|---|---|
+| `http://localhost:8000` | الموقع، وواجهة التطبيق `/api/v1`، ولوحة الإدارة `/admin` |
+| `http://localhost:8100/agents/health` | خدمة الوكلاء |
+
+- كل جهة خارجية محاكاة صريحة: لا رسالة ولا دفع ولا متجر يخرج من الجهاز، ورمز التحقق 204815.
+- النموذج والتضمين على عقدة الذكاء (RunPod)، لا هنا: بدونها تقول خدمة الوكلاء ذلك في فحصها، ويأخذ Laravel مساره البديل كما في الإنتاج.
+- للتطوير فقط. الإنتاج على عُقده (`deploy/README.md`). والأمر نفسه يُفحص آلياً (`.github/workflows/stack.yml`).
 
 | المجلد | الطرف | المرجع |
 |---|---|---|

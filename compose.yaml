@@ -1,0 +1,132 @@
+# The whole platform on one machine, in one command: `docker compose up`
+#   website + API + panel   http://localhost:8000          (/admin: `docker compose exec web php artisan zon:create-superadmin you@example.com`)
+#   agents service          http://localhost:8100/agents/health
+# Every outside party is the explicit simulation (docs/integrations.md): no SMS, payment or store leaves this
+# machine, and the SMS code is 204815. The model and the embedder run on the AI node (RunPod), not here.
+# Development only: production runs on its own nodes (deploy/README.md). Versions as in CI (docs/versions.md).
+name: zon
+
+x-backend: &backend
+  build: { context: ., dockerfile: docker/backend.Dockerfile }
+  image: zon-backend-dev
+  volumes: ["./backend:/app/backend", "./deploy:/app/deploy:ro"]
+  environment: &env
+    APP_ENV: local
+    PHP_CLI_SERVER_WORKERS: "4"                   # `artisan serve` answers four requests at once
+    APP_DEBUG: "true"
+    APP_URL: http://localhost:8000
+    ZON_DEEP_LINK_BASE: http://localhost:8000      # the website on the same host (routes/web.php)
+    LOG_CHANNEL: stderr
+    LOG_LEVEL: debug
+    RATE_SALT: dev-only-salt
+    OTP_TEST_CODE: "204815"
+    DB_HOST: mysql
+    DB_PORT: "3306"
+    DB_DATABASE: zone
+    DB_USERNAME: zon
+    DB_PASSWORD: zon-dev-only
+    REPORT_DB_PASSWORD: reader-dev-only
+    MYSQL_ROOT_PASSWORD: root-dev-only
+    REDIS_HOST: redis
+    SESSION_SECURE_COOKIE: "false"
+    MEDIA_DISK: local
+    AGENTS_URL: http://agents:8100
+    AGENTS_INTERNAL_KEY: dev-only-internal-key
+    INDEX_SHARED_SECRET: dev-only-index-secret
+    SMS_DRIVER: fake
+    PAYMENTS_DRIVER: fake
+    APP_STORE_DRIVER: fake
+    GOOGLE_PLAY_DRIVER: fake
+    PUSH_DRIVER: fake
+    REGA_DRIVER: fake
+    NAFATH_DRIVER: fake
+    INVOICING_DRIVER: local
+    IMAGE_HASH_DRIVER: gd
+    BROADCAST_CONNECTION: reverb
+    REVERB_APP_ID: zon-dev
+    REVERB_APP_KEY: zon-dev-key
+    REVERB_APP_SECRET: zon-dev-secret
+    REVERB_HOST: reverb                           # where Laravel publishes its events, inside this network
+    REVERB_PORT: "8080"
+    REVERB_SCHEME: http
+    REVERB_SERVER_HOST: reverb                    # what zon:doctor dials; the reverb service itself listens on 0.0.0.0
+    REVERB_SERVER_PORT: "8080"
+  depends_on:
+    web: { condition: service_healthy }
+
+services:
+  mysql:
+    image: mysql:9.7
+    environment:
+      MYSQL_ROOT_PASSWORD: root-dev-only
+      MYSQL_DATABASE: zone
+      MYSQL_USER: zon
+      MYSQL_PASSWORD: zon-dev-only
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes: ["mysql:/var/lib/mysql"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot-dev-only"]
+      interval: 3s
+      retries: 40
+
+  redis:
+    image: redis:8
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 3s, retries: 20 }
+
+  qdrant:
+    image: qdrant/qdrant:v1.20.0
+    volumes: ["qdrant:/qdrant/storage"]
+
+  agents:
+    build: { context: ., dockerfile: docker/agents.Dockerfile }
+    image: zon-agents-dev
+    volumes: ["./agents:/app/agents", "agents:/data"]
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8100"
+      AGENTS_INTERNAL_KEY: dev-only-internal-key
+      INDEX_SHARED_SECRET: dev-only-index-secret
+      INDEX_STATE_PATH: /data/index_state.sqlite3
+      QDRANT_URL: http://qdrant:6333
+      LLM_BASE_URL: http://host.docker.internal:30000/v1     # an SSH tunnel to the AI node, if you open one
+      LLM_API_KEY: ${LLM_API_KEY:-no-ai-node-here}             # that node's key (deploy/README.md «إعدادات الـ Pod»)
+      EMBED_URL: http://host.docker.internal:18080
+      SENTRY_ENVIRONMENT: local
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    ports: ["8100:8100"]
+    depends_on: [qdrant]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/agents/health', timeout=3)"]
+      interval: 5s
+      retries: 60
+
+  web:
+    <<: *backend
+    command: ["web"]
+    ports: ["8000:8000"]
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      agents: { condition: service_started }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/up"]
+      interval: 5s
+      retries: 120
+
+  worker:
+    <<: *backend
+    command: ["worker"]
+
+  scheduler:
+    <<: *backend
+    command: ["scheduler"]
+
+  reverb:
+    <<: *backend
+    command: ["reverb"]
+    ports: ["8080:8080"]
+
+volumes:
+  mysql:
+  qdrant:
+  agents:
