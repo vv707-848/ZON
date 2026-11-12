@@ -365,7 +365,7 @@ deploy/                          nginx · supervisor · cron · ssh · mysql · 
 | `GET /agents/health` | بلا |
 | `/mcp/` | `X-Internal-Key` |
 
-- `/index/{entity}`: النسخة ≤ المحفوظة تُهمل وترد 200 `ignored_stale`.
+- `/index/{entity}`: النسخة ≤ المحفوظة تُهمل وترد 200 `ignored_stale`. وإشارات الكيان الواحد تُعالَج واحدة بعد أخرى (قفل لكل كيان)، فلا يعيد تحديثٌ أقدم ما حذفته إشارة أحدث.
 - `/agents/health` يرد `{status, llm, embed, qdrant}` بكاش 5 ث.
 
 ### الوكلاء الثلاثة عشر

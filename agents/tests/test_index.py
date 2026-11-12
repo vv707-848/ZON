@@ -3,10 +3,15 @@
 import asyncio
 import json
 import time
+from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import BaseModel
 
 from tests.conftest import FakeEmbedder, index, listing, sign
+from zon_agents.indexing import Indexer
+from zon_agents.schemas.index import IndexSignal
 from zon_agents.services import Services
 from zon_agents.store import KNOWLEDGE
 
@@ -30,6 +35,51 @@ def test_versions_make_resending_safe(client: TestClient) -> None:
     assert index(client, "listing", 7, listing(desc="نسخة أقدم"), version=1) == "ignored_stale"
     assert index(client, "listing", 7, listing(), version=2) == "ignored_stale"
     assert index(client, "listing", 7, None, version=3) == "deleted"
+
+
+def test_an_update_still_waiting_on_the_embedder_cannot_undo_a_later_delete(
+    services: Services, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Laravel gives up on a slow signal after 10 s and sends the next one: both are in hand at once."""
+
+    async def run() -> None:
+        entered, release = asyncio.Event(), asyncio.Event()
+        indexer = Indexer(services.embedder, services.store, services.versions)
+        points: dict[int, Any] = {}
+
+        async def slow_write(signal: IndexSignal, payload: BaseModel) -> None:
+            entered.set()
+            await release.wait()
+            points[signal.entity_id] = payload
+
+        async def delete(signal: IndexSignal) -> None:
+            points.pop(signal.entity_id, None)
+
+        monkeypatch.setattr(indexer, "_index", slow_write)
+        monkeypatch.setattr(indexer, "_delete", delete)
+        first = IndexSignal(entity="listing", entity_id=7, action="create", version=1, payload=listing())
+        old = asyncio.create_task(indexer.handle(first))
+        await entered.wait()
+        new = asyncio.create_task(
+            indexer.handle(first.model_copy(update={"action": "delete", "version": 2, "payload": None}))
+        )
+        await asyncio.sleep(0)
+        release.set()
+
+        assert await asyncio.gather(old, new) == ["indexed", "deleted"]
+        assert points == {}, "the deleted listing came back"
+        assert await services.versions.last("listing", 7) == 2
+
+    asyncio.run(run())
+
+
+def test_a_saved_version_never_goes_back(services: Services) -> None:
+    async def run() -> None:
+        await services.versions.save("listing", 8, 5)
+        await services.versions.save("listing", 8, 3)
+        assert await services.versions.last("listing", 8) == 5
+
+    asyncio.run(run())
 
 
 def test_a_bad_payload_or_a_path_that_disagrees_is_refused(client: TestClient) -> None:
