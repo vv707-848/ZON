@@ -36,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => Middleware\RequireRole::class,
             'preference' => Middleware\RequirePreference::class,
             'ai.quota' => Middleware\EnforceAiQuota::class,
+            'idempotent' => Middleware\Idempotent::class,       // «Idempotency-Key»: a POST runs once however often sent
             'site.headers' => Middleware\SiteHeaders::class,      // the website's forms (routes/site.php)
             'site.session' => Middleware\AuthenticateSiteSession::class,   // a password change ends the website's sessions
         ]);

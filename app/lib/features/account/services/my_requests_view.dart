@@ -66,10 +66,11 @@ class _MyRequestsViewState extends State<MyRequestsView> {
   Future<void> _load() async {
     setState(() => _loadError = null);
     try {
+      final epoch = store.serverEpoch;
       final mine = await ServerRequests.mine();
       final area = widget.role == 'broker' ? await ServerRequests.area() : null;
-      store.keepServerRequests(<RequestItem>[...mine, ...?area?.items]);
-      if (!mounted) return;
+      if (!mounted || epoch != store.serverEpoch) return; // signed out, or another account, meanwhile
+      store.keepServerRequests(<RequestItem>[...mine, ...?area?.items], epoch: epoch);
       setState(() {
         _mineIds = <String>[for (final r in mine) r.id];
         _areaIds = <String>[for (final r in area?.items ?? const <RequestItem>[]) r.id];
@@ -311,7 +312,8 @@ class _MyRequestsViewState extends State<MyRequestsView> {
   /// «عاجل» from the plan's balance; without it the server's price, and the plans to get a balance.
   Future<void> _makeUrgentOnServer(RequestItem r) async {
     try {
-      store.keepServerRequests(<RequestItem>[await ServerRequests.makeUrgent(r.id)]);
+      final epoch = store.serverEpoch;
+      store.keepServerRequests(<RequestItem>[await ServerRequests.makeUrgent(r.id)], epoch: epoch);
       if (mounted) setState(() {});
     } on ApiError catch (e) {
       if (!mounted) return;
@@ -343,7 +345,8 @@ class _MyRequestsViewState extends State<MyRequestsView> {
     );
     if (!ok) return;
     try {
-      store.keepServerRequests(<RequestItem>[await ServerRequests.close(r.id)]);
+      final epoch = store.serverEpoch;
+      store.keepServerRequests(<RequestItem>[await ServerRequests.close(r.id)], epoch: epoch);
       if (mounted) setState(() {});
     } on ApiError catch (e) {
       if (mounted) await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يُغلق الطلب', message: e.forUser);
@@ -483,10 +486,11 @@ class _AskEditState extends State<AskEdit> {
   Future<void> _saveOnServer(RequestItem edited) async {
     setState(() => busy = true);
     try {
-      store.keepServerRequests(<RequestItem>[await ServerRequests.update(edited.id, edited)]);
+      final epoch = store.serverEpoch;
+      store.keepServerRequests(<RequestItem>[await ServerRequests.update(edited.id, edited)], epoch: epoch);
       if (urgent && !wasUrgent) {
         try {
-          store.keepServerRequests(<RequestItem>[await ServerRequests.makeUrgent(edited.id)]);
+          store.keepServerRequests(<RequestItem>[await ServerRequests.makeUrgent(edited.id)], epoch: epoch);
         } on ApiError catch (e) {
           if (e.status != 402) rethrow;
           final price = ServerRequests.priceOf(e);

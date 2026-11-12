@@ -19,6 +19,7 @@ use App\Jobs\Scheduled\RetryPendingIndexEvents;
 use App\Jobs\Scheduled\SchedulerHeartbeat;
 use App\Jobs\Scheduled\SendTaskReminders;
 use App\Jobs\Scheduled\SyncOwnerContracts;
+use App\Models\IdempotencyKey;
 use Illuminate\Support\Facades\Schedule;
 
 /*
@@ -62,6 +63,7 @@ $at(Schedule::job(new ComputeDailyAreaStats)->dailyAt('01:00'));
 // Privacy and housekeeping
 $at(Schedule::job(new PurgeDueAccounts)->dailyAt('02:30'));
 $at(Schedule::job(new PruneOrphanMedia)->dailyAt('03:00'));
+$at(Schedule::command('model:prune', ['--model' => [IdempotencyKey::class]])->dailyAt('03:10'));
 $at(Schedule::command('sanctum:prune-expired --hours=24')->dailyAt('03:15'));
 $at(Schedule::command('queue:prune-failed --hours=168')->weekly());
 $at(Schedule::command('activitylog:clean')->monthly());

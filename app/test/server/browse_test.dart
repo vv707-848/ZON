@@ -156,7 +156,7 @@ void main() {
     final server = serverDevice();
     final row = _rows(recorded('feed')).first;
     // opened at 900,000 (held in detail) …
-    store.keepServer(<Listing>[
+    store.keepServer(epoch: store.serverEpoch, <Listing>[
       ServerListings.fromFeed(<String, Object?>{...row, 'price': 900000}),
     ], detailed: true);
     // … and the feed now says 800,000

@@ -7,6 +7,7 @@
 // failed payment publishes nothing and keeps everything typed in the form.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/net/api.dart';
 import 'package:zon/core/net/api_error.dart';
+import 'package:zon/core/net/app_identity.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
@@ -129,11 +131,21 @@ class _RequestFormState extends State<RequestForm> {
 
   /// With a server: it publishes the request (a normal one is free); «عاجل» comes from the plan's balance, and
   /// without balance the request is published normal and the person is told so, with its price.
+  String? _operation;
+  String? _operationBody;
+
   Future<void> _publish(RequestItem draft) async {
     setState(() => busy = true);
     try {
-      final made = await ServerRequests.create(draft, urgent: urgent);
-      store.keepServerRequests(<RequestItem>[made.item]);
+      final epoch = store.serverEpoch;
+      // one publish, one key: tried again after a lost answer, it is the same operation; changed, it is another
+      final body = jsonEncode(<String, Object?>{...ServerRequests.form(draft), 'urgent': urgent});
+      if (body != _operationBody) {
+        _operationBody = body;
+        _operation = 'req-${newId(24)}';
+      }
+      final made = await ServerRequests.create(draft, urgent: urgent, operation: _operation!);
+      store.keepServerRequests(<RequestItem>[made.item], epoch: epoch);
       if (!mounted) return;
       if (made.urgent == UrgentOutcome.paymentRequired) {
         await showAppNotice(

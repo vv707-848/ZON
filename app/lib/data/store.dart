@@ -49,9 +49,7 @@ class Store extends ChangeNotifier {
   static Future<void> init() async {
     final s = instance;
     s._mem.clear();
-    s._server.clear();
-    s._serverDetailed.clear();
-    s._serverRequests.clear();
+    s._forgetServerRows();
     s._resetSessionState();
     try {
       s._prefs = await SharedPreferences.getInstance();
@@ -260,6 +258,7 @@ class Store extends ChangeNotifier {
   /// What the server sent was for the account signed in then (an advertiser's phones, a request's author as
   /// his plan let him see): another account, or none, gets its own.
   void _forgetServerRows() {
+    _serverEpoch++;
     _server.clear();
     _serverDetailed.clear();
     _serverRequests.clear();
@@ -455,8 +454,16 @@ class Store extends ChangeNotifier {
   final Map<String, Listing> _server = <String, Listing>{};
   final Set<String> _serverDetailed = <String>{};
 
-  /// Keeps rows of the server for the screens that read synchronously (cards, details, favourites).
-  void keepServer(Iterable<Listing> rows, {bool detailed = false}) {
+  /// Which account the rows of the server belong to: it changes when the account does (sign-out, another account).
+  /// A caller reads it when it asks the server, and passes it to [keepServer] / [keepServerRequests] with the
+  /// answer: an answer that comes after the account changed was for the one before, and is dropped.
+  int get serverEpoch => _serverEpoch;
+  int _serverEpoch = 0;
+
+  /// Keeps rows of the server for the screens that read synchronously (cards, details, favourites); [epoch] is
+  /// [serverEpoch] when they were asked for.
+  void keepServer(Iterable<Listing> rows, {required int epoch, bool detailed = false}) {
+    if (epoch != _serverEpoch) return;
     for (final row in rows) {
       if (!detailed && _serverDetailed.contains(row.id)) continue;
       _server[row.id] = row;
@@ -630,8 +637,10 @@ class Store extends ChangeNotifier {
   /// Requests the server sent (the board, a request, «طلباتي», the broker's area), by id.
   final Map<String, RequestItem> _serverRequests = <String, RequestItem>{};
 
-  /// Keeps requests of the server for the screens that look one up by its id; the newest copy wins.
-  void keepServerRequests(Iterable<RequestItem> rows) {
+  /// Keeps requests of the server for the screens that look one up by its id; the newest copy wins. [epoch] is
+  /// [serverEpoch] when they were asked for.
+  void keepServerRequests(Iterable<RequestItem> rows, {required int epoch}) {
+    if (epoch != _serverEpoch) return;
     for (final row in rows) {
       _serverRequests[row.id] = row;
     }

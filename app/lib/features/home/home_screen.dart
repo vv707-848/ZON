@@ -94,16 +94,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = store.readSession();
     final hoods = city == 'all' ? const <String>[] : (kCities[city] ?? const <String>[]);
     final server = Api.on;
-    if (server && _feed.query != _query()) {
-      final query = _query();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_feed.show(query));
-      });
-    }
     return AppShell(
       child: ListenableBuilder(
         listenable: Listenable.merge(<Listenable>[store, _feed]),
         builder: (context, _) {
+          // a new filter, or another account (its rows are not shown): the server is asked again
+          if (server && (_feed.query != _query() || _feed.stale)) {
+            final query = _query();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) unawaited(_feed.show(query));
+            });
+          }
           final list = server ? _feed.items : _list(store.allListings());
           final shown = server ? list : list.take(limit).toList();
           final waiting = server && list.isEmpty && (_feed.loading || _feed.firstLoad);

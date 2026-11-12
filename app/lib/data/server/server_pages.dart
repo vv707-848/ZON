@@ -2,13 +2,15 @@
 // (RequestsBoard).
 //
 // A new query starts again from its first page. A page that arrives after the query changed, or after the screen
-// closed, is dropped. The list shows the rows of the latest answers as they came, never another copy of them (a
-// row opened earlier is held in the store at that moment's values); [ServerPager.keep] hands them to the store as
-// well, for the screens that look a row up by its id.
+// closed, or after the account changed (Store.serverEpoch), is dropped; and once the account changes, the rows of
+// the one before are no longer shown ([ServerPager.stale]: the screen asks again). The list shows the rows of the
+// latest answers as they came, never another copy of them (a row opened earlier is held in the store at that
+// moment's values); [ServerPager.keep] hands them to the store as well, for the screens that look a row up by id.
 
 import 'package:flutter/foundation.dart';
 
 import 'package:zon/core/net/api_error.dart';
+import 'package:zon/data/store.dart';
 
 /// One page of a list: its rows and whether another follows.
 class ServerPage<T> {
@@ -39,10 +41,11 @@ class ServerPager<Q, T> extends ChangeNotifier {
   /// The row's id (a row met twice across pages is shown once).
   final String Function(T row) idOf;
 
-  /// Hands the rows of each page to the store.
-  final void Function(List<T> rows)? keep;
+  /// Hands the rows of each page to the store, with the account's [Store.serverEpoch] they were asked under.
+  final void Function(List<T> rows, {required int epoch})? keep;
 
   Q? _query;
+  int _epoch = store.serverEpoch;
   final List<T> _rows = <T>[];
   int _page = 0;
   int _last = 0;
@@ -54,8 +57,11 @@ class ServerPager<Q, T> extends ChangeNotifier {
   /// The query shown.
   Q? get query => _query;
 
-  /// The rows loaded so far, in the server's order.
-  List<T> get items => List<T>.unmodifiable(_rows);
+  /// The rows were asked for another account (signed out, or another signed in): the screen shows them again.
+  bool get stale => _epoch != store.serverEpoch;
+
+  /// The rows loaded so far, in the server's order (none of another account's).
+  List<T> get items => stale ? List<T>.empty() : List<T>.unmodifiable(_rows);
 
   /// A page is on its way.
   bool get loading => _loading;
@@ -64,15 +70,16 @@ class ServerPager<Q, T> extends ChangeNotifier {
   String? get error => _error;
 
   /// The first page has not come yet.
-  bool get firstLoad => _page == 0 && _error == null;
+  bool get firstLoad => (_page == 0 || stale) && _error == null;
 
   /// Another page follows.
   bool get hasMore => _page > 0 && _page < _last;
 
   /// Shows [query] from its first page (nothing happens when it is already shown).
   Future<void> show(Q query) {
-    if (query == _query) return Future<void>.value();
+    if (query == _query && !stale) return Future<void>.value();
     _query = query;
+    _epoch = store.serverEpoch;
     _rows.clear();
     _page = 0;
     _last = 0;
@@ -92,13 +99,14 @@ class ServerPager<Q, T> extends ChangeNotifier {
     final query = _query;
     if (query == null) return;
     final generation = ++_generation;
+    final epoch = _epoch;
     _loading = true;
     _error = null;
     notifyListeners();
     try {
       final result = await fetch(query, page);
-      if (generation != _generation || _disposed) return;
-      keep?.call(result.items);
+      if (generation != _generation || _disposed || epoch != store.serverEpoch) return;
+      keep?.call(result.items, epoch: epoch);
       if (page == 1) _rows.clear();
       final shown = <String>{for (final r in _rows) idOf(r)};
       _rows.addAll(result.items.where((r) => shown.add(idOf(r))));

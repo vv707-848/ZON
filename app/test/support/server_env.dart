@@ -66,6 +66,14 @@ class FakeServer {
   /// No answer at all for `METHOD path` (offline).
   void offline(String method, String path) => _answers['$method $path'] = (0, null);
 
+  /// Answers `METHOD path` asked with exactly [query] (a page, say) — before the answer of the path alone.
+  void onQuery(String method, String path, Map<String, String> query, int status, Object? body) => _answers['$method $path?${_query(query)}'] = (status, body);
+
+  final Map<String, Completer<void>> _held = <String, Completer<void>>{};
+
+  /// Holds the answers of `METHOD path` until the returned completer completes (an answer that comes late).
+  Completer<void> hold(String method, String path) => _held['$method $path'] = Completer<void>();
+
   /// The requests to `METHOD path`.
   List<http.Request> sent(String method, String path) => <http.Request>[
     for (final r in requests)
@@ -77,9 +85,14 @@ class FakeServer {
 
   static String _path(Uri url) => url.path.replaceFirst('/api/v1/', '');
 
+  static String _query(Map<String, String> q) => (q.keys.toList()..sort()).map((k) => '$k=${q[k]}').join('&');
+
   late final MockClient client = MockClient((request) async {
     requests.add(request);
-    final answer = _answers['${request.method} ${_path(request.url)}'];
+    final key = '${request.method} ${_path(request.url)}';
+    final held = _held[key];
+    if (held != null) await held.future;
+    final answer = _answers['$key?${_query(request.url.queryParameters)}'] ?? _answers[key];
     if (answer == null) {
       return _json(404, apiFail('NOT_FOUND', 'العنصر غير موجود.'));
     }

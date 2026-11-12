@@ -109,17 +109,18 @@ abstract final class ServerRequests {
   static Future<RequestItem> detail(String appId) async => fromJson((await Api.client!.get('requests/${rawId(appId)}')).map);
 
   /// Every request of mine (its pages, newest first).
-  static Future<List<RequestItem>> mine() => _all('requests/mine');
+  static Future<List<RequestItem>> mine() async => (await _all('requests/mine')).rows;
 
   /// The requests of a broker's city, by others.
   static Future<AreaRequests> area() async {
-    final r = await Api.client!.get('requests/area');
-    return AreaRequests(<RequestItem>[for (final row in r.list) fromJson(row)], access: '${r.meta['access'] ?? 'none'}');
+    final all = await _all('requests/area');
+    return AreaRequests(all.rows, access: '${all.meta['access'] ?? 'none'}');
   }
 
-  /// Publishes [draft]; with [urgent], «عاجل» from the plan's balance when there is one.
-  static Future<NewRequest> create(RequestItem draft, {required bool urgent}) async {
-    final r = await Api.client!.post('requests', <String, Object?>{...form(draft), 'urgent': urgent});
+  /// Publishes [draft]; with [urgent], «عاجل» from the plan's balance when there is one. [operation] is the same
+  /// for every try of one publish (a retry after a lost answer): the server publishes it once.
+  static Future<NewRequest> create(RequestItem draft, {required bool urgent, required String operation}) async {
+    final r = await Api.client!.post('requests', <String, Object?>{...form(draft), 'urgent': urgent}, operation);
     final outcome = r.meta['urgent'];
     final status = outcome is Map ? outcome['status'] : null;
     return NewRequest(
@@ -195,14 +196,17 @@ abstract final class ServerRequests {
     );
   }
 
-  static Future<List<RequestItem>> _all(String path) async {
+  /// Every page of [path] (the first page's `meta` with them).
+  static Future<({List<RequestItem> rows, Map<String, Object?> meta})> _all(String path) async {
     final rows = <RequestItem>[];
+    var meta = const <String, Object?>{};
     for (var page = 1; page <= 50; page++) {
       final r = await Api.client!.get(path, query: <String, String>{'page': '$page'});
+      if (page == 1) meta = r.meta;
       rows.addAll(<RequestItem>[for (final row in r.list) fromJson(row)]);
       if (ServerPage.paging(r.meta, page).last <= page) break;
     }
-    return rows;
+    return (rows: rows, meta: meta);
   }
 
   static List<String> _strings(Object? v) => v is List
