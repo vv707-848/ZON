@@ -10,14 +10,12 @@ class AiMaskingTest extends TestCase
 {
     public function test_contacts_in_every_usual_writing_are_masked(): void
     {
-        foreach ([
-            'كلمني 0551234567', 'كلمني 055 123 4567', 'كلمني 055-123-4567', 'كلمني 055.123.4567', 'كلمني (055) 123 4567',
-            'كلمني +966 55 123 4567', 'كلمني 00966551234567', 'كلمني 966551234567', 'كلمني 551234567', 'كلمني ٠٥٥١٢٣٤٥٦٧',
-            'الهاتف 011 234 5678', 'الموحد 9200 12345',
-        ] as $text) {
+        foreach (AiMasking::CANARIES as $text) {
             $masked = AiMasking::text($text);
-            $this->assertMatchesRegularExpression('/^\S+ \[رقم\]$/u', $masked, "«{$text}» → «{$masked}»");
+            $this->assertMatchesRegularExpression('/^\S+ \[(رقم|بريد|رابط|حساب)\]$/u', $masked, "«{$text}» → «{$masked}»");
         }
+        $this->assertSame([], AiMasking::slipping());
+        $this->assertSame('0', ini_get('pcre.jit'), 'the tests run as production does (deploy/php/zon.ini)');
         $this->assertSame('[بريد] · [رابط] · [حساب]', AiMasking::text('a.b@zon.sa · https://wa.me/123 · SA44 2000 0001 2345 6789 1234'));
         $this->assertSame('اتصل بالعميل', AiMasking::text('اتصل بخالد', ['خالد']));
     }

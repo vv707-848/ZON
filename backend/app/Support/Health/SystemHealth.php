@@ -2,6 +2,7 @@
 
 namespace App\Support\Health;
 
+use App\Ai\Masking\AiMasking;
 use App\Enums\HealthStatus;
 use App\Integrations\Drivers;
 use App\Jobs\Scheduled\SchedulerHeartbeat;
@@ -57,6 +58,7 @@ final class SystemHealth
             $this->check('index', 'مزامنة الفهرس', 'لوحة الإدارة ← مراقبة الفهرسة (آخر خطأ وإعادة الإرسال) — والعامل zon-worker-index', $this->index(...)),
             $this->check('report_db', 'اتصال الوكيل الأعلى', 'deploy/mysql/ai_reader.sql وقيم REPORT_DB_* في .env', $this->reportDatabase(...)),
             $this->check('storage', 'تخزين الصور والمستندات', 'MEDIA_DISK وإعدادات MinIO (AWS_*) أو صلاحيات storage/app', $this->storage(...)),
+            $this->check('masking', 'إخفاء البيانات قبل الذكاء', 'pcre.jit = 0 في deploy/php/zon.ini (conf.d لـ PHP-FPM ولسطر الأوامر)، ثم إعادة تشغيل php8.5-fpm', $this->masking(...)),
             $this->check('uploads', 'رفع الصور ومعالجتها', 'deploy/php/zon.ini في conf.d لـ PHP-FPM ولسطر الأوامر، ثم إعادة تشغيل php8.5-fpm — وامتدادا gd و exif', $this->uploads(...)),
             $this->check('websockets', 'المراسلة الفورية (Reverb)', 'supervisorctl status zon-reverb — وقيم REVERB_* في .env', $this->websockets(...)),
             $this->check('integrations', 'التكاملات الخارجية', 'config/services.php و docs/integrations.md — قيم *_DRIVER و PRODUCTION_ALLOWS_FAKE', $this->integrations(...)),
@@ -272,6 +274,16 @@ final class SystemHealth
         return $written
             ? [HealthStatus::Ok, "{$diskName} · كتابة وحذف {$ms} ms"]
             : [HealthStatus::Fail, "تعذّرت الكتابة على القرص {$diskName}"];
+    }
+
+    /** @return array{HealthStatus, string} every usual writing of a contact comes out masked, on this machine */
+    private function masking(): array
+    {
+        $slipping = AiMasking::slipping();
+
+        return $slipping === []
+            ? [HealthStatus::Ok, count(AiMasking::CANARIES).' كتابة معروفة للأرقام والبريد والروابط تُخفى · pcre.jit='.ini_get('pcre.jit')]
+            : [HealthStatus::Fail, 'لا تُخفى: '.implode(' · ', $slipping).' · pcre.jit='.ini_get('pcre.jit')];
     }
 
     /**

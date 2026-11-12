@@ -18,6 +18,7 @@
         </include>
     </source>
     <php>
+        <ini name="pcre.jit" value="0"/>  <!-- as production: deploy/php/zon.ini -->
         <!-- Hermetic: nothing here may come from .env (a developer's .env can point at live gateways). -->
         <env name="APP_ENV" value="testing"/>
         <env name="APP_URL" value="http://localhost"/>

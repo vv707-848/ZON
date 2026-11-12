@@ -30,6 +30,17 @@ final class AiMasking
         '~\d{9,}~' => '[رقم]',                                                                   // ids, accounts
     ];
 
+    /**
+     * The usual ways people write a contact, each of which must come out masked. Checked by the tests and, on the
+     * server itself, by `zon:doctor` («إخفاء البيانات قبل الذكاء»): the same pattern can miss on one machine — PCRE's
+     * JIT (10.42) skipped «055 123 4567» on Intel Xeon 6975P-C runners alone, so production runs pcre.jit = 0.
+     */
+    public const CANARIES = [
+        'كلمني 0551234567', 'كلمني 055 123 4567', 'كلمني 055-123-4567', 'كلمني 055.123.4567', 'كلمني (055) 123 4567',
+        'كلمني +966 55 123 4567', 'كلمني 00966551234567', 'كلمني 966551234567', 'كلمني 551234567', 'كلمني ٠٥٥١٢٣٤٥٦٧',
+        'الهاتف 011 234 5678', 'الموحد 9200 12345', 'راسلني a.b@zon.sa', 'الرابط https://wa.me/123', 'الحساب SA44 2000 0001 2345 6789 1234',
+    ];
+
     /** A letter of a word (not a diacritic): a name is masked as a word, never inside one («علي» in «عليه»). */
     private const LETTER = '[\\x{0621}-\\x{063A}\\x{0641}-\\x{064A}\\x{066E}-\\x{06D3}A-Za-z]';
 
@@ -49,6 +60,12 @@ final class AiMasking
         }
 
         return (string) preg_replace(array_keys(self::PATTERNS), array_values(self::PATTERNS), $text);
+    }
+
+    /** @return list<string> the canaries this machine lets through unmasked (none, when masking works here) */
+    public static function slipping(): array
+    {
+        return array_values(array_filter(self::CANARIES, fn (string $c) => preg_match('/^\S+ \[(رقم|بريد|رابط|حساب)\]$/u', self::text($c)) !== 1));
     }
 
     /**
