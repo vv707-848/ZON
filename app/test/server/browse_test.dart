@@ -167,10 +167,9 @@ void main() {
       expect(find.text('الصورة غير متاحة'), findsWidgets);
       _noStockPhoto();
       // (pumpApp opens «الرئيسية» on the start and again on its route: each asks once)
-      expect(
-        <Map<String, String>>[for (final r in server.sent('GET', 'feed')) r.url.queryParameters],
-        allOf(isNotEmpty, everyElement(<String, String>{'sort': 'new', 'page': '1', 'per_page': '18'})),
-      );
+      expect(<Map<String, String>>[
+        for (final r in server.sent('GET', 'feed')) r.url.queryParameters,
+      ], allOf(isNotEmpty, everyElement(<String, String>{'sort': 'new', 'page': '1', 'per_page': '18'})));
       expect(find.byKey(const ValueKey<String>('home-more')), findsNothing, reason: 'one page only');
     });
 
