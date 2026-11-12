@@ -85,16 +85,17 @@ class _RequestsScreenState extends State<RequestsScreen> {
   Widget build(BuildContext context) {
     final hoods = city == 'all' ? const <String>[] : (kCities[city] ?? const <String>[]);
     final server = Api.on;
-    if (server && _board.query != _query()) {
-      final query = _query();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_board.show(query));
-      });
-    }
     return AppShell(
       child: ListenableBuilder(
         listenable: Listenable.merge(<Listenable>[store, _board]),
         builder: (context, _) {
+          // a new filter, or another account (its rows are not shown): the server is asked again
+          if (server && (_board.query != _query() || _board.stale)) {
+            final query = _query();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) unawaited(_board.show(query));
+            });
+          }
           final items = server ? _board.items : _items();
           final waiting = server && items.isEmpty && (_board.loading || _board.firstLoad);
           final failed = server && items.isEmpty && _board.error != null;

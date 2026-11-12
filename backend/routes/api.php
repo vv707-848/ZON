@@ -43,7 +43,7 @@ Route::middleware('throttle:api')->group(function () {
     Route::post('support-tickets', [V1\SupportController::class, 'store'])->middleware('throttle:reports');
 
     // ── Signed in ─────────────────────────────────────────────────────────────────────────────────────────
-    Route::middleware(['auth:api', 'active'])->group(function () {
+    Route::middleware(['auth:api', 'active', 'idempotent'])->group(function () {
         Route::post('auth/logout', [V1\AuthController::class, 'logout']);
 
         Route::prefix('me')->controller(V1\MeController::class)->group(function () {

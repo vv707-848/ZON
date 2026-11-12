@@ -15,6 +15,7 @@ import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/net/api.dart';
 import 'package:zon/core/net/api_error.dart';
+import 'package:zon/core/net/operation_key.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
@@ -129,11 +130,16 @@ class _RequestFormState extends State<RequestForm> {
 
   /// With a server: it publishes the request (a normal one is free); «عاجل» comes from the plan's balance, and
   /// without balance the request is published normal and the person is told so, with its price.
+  final OperationKey _operation = OperationKey('req');
+
   Future<void> _publish(RequestItem draft) async {
     setState(() => busy = true);
     try {
-      final made = await ServerRequests.create(draft, urgent: urgent);
-      store.keepServerRequests(<RequestItem>[made.item]);
+      final epoch = store.serverEpoch;
+      // one publish, one key: tried again after a lost answer, it is the same operation; changed, it is another
+      final operation = _operation.forBody(<String, Object?>{...ServerRequests.form(draft), 'urgent': urgent});
+      final made = await ServerRequests.create(draft, urgent: urgent, operation: operation);
+      store.keepServerRequests(<RequestItem>[made.item], epoch: epoch);
       if (!mounted) return;
       if (made.urgent == UrgentOutcome.paymentRequired) {
         await showAppNotice(

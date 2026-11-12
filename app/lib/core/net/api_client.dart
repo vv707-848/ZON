@@ -67,7 +67,10 @@ class ApiClient {
 
   Future<ApiResult> get(String path, {Map<String, String>? query}) => send('GET', path, query: query);
 
-  Future<ApiResult> post(String path, [Map<String, Object?>? body]) => send('POST', path, body: body);
+  /// A POST; with [idempotencyKey] (docs/api.md «Idempotency-Key») the server runs it once however often it is
+  /// sent: the same key on a retry gets the first answer.
+  Future<ApiResult> post(String path, [Map<String, Object?>? body, String? idempotencyKey]) =>
+      send('POST', path, body: body, idempotencyKey: idempotencyKey);
 
   Future<ApiResult> patch(String path, [Map<String, Object?>? body]) => send('PATCH', path, body: body);
 
@@ -96,11 +99,12 @@ class ApiClient {
     return base.replace(path: '$prefix$relative', queryParameters: query == null || query.isEmpty ? null : query);
   }
 
-  Future<ApiResult> send(String method, String path, {Map<String, Object?>? body, Map<String, String>? query}) async {
+  Future<ApiResult> send(String method, String path, {Map<String, Object?>? body, Map<String, String>? query, String? idempotencyKey}) async {
     final requestId = 'app${newId(12)}';
     final uri = resolve(path, query);
     final sent = token(); // the session this request belongs to
     final request = http.Request(method, uri)..headers.addAll(headers(requestId, sent));
+    if (idempotencyKey != null) request.headers['Idempotency-Key'] = idempotencyKey;
     if (body != null) {
       request.bodyBytes = utf8.encode(jsonEncode(body));
       request.headers['Content-Type'] = 'application/json';

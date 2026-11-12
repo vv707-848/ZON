@@ -9,7 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/app/router.dart';
+import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/models/models.dart';
+import 'package:zon/data/server/requests_board.dart';
 import 'package:zon/data/server/server_requests.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/shared/widgets/ask_card.dart';
@@ -124,6 +126,93 @@ void main() {
       });
       expect(ServerRequests.riyals('50.00'), '50');
       expect(ServerRequests.riyals('49.50'), '49.50');
+    });
+  });
+
+  group('every page, and only for the account that asked', () {
+    test('a broker\'s area on two pages comes whole (21 requests)', () async {
+      await freshDevice();
+      final server = serverDevice();
+      final row = _rows(recorded('requests_area')).first;
+      Map<String, Object?> page(int current, Iterable<int> ids) => <String, Object?>{
+        'success': true,
+        'data': <Object?>[
+          for (final id in ids) <String, Object?>{...row, 'id': id},
+        ],
+        'meta': <String, Object?>{
+          'access': 'full',
+          'page': <String, Object?>{'current': current, 'per_page': 20, 'total': 21, 'last': 2},
+        },
+      };
+      server.onQuery('GET', 'requests/area', <String, String>{'page': '1'}, 200, page(1, <int>[for (var i = 1; i <= 20; i++) i]));
+      server.onQuery('GET', 'requests/area', <String, String>{'page': '2'}, 200, page(2, <int>[21]));
+
+      final area = await ServerRequests.area();
+      expect(area.items, hasLength(21));
+      expect(area.items.last.id, 'R21');
+      expect(area.access, 'full');
+      expect(server.sent('GET', 'requests/area'), hasLength(2));
+    });
+
+    test('an answer that comes after signing out is not kept', () async {
+      await freshDevice();
+      final server = serverDevice();
+      await serverSignIn(server, account: me(role: 'owner'));
+      server.on('GET', 'requests', 200, recorded('requests'));
+      final late = server.hold('GET', 'requests');
+      final board = RequestsBoard();
+      final loading = board.show(const RequestQuery());
+
+      await ServerAuth.signOut();
+      late.complete();
+      await loading;
+
+      expect(board.items, isEmpty, reason: 'its authors were shown as the signed-in plan let them be');
+      expect(store.allRequests(), isEmpty);
+      board.dispose();
+    });
+
+    test('an answer for one account is not kept for the next, and the board asks again for him', () async {
+      await freshDevice();
+      final server = serverDevice();
+      await serverSignIn(server, account: me(role: 'owner'));
+      server.on('GET', 'requests', 200, recorded('requests'));
+      final late = server.hold('GET', 'requests');
+      final board = RequestsBoard();
+      final loading = board.show(const RequestQuery());
+
+      await serverSignIn(
+        server,
+        account: me(id: 77, name: 'سارة القحطاني'),
+        token: '8|other-token',
+      );
+      late.complete();
+      await loading;
+      expect(board.items, isEmpty);
+      expect(store.allRequests(), isEmpty);
+      expect(board.stale, isTrue, reason: 'the screen asks again, as him');
+
+      await board.show(const RequestQuery());
+      expect(board.items, hasLength(_rows(recorded('requests')).length));
+      expect(server.sent('GET', 'requests').last.headers['Authorization'], 'Bearer 8|other-token');
+      board.dispose();
+    });
+
+    testWidgets('a request open when the account changes is fetched again for the new one', (tester) async {
+      await freshDevice();
+      final server = serverDevice();
+      server.on('GET', 'requests/3', 200, recorded('request'));
+      await serverSignIn(server, account: me(role: 'owner'));
+      await pumpApp(tester, '/requests/3');
+      await _settle(tester);
+      expect(find.text(_authorOf(_one('request'))), findsOneWidget);
+
+      server.on('GET', 'requests/3', 200, ok(_hidden(_one('request'))));
+      await ServerAuth.signOut();
+      await _settle(tester);
+
+      expect(server.sent('GET', 'requests/3'), hasLength(2));
+      expect(find.text(_authorOf(_one('request'))), findsNothing, reason: 'a guest does not see who posted it');
     });
   });
 
@@ -271,6 +360,51 @@ void main() {
       await tapText(tester, 'حسناً');
       await _settle(tester);
       expect(_path(), '/requests/R$id');
+    });
+
+    testWidgets('tried again after a lost answer, it is the same operation (the server publishes it once)', (tester) async {
+      await freshDevice();
+      final server = serverDevice();
+      await serverSignIn(server, account: me(role: 'owner'));
+      server.offline('POST', 'requests'); // sent, and its answer lost
+      final id = _one('request_created')['id'];
+      server.on('GET', 'requests/$id', 200, recorded('request_created'));
+
+      await pumpApp(tester, '/add?type=request');
+      await fill(tester);
+      await tapText(tester, 'نشر الطلب');
+      await _settle(tester);
+      expect(_path(), startsWith('/add'));
+
+      server.on('POST', 'requests', 201, <String, Object?>{...recorded('request_created'), 'meta': <String, Object?>{}});
+      await tapText(tester, 'نشر الطلب');
+      await _settle(tester);
+
+      final keys = <String?>[for (final r in server.sent('POST', 'requests')) r.headers['Idempotency-Key']];
+      expect(keys, hasLength(2));
+      expect(keys.first, matches(RegExp(r'^[A-Za-z0-9_-]{8,100}$')));
+      expect(keys.last, keys.first);
+      expect(_path(), '/requests/R$id');
+    });
+
+    testWidgets('changed before it is sent again, it is another operation', (tester) async {
+      await freshDevice();
+      final server = serverDevice();
+      await serverSignIn(server, account: me(role: 'owner'));
+      server.offline('POST', 'requests');
+
+      await pumpApp(tester, '/add?type=request');
+      await fill(tester);
+      await tapText(tester, 'نشر الطلب');
+      await _settle(tester);
+      await tester.enterText(find.byType(EditableText).last, 'شقة عوائل قرب المدارس والمستشفى');
+      await tester.pump();
+      await tapText(tester, 'نشر الطلب');
+      await _settle(tester);
+
+      final keys = <String?>[for (final r in server.sent('POST', 'requests')) r.headers['Idempotency-Key']];
+      expect(keys, hasLength(2));
+      expect(keys.last, isNot(keys.first));
     });
 
     testWidgets('a refusal of the server stays on the form with its words', (tester) async {

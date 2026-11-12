@@ -25,6 +25,8 @@ enum ErrorCode: string
     case TooManyRequests = 'TOO_MANY_REQUESTS';
     case InvalidTransition = 'INVALID_TRANSITION';
     case AlreadyActive = 'ALREADY_ACTIVE';
+    case IdempotencyInProgress = 'IDEMPOTENCY_IN_PROGRESS';
+    case IdempotencyMismatch = 'IDEMPOTENCY_MISMATCH';
     case ProjectNoUnits = 'PROJECT_NO_UNITS';
     case LicenceRequired = 'LICENCE_REQUIRED';
     case UserBlocked = 'USER_BLOCKED';
@@ -41,8 +43,8 @@ enum ErrorCode: string
             self::PaymentRequired => 402,
             self::AccountSuspended, self::AccountPending, self::RoleForbidden, self::FalRequired, self::NafathRequired, self::UserBlocked => 403,
             self::NotFound => 404,
-            self::InvalidTransition, self::AlreadyActive, self::ProjectNoUnits, self::PlanLimitReached, self::LicenceRequired => 409,
-            self::ValidationFailed, self::OtpInvalid, self::PurchaseNotVerified => 422,
+            self::InvalidTransition, self::AlreadyActive, self::IdempotencyInProgress, self::ProjectNoUnits, self::PlanLimitReached, self::LicenceRequired => 409,
+            self::ValidationFailed, self::OtpInvalid, self::PurchaseNotVerified, self::IdempotencyMismatch => 422,
             self::UpdateRequired => 426,
             self::PreferenceRequired => 428,
             self::QuotaExceeded, self::TooManyRequests => 429,
@@ -72,6 +74,8 @@ enum ErrorCode: string
             self::TooManyRequests => 'تجاوزت الحد المسموح، حاول بعد قليل.',
             self::InvalidTransition => 'لا يمكن تنفيذ هذا الإجراء على حالته الحالية.',
             self::AlreadyActive => 'مفعّل بالفعل.',
+            self::IdempotencyInProgress => 'طلبك السابق ما زال قيد التنفيذ، أعد المحاولة بعد لحظات.',
+            self::IdempotencyMismatch => 'أُرسلت هذه العملية من قبل ببيانات أخرى.',
             self::ProjectNoUnits => 'أضف نموذج وحدة واحداً على الأقل قبل النشر.',
             self::LicenceRequired => 'الترخيص الإعلاني مطلوب قبل النشر.',
             self::UserBlocked => 'تعذّر إرسال الرسالة.',
