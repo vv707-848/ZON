@@ -4,7 +4,9 @@ namespace Tests\Feature\Admin;
 
 use App\Filament\Pages\ManageSettings;
 use App\Filament\Resources\AppConfigs\Pages\EditAppConfig;
+use App\Filament\Resources\LegalPages\Pages\CreateLegalPage;
 use App\Filament\Resources\LegalPages\Pages\EditLegalPage;
+use App\Filament\Resources\LegalPages\Pages\ListLegalPages;
 use App\Models\AppConfig;
 use App\Models\LegalPage;
 use App\Support\Settings\Setting;
@@ -57,5 +59,28 @@ class WebsiteSettingsTest extends AdminTestCase
 
         Livewire::test(EditLegalPage::class, ['record' => $page->getRouteKey()])->fillForm(['body' => "## الشروط\n\nنص معدّل."])->call('save')->assertHasNoFormErrors();
         $this->assertSame('2', $page->fresh()->version);
+    }
+
+    public function test_a_new_policy_is_published_after_the_five_on_the_site_and_in_the_api_and_only_it_can_be_removed(): void
+    {
+        $this->signInSuperadmin();
+        foreach (['Refunds', 'terms', 'a', 'ref unds'] as $bad) {
+            Livewire::test(CreateLegalPage::class)->fillForm(['slug' => $bad, 'title' => 'x', 'body' => 'x'])->call('create')->assertHasFormErrors(['slug']);
+        }
+        LegalPage::query()->where('slug', 'privacy')->firstOrFail()->forceFill(['published_at' => now()])->save();
+
+        Livewire::test(CreateLegalPage::class)->fillForm(['slug' => 'refunds', 'title' => 'سياسة الاسترداد', 'body' => "## الاسترداد\n\nخلال 14 يوماً."])
+            ->call('create')->assertHasNoFormErrors();
+        $page = LegalPage::query()->where('slug', 'refunds')->sole();
+        $this->assertSame('1', $page->version);
+
+        $this->get('https://zon.sa/legal/refunds')->assertOk()->assertSee('خلال 14 يوماً.');
+        $this->get('https://zon.sa/legal')->assertOk()->assertSeeInOrder(['سياسة الخصوصية', 'سياسة الاسترداد']);
+        $this->getJson('/api/v1/legal')->assertOk()->assertJsonPath('data.0.slug', 'privacy')->assertJsonPath('data.1.slug', 'refunds')->assertJsonMissingPath('data.0.body');
+
+        Livewire::test(ListLegalPages::class)->assertTableActionHidden('delete', LegalPage::query()->where('slug', 'privacy')->sole())
+            ->callTableAction('delete', $page);
+        $this->assertNull(LegalPage::query()->where('slug', 'refunds')->first());
+        $this->get('https://zon.sa/legal/refunds')->assertNotFound();
     }
 }

@@ -73,6 +73,13 @@ class AppController extends Controller
         ]);
     }
 
+    /** The published policy pages, without their text: the five first, then those staff added. */
+    public function policies(): JsonResponse
+    {
+        return Api::ok(LegalPage::query()->publishedInOrder()->get()
+            ->map(fn (LegalPage $p) => $p->only(['slug', 'title', 'version']) + ['published_at' => $p->published_at?->toIso8601String()])->all());
+    }
+
     public function legal(string $slug): JsonResponse
     {
         $page = LegalPage::query()->where('slug', $slug)->whereNotNull('published_at')->firstOrFail();

@@ -122,7 +122,7 @@
 | `settings` | `SettingValue` | ما غيّرته اللوحة من القيم التجارية؛ الافتراضي في `App\Support\Settings\Setting` |
 | `arena_batches` | `ArenaBatch` | دفعات «ساحة الاختبار»: المدينة وأحياؤها والأعداد ومن طلبها. وحسابات الدفعة تحمل `customers.arena_batch` |
 | `cities` · `neighborhoods` | `City` · `Neighborhood` | المرجع الجغرافي. و`cities.region` المنطقة الإدارية (رمز ISO 3166-2، `App\Enums\Region`) لخريطة السوق وحدها، لا تصل التطبيق |
-| `app_configs` · `legal_pages` | `AppConfig` · `LegalPage` | الإصدار الأدنى والصيانة ورابط المتجر لكل منصة (فارغ حتى يُنشر التطبيق فيه). ونصوص السياسات بأرقام نسخها، وكل سياسة مسودة (`published_at` فارغ) حتى يحفظها صاحبها أول مرة |
+| `app_configs` · `legal_pages` | `AppConfig` · `LegalPage` | الإصدار الأدنى والصيانة ورابط المتجر لكل منصة (فارغ حتى يُنشر التطبيق فيه). ونصوص السياسات بأرقام نسخها، وكل سياسة مسودة (`published_at` فارغ) حتى يحفظها صاحبها أول مرة. الخمس (`LegalPage::SLUGS`) ثابتة، وما تضيفه الإدارة يُحذف، ويظهر بعدها في الموقع وفي `GET /legal` |
 
 ## مشاهد التقارير `ai_v_*`
 
