@@ -77,31 +77,31 @@ class _ServerDetailState extends State<ServerDetail> {
       _load = _fetch();
     }
     return FutureBuilder<void>(
-    future: _load,
-    builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done) {
-        return AppShell(title: widget.title, child: const LoadingBox());
-      }
-      if (_error != null) {
-        return AppShell(
-          title: widget.title,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: EmptyBox(title: 'تعذّر التحميل', text: _error!, textStyle: emptyTextStyle(), action: 'أعد المحاولة', onAction: _retry),
-          ),
-        );
-      }
-      if (_gone || (widget._request ? store.requestById(widget.id) : store.listingById(widget.id)) == null) {
-        return AppShell(
-          title: widget.title,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Tx(widget.missing, style: ts(15, lh: 21.5, c: AppColors.ink)),
-          ),
-        );
-      }
-      return widget.builder(context);
-    },
-  );
+      future: _load,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return AppShell(title: widget.title, child: const LoadingBox());
+        }
+        if (_error != null) {
+          return AppShell(
+            title: widget.title,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: EmptyBox(title: 'تعذّر التحميل', text: _error!, textStyle: emptyTextStyle(), action: 'أعد المحاولة', onAction: _retry),
+            ),
+          );
+        }
+        if (_gone || (widget._request ? store.requestById(widget.id) : store.listingById(widget.id)) == null) {
+          return AppShell(
+            title: widget.title,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Tx(widget.missing, style: ts(15, lh: 21.5, c: AppColors.ink)),
+            ),
+          );
+        }
+        return widget.builder(context);
+      },
+    );
   }
 }

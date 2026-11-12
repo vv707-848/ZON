@@ -135,6 +135,7 @@ void main() {
       final server = serverDevice();
       final row = _rows(recorded('requests_area')).first;
       Map<String, Object?> page(int current, Iterable<int> ids) => <String, Object?>{
+        'success': true,
         'data': <Object?>[for (final id in ids) <String, Object?>{...row, 'id': id}],
         'meta': <String, Object?>{
           'access': 'full',

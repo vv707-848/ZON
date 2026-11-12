@@ -67,7 +67,8 @@ class FakeServer {
   void offline(String method, String path) => _answers['$method $path'] = (0, null);
 
   /// Answers `METHOD path` asked with exactly [query] (a page, say) — before the answer of the path alone.
-  void onQuery(String method, String path, Map<String, String> query, int status, Object? body) => _answers['$method $path?${_query(query)}'] = (status, body);
+  void onQuery(String method, String path, Map<String, String> query, int status, Object? body) =>
+      _answers['$method $path?${_query(query)}'] = (status, body);
 
   final Map<String, Completer<void>> _held = <String, Completer<void>>{};
 
