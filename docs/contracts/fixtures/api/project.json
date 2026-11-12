@@ -1,0 +1,97 @@
+{
+    "success": true,
+    "data": {
+        "id": 4,
+        "status": "published",
+        "title": "مشروع النرجس السكني",
+        "city": "الرياض",
+        "neighborhood": "النرجس",
+        "property_type": "villa",
+        "delivery": "offplan",
+        "land_use": null,
+        "total_units": 40,
+        "available_units": 6,
+        "models_count": 2,
+        "start_price": 1800000,
+        "description": "فلل حديثة بتشطيب فاخر، قريبة من طريق الملك سلمان.",
+        "featured": false,
+        "cover_url": "http://localhost/media/23/01JTEST4-card.jpg?expiration=1794498580",
+        "published_at": "2026-11-07T14:49:40+00:00",
+        "share_url": "https://zon.sa/projects/4",
+        "developer": {
+            "id": 23,
+            "username": "vkpig5282",
+            "name": "عبداللطيف الخضيري",
+            "role": "developer",
+            "fal_verified": false,
+            "fal_number": null
+        },
+        "units": [
+            {
+                "id": 8,
+                "project_id": 4,
+                "model_name": "p6",
+                "property_type": "villa",
+                "area": null,
+                "area_land": 300,
+                "area_built": 380,
+                "bedrooms": 5,
+                "bathrooms": 4,
+                "halls": 2,
+                "land_use": null,
+                "price": 1500000,
+                "available_count": 0,
+                "payment_method": null,
+                "description": "نموذج بخمس غرف ومجلس مستقل.",
+                "licence": null,
+                "photos": []
+            },
+            {
+                "id": 7,
+                "project_id": 4,
+                "model_name": "h6",
+                "property_type": "villa",
+                "area": null,
+                "area_land": 300,
+                "area_built": 380,
+                "bedrooms": 5,
+                "bathrooms": 4,
+                "halls": 2,
+                "land_use": null,
+                "price": 1800000,
+                "available_count": 6,
+                "payment_method": null,
+                "description": "نموذج بخمس غرف ومجلس مستقل.",
+                "licence": null,
+                "photos": [
+                    {
+                        "id": 4,
+                        "url": "http://localhost/media/23/01JTEST7.jpg?expiration=1794498580",
+                        "large_url": "http://localhost/media/23/01JTEST7-large.jpg?expiration=1794498580",
+                        "card_url": "http://localhost/media/23/01JTEST7-card.jpg?expiration=1794498580",
+                        "is_cover": true,
+                        "width": 2048,
+                        "height": 1536
+                    }
+                ]
+            }
+        ],
+        "photos": [
+            {
+                "id": 3,
+                "url": "http://localhost/media/23/01JTEST4.jpg?expiration=1794498580",
+                "large_url": "http://localhost/media/23/01JTEST4-large.jpg?expiration=1794498580",
+                "card_url": "http://localhost/media/23/01JTEST4-card.jpg?expiration=1794498580",
+                "is_cover": true,
+                "width": 2048,
+                "height": 1536
+            }
+        ],
+        "lat": null,
+        "lng": null,
+        "maps_link": null,
+        "phones": [
+            "0525774313"
+        ]
+    }
+}

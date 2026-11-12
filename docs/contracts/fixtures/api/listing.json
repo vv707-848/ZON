@@ -1,0 +1,71 @@
+{
+    "success": true,
+    "data": {
+        "id": 16,
+        "status": "published",
+        "purpose": "sale",
+        "property_type": "villa",
+        "title": "شقة للبيع في النرجس",
+        "city": "الرياض",
+        "neighborhood": "النرجس",
+        "price": 2400000,
+        "negotiable": false,
+        "area_land": null,
+        "area_built": 400,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "halls": 1,
+        "age": 4,
+        "floor_level": null,
+        "floor_number": null,
+        "floors": null,
+        "occupancy": null,
+        "land_use": null,
+        "annual_income": null,
+        "has_deed": true,
+        "bank_accepted": true,
+        "description": "شقة واسعة قريبة من الخدمات، مع موقف خاص.",
+        "features": [],
+        "featured": false,
+        "featured_until": null,
+        "urgent": false,
+        "urgent_until": null,
+        "cover_url": "http://localhost/media/21/01JTEST16-card.jpg?expiration=1794498580",
+        "published_at": "2026-11-11T14:49:40+00:00",
+        "updated_at": "2026-11-12T14:49:40+00:00",
+        "views_count": 1,
+        "is_favorite": false,
+        "share_url": "https://zon.sa/listings/16",
+        "advertiser": {
+            "id": 21,
+            "username": "qyfgr6545",
+            "name": "لؤي السماعيل",
+            "role": "owner",
+            "fal_verified": false,
+            "fal_number": null
+        },
+        "photos": [
+            {
+                "id": 2,
+                "url": "http://localhost/media/21/01JTEST16.jpg?expiration=1794498580",
+                "large_url": "http://localhost/media/21/01JTEST16-large.jpg?expiration=1794498580",
+                "card_url": "http://localhost/media/21/01JTEST16-card.jpg?expiration=1794498580",
+                "is_cover": true,
+                "width": 2048,
+                "height": 1536
+            }
+        ],
+        "lat": null,
+        "lng": null,
+        "maps_link": null,
+        "licence": {
+            "number": "7100000016",
+            "qr_url": null,
+            "expires_at": "2027-11-12",
+            "verified": true
+        },
+        "phones": [
+            "0537322581"
+        ]
+    }
+}

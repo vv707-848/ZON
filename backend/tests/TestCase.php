@@ -17,7 +17,9 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Every test runs on MySQL (zon_test) with the base seed (cities, plans, roles, knowledge), and no request may
@@ -72,6 +74,56 @@ abstract class TestCase extends BaseTestCase
             File::ensureDirectoryExists(dirname("{$dir}/{$key}.json"));
             File::put("{$dir}/{$key}.json", json_encode(array_values(self::$samples[$key] ?? []), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n");
         });
+    }
+
+    /**
+     * The app's contract with the API (docs/contracts/fixtures/api/<name>.json): a real response, which the app's
+     * tests replay through its own parsers (app/test/server). Recorded with ZON_CONTRACT_DIR set; otherwise this
+     * response must have the recorded shape — every key at every level (a value may be null on one side) — so a
+     * key renamed or dropped here fails on the server, not in the app in production.
+     *
+     * @param  TestResponse<Response>  $response
+     */
+    protected function apiContract(string $name, TestResponse $response): void
+    {
+        $path = base_path("../docs/contracts/fixtures/api/{$name}.json");
+        $live = $response->json();
+        if ((string) getenv('ZON_CONTRACT_DIR') !== '') {
+            File::ensureDirectoryExists(dirname($path));
+            File::put($path, json_encode($live, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n");
+
+            return;
+        }
+        $this->assertFileExists($path, "No recorded contract {$name}: ZON_CONTRACT_DIR=../docs/contracts/fixtures php artisan test");
+        $recorded = json_decode((string) File::get($path), true);
+        $difference = self::difference($recorded, $live, $name);
+        $this->assertNull($difference, "The API's {$name} response is no longer what the app was tested with (docs/contracts/fixtures/api/{$name}.json): {$difference}");
+    }
+
+    /** Where two JSON values differ in shape: keys at every level, a list by its first item; null matches anything. */
+    private static function difference(mixed $recorded, mixed $live, string $at): ?string
+    {
+        if ($recorded === null || $live === null) {
+            return null;
+        }
+        if (! is_array($recorded) || ! is_array($live)) {
+            return is_array($recorded) === is_array($live) ? null : "{$at} changed between a value and a list or object";
+        }
+        if (array_is_list($recorded) && array_is_list($live)) {
+            return $recorded === [] || $live === [] ? null : self::difference($recorded[0], $live[0], "{$at}[0]");
+        }
+        $missing = array_diff(array_keys($recorded), array_keys($live));
+        $added = array_diff(array_keys($live), array_keys($recorded));
+        if ($missing !== [] || $added !== []) {
+            return "{$at}: ".trim(($missing === [] ? '' : 'gone '.implode(', ', $missing)).' '.($added === [] ? '' : 'new '.implode(', ', $added)));
+        }
+        foreach ($recorded as $key => $value) {
+            if (($found = self::difference($value, $live[$key], "{$at}.{$key}")) !== null) {
+                return $found;
+            }
+        }
+
+        return null;
     }
 
     protected function signIn(?Customer $customer = null): Customer

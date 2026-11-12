@@ -2,15 +2,20 @@
 //
 // The licence shown is THIS unit's own verified number, and only while the
 // project is ready (brief L01). The project-wide number of older data is
-// never shown here; an off-plan project shows no licence field.
+// never shown here; an off-plan project shows no licence field. A unit of a
+// server project comes with its project, fetched fresh (ServerDetail).
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/core/layout/app_shell.dart';
+import 'package:zon/core/net/api.dart';
 import 'package:zon/core/theme/theme.dart';
+import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/details/widgets/detail_widgets.dart';
+import 'package:zon/shared/widgets/server_detail.dart';
 
 /// `/projects/:id/units/:unitId` — one unit of a project.
 class UnitScreen extends StatelessWidget {
@@ -22,6 +27,13 @@ class UnitScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (Api.on && ServerListings.isServer(id)) {
+      return ServerDetail(id: id, title: 'الوحدة', missing: 'الوحدة غير موجودة.', builder: _page);
+    }
+    return _page(context);
+  }
+
+  Widget _page(BuildContext context) {
     final project = store.listingById(id);
     UnitModel? unit;
     for (final u in project?.units ?? const <UnitModel>[]) {
@@ -38,9 +50,10 @@ class UnitScreen extends StatelessWidget {
     final u = unit;
     final kind = u.propertyType ?? project.propertyType;
     final flags = specsForUnit(kind);
-    final photos = u.image.isNotEmpty
-        ? <String>[u.image, ...project.images].where((s) => s.isNotEmpty).toList()
-        : const <String>['/listings/apt-1.jpg'];
+    final own = <String>[u.image, ...project.images].where((s) => s.isNotEmpty).toList();
+    final photos = ServerListings.isServer(project.id)
+        ? (own.isEmpty ? const <String>[kNoPhoto] : own)
+        : (u.image.isNotEmpty ? own : const <String>['/listings/apt-1.jpg']);
     String dash(double? v) => v == null ? '—' : sar(v);
     final specs = <SpecItem>[
       if (flags.built) SpecItem('مساحة البناء', areaLabel(u.builtArea ?? u.area)),

@@ -1,17 +1,24 @@
 // `/` — الرئيسية: header, the filter card and the feed of listings and
-// projects (sorted, filtered, 18 at a time).
+// projects (sorted, filtered, 18 at a time). With a server the feed is its
+// own (GET /feed through data/server/feed.dart): the same filters and orders,
+// page by page; without one, the samples and this phone's listings.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/layout/app_shell.dart';
+import 'package:zon/core/net/api.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/utils/clock.dart';
 import 'package:zon/core/utils/sort.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/notifications/notification_center.dart';
+import 'package:zon/data/server/feed.dart';
+import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/shared/widgets/lens.dart';
 import 'package:zon/shared/widgets/listing_card.dart';
@@ -33,6 +40,25 @@ class _HomeScreenState extends State<HomeScreen> {
   String sort = 'new';
   bool sortOpen = false;
   int limit = 18;
+
+  /// The server's feed (a build with a server only).
+  final Feed _feed = Feed();
+
+  @override
+  void dispose() {
+    _feed.dispose();
+    super.dispose();
+  }
+
+  /// The filter card as the server reads it.
+  FeedQuery _query() => FeedQuery(
+    purpose: purpose == 'all' ? null : purpose,
+    city: city == 'all' ? null : city,
+    neighborhood: hood == 'all' ? null : hood,
+    source: source == 'all' ? null : source,
+    propertyType: ptype == 'all' ? null : ptype,
+    sort: sort,
+  );
 
   List<Listing> _list(List<Listing> seed) {
     final now = appNow();
@@ -67,12 +93,22 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final user = store.readSession();
     final hoods = city == 'all' ? const <String>[] : (kCities[city] ?? const <String>[]);
+    final server = Api.on;
+    if (server && _feed.query != _query()) {
+      final query = _query();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_feed.show(query));
+      });
+    }
     return AppShell(
       child: ListenableBuilder(
-        listenable: store,
+        listenable: Listenable.merge(<Listenable>[store, _feed]),
         builder: (context, _) {
-          final list = _list(store.allListings());
-          final shown = list.take(limit).toList();
+          final list = server ? _feed.items : _list(store.allListings());
+          final shown = server ? list : list.take(limit).toList();
+          final waiting = server && list.isEmpty && (_feed.loading || _feed.firstLoad);
+          final failed = server && list.isEmpty && _feed.error != null;
+          final more = server ? _feed.hasMore || (_feed.error != null && list.isNotEmpty) : list.length > limit;
           // unread notifications of the signed-in account (bell badge)
           final alerts = user != null ? notifications.unreadCount() : 0;
           return Column(
@@ -232,7 +268,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    if (shown.isNotEmpty)
+                    if (waiting)
+                      const LoadingBox()
+                    else if (failed)
+                      EmptyBox(
+                        title: 'تعذّر تحميل العروض',
+                        text: _feed.error!,
+                        textStyle: emptyTextStyle(),
+                        action: 'أعد المحاولة',
+                        onAction: () => unawaited(_feed.retry()),
+                      )
+                    else if (shown.isNotEmpty)
                       for (var i = 0; i < shown.length; i++) ...<Widget>[if (i > 0) const SizedBox(height: 18), ListingCard(listing: shown[i])]
                     else
                       EmptyBox(
@@ -245,16 +291,28 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              if (list.length > limit)
+              if (more)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                   child: Tap(
-                    onTap: () => setState(() => limit = (limit + 18) > 80 ? 80 : limit + 18),
+                    onTap: () {
+                      if (!server) {
+                        setState(() => limit = (limit + 18) > 80 ? 80 : limit + 18);
+                      } else if (_feed.error != null) {
+                        unawaited(_feed.retry());
+                      } else {
+                        unawaited(_feed.more());
+                      }
+                    },
                     child: Container(
+                      key: const ValueKey<String>('home-more'),
                       height: 48,
                       decoration: BoxDecoration(color: const Color(0x0D121214), borderRadius: BorderRadius.circular(999)),
                       alignment: Alignment.center,
-                      child: Tx('عرض المزيد', style: ts(15, w: 600, lh: 21.5, c: AppColors.ink)),
+                      child: Tx(
+                        server && _feed.loading ? 'جارٍ التحميل…' : (server && _feed.error != null ? 'تعذّر التحميل — أعد المحاولة' : 'عرض المزيد'),
+                        style: ts(15, w: 600, lh: 21.5, c: AppColors.ink),
+                      ),
                     ),
                   ),
                 ),

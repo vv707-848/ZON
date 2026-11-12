@@ -1,15 +1,21 @@
-// `/projects/:id` — a developer project and its units.
+// `/projects/:id` — a developer project and its units. A project of the
+// server is fetched fresh in detail first (ServerDetail); its sold units are
+// not known there, so its panel shows the total and what is left only.
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/layout/app_shell.dart';
+import 'package:zon/core/net/api.dart';
 import 'package:zon/core/theme/theme.dart';
+import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/core/utils/sort.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/details/widgets/detail_widgets.dart';
 import 'package:zon/features/details/widgets/unit_row.dart';
+import 'package:zon/shared/widgets/server_detail.dart';
 
 class ProjectScreen extends StatefulWidget {
   const ProjectScreen({super.key, required this.id});
@@ -47,6 +53,13 @@ class _ProjectScreenState extends State<ProjectScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (Api.on && ServerListings.isServer(widget.id)) {
+      return ServerDetail(id: widget.id, title: 'المشروع', missing: 'المشروع غير موجود.', builder: _page);
+    }
+    return _page(context);
+  }
+
+  Widget _page(BuildContext context) {
     final l = store.listingById(widget.id);
     if (l == null) {
       return AppShell(
@@ -59,12 +72,14 @@ class _ProjectScreenState extends State<ProjectScreen> {
     }
     final units = l.units ?? const <UnitModel>[];
     final rows = _visibleUnits(units);
+    final server = ServerListings.isServer(l.id);
     final available = l.available ?? units.where((u) => !u.sold).length.toDouble();
-    final sold = l.sold ?? units.where((u) => u.sold).length.toDouble();
-    final totalSum = available + sold;
-    final total = totalSum != 0 ? totalSum : units.length.toDouble();
-    final pct = total != 0 ? (sold / total * 100).round() : 0;
-    final photos = l.images.isNotEmpty ? l.images : const <String>['/listings/tower-1.jpg'];
+    // the server knows a project's total and what is left, not what was sold
+    final sold = server ? null : (l.sold ?? units.where((u) => u.sold).length.toDouble());
+    final totalSum = available + (sold ?? 0);
+    final total = server ? (l.totalUnits ?? available) : (totalSum != 0 ? totalSum : units.length.toDouble());
+    final pct = sold != null && total != 0 ? (sold / total * 100).round() : 0;
+    final photos = l.images.isNotEmpty ? l.images : <String>[if (server) kNoPhoto else '/listings/tower-1.jpg'];
 
     return DetailScaffold(
       actions: OfferReact(id: l.id),
@@ -219,7 +234,9 @@ class _SalesPanel extends StatelessWidget {
   const _SalesPanel({required this.total, required this.sold, required this.available, required this.pct});
 
   final double total;
-  final double sold;
+
+  /// Null when it is not known (a project of the server): no sold count and no bar.
+  final double? sold;
   final double available;
   final int pct;
 
@@ -248,9 +265,10 @@ class _SalesPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Row(children: <Widget>[stat('الإجمالي', sar(total)), stat('المباع', sar(sold)), stat('المتبقي', sar(available))]),
-          const SizedBox(height: 14),
-          Row(
+          Row(children: <Widget>[stat('الإجمالي', sar(total)), if (sold != null) stat('المباع', sar(sold!)), stat('المتبقي', sar(available))]),
+          if (sold != null) const SizedBox(height: 14),
+          if (sold != null)
+            Row(
             children: <Widget>[
               Tx('نسبة البيع $pct%', style: ts(13, w: 600, lh: 19.5, c: const Color(0xFFC9D4CC))),
               const SizedBox(width: 10),

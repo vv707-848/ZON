@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:zon/core/net/api.dart';
 import 'package:zon/core/services/photo_store.dart';
 import 'package:zon/core/simulations.dart';
 import 'package:zon/core/utils/input.dart';
@@ -48,6 +49,8 @@ class Store extends ChangeNotifier {
   static Future<void> init() async {
     final s = instance;
     s._mem.clear();
+    s._server.clear();
+    s._serverDetailed.clear();
     s._resetSessionState();
     try {
       s._prefs = await SharedPreferences.getInstance();
@@ -436,15 +439,34 @@ class Store extends ChangeNotifier {
     (j) => (j as Map).map((k, v) => MapEntry(k as String, (v as Map).cast<String, Object?>())),
   );
 
+  /// Listings and projects the server sent (feed pages and details, `L…` / `P…`), by id; a detail is never
+  /// replaced by a card of the same row, which carries less.
+  final Map<String, Listing> _server = <String, Listing>{};
+  final Set<String> _serverDetailed = <String>{};
+
+  /// Keeps rows of the server for the screens that read synchronously (cards, details, favourites).
+  void keepServer(Iterable<Listing> rows, {bool detailed = false}) {
+    for (final row in rows) {
+      if (!detailed && _serverDetailed.contains(row.id)) continue;
+      _server[row.id] = row;
+      if (detailed) _serverDetailed.add(row.id);
+    }
+    _dropCaches();
+    notifyListeners();
+  }
+
+  /// Whether the server's row [id] is held in detail (photos, licence, units).
+  bool hasServerDetail(String id) => _serverDetailed.contains(id);
+
   /// Sample + user listings with the user's edits applied (cached until the
-  /// next write).
+  /// next write). With a server: what it sent, and no sample.
   List<Listing> allListings() {
     final cached = _listingsCache;
     if (cached != null) return cached;
     final extra = _extraListings();
     final stockIds = inventory().map((l) => l.id).toSet();
     final overlay = _patches();
-    final seed = kSimulations ? getListings() : const <Listing>[];
+    final seed = Api.on ? _server.values.toList() : (kSimulations ? getListings() : const <Listing>[]);
     final seedIds = seed.map((s) => s.id).toSet();
     final merged = <Listing>[...seed, ...extra.where((l) => !seedIds.contains(l.id) && !stockIds.contains(l.id))];
     final map = <String, Listing>{};
