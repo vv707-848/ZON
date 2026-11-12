@@ -136,7 +136,9 @@ void main() {
       final row = _rows(recorded('requests_area')).first;
       Map<String, Object?> page(int current, Iterable<int> ids) => <String, Object?>{
         'success': true,
-        'data': <Object?>[for (final id in ids) <String, Object?>{...row, 'id': id}],
+        'data': <Object?>[
+          for (final id in ids) <String, Object?>{...row, 'id': id},
+        ],
         'meta': <String, Object?>{
           'access': 'full',
           'page': <String, Object?>{'current': current, 'per_page': 20, 'total': 21, 'last': 2},
@@ -179,7 +181,11 @@ void main() {
       final board = RequestsBoard();
       final loading = board.show(const RequestQuery());
 
-      await serverSignIn(server, account: me(id: 77, name: 'سارة القحطاني'), token: '8|other-token');
+      await serverSignIn(
+        server,
+        account: me(id: 77, name: 'سارة القحطاني'),
+        token: '8|other-token',
+      );
       late.complete();
       await loading;
       expect(board.items, isEmpty);
