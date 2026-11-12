@@ -13,6 +13,7 @@ import 'package:zon/core/widgets/app_image.dart';
 import 'package:zon/data/models/models.dart';
 import 'package:zon/data/server/feed.dart';
 import 'package:zon/data/server/server_listings.dart';
+import 'package:zon/data/store.dart';
 import 'package:zon/shared/widgets/listing_card.dart';
 
 import '../support/server_env.dart';
@@ -148,6 +149,23 @@ void main() {
     feed.dispose(); // the answer is still on its way
     await loading;
     expect(server.sent('GET', 'feed'), hasLength(1));
+  });
+
+  test('a card shows the price of the latest feed, not of a detail opened before', () async {
+    await freshDevice();
+    final server = serverDevice();
+    final row = _rows(recorded('feed')).first;
+    // opened at 900,000 (held in detail) …
+    store.keepServer(<Listing>[ServerListings.fromFeed(<String, Object?>{...row, 'price': 900000})], detailed: true);
+    // … and the feed now says 800,000
+    server.on('GET', 'feed', 200, <String, Object?>{
+      ...recorded('feed'),
+      'data': <Object?>[<String, Object?>{...row, 'price': 800000}],
+    });
+    final feed = Feed();
+    await feed.show(const FeedQuery());
+    expect(feed.items.single.price, 800000);
+    feed.dispose();
   });
 
   group('«الرئيسية» with a server', () {
