@@ -17,7 +17,22 @@ jobs:
           extensions: bcmath, exif, gd, intl, mbstring, pcntl, pdo_mysql, redis, zip
           coverage: pcov
       - run: |
-          printf '%s\n' '<?php' '$t = "كلمني 055 123 4567";' 'echo getcwd(), " jit=", ini_get("pcre.jit"), " => ", preg_match("~(?<!\\d)\\(?0\\d(?:[\\s.\\-()]{0,2}\\d){7,8}(?!\\d)~", $t), " ascii=", preg_match("~(?<!\\d)\\(?0\\d(?:[\\s.\\-()]{0,2}\\d){7,8}(?!\\d)~", "055 123 4567"), PHP_EOL;' > /tmp/lit.php
-          cat /tmp/lit.php
-          for i in 1 2 3; do php /tmp/lit.php; php -d pcre.jit=0 /tmp/lit.php; done
-          cd /tmp && for i in 1 2 3; do php /tmp/lit.php; php -d pcre.jit=0 /tmp/lit.php; done
+          cat > /tmp/probe.php <<'PHP'
+          <?php
+          if (($argv[1] ?? '') === 'req') { require 'app/Support/ArabicText.php'; require 'app/Ai/Masking/AiMasking.php'; }
+          $t = 'كلمني 055 123 4567';
+          $c = [
+            'A' => '~(?<!\d)\(?0\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)~',
+            'B09' => '~(?<![0-9])\(?0[0-9](?:[\s.\-()]{0,2}[0-9]){7,8}(?![0-9])~',
+            'Cnolb' => '~\(?0\d(?:[\s.\-()]{0,2}\d){7,8}(?!\d)~',
+            'Dsp' => '~(?<!\d)\(?0\d(?:[ .\-()]{0,2}\d){7,8}(?!\d)~',
+            'Erun' => '~[+(]?\d[\d\s.\-()]*\d~',
+            'Fs' => '~[\s]~',
+            'Gs2' => '~0\d(?:\s?\d){7,8}~',
+          ];
+          echo $argv[1] ?? 'plain', ' jit=', ini_get('pcre.jit'), ': ';
+          foreach ($c as $k => $re) { echo $k, '=', preg_match($re, $t), ' '; }
+          echo "\n";
+          PHP
+          php /tmp/probe.php plain; php /tmp/probe.php req; php -d pcre.jit=0 /tmp/probe.php req
+          sed -n 1,5p app/Ai/Masking/AiMasking.php | od -c | head -3
