@@ -23,6 +23,7 @@ import 'package:zon/features/details/project_screen.dart';
 import 'package:zon/features/notifications/notifications_screen.dart';
 import 'package:zon/features/profile/server_user_profile.dart';
 import 'package:zon/features/requests/request_detail_screen.dart';
+import 'package:zon/features/support/server_support_thread.dart';
 
 import '../support/server_env.dart';
 import '../support/test_env.dart';
@@ -217,12 +218,12 @@ void main() {
       'owner_case': AddScreen,
       'account_activated': AccountScreen,
       'announcement': NotificationsScreen,
+      'support_message': ServerSupportThread,
+      'support_closed': ServerSupportThread,
     };
-    // «الدعم» is not in the app yet (docs/handover.md ← «ترتيب الشرائح»): its notices have no screen to open
-    const notYet = <String>{'support_message', 'support_closed'};
 
     test('every recorded notice is known here', () {
-      expect(<String>{...screens.keys, ...notYet}, targets.keys.toSet());
+      expect(screens.keys.toSet(), targets.keys.toSet());
     });
 
     for (final MapEntry(key: name, value: target) in targets.entries) {
@@ -230,7 +231,7 @@ void main() {
         await freshDevice();
         serverDevice();
         final screen = screenFor(target);
-        expect(screen.runtimeType, notYet.contains(name) ? NotFoundScreen : screens[name], reason: target);
+        expect(screen.runtimeType, screens[name], reason: target);
       });
     }
   });

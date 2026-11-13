@@ -1,4 +1,4 @@
-// الإعدادات — profile fields, notification switches, «أجهزتي», policies, sign out. With a server (ZON_API_URL)
+// الإعدادات — profile fields, notification switches, «أجهزتي», policies, «الدعم», sign out. With a server (ZON_API_URL)
 // the profile, the switches and the sign-out are the server's (ServerAuth); without one they stay on the device.
 
 import 'dart:async';
@@ -15,6 +15,7 @@ import 'package:zon/data/auth/local_auth.dart';
 import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/store.dart';
+import 'package:zon/features/account/services/server_support_view.dart';
 import 'package:zon/features/account/services/widgets/service_form.dart';
 
 const List<List<String>> kPolicies = <List<String>>[
@@ -142,7 +143,10 @@ class PolicyRow extends StatelessWidget {
 
 /// الإعدادات: profile, notifications, policies, sign out.
 class SettingsView extends StatefulWidget {
-  const SettingsView({super.key});
+  const SettingsView({super.key, this.tab});
+
+  /// The tab it opens on (`account` · `legal` · `support`).
+  final String? tab;
 
   @override
   State<SettingsView> createState() => _SettingsViewState();
@@ -150,7 +154,7 @@ class SettingsView extends StatefulWidget {
 
 class _SettingsViewState extends State<SettingsView> {
   Session? get user => store.readSession();
-  String tab = 'account';
+  late String tab = const <String>{'account', 'legal', 'support'}.contains(widget.tab) ? widget.tab! : 'account';
   bool edit = false;
   late final TextEditingController _name = TextEditingController(text: user?.name ?? '');
   late final TextEditingController _phone = TextEditingController(text: user?.phone ?? '');
@@ -535,7 +539,10 @@ class _SettingsViewState extends State<SettingsView> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: _gap(<Widget>[
-            _block(
+            if (Api.on)
+              const ServerSupportView()
+            else
+              _block(
               'تذكرة دعم',
               _panel(
                 Column(

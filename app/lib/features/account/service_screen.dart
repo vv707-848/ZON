@@ -103,7 +103,7 @@ class ServiceScreen extends StatelessWidget {
       case 'tasks':
         content = const TasksView();
       case 'settings':
-        content = const SettingsView();
+        content = SettingsView(tab: query['tab']);
       case 'devices':
         content = const DevicesView();
       case 'plans':

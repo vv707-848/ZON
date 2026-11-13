@@ -52,6 +52,31 @@ class SupportThreadsTest extends TestCase
             ->assertJsonPath('data.status', 'open')->assertJsonPath('data.resolution', null);
     }
 
+    /** As the app uses it (app/lib/data/server/server_support.dart): a ticket opened once however often sent. */
+    public function test_the_apps_support_threads(): void
+    {
+        $listing = Listing::factory()->published()->create(['title' => 'شقة للبيع في الياسمين']);
+        $me = $this->signIn(Customer::factory()->seeker()->create());
+        $ticket = ['type' => 'complaint', 'subject' => 'إعلان مضلل', 'listing_id' => $listing->id, 'body' => 'السعر في العرض غير صحيح'];
+
+        $opened = $this->postJson('/api/v1/support-tickets', $ticket, ['Idempotency-Key' => 'ticket-0001-abcdef'])->assertCreated();
+        $this->postJson('/api/v1/support-tickets', $ticket, ['Idempotency-Key' => 'ticket-0001-abcdef'])->assertCreated()
+            ->assertHeader('Idempotent-Replayed', 'true')->assertJsonPath('data.reference', $opened->json('data.reference'));
+        $this->assertSame(1, SupportTicket::query()->where('customer_id', $me->id)->count(), 'a retry after a lost answer opens no second ticket');
+        $this->apiContract('support_ticket_opened', $opened);
+
+        $reference = $opened->json('data.reference');
+        app(SupportDesk::class)->replyAsStaff(SupportTicket::query()->where('reference', $reference)->sole(), User::factory()->create(), 'تواصلنا مع المعلن.');
+        $this->apiContract('support_tickets', $this->getJson('/api/v1/support-tickets')->assertOk()->assertJsonPath('data.0.unread', true));
+        $this->apiContract('support_ticket', $this->getJson("/api/v1/support-tickets/{$reference}")->assertOk()
+            ->assertJsonPath('data.about.title', 'شقة للبيع في الياسمين')->assertJsonPath('data.messages.1.author', 'zon'));
+
+        $reply = $this->postJson("/api/v1/support-tickets/{$reference}/messages", ['body' => 'شكراً'], ['Idempotency-Key' => 'reply-0001-abcdef'])->assertOk();
+        $this->postJson("/api/v1/support-tickets/{$reference}/messages", ['body' => 'شكراً'], ['Idempotency-Key' => 'reply-0001-abcdef'])->assertOk();
+        $this->assertSame(3, SupportMessage::query()->count(), 'a reply is written once');
+        $this->apiContract('support_ticket_replied', $reply);
+    }
+
     public function test_a_thread_is_its_users_alone(): void
     {
         $owner = Customer::factory()->create();

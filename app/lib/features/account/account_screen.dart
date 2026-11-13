@@ -50,6 +50,10 @@ class _Guest extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             AppButton(label: 'دخول أو إنشاء حساب', size: ButtonSize.large, onTap: () => Nav.go(context, '/login')),
+            if (Api.on) ...<Widget>[
+              const SizedBox(height: 12),
+              AppButton(label: 'تواصل مع الدعم', tone: ButtonTone.ghost, onTap: () => Nav.go(context, '/support')),
+            ],
           ],
         ),
       ),
