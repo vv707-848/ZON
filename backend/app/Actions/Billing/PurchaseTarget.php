@@ -4,6 +4,7 @@ namespace App\Actions\Billing;
 
 use App\Enums\BoostKind;
 use App\Enums\ErrorCode;
+use App\Enums\ListingStatus;
 use App\Enums\OwnerCaseStage;
 use App\Enums\PaymentPurpose;
 use App\Enums\RequestStatus;
@@ -12,6 +13,7 @@ use App\Models\Customer;
 use App\Models\Listing;
 use App\Models\OwnerCase;
 use App\Models\Package;
+use App\Models\Project;
 use App\Models\SearchRequest;
 use App\Support\Money;
 use App\Support\Settings\Setting;
@@ -20,7 +22,8 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * What a purchase buys, and whether it can take it now: a plan of the buyer's own role, or his own live listing
- * (not already featured / urgent), published request (not already urgent) or owner's case at its fee step. Shared
+ * (not already featured / urgent), published project (not already featured), published request (not already
+ * urgent) or owner's case at its fee step. Shared
  * by the website's checkout (Moyasar, priced here) and the apps' store purchases (priced by the store).
  */
 final class PurchaseTarget
@@ -33,7 +36,10 @@ final class PurchaseTarget
     {
         return match ($purpose) {
             PaymentPurpose::Subscription => $this->package($customer, $packageCode),
-            PaymentPurpose::Featured, PaymentPurpose::UrgentListing => [$this->listing($customer, $target, BoostKind::from($purpose->value)), ApplyBoost::price(BoostKind::from($purpose->value))],
+            PaymentPurpose::Featured => ($target['type'] ?? null) === 'project'
+                ? [$project = $this->project($customer, $target), ApplyBoost::price(BoostKind::Featured, $project)]
+                : [$this->listing($customer, $target, BoostKind::Featured), ApplyBoost::price(BoostKind::Featured)],
+            PaymentPurpose::UrgentListing => [$this->listing($customer, $target, BoostKind::UrgentListing), ApplyBoost::price(BoostKind::UrgentListing)],
             PaymentPurpose::UrgentRequest => [$this->request($customer, $target), ApplyBoost::price(BoostKind::UrgentRequest)],
             PaymentPurpose::AdLicence => [$this->ownerCase($customer, $target), Settings::money(Setting::AdLicenceFee)],
         };
@@ -60,6 +66,21 @@ final class PurchaseTarget
         }
 
         return $listing;
+    }
+
+    /** @param ?array{type: string, id: int} $target */
+    private function project(Customer $customer, ?array $target): Project
+    {
+        $project = Project::query()->find((int) ($target['id'] ?? 0));
+        if ($project === null || $project->developer_id !== $customer->id) {
+            throw ApiException::of(ErrorCode::NotFound);
+        }
+        $running = $project->featured_until?->isFuture() ?? false;
+        if ($project->status !== ListingStatus::Published || $running) {
+            throw ApiException::of($running ? ErrorCode::AlreadyActive : ErrorCode::InvalidTransition);
+        }
+
+        return $project;
     }
 
     /** @param ?array{type: string, id: int} $target */

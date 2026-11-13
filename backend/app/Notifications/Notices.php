@@ -83,6 +83,11 @@ final class Notices
         return new AppNotice(NoteKind::Listing, $title, $listing->title, "/listings/{$listing->id}", NoticePref::ListingStatus, "ended:{$kind->value}:{$listing->id}");
     }
 
+    public static function projectBoostEnded(Project $project): AppNotice
+    {
+        return new AppNotice(NoteKind::Listing, 'انتهى تمييز مشروعك', $project->title, "/projects/{$project->id}", NoticePref::ListingStatus, "project-ended:featured:{$project->id}");
+    }
+
     public static function projectWordingReady(Project $project): AppNotice
     {
         return new AppNotice(NoteKind::Listing, 'صياغة مشروعك جاهزة', "راجع الوصف المقترح لـ «{$project->title}».", "/account/projects/{$project->id}/review", NoticePref::ListingStatus, "project-wording:{$project->id}");

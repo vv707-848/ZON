@@ -11,6 +11,7 @@
         "unit_licence_expiring": "/account/listings/P3",
         "unit_licence_expired": "/account/listings/P3",
         "boost_ended": "/listings/12",
+        "project_boost_ended": "/projects/3",
         "project_wording_ready": "/account/projects/3/review",
         "project_published": "/projects/3",
         "followed_published": "/listings/12",

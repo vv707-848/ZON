@@ -475,5 +475,41 @@
                 "default": 30
             }
         }
+    },
+    {
+        "report": "sale_prices",
+        "description": "متوسط سعر البيع الذي ذكره المعلنون لكل حي ونوع، مقابل متوسط سعر العرض، ونسبة الفرق. لا يدخل إلا ما ذُكر سعر بيعه.",
+        "params": {
+            "city": {
+                "type": "string",
+                "enum": [
+                    "الرياض",
+                    "جدة",
+                    "الدمام",
+                    "الخبر"
+                ]
+            },
+            "property_type": {
+                "type": "string",
+                "enum": [
+                    "apartment",
+                    "studio",
+                    "floor",
+                    "villa",
+                    "house",
+                    "resthouse",
+                    "land",
+                    "building",
+                    "shop",
+                    "office"
+                ]
+            },
+            "days": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 365,
+                "default": 180
+            }
+        }
     }
 ]

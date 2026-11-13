@@ -51,6 +51,7 @@ class NoticeTargetsTest extends TestCase
             'unit_licence_expiring' => Notices::unitLicenceExpiring($unit, 7, 1),
             'unit_licence_expired' => Notices::unitLicenceExpired($unit),
             'boost_ended' => Notices::boostEnded($listing, BoostKind::Featured),
+            'project_boost_ended' => Notices::projectBoostEnded($project),
             'project_wording_ready' => Notices::projectWordingReady($project),
             'project_published' => Notices::projectPublished($project),
             'followed_published' => Notices::followedPublished($advertiser, $listing),

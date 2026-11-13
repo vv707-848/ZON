@@ -16,6 +16,7 @@
         "start_price": 1800000,
         "description": "فلل حديثة بتشطيب فاخر، قريبة من طريق الملك سلمان.",
         "featured": false,
+        "featured_until": null,
         "cover_url": "http://localhost/media/23/01JTEST4-card.jpg?expiration=1794498580",
         "published_at": "2026-11-07T14:49:40+00:00",
         "share_url": "https://zon.sa/projects/4",

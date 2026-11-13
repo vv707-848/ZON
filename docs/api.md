@@ -66,7 +66,7 @@
 
 **في التطبيق:** `UNAUTHENTICATED` يعيد إلى صفحة الدخول فقط إن جاء ردّاً على طلب أُرسل بجلسة الهاتف الحالية نفسها. ورد متأخر لجلسة انتهت (خروج، أو دخول بحساب آخر) لا يكتب حساباً ولا مفاتيح إشعارات، ولا يُخرج الجلسة التالية (`ApiClient` و`ServerSession.owns`).
 
-## نقاط الواجهة (148)
+## نقاط الواجهة (149)
 
 الصلاحية: `عام` بلا دخول · 🔒 رمز مميِّز · الدور · `رغبة` = الباحث يحتاج رغبة فعّالة (428) · `حصة` = رصيد الذكاء اليومي. العمود الأخير موضع الكود في `app/Http/Controllers/Api/V1`.
 
@@ -149,7 +149,7 @@
 | `POST` | `/listings/{listing}/resume` | 🔒 · رغبة · وسيط · مالك · مطوّر | استئناف ما أوقفه المعلن أو صار «غير نشط». المخفي والمرفوض يعيدهما الإشراف وحده، ومنتهي الرخصة يعيده التجديد | `ListingController@resume` |
 | `GET` | `/listings/{listing}/review` | 🔒 · رغبة · وسيط · مالك · مطوّر | الصياغة المقترحة مقابل النص الأصلي | `ListingController@review` |
 | `POST` | `/listings/{listing}/review` | 🔒 · رغبة · وسيط · مالك · مطوّر | قرار المعلن: `approve` المقترح · `edit` بنصه · `reject` فيبقى نصه الأصلي ← النشر | `ListingController@decide` |
-| `POST` | `/listings/{listing}/sold` | 🔒 · رغبة · وسيط · مالك · مطوّر | تم البيع (نهائي)؛ عرض المالك يتطلب `sale_price` (سعر البيع الفعلي، خانتان عشريتان)، وعليه يُحسب سعي زون المستحق | `ListingController@sold` |
+| `POST` | `/listings/{listing}/sold` | 🔒 · رغبة · وسيط · مالك · مطوّر | تم البيع (نهائي)؛ عرض المالك يتطلب `sale_price` (سعر البيع الفعلي، خانتان عشريتان)، وعليه يُحسب سعي زون المستحق. لغيره اختياري، ويُسجَّل لتقرير السوق كما قيل | `ListingController@sold` |
 | `POST` | `/media` | 🔒 · رغبة · uploads: 40/د | رفع صورة `photo` (jpg · png · webp حتى 8MB) إلى MinIO؛ تُربط بالعرض أو المشروع بمعرّفها | `MediaController@store` |
 | `DELETE` | `/media/{media}` | 🔒 · رغبة | حذف صورة لي | `MediaController@destroy` |
 
@@ -160,6 +160,7 @@
 | `POST` | `/projects` | 🔒 · رغبة · مطوّر · wording: 60/س | إضافة مشروع (المطوّر المفعّل بعقد تسويق) | `ProjectController@store` |
 | `GET` | `/projects/mine` | 🔒 · رغبة · مطوّر | مشاريعي بكل حالاتها | `ProjectController@mine` |
 | `PATCH` | `/projects/{project}` | 🔒 · رغبة · مطوّر · wording: 60/س | تعديل مشروعي | `ProjectController@update` |
+| `POST` | `/projects/{project}/boost` | 🔒 · رغبة · مطوّر | تمييز المشروع المنشور: مجاني ما دام عدد مشاريعه المميزة مجاناً أقل من الإعداد، وإلا 402 بالسعر وعملية دفع | `ProjectController@boost` |
 | `POST` | `/projects/{project}/pause` | 🔒 · رغبة · مطوّر | إيقاف مؤقت (من «منشور» فقط) | `ProjectController@pause` |
 | `POST` | `/projects/{project}/publish` | 🔒 · رغبة · مطوّر | النشر الأول: وصف مقرَّر، وحدة واحدة على الأقل، وترخيص لكل نموذج في «الجاهز» | `ProjectController@publish` |
 | `POST` | `/projects/{project}/resume` | 🔒 · رغبة · مطوّر | استئناف ما أوقفه المطوّر، بعد شروط النشر كاملة من جديد | `ProjectController@resume` |
@@ -170,7 +171,7 @@
 | `PATCH` | `/projects/{project}/units/{unit}` | 🔒 · رغبة · مطوّر · wording: 60/س | تعديل نموذج وحدة | `ProjectUnitController@update` |
 | `DELETE` | `/projects/{project}/units/{unit}` | 🔒 · رغبة · مطوّر | حذف نموذج وحدة | `ProjectUnitController@destroy` |
 | `POST` | `/projects/{project}/units/{unit}/licence` | 🔒 · رغبة · مطوّر | التحقق من ترخيص الوحدة لدى الهيئة (REGA)، وتجديده: الأحدث هو الرخصة | `ProjectUnitController@licence` |
-| `POST` | `/projects/{project}/units/{unit}/sold` | 🔒 · رغبة · مطوّر | بيع عدد من وحدات النموذج بسعر البيع `sale_price` (خانتان عشريتان)؛ عمولة العقد لكل وحدة | `ProjectUnitController@sold` |
+| `POST` | `/projects/{project}/units/{unit}/sold` | 🔒 · رغبة · مطوّر | بيع عدد من وحدات النموذج، وسعر البيع `sale_price` اختياري (خانتان عشريتان) ويُسجَّل لتقرير السوق كما قيل؛ عمولة العقد لكل وحدة | `ProjectUnitController@sold` |
 
 ### ٧. مسار المالك
 

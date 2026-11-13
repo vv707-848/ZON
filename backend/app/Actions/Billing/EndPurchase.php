@@ -7,6 +7,7 @@ use App\Indexing\IndexSync;
 use App\Models\BoostUsage;
 use App\Models\Listing;
 use App\Models\Payment;
+use App\Models\Project;
 use App\Models\SearchRequest;
 use App\Models\Subscription;
 use App\Services\Billing\Entitlements;
@@ -41,6 +42,8 @@ final class EndPurchase
         $target = $boost->target;
         if ($target instanceof Listing) {
             $target->forceFill([$boost->kind === BoostKind::Featured ? 'featured_until' : 'urgent_until' => $other ?? now()])->save();
+        } elseif ($target instanceof Project) {
+            $target->forceFill(['featured_until' => $other ?? now()])->save();
         } elseif ($target instanceof SearchRequest && $other === null) {
             $target->forceFill(['urgent' => false])->save();
             $this->index->request($target);

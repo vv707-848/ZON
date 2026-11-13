@@ -7,6 +7,7 @@ use App\Indexing\IndexSync;
 use App\Jobs\ScheduledJob;
 use App\Models\BoostUsage;
 use App\Models\Listing;
+use App\Models\Project;
 use App\Models\SearchRequest;
 use App\Notifications\Notices;
 
@@ -25,6 +26,8 @@ class EndBoosts extends ScheduledJob
                         $index->request($target);
                     } elseif ($target instanceof Listing && $target->customer !== null) {
                         $target->customer->notify(Notices::boostEnded($target, $boost->kind));
+                    } elseif ($target instanceof Project && $target->loadMissing('developer')->developer !== null) {
+                        $target->developer->notify(Notices::projectBoostEnded($target));
                     }
                     $boost->forceFill(['ended_notified_at' => now()])->save();
                 }

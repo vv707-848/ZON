@@ -9,8 +9,11 @@
 //
 // A developer's projects with a server are its too (GET /projects/mine, ServerMyProjects): a draft opens its
 // wording review, which publishes; hiding is a pause, showing asks publishing again; «تعديل» opens its editor
-// (server_project_editor.dart). «تمييز» · «عاجل» for a project are not on the server: their buttons are off
-// rather than local.
+// (server_project_editor.dart). «تمييز» of a published project is free while his free ones last (the panel's
+// number), then paid at the panel's price; a project has no «عاجل».
+//
+// «مباع»: an owner's listing asks the price it sold for (his commission is reckoned on it); a broker's asks it too,
+// but it may stay empty — it helps Zon read the market (decision of 13 November).
 
 import 'dart:async';
 
@@ -29,6 +32,7 @@ import 'package:zon/data/models/models.dart';
 import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/server/server_my_listings.dart';
 import 'package:zon/data/server/server_my_projects.dart';
+import 'package:zon/data/server/server_payments.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/sale_price_dialog.dart';
 import 'package:zon/features/account/services/widgets/desk.dart';
@@ -102,6 +106,18 @@ class _MyListingsViewState extends State<MyListingsView> {
       if (price != null && mounted) await _change(l, (id) => ServerMyListings.sold(id, salePrice: price), 'لم يُسجَّل البيع');
       return;
     }
+    if (_server) {
+      final price = await askSalePrice(
+        context,
+        listed: l.price,
+        optional: true,
+        message: 'يُسجَّل العرض مباعاً ويخرج من البحث نهائياً، ولا يُعاد نشره. سعر البيع الفعلي اختياري.',
+      );
+      if (price != null && mounted) {
+        await _change(l, (id) => ServerMyListings.sold(id, salePrice: price.isEmpty ? null : price), 'لم يُسجَّل البيع');
+      }
+      return;
+    }
     final ok = await showAppDialog(
       context,
       icon: Lu.circleAlert,
@@ -114,8 +130,51 @@ class _MyListingsViewState extends State<MyListingsView> {
     if (ok && mounted) await _change(l, ServerMyListings.sold, 'لم يُسجَّل البيع');
   }
 
+  /// «تمييز» of his project: free while his free ones last; then its price, paid here.
+  Future<void> _featureProject(Listing l) async {
+    final epoch = store.serverEpoch;
+    try {
+      await ServerMyProjects.feature(l.id, epoch: epoch);
+      if (mounted) unawaited(_load());
+    } on AccountChanged {
+      return;
+    } on ApiError catch (e) {
+      if (!mounted || epoch != store.serverEpoch) return;
+      if (e.status != 402) {
+        await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يتم التمييز', message: e.forUser);
+        return;
+      }
+      final Checkout checkout;
+      try {
+        checkout = await ServerPayments.start('featured', target: <String, Object?>{'type': 'project', 'id': int.parse(ServerListings.rawId(l.id))});
+      } on ApiError catch (e) {
+        if (mounted) await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يتم التمييز', message: e.forUser);
+        return;
+      }
+      if (!mounted || epoch != store.serverEpoch) return;
+      final paid = await showPayDialog(
+        context,
+        icon: Lu.crown,
+        title: 'تمييز المشروع — ${ServerMyListings.priceOf(e) ?? checkout.amount} ريال',
+        message: 'مشاريعك المميزة مجاناً مستخدمة الآن. يُميَّز «${l.title}» بعد الدفع، ولم يتغير شيء قبله.',
+        amount: (double.tryParse(checkout.amount) ?? 0).round(),
+        simulated: checkout.payable,
+        pay: () async {
+          if (epoch != store.serverEpoch) return false;
+          try {
+            return await ServerPayments.confirm(checkout, checkout.reference!);
+          } on ApiError {
+            return false;
+          }
+        },
+      );
+      if (paid && mounted) unawaited(_load());
+    }
+  }
+
   /// «تمييز» or «عاجل» from the plan's balance; without it, its price and the plans.
   Future<void> _boostOnServer(Listing l, BoostKind kind) async {
+    if (l.kind == 'project') return _featureProject(l);
     final epoch = store.serverEpoch;
     try {
       await ServerMyListings.boost(l.id, kind == BoostKind.featured ? 'featured' : 'urgent_listing');
@@ -263,19 +322,20 @@ class _MyListingsViewState extends State<MyListingsView> {
     final featured = l.featuredAt(now);
     final urgentOn = l.urgentAt(now);
     final live = l.active != false;
-    final noProjectOnServer = _server && project; // not on the server yet: off, not local
+    final projectOnServer = _server && project; // featured on the server; no «عاجل», sold by its models
+    final published = !projectOnServer || l.status == 'published'; // only a published project is featured
     final buttons = <Widget>[
-      if (noProjectOnServer) ...<Widget>[_barBox('تمييز', icon: Lu.crown), _barBox('عاجل', icon: Lu.zap)] else if (featured)
-        _barBox('مميّز', icon: Lu.crown, bg: const Color(0xFFF6E7B4), fg: const Color(0xFF6B5310), onTap: () => _boost(l, BoostKind.featured))
+      if (featured)
+        _barBox('مميّز', icon: Lu.crown, bg: const Color(0xFFF6E7B4), fg: const Color(0xFF6B5310), onTap: projectOnServer ? null : () => _boost(l, BoostKind.featured))
       else
-        _barBox('تمييز', icon: Lu.crown, onTap: live ? () => _boost(l, BoostKind.featured) : null),
-      if (!noProjectOnServer)
+        _barBox('تمييز', icon: Lu.crown, onTap: live && published ? () => _boost(l, BoostKind.featured) : null),
+      if (!projectOnServer)
         if (urgentOn)
           _barBox('عاجل', icon: Lu.zap, bg: kUrgentRed, fg: AppColors.white, onTap: () => _boost(l, BoostKind.urgentListing))
         else
           _barBox('عاجل', icon: Lu.zap, onTap: live ? () => _boost(l, BoostKind.urgentListing) : null),
       _barBox('تعديل', onTap: () => Nav.go(context, '/account/listings/${Uri.encodeComponent(l.id)}')),
-      if (!noProjectOnServer)
+      if (!projectOnServer)
         if (_server && l.soldFlag)
           _barBox('مباع')
         else if (_server)

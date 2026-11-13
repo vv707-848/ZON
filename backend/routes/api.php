@@ -120,6 +120,7 @@ Route::middleware('throttle:api')->group(function () {
                     Route::post('projects/{project}/review', 'decide')->whereNumber('project');
                     Route::post('projects/{project}/publish', 'publish')->whereNumber('project');
                     Route::post('projects/{project}/pause', 'pause')->whereNumber('project');
+                    Route::post('projects/{project}/boost', 'boost')->whereNumber('project');
                     Route::post('projects/{project}/resume', 'resume')->whereNumber('project');
                 });
                 Route::controller(V1\ProjectUnitController::class)->group(function () {

@@ -124,6 +124,8 @@
         ],
         "one_off": {
             "featured": "100.00",
+            "project_featured": "100.00",
+            "project_featured_free": 3,
             "urgent_listing": "100.00",
             "urgent_request": "50.00",
             "ad_licence": "50.00",

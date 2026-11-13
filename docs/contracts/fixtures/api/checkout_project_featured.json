@@ -1,0 +1,19 @@
+{
+    "success": true,
+    "data": {
+        "payment_id": "01m7b5qp2s97471h9wqh5vd8pk",
+        "purpose": "featured",
+        "status": "pending",
+        "amount": "100.00",
+        "vat": "0.00",
+        "currency": "SAR",
+        "provider": "fake",
+        "failure_reason": null,
+        "paid_at": null,
+        "client": {
+            "simulation": true,
+            "reference": "fake_01m7b5qp2s97471h9wqh5vd8pk",
+            "decline_reference": "fake_01m7b5qp2s97471h9wqh5vd8pk_fail"
+        }
+    }
+}

@@ -5,6 +5,7 @@ namespace App\Actions\Billing;
 use App\Enums\BoostKind;
 use App\Enums\BoostVia;
 use App\Enums\ErrorCode;
+use App\Enums\ListingStatus;
 use App\Enums\PaymentPurpose;
 use App\Enums\RequestStatus;
 use App\Exceptions\ApiException;
@@ -13,6 +14,7 @@ use App\Models\BoostUsage;
 use App\Models\Customer;
 use App\Models\Listing;
 use App\Models\Payment;
+use App\Models\Project;
 use App\Models\SearchRequest;
 use App\Models\Subscription;
 use App\Models\User;
@@ -25,6 +27,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * «مميز» / «عاجل» on a listing, or an urgent request: from the plan's balance, a payment, or a staff grant.
+ * «مميز» on a developer's published project: free while fewer than ProjectFeaturedFree of his projects are featured
+ * free at the time, then paid (ProjectFeaturedPrice) — so not every project of his shows featured.
  * A boost still running → ALREADY_ACTIVE. No balance and no payment → PAYMENT_REQUIRED with the price, so the
  * app opens checkout (purpose + target). The balance is spent under a lock: two taps never spend it twice.
  */
@@ -51,12 +55,16 @@ final class ApplyBoost
                     Subscription::query()->whereKey($subscription->id)->lockForUpdate()->first();
                     Entitlements::forget($customer);
                 }
-                if ($subscription === null || Entitlements::for($customer)->quotaLeft($kind) < 1) {
+                $left = $target instanceof Project ? self::freeProjectsLeft($customer) : ($subscription === null ? 0 : Entitlements::for($customer)->quotaLeft($kind));
+                if ($left < 1) {
                     throw ApiException::of(ErrorCode::PaymentRequired, [
                         'purpose' => PaymentPurpose::from($kind->value)->value,
-                        'price' => self::price($kind)->riyals(),
+                        'price' => self::price($kind, $target)->riyals(),
                         'target' => ['type' => $target->getMorphClass(), 'id' => $target->getKey()],
                     ]);
+                }
+                if ($target instanceof Project) {
+                    $subscription = null;   // his free featuring, not a plan's balance
                 }
             }
 
@@ -87,9 +95,23 @@ final class ApplyBoost
         });
     }
 
-    /** The one-off price once the balance is used (Setting), gross. */
-    public static function price(BoostKind $kind): Money
+    /** Free featurings a developer has left now: the free ones still running count, paid ones do not. Locked by the caller. */
+    public static function freeProjectsLeft(Customer $developer): int
     {
+        Customer::query()->whereKey($developer->id)->lockForUpdate()->first();   // two taps never take the last one twice
+        $running = BoostUsage::query()->where('customer_id', $developer->id)->where('target_type', (new Project)->getMorphClass())
+            ->where('kind', BoostKind::Featured)->where('via', BoostVia::Quota)->where('active_until', '>', now())->count();
+
+        return max(0, Settings::int(Setting::ProjectFeaturedFree) - $running);
+    }
+
+    /** The one-off price once the balance is used (Setting), gross; a project's featuring has its own. */
+    public static function price(BoostKind $kind, ?Model $target = null): Money
+    {
+        if ($target instanceof Project && $kind === BoostKind::Featured) {
+            return Settings::money(Setting::ProjectFeaturedPrice);
+        }
+
         return Settings::money(match ($kind) {
             BoostKind::Featured => Setting::FeaturedPrice,
             BoostKind::UrgentListing => Setting::UrgentListingPrice,
@@ -100,7 +122,8 @@ final class ApplyBoost
     private function assertTarget(Model $target, BoostKind $kind): void
     {
         $ok = match ($kind) {
-            BoostKind::Featured, BoostKind::UrgentListing => $target instanceof Listing && $target->isLive(),
+            BoostKind::Featured => ($target instanceof Listing && $target->isLive()) || ($target instanceof Project && $target->status === ListingStatus::Published),
+            BoostKind::UrgentListing => $target instanceof Listing && $target->isLive(),
             BoostKind::UrgentRequest => $target instanceof SearchRequest && $target->status === RequestStatus::Published,
         };
         if (! $ok) {
@@ -113,6 +136,7 @@ final class ApplyBoost
         return match (true) {
             $target instanceof Listing && $kind === BoostKind::Featured => $target->isFeatured(),
             $target instanceof Listing && $kind === BoostKind::UrgentListing => $target->isUrgent(),
+            $target instanceof Project => $target->featured_until?->isFuture() ?? false,
             $target instanceof SearchRequest => $target->urgent,
             default => false,
         };

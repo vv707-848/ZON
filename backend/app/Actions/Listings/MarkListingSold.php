@@ -7,6 +7,7 @@ use App\Enums\ListingStatus;
 use App\Enums\OwnerCaseStage;
 use App\Models\CommissionDue;
 use App\Models\Listing;
+use App\Models\SaleReport;
 use App\Support\Actor;
 use App\Support\Money;
 use Brick\Math\BigDecimal;
@@ -15,7 +16,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * «تم البيع» — final. An owner's listing makes his commission due (the case's percent of the sale price); the row
- * stays forever: what sold through Zon is the revenue model.
+ * stays forever: what sold through Zon is the revenue model. Every sale is also reported to the market as said:
+ * the price it sold for only when he gave it (SaleReport).
  */
 final class MarkListingSold
 {
@@ -25,6 +27,7 @@ final class MarkListingSold
     {
         return DB::transaction(function () use ($listing, $actor, $salePrice) {
             ($this->status)($listing, ListingStatus::Sold, $actor);
+            SaleReport::forListing($listing, $salePrice);
 
             $case = $listing->ownerCase()->first();
             if ($case !== null) {

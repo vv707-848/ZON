@@ -195,6 +195,7 @@ abstract final class ServerListings {
       mapsLink: _str(j['maps_link']),
       phones: _strings(j['phones']),
       isPremium: j['featured'] == true,
+      premiumUntil: j['featured'] == true ? _str(j['featured_until']) : null,
     );
   }
 

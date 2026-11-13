@@ -1,0 +1,43 @@
+{
+    "success": true,
+    "data": {
+        "id": 23,
+        "status": "published",
+        "is_favorite": false,
+        "title": "مشروع النرجس السكني",
+        "city": "الرياض",
+        "neighborhood": "النرجس",
+        "property_type": "villa",
+        "delivery": "offplan",
+        "land_use": null,
+        "total_units": 40,
+        "available_units": 0,
+        "models_count": 0,
+        "start_price": null,
+        "description": "فلل حديثة بتشطيب فاخر، قريبة من طريق الملك سلمان.",
+        "featured": true,
+        "featured_until": "2026-11-20T19:21:45+00:00",
+        "cover_url": null,
+        "published_at": "2026-11-13T19:21:45+00:00",
+        "share_url": "https://zon.sa/projects/23",
+        "developer": {
+            "id": 146,
+            "username": "ekdyd3540",
+            "name": "الدكتورة شهد الحميد",
+            "role": "developer",
+            "fal_verified": false,
+            "fal_number": null
+        },
+        "units": [],
+        "photos": [],
+        "lat": null,
+        "lng": null,
+        "maps_link": null,
+        "phones": [
+            "0512387093"
+        ],
+        "desc_raw": "فلل حديثة بتشطيب فاخر قريبة من طريق الملك سلمان.",
+        "desc_suggested": null,
+        "text_review": "approved"
+    }
+}
