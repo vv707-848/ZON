@@ -8,6 +8,7 @@ use App\Integrations\Rega\RegaGateway;
 use App\Models\Customer;
 use App\Models\Project;
 use App\Models\ProjectUnit;
+use App\Models\SaleReport;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -123,8 +124,16 @@ class MyProjectsTest extends TestCase
         $model = $first->json('data.id');
         $this->postJson("/api/v1/projects/{$id}/units/{$model}/sold", ['count' => 2, 'sale_price' => '1900000.505'])->assertStatus(422);
         $this->postJson("/api/v1/projects/{$id}/units/{$model}/sold", ['count' => 7, 'sale_price' => 1900000])->assertStatus(422);
-        $this->apiContract('project_unit_sold', $this->postJson("/api/v1/projects/{$id}/units/{$model}/sold", ['count' => 2, 'sale_price' => 1900000])
+        $this->apiContract('project_unit_sold', $this->postJson("/api/v1/projects/{$id}/units/{$model}/sold", ['count' => 2, 'sale_price' => 1900000], ['Idempotency-Key' => 'units-0001-abcdef'])
             ->assertOk()->assertJsonPath('data.available_count', 4));
+
+        // R-07: the same sale sent again (its reply lost) is said once; another sale is another key
+        $this->postJson("/api/v1/projects/{$id}/units/{$model}/sold", ['count' => 2, 'sale_price' => 1900000], ['Idempotency-Key' => 'units-0001-abcdef'])
+            ->assertOk()->assertHeader('Idempotent-Replayed', 'true')->assertJsonPath('data.available_count', 4);
+        $this->assertSame(4, ProjectUnit::query()->findOrFail($model)->available_count);
+        $this->assertSame(1, SaleReport::query()->where('subject_id', $model)->count());
+        $this->postJson("/api/v1/projects/{$id}/units/{$model}/sold", ['count' => 2, 'sale_price' => 1900000], ['Idempotency-Key' => 'units-0002-abcdef'])
+            ->assertOk()->assertJsonPath('data.available_count', 2);
     }
 
     public function test_the_brokers_of_its_city_by_their_matching_clients_none_of_them_shown(): void

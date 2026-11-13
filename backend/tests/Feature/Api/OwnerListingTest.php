@@ -9,6 +9,7 @@ use App\Models\CommissionDue;
 use App\Models\Customer;
 use App\Models\Listing;
 use App\Models\OwnerCase;
+use App\Models\SaleReport;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -97,6 +98,13 @@ class OwnerListingTest extends TestCase
         $due = CommissionDue::query()->sole();
         $this->assertSame('1850000.00', (string) $due->sale_price);
         $this->assertSame((int) round(1850000 * 100 * (float) $ready->json('data.commission_percent') / 100), (int) $due->amount_halalas, 'the case\'s percent of his sale price');
+
+        // R-06: «مباع» again (its reply lost, another device, a new key) changes nothing: one sale, one commission
+        $this->postJson("/api/v1/listings/{$listing}/sold", ['sale_price' => 1850000])->assertOk()->assertJsonPath('data.status', 'sold');
+        $this->postJson("/api/v1/listings/{$listing}/sold", ['sale_price' => 1900000], ['Idempotency-Key' => 'sold-0002-abcdef'])->assertOk();
+        $this->assertSame(1, CommissionDue::query()->where('listing_id', $listing)->count(), 'the same sale again adds no commission');
+        $this->assertSame('1850000.00', (string) CommissionDue::query()->sole()->sale_price, 'nor changes it');
+        $this->assertSame(1, SaleReport::query()->where('subject_id', $listing)->count(), 'nor reports it twice');
     }
 
     public function test_a_refused_contract_says_so_and_another_owner_cannot_see_his_case(): void

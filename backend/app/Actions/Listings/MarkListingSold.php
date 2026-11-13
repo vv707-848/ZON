@@ -18,6 +18,9 @@ use Illuminate\Support\Facades\DB;
  * «تم البيع» — final. An owner's listing makes his commission due (the case's percent of the sale price); the row
  * stays forever: what sold through Zon is the revenue model. Every sale is also reported to the market as said:
  * the price it sold for only when he gave it (SaleReport).
+ *
+ * Once: the listing is read again under its row lock, and a listing already sold is answered as it is — no second
+ * commission or report, whether the same request came again (its reply lost), from another device or at once.
  */
 final class MarkListingSold
 {
@@ -26,6 +29,10 @@ final class MarkListingSold
     public function __invoke(Listing $listing, Actor $actor, ?string $salePrice = null): Listing
     {
         return DB::transaction(function () use ($listing, $actor, $salePrice) {
+            $listing = Listing::query()->lockForUpdate()->findOrFail($listing->id);
+            if ($listing->status === ListingStatus::Sold) {
+                return $listing;
+            }
             ($this->status)($listing, ListingStatus::Sold, $actor);
             SaleReport::forListing($listing, $salePrice);
 

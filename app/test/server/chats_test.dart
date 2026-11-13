@@ -191,6 +191,55 @@ void main() {
     await _leave(tester);
   });
 
+  Map<String, Object?> page(int first, int last, {required bool more}) => <String, Object?>{
+    'success': true,
+    'data': <Map<String, Object?>>[
+      for (var n = first; n <= last; n++) <String, Object?>{'id': n, 'body': 'رسالة $n', 'mine': false, 'at': '2026-11-13T10:00:00Z'},
+    ],
+    'meta': <String, Object?>{'has_more': more},
+  };
+
+  testWidgets('R-08: more than a page came between two looks: the pages between are asked, none skipped, then read', (tester) async {
+    final server = await signedIn(tester, '/chats/C$id', (s) {
+      s.on('GET', 'conversations', 200, recorded('conversations'));
+      s.on('GET', 'conversations/$id/messages', 200, page(1, 1, more: false));
+      s.on('POST', 'conversations/$id/read', 200, <String, Object?>{'success': true, 'data': null});
+    });
+    server.on('GET', 'conversations/$id/messages', 200, page(12, 61, more: true));
+    server.onQuery('GET', 'conversations/$id/messages', <String, String>{'before': '12'}, 200, page(1, 11, more: false));
+    await tester.pump(ServerChatThread.every);
+    await _settle(tester);
+
+    expect(find.text('رسالة 2'), findsOneWidget);
+    expect(tester.widget<TalkPage>(find.byType(TalkPage)).count, 61);
+    expect(server.sent('GET', 'conversations/$id/messages').where((r) => r.url.queryParameters['before'] == '12'), hasLength(1));
+    expect(find.text('رسائل أقدم'), findsNothing, reason: 'nothing older than what was shown is missing');
+    expect(FakeServer.body(server.sent('POST', 'conversations/$id/read').last), <String, Object?>{'up_to': 61});
+    await _leave(tester);
+  });
+
+  testWidgets('R-08: past 20 pages the thread starts again from the newest, with «رسائل أقدم» for the rest', (tester) async {
+    final server = await signedIn(tester, '/chats/C$id', (s) {
+      s.on('GET', 'conversations', 200, recorded('conversations'));
+      s.on('GET', 'conversations/$id/messages', 200, page(1, 1, more: false));
+      s.on('POST', 'conversations/$id/read', 200, <String, Object?>{'success': true, 'data': null});
+    });
+    // 21 pages of 50 after message 1: 1052…2101, newest 2052…2101
+    const newest = 2052;
+    server.on('GET', 'conversations/$id/messages', 200, page(newest, newest + 49, more: true));
+    for (var p = 1; p <= 21; p++) {
+      final first = newest - 50 * p;
+      server.onQuery('GET', 'conversations/$id/messages', <String, String>{'before': '${first + 50}'}, 200, page(first, first + 49, more: true));
+    }
+    await tester.pump(ServerChatThread.every);
+    await _settle(tester, 30);
+
+    expect(server.sent('GET', 'conversations/$id/messages').where((r) => r.url.queryParameters.containsKey('before')), hasLength(20));
+    expect(find.text('رسالة 1'), findsNothing, reason: 'not shown above a gap');
+    expect(find.text('رسائل أقدم'), findsOneWidget);
+    await _leave(tester);
+  });
+
   testWidgets("with a server, the phone's simulated conversations are not shown", (tester) async {
     await signedIn(tester, '/chats/some-name', (s) => s.on('GET', 'conversations', 200, none));
     expect(find.text('اكتب رسالتك الأولى.'), findsNothing);

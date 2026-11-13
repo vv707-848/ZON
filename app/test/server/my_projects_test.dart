@@ -321,6 +321,34 @@ void main() {
       expect(find.text('حُفظ المشروع، ووصفه الجديد يُصاغ الآن. راجعه حين يجهز.'), findsOneWidget);
     });
 
+    testWidgets('R-07: a sale whose answer was lost is sent again as the same sale; the next sale is another', (tester) async {
+      final server = await editor(tester);
+      const path = 'projects/$project/units/1/sold';
+
+      Future<void> sellTwo() async {
+        await tapText(tester, 'بيع وحدات', index: 0);
+        await _settle(tester);
+        await tester.enterText(find.byType(EditableText).last, '2');
+        await tapText(tester, 'متابعة');
+        await _settle(tester);
+        await tester.enterText(find.byType(EditableText).last, '1900000');
+        await tapText(tester, 'تم البيع');
+        await _settle(tester);
+      }
+
+      server.offline('POST', path);
+      await sellTwo();
+      server.on('POST', path, 200, recorded('project_unit_sold'));
+      await sellTwo();
+      await sellTwo();
+
+      final keys = <String?>[for (final r in server.sent('POST', path)) r.headers['Idempotency-Key']];
+      expect(keys, hasLength(3));
+      expect(keys.first, isNotNull);
+      expect(keys[1], keys.first, reason: 'the same sale tried again: the server counts it once');
+      expect(keys[2], isNot(keys.first), reason: 'its answer came: the next is another sale');
+    });
+
     testWidgets('units sold: how many (at most those available), and the price each sold for when he says it', (tester) async {
       final server = await editor(tester);
       server.on('POST', 'projects/$project/units/1/sold', 200, recorded('project_unit_sold'));
