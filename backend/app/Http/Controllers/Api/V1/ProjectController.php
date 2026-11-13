@@ -113,6 +113,7 @@ class ProjectController extends Controller
         Ownership::assert($project, $request->user('api'));
 
         return Api::ok([
+            'status' => $project->status->value,   // a draft is published from its review; a published one keeps its state
             'project' => ['text_review' => $project->text_review?->value, 'raw' => $project->desc_raw, 'suggested' => $project->desc_suggested],
             'units' => $project->units()->get()->map(fn (ProjectUnit $u) => [
                 'id' => $u->id, 'model_name' => $u->model_name, 'text_review' => $u->text_review?->value, 'raw' => $u->desc_raw, 'suggested' => $u->desc_suggested,

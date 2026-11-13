@@ -228,4 +228,113 @@ void main() {
     expect(server.sent('POST', 'projects/$project/resume'), hasLength(1));
     expect(find.text('مخفي — أوقفته أنت'), findsNothing);
   });
+
+  group('his project edited with a server', () {
+    Future<FakeServer> editor(WidgetTester tester) => asDeveloper(tester, '/account/listings/P$project', (s) {
+      s.on('GET', 'projects/$project', 200, recorded('project_mine_detail'));
+    });
+
+    Finder unitField(String label, int index) => find
+        .descendant(of: find.ancestor(of: find.text(label), matching: find.byType(ProjField)).at(index), matching: find.byType(EditableText));
+
+    testWidgets("a model's price and count saved, a new text sent to its wording; nothing sent when a value is not one", (tester) async {
+      final server = await editor(tester);
+      expect(find.text('C1 · المتاح 6'), findsOneWidget);
+      expect(find.text('نموذج C1 بخمس غرف ومجلس مستقل'), findsOneWidget, reason: 'his own text, not the public wording');
+
+      await _enter(tester, unitField('السعر الثابت', 0), 'مليون');
+      await tapText(tester, 'حفظ النموذج', index: 0);
+      await tester.pump();
+      expect(find.textContaining('أدخل السعر بالأرقام'), findsOneWidget);
+      expect(server.sent('PATCH', 'projects/$project/units/1'), isEmpty);
+
+      server.on('PATCH', 'projects/$project/units/1', 200, recorded('project_unit_updated'));
+      await _enter(tester, unitField('السعر الثابت', 0), '١٩٠٠٠٠٠');
+      await _enter(tester, unitField('عدد الوحدات المتاحة', 0), '5');
+      await tapText(tester, 'حفظ النموذج', index: 0);
+      await _settle(tester);
+      expect(FakeServer.body(server.sent('PATCH', 'projects/$project/units/1').single), <String, Object?>{
+        'price': 1900000,
+        'available_count': 5,
+        'description': 'نموذج C1 بخمس غرف ومجلس مستقل',
+      });
+      expect(find.text('حُفظ النموذج C1.'), findsOneWidget);
+
+      server.on('PATCH', 'projects/$project', 200, recorded('project_published'));
+      await _enter(tester, unitField('وصف المشروع', 0), 'فلل حديثة بحدائق خاصة ومسبح لكل فيلا ومجلس مستقل');
+      await tapText(tester, 'حفظ المشروع');
+      await _settle(tester);
+      expect(FakeServer.body(server.sent('PATCH', 'projects/$project').single)['description'], 'فلل حديثة بحدائق خاصة ومسبح لكل فيلا ومجلس مستقل');
+      expect(find.text('حُفظ المشروع، ووصفه الجديد يُصاغ الآن. راجعه حين يجهز.'), findsOneWidget);
+    });
+
+    testWidgets('units sold: how many (at most those available) and the price each sold for', (tester) async {
+      final server = await editor(tester);
+      server.on('POST', 'projects/$project/units/1/sold', 200, recorded('project_unit_sold'));
+      await tapText(tester, 'بيع وحدات', index: 0);
+      await _settle(tester);
+      await tester.enterText(find.byType(EditableText).last, '7');
+      await tapText(tester, 'متابعة');
+      await tester.pump();
+      expect(find.text('من 1 إلى 6'), findsOneWidget);
+      await tester.enterText(find.byType(EditableText).last, '2');
+      await tapText(tester, 'متابعة');
+      await _settle(tester);
+      expect(tester.widget<EditableText>(find.byType(EditableText).last).controller.text, '1950000', reason: 'its price offered first');
+      await tester.enterText(find.byType(EditableText).last, '1900000');
+      await tapText(tester, 'تم البيع');
+      await _settle(tester);
+      expect(FakeServer.body(server.sent('POST', 'projects/$project/units/1/sold').single), <String, Object?>{'count': 2, 'sale_price': '1900000'});
+    });
+
+    testWidgets("a model removed after he confirms; the server's refusal of the last one is said", (tester) async {
+      final server = await editor(tester);
+      server.on('DELETE', 'projects/$project/units/2', 409, <String, Object?>{
+        'success': false,
+        'error': <String, Object?>{'code': 'PROJECT_NO_UNITS', 'message': 'أضف نموذج وحدة واحداً على الأقل قبل النشر.', 'details': <String, Object?>{'reason': 'last_unit'}},
+      });
+      await tapText(tester, 'حذف', index: 1);
+      await _settle(tester);
+      await tapText(tester, 'حذف', last: true);
+      await _settle(tester);
+      expect(server.sent('DELETE', 'projects/$project/units/2'), hasLength(1));
+      expect(find.text('أضف نموذج وحدة واحداً على الأقل قبل النشر.'), findsOneWidget);
+    });
+
+    testWidgets('a new model, once however often sent', (tester) async {
+      final server = await editor(tester);
+      server.on('POST', 'projects/$project/units', 201, recorded('project_unit_created'));
+      await tapText(tester, 'إضافة نموذج');
+      await tester.pump();
+      await _enter(tester, unitField('اسم النموذج', 0), 'E3');
+      await _enter(tester, unitField('السعر الثابت', 2), '2100000');
+      await tapText(tester, 'إضافة النموذج');
+      await tester.pump();
+      expect(find.text('وصف النموذج 10 أحرف فأكثر'), findsOneWidget);
+      expect(server.sent('POST', 'projects/$project/units'), isEmpty);
+      await _enter(tester, unitField('وصف النموذج', 2), 'نموذج E3 بأربع غرف وسطح خاص');
+      await tapText(tester, 'إضافة النموذج');
+      await _settle(tester);
+      final sent = server.sent('POST', 'projects/$project/units').single;
+      expect(FakeServer.body(sent), containsPair('model_name', 'E3'));
+      expect(FakeServer.body(sent), containsPair('price', 2100000));
+      expect(sent.headers['Idempotency-Key'], isNotNull);
+    });
+
+    testWidgets("a published project's wording after an edit: his decisions saved, the project not published again", (tester) async {
+      final server = await asDeveloper(tester, '/account/projects/$project/review', (s) {
+        s.on('GET', 'projects/$project/review', 200, recorded('project_review_published'));
+      });
+      server.on('POST', 'projects/$project/review', 200, recorded('project_published'));
+      server.on('GET', 'projects/$project', 200, recorded('project_published'));
+      expect(find.text('نشر المشروع'), findsNothing);
+      await tapText(tester, 'موافق على الكل');
+      await tester.pump();
+      await tapText(tester, 'حفظ القرارات');
+      await _settle(tester, 10);
+      expect(server.sent('POST', 'projects/$project/review'), hasLength(1));
+      expect(server.sent('POST', 'projects/$project/publish'), isEmpty);
+      expect(_path(), '/projects/P$project');
+    });
+  });
 }

@@ -163,14 +163,14 @@
 | `POST` | `/projects/{project}/pause` | 🔒 · رغبة · مطوّر | إيقاف مؤقت (من «منشور» فقط) | `ProjectController@pause` |
 | `POST` | `/projects/{project}/publish` | 🔒 · رغبة · مطوّر | النشر الأول: وصف مقرَّر، وحدة واحدة على الأقل، وترخيص لكل نموذج في «الجاهز» | `ProjectController@publish` |
 | `POST` | `/projects/{project}/resume` | 🔒 · رغبة · مطوّر | استئناف ما أوقفه المطوّر، بعد شروط النشر كاملة من جديد | `ProjectController@resume` |
-| `GET` | `/projects/{project}/review` | 🔒 · رغبة · مطوّر | الصياغة المقترحة لوصف المشروع | `ProjectController@review` |
+| `GET` | `/projects/{project}/review` | 🔒 · رغبة · مطوّر | الصياغة المقترحة لوصف المشروع ووصف كل نموذج، وحالة المشروع (`status`) | `ProjectController@review` |
 | `POST` | `/projects/{project}/review` | 🔒 · رغبة · مطوّر | قرار المطوّر على وصف المشروع | `ProjectController@decide` |
 | `POST` | `/projects/{project}/units` | 🔒 · رغبة · مطوّر · wording: 60/س | إضافة نموذج وحدة | `ProjectUnitController@store` |
 | `POST` | `/projects/{project}/units/review` | 🔒 · رغبة · مطوّر | قرار المطوّر على أوصاف الوحدات دفعة واحدة | `ProjectUnitController@decide` |
 | `PATCH` | `/projects/{project}/units/{unit}` | 🔒 · رغبة · مطوّر · wording: 60/س | تعديل نموذج وحدة | `ProjectUnitController@update` |
 | `DELETE` | `/projects/{project}/units/{unit}` | 🔒 · رغبة · مطوّر | حذف نموذج وحدة | `ProjectUnitController@destroy` |
 | `POST` | `/projects/{project}/units/{unit}/licence` | 🔒 · رغبة · مطوّر | التحقق من ترخيص الوحدة لدى الهيئة (REGA)، وتجديده: الأحدث هو الرخصة | `ProjectUnitController@licence` |
-| `POST` | `/projects/{project}/units/{unit}/sold` | 🔒 · رغبة · مطوّر | بيع عدد من وحدات النموذج؛ عمولة العقد لكل وحدة | `ProjectUnitController@sold` |
+| `POST` | `/projects/{project}/units/{unit}/sold` | 🔒 · رغبة · مطوّر | بيع عدد من وحدات النموذج بسعر البيع `sale_price` (خانتان عشريتان)؛ عمولة العقد لكل وحدة | `ProjectUnitController@sold` |
 
 ### ٧. مسار المالك
 

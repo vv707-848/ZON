@@ -1,6 +1,7 @@
 {
     "success": true,
     "data": {
+        "status": "draft",
         "project": {
             "text_review": "ready",
             "raw": "فلل حديثة بتشطيب فاخر وحدائق خاصة",

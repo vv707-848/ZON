@@ -110,7 +110,7 @@ DESCRIPTIONS = {
     "GET projects/mine": ("projects", "مشاريعي بكل حالاتها"),
     "POST projects": ("projects", "إضافة مشروع (المطوّر المفعّل بعقد تسويق)"),
     "PATCH projects/{project}": ("projects", "تعديل مشروعي"),
-    "GET projects/{project}/review": ("projects", "الصياغة المقترحة لوصف المشروع"),
+    "GET projects/{project}/review": ("projects", "الصياغة المقترحة لوصف المشروع ووصف كل نموذج، وحالة المشروع (`status`)"),
     "POST projects/{project}/review": ("projects", "قرار المطوّر على وصف المشروع"),
     "POST projects/{project}/publish": ("projects", "النشر الأول: وصف مقرَّر، وحدة واحدة على الأقل، وترخيص لكل نموذج في «الجاهز»"),
     "POST projects/{project}/pause": ("projects", "إيقاف مؤقت (من «منشور» فقط)"),
@@ -120,7 +120,7 @@ DESCRIPTIONS = {
     "PATCH projects/{project}/units/{unit}": ("projects", "تعديل نموذج وحدة"),
     "DELETE projects/{project}/units/{unit}": ("projects", "حذف نموذج وحدة"),
     "POST projects/{project}/units/{unit}/licence": ("projects", "التحقق من ترخيص الوحدة لدى الهيئة (REGA)، وتجديده: الأحدث هو الرخصة"),
-    "POST projects/{project}/units/{unit}/sold": ("projects", "بيع عدد من وحدات النموذج؛ عمولة العقد لكل وحدة"),
+    "POST projects/{project}/units/{unit}/sold": ("projects", "بيع عدد من وحدات النموذج بسعر البيع `sale_price` (خانتان عشريتان)؛ عمولة العقد لكل وحدة"),
     # ── owner ──
     "GET owner-cases": ("owner", "ملفاتي كمالك"),
     "POST owner-cases": ("owner", "فتح ملف: الصك ← عقد الوساطة مع زون وموافقة نفاذ ← رسوم الترخيص ← الترخيص"),

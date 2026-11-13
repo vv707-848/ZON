@@ -70,7 +70,7 @@ class MyProjectsTest extends TestCase
         $this->assertSame(2, ProjectUnit::query()->count());
 
         $review = $this->getJson("/api/v1/projects/{$id}/review")->assertOk()
-            ->assertJsonPath('data.project.text_review', 'ready')
+            ->assertJsonPath('data.status', 'draft')->assertJsonPath('data.project.text_review', 'ready')
             ->assertJsonPath('data.project.raw', 'فلل حديثة بتشطيب فاخر وحدائق خاصة')
             ->assertJsonPath('data.project.suggested', 'فلل حديثة بتشطيب فاخر وحدائق خاصة — مصقول.')
             ->assertJsonCount(2, 'data.units')->assertJsonPath('data.units.0.text_review', 'ready');
@@ -89,9 +89,16 @@ class MyProjectsTest extends TestCase
         // text — as «reject» or the auto-publish after an hour would publish it (three-parties.md)
         $this->patchJson("/api/v1/projects/{$id}", ['title' => 'مشروع الأفق الجديد', 'description' => 'فلل حديثة بحدائق خاصة ومسبح لكل فيلا'])->assertOk()
             ->assertJsonPath('data.title', 'مشروع الأفق الجديد')->assertJsonPath('data.status', 'published');
-        $this->getJson("/api/v1/projects/{$id}/review")->assertJsonPath('data.project.raw', 'فلل حديثة بحدائق خاصة ومسبح لكل فيلا')
-            ->assertJsonPath('data.project.text_review', 'ready');
+        $this->apiContract('project_review_published', $this->getJson("/api/v1/projects/{$id}/review")->assertJsonPath('data.status', 'published')
+            ->assertJsonPath('data.project.raw', 'فلل حديثة بحدائق خاصة ومسبح لكل فيلا')->assertJsonPath('data.project.text_review', 'ready'));
         $this->getJson("/api/v1/projects/{$id}")->assertJsonPath('data.description', 'فلل حديثة بحدائق خاصة ومسبح لكل فيلا');
+        $this->apiContract('project_mine_detail', $this->getJson("/api/v1/projects/{$id}")->assertOk()      // his editor: his own texts, each model's
+            ->assertJsonPath('data.desc_raw', 'فلل حديثة بحدائق خاصة ومسبح لكل فيلا')
+            ->assertJsonPath('data.units.0.desc_raw', 'نموذج C1 بخمس غرف ومجلس مستقل')->assertJsonPath('data.units.0.text_review', 'approved'));
+        $this->signIn(Customer::factory()->create());
+        $public = $this->getJson("/api/v1/projects/{$id}")->assertOk()->assertJsonMissingPath('data.desc_raw')->assertJsonMissingPath('data.units.0.desc_raw');
+        $this->assertStringNotContainsString('text_review', $public->getContent());
+        $this->signIn($developer);
 
         $edited = $this->patchJson("/api/v1/projects/{$id}/units/{$second}", ['price' => 2300000])->assertOk()->assertJsonPath('data.price', 2300000);
         $this->apiContract('project_unit_updated', $edited);
@@ -111,6 +118,13 @@ class MyProjectsTest extends TestCase
         $this->postJson("/api/v1/projects/{$id}/resume")->assertOk()->assertJsonPath('data.status', 'published')
             ->assertJsonPath('data.description', 'فلل حديثة بحدائق خاصة ومسبح لكل فيلا — مصقول.');
         $this->assertSame($developer->id, Project::query()->sole()->developer_id);
+
+        // units of a model sold, at the price he says (two decimals at most), never more than are available
+        $model = $first->json('data.id');
+        $this->postJson("/api/v1/projects/{$id}/units/{$model}/sold", ['count' => 2, 'sale_price' => '1900000.505'])->assertStatus(422);
+        $this->postJson("/api/v1/projects/{$id}/units/{$model}/sold", ['count' => 7, 'sale_price' => 1900000])->assertStatus(422);
+        $this->apiContract('project_unit_sold', $this->postJson("/api/v1/projects/{$id}/units/{$model}/sold", ['count' => 2, 'sale_price' => 1900000])
+            ->assertOk()->assertJsonPath('data.available_count', 4));
     }
 
     public function test_the_brokers_of_its_city_by_their_matching_clients_none_of_them_shown(): void

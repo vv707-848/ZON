@@ -1,8 +1,8 @@
 {
     "success": true,
     "data": {
-        "id": 1,
-        "project_id": 1,
+        "id": 4,
+        "project_id": 3,
         "model_name": "C1",
         "property_type": "villa",
         "area": null,

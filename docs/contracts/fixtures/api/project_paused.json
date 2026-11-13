@@ -16,12 +16,12 @@
         "description": "فلل حديثة بحدائق خاصة ومسبح لكل فيلا",
         "featured": false,
         "cover_url": null,
-        "published_at": "2026-11-13T10:03:42+00:00",
+        "published_at": "2026-11-13T16:16:13+00:00",
         "share_url": "https://zon.sa/projects/1",
         "developer": {
             "id": 1,
-            "username": "jxztj1810",
-            "name": "سنابل العسكر",
+            "username": "orwro2856",
+            "name": "ميران الصقيه",
             "role": "developer",
             "fal_verified": false,
             "fal_number": null
@@ -44,7 +44,10 @@
                 "payment_method": null,
                 "description": "نموذج C1 بخمس غرف ومجلس مستقل — مصقول.",
                 "licence": null,
-                "photos": []
+                "photos": [],
+                "desc_raw": "نموذج C1 بخمس غرف ومجلس مستقل",
+                "desc_suggested": "نموذج C1 بخمس غرف ومجلس مستقل — مصقول.",
+                "text_review": "approved"
             }
         ],
         "photos": [],
@@ -52,7 +55,7 @@
         "lng": null,
         "maps_link": null,
         "phones": [
-            "0591371282"
+            "0571191754"
         ],
         "desc_raw": "فلل حديثة بحدائق خاصة ومسبح لكل فيلا",
         "desc_suggested": "فلل حديثة بحدائق خاصة ومسبح لكل فيلا — مصقول.",
