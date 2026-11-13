@@ -160,7 +160,11 @@ void main() {
   });
 
   testWidgets('his decision on each text, then publishing', (tester) async {
-    final server = await asDeveloper(tester, '/account/projects/$project/review', (s) => s.on('GET', 'projects/$project/review', 200, recorded('project_review')));
+    final server = await asDeveloper(
+      tester,
+      '/account/projects/$project/review',
+      (s) => s.on('GET', 'projects/$project/review', 200, recorded('project_review')),
+    );
     final review = _one('project_review');
     final units = (review['units']! as List).cast<Map<String, Object?>>();
     expect(find.text((review['project']! as Map)['suggested']! as String), findsOneWidget);
