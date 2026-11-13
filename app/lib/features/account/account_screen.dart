@@ -295,8 +295,9 @@ class _CountsState extends State<_Counts> {
       final followers = await ServerPeople.people(followers: true);
       final following = await ServerPeople.people(followers: false);
       final favs = await ServerFavorites.list();
-      if (mounted && epoch == store.serverEpoch)
+      if (mounted && epoch == store.serverEpoch) {
         setState(() => _server = (followers: followers.length, following: following.length, favs: favs.length));
+      }
     } on ApiError {
       // shown as «—»: not a made-up zero
     }
