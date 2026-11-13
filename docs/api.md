@@ -244,7 +244,7 @@
 | `POST` | `/tasks` | 🔒 · رغبة | إضافة مهمة (أولوية، موعد تذكير) | `TaskController@store` |
 | `PUT|PATCH` | `/tasks/{task}` | 🔒 · رغبة | تعديل مهمة | `TaskController@update` |
 | `DELETE` | `/tasks/{task}` | 🔒 · رغبة | حذف مهمة | `TaskController@destroy` |
-| `POST` | `/tasks/{task}/done` | 🔒 · رغبة | إنجاز مهمة | `TaskController@done` |
+| `POST` | `/tasks/{task}/done` | 🔒 · رغبة | إنجاز مهمة أو إعادتها: `done` true · false، فتكرار الطلب لا يعكسها؛ بدونه تتبدّل | `TaskController@done` |
 
 ### ١١. الباقات والدفع والفواتير
 

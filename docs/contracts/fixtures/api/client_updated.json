@@ -1,0 +1,25 @@
+{
+    "success": true,
+    "data": {
+        "id": 1,
+        "name": "سلمان",
+        "phone": "0557776665",
+        "status": "closed",
+        "purpose": null,
+        "city": "الرياض",
+        "neighborhoods": [
+            "النرجس"
+        ],
+        "property_types": [
+            "villa"
+        ],
+        "budget_min": null,
+        "budget_max": 1500000,
+        "area_min": null,
+        "rooms_min": null,
+        "description": null,
+        "from_request_id": null,
+        "notes_count": null,
+        "updated_at": "2026-11-13T10:06:41+00:00"
+    }
+}

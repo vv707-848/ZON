@@ -1,0 +1,13 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": 1,
+            "username": "fmson2821",
+            "name": "مكتب الإتقان",
+            "role": "broker",
+            "fal_verified": true,
+            "fal_number": "1193591901"
+        }
+    ]
+}

@@ -1,0 +1,25 @@
+{
+    "success": true,
+    "data": {
+        "id": 1,
+        "number": "ZON-2026-000001",
+        "issued_at": "2026-11-13T10:09:49+00:00",
+        "subtotal": "100.00",
+        "vat": "0.00",
+        "total": "100.00",
+        "lines": [
+            {
+                "vat": 0,
+                "total": 10000,
+                "quantity": 1,
+                "subtotal": 10000,
+                "description": "تمييز «مميز»"
+            }
+        ],
+        "qr": null,
+        "seller": {
+            "name": "منصة زون العقارية",
+            "vat_number": null
+        }
+    }
+}

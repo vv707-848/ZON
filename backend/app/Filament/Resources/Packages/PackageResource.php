@@ -65,7 +65,7 @@ class PackageResource extends Resource
         return $schema->components([
             Section::make('الباقة')->columns(3)->schema([
                 TextInput::make('name')->label('الاسم')->required()->maxLength(80),
-                TextInput::make('price_halalas')->label('السعر (ريال، شامل)')->numeric()->minValue(0)->required()
+                TextInput::make('price_halalas')->label('السعر (ريال، شامل)')->numeric()->minValue(0)->rule('decimal:0,2')->required()
                     ->formatStateUsing(fn ($state) => $state === null ? null : (new Money((int) $state))->riyals())
                     ->dehydrateStateUsing(fn ($state) => Money::sar((string) $state)->halalas),
                 Toggle::make('is_active')->label('معروضة'),

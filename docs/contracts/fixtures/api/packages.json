@@ -1,0 +1,139 @@
+{
+    "success": true,
+    "data": {
+        "plans": [
+            {
+                "code": "broker-month",
+                "audience": "broker",
+                "name": "الوسيط — شهري",
+                "period": "month",
+                "price": "280.00",
+                "purchasable": true,
+                "features": [
+                    "تمييز واحد في الشهر",
+                    "طلبات المنطقة كاملة مع إضافتها للعملاء",
+                    "البحث الذكي في الطلبات",
+                    "بلا مشاركة في السعي"
+                ],
+                "quotas": {
+                    "featured": 1,
+                    "urgent_listing": 0,
+                    "urgent_request": 0
+                }
+            },
+            {
+                "code": "broker-year",
+                "audience": "broker",
+                "name": "الوسيط — سنوي",
+                "period": "year",
+                "price": "2300.00",
+                "purchasable": true,
+                "features": [
+                    "15 تمييزاً و10 «عاجل» للعروض",
+                    "5 طلبات عاجلة",
+                    "توفير 1060 ريالاً عن الشهري",
+                    "بلا مشاركة في السعي"
+                ],
+                "quotas": {
+                    "featured": 15,
+                    "urgent_listing": 10,
+                    "urgent_request": 5
+                }
+            },
+            {
+                "code": "seeker",
+                "audience": "seeker",
+                "name": "الباحث — شهري",
+                "period": "month",
+                "price": "199.00",
+                "purchasable": true,
+                "features": [
+                    "مساعد المطابقة يومياً",
+                    "حتى 5 رغبات",
+                    "البحث الدلالي"
+                ],
+                "quotas": {
+                    "featured": 0,
+                    "urgent_listing": 0,
+                    "urgent_request": 0
+                }
+            },
+            {
+                "code": "owner",
+                "audience": "owner",
+                "name": "المالك",
+                "period": "none",
+                "price": "0.00",
+                "purchasable": false,
+                "features": [
+                    "عقد وساطة عبر الهيئة وموافقة نفاذ",
+                    "رسوم الترخيص الإعلاني 50 ريالاً",
+                    "سعي 0.5٪ من سعر البيع بعد البيع فقط"
+                ],
+                "quotas": {
+                    "featured": 0,
+                    "urgent_listing": 0,
+                    "urgent_request": 0
+                }
+            },
+            {
+                "code": "developer",
+                "audience": "developer",
+                "name": "المطوّر — بعقد تسويق",
+                "period": "none",
+                "price": "0.00",
+                "purchasable": false,
+                "features": [],
+                "quotas": {
+                    "featured": 0,
+                    "urgent_listing": 0,
+                    "urgent_request": 0
+                }
+            },
+            {
+                "code": "free-seeker",
+                "audience": "seeker",
+                "name": "الباحث — مجاني",
+                "period": "none",
+                "price": "0.00",
+                "purchasable": false,
+                "features": [],
+                "quotas": {
+                    "featured": 0,
+                    "urgent_listing": 0,
+                    "urgent_request": 0
+                }
+            },
+            {
+                "code": "free-broker",
+                "audience": "broker",
+                "name": "الوسيط — بلا اشتراك",
+                "period": "none",
+                "price": "0.00",
+                "purchasable": false,
+                "features": [
+                    "النشر متاح، وتشارك زون 10٪ من السعي عند إتمام الصفقة",
+                    "طلبات المنطقة بلا بيانات صاحب الطلب"
+                ],
+                "quotas": {
+                    "featured": 0,
+                    "urgent_listing": 0,
+                    "urgent_request": 0
+                }
+            }
+        ],
+        "one_off": {
+            "featured": "100.00",
+            "urgent_listing": "100.00",
+            "urgent_request": "50.00",
+            "ad_licence": "50.00",
+            "boost_days": 7
+        },
+        "owner_commission_percent": "0.5",
+        "broker_free_share_percent": "10",
+        "vat": {
+            "registered": false,
+            "rate": "0.15"
+        }
+    }
+}

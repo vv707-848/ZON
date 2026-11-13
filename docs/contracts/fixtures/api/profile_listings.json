@@ -1,0 +1,58 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": 1,
+            "status": "published",
+            "purpose": "sale",
+            "property_type": "apartment",
+            "title": "شقة منشورة",
+            "city": "الرياض",
+            "neighborhood": "النرجس",
+            "price": 880000,
+            "negotiable": false,
+            "area_land": null,
+            "area_built": 150,
+            "bedrooms": 3,
+            "bathrooms": 2,
+            "halls": 1,
+            "age": 4,
+            "floor_level": null,
+            "floor_number": null,
+            "floors": null,
+            "occupancy": null,
+            "land_use": null,
+            "annual_income": null,
+            "has_deed": true,
+            "bank_accepted": true,
+            "description": "شقة واسعة قريبة من الخدمات، مع موقف خاص.",
+            "features": [],
+            "featured": false,
+            "featured_until": null,
+            "urgent": false,
+            "urgent_until": null,
+            "cover_url": null,
+            "published_at": "2026-11-13T10:05:04+00:00",
+            "updated_at": "2026-11-13T10:05:04+00:00",
+            "views_count": 0,
+            "is_favorite": false,
+            "share_url": "https://zon.sa/listings/1",
+            "advertiser": {
+                "id": 1,
+                "username": "fmson2821",
+                "name": "مكتب الإتقان",
+                "role": "broker",
+                "fal_verified": true,
+                "fal_number": "1193591901"
+            }
+        }
+    ],
+    "meta": {
+        "page": {
+            "current": 1,
+            "per_page": 20,
+            "total": 1,
+            "last": 1
+        }
+    }
+}

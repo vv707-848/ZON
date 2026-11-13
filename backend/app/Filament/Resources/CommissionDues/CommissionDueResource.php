@@ -65,9 +65,10 @@ class CommissionDueResource extends Resource
         return $schema->columns(2)->components([
             Select::make('listing_id')->label('العرض المباع (وسيط بلا اشتراك)')->required()->searchable()
                 ->getSearchResultsUsing(fn (string $search) => Listing::query()->where('status', ListingStatus::Sold)
-                    ->whereHas('customer', fn ($q) => $q->where('role', CustomerRole::Broker))->where('title', 'like', "%{$search}%")->limit(20)->pluck('title', 'id')),
-            TextInput::make('sale_price')->label('سعر البيع (ريال)')->numeric()->minValue(1)->required(),
-            TextInput::make('brokerage_fee')->label('السعي الذي تقاضاه الوسيط (ريال)')->numeric()->minValue(1)->required()->dehydrated(false),
+                    ->whereHas('customer', fn ($q) => $q->where('role', CustomerRole::Broker))->where('title', 'like', "%{$search}%")->limit(20)->pluck('title', 'id'))
+                ->getOptionLabelUsing(fn ($value) => Listing::query()->find($value)?->title),   // without it saving failed (Filament checks the choice)
+            TextInput::make('sale_price')->label('سعر البيع (ريال)')->numeric()->minValue(1)->rule('decimal:0,2')->required(),
+            TextInput::make('brokerage_fee')->label('السعي الذي تقاضاه الوسيط (ريال)')->numeric()->minValue(1)->rule('decimal:0,2')->required()->dehydrated(false),
             TextInput::make('percent')->label('حصة زون من السعي (٪)')->numeric()->minValue(0)->maxValue(100)->required()
                 ->default(fn () => Settings::string(Setting::BrokerFreeSharePercent)),
             Textarea::make('notes')->label('ملاحظات')->columnSpanFull(),

@@ -104,7 +104,7 @@ class ManageSettings extends Page
                 ? TextInput::make($name)->label($setting->label())->email()->maxLength(200)
                 : TextInput::make($name)->label($setting->label())->maxLength(200),
             'decimal' => TextInput::make($name)->label($setting->label())->numeric()->minValue(0)->required(),
-            'money' => TextInput::make($name)->label($setting->label())->numeric()->minValue(0)->required(),
+            'money' => TextInput::make($name)->label($setting->label())->numeric()->minValue(0)->rule('decimal:0,2')->required(),
             default => TextInput::make($name)->label($setting->label())->integer()->minValue($setting->minimum())->required(),
         };
     }

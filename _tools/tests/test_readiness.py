@@ -37,3 +37,10 @@ class AppCallsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RouteKeyTest(unittest.TestCase):
+    def test_a_route_bound_by_a_field_is_the_one_the_test_log_writes(self) -> None:
+        self.assertEqual(readiness.route_key("POST", "api/v1/customers/{customer:username}/follow"), "POST api/v1/customers/{customer}/follow")
+        self.assertEqual(readiness.route_key("GET|HEAD", "api/v1/listings/{listing}"), "GET|HEAD api/v1/listings/{listing}")
+
