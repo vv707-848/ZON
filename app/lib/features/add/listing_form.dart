@@ -14,6 +14,13 @@
 //
 // An owner's listing is published only after the contract is approved and
 // the licence issued; publishing it activates the owner plan (P04).
+//
+// With a server, a broker's listing is the server's (ServerMyListings):
+// * «تحقق» asks REGA for the licence (POST /listings/licence-check) — «تم التحقق» only when REGA says so;
+// * «متابعة» uploads the photos, then publishes the listing once however often it is sent (Idempotency-Key),
+//   and saves the owner's card (POST /property-owners) when he wrote one; the wording is then the server's AI's,
+//   reviewed on its own page (listing_review_screen.dart) — this phone's simulated wording is not shown.
+// An owner's listing, with its contract and its fee, comes with the plans' slice.
 
 import 'dart:async';
 
@@ -21,11 +28,16 @@ import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
+import 'package:zon/core/net/operation_key.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/billing/owner_cases.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_my_listings.dart';
+import 'package:zon/data/server/server_owners.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/add/add_helpers.dart';
 import 'package:zon/features/add/widgets/add_kit.dart';
@@ -120,6 +132,15 @@ class _ListingFormState extends State<ListingForm> {
   String aiText = '';
   bool aiReady = false;
 
+  /// With a server: a broker's listing goes to it (see the file comment).
+  bool get _server => Api.on && isBroker;
+  bool _busy = false;
+  final OperationKey _operation = OperationKey('lst');
+  final OperationKey _ownerOperation = OperationKey('own');
+
+  /// The photos already uploaded (this phone's reference → the server's id): a second try does not upload them again.
+  final Map<String, int> _uploaded = <String, int>{};
+
   SpecFlags get spec => specsForType(ptype);
   bool get rent => purpose == 'rent';
 
@@ -155,44 +176,7 @@ class _ListingFormState extends State<ListingForm> {
       lic = oc.licenceNumber!;
     }
     final id = 'u-${DateTime.now().millisecondsSinceEpoch}';
-    final s = spec;
-    final land = s.land ? optionalNum(landArea) : null;
-    final built = s.built ? optionalNum(builtArea) : null;
-    store.saveListing(
-      Listing(
-        id: id,
-        kind: 'unit',
-        title: title.isNotEmpty ? title : 'عرض جديد',
-        purpose: purpose,
-        city: c,
-        neighborhood: hood,
-        propertyType: ptype,
-        source: role,
-        price: numOr0(price),
-        rooms: s.rooms && rooms.isNotEmpty ? numOr0(rooms) : null,
-        baths: s.rooms && baths.isNotEmpty ? numOr0(baths) : null,
-        halls: s.rooms && halls.isNotEmpty ? numOr0(halls) : null,
-        area: built ?? land ?? 0,
-        landArea: s.land ? land : null,
-        builtArea: s.built ? built : null,
-        images: photos.isNotEmpty ? photos : <String>[typeImage(ptype)],
-        description: text,
-        advertiser: widget.name,
-        advertiserRole: role,
-        license: lic,
-        floors: s.floors && floors.isNotEmpty ? numOr0(floors) : null,
-        annualIncome: s.income && income.isNotEmpty ? numOr0(income) : null,
-        negotiable: nego,
-        hasDeed: deed,
-        bankOk: !rent && deed ? bank : null,
-        occupancy: s.occupancy && rent ? occupancy : null,
-        floorLevel: s.floorLevel ? floorLevel : null,
-        floorNumber: s.floorLevel && floorLevel == 'number' ? (optionalNum(floorNumber) ?? 1) : null,
-        ageYears: s.age && age.isNotEmpty ? numOr0(age) : null,
-        landUse: s.landUse ? landUse : null,
-        mapsLink: mapsLink.trim().isNotEmpty ? mapsLink.trim() : null,
-      ),
-    );
+    store.saveListing(_draft(text, id: id));
     if (isBroker && (ownerName.trim().isNotEmpty || ownerPhone.trim().isNotEmpty)) {
       store.saveOwner(
         Owner(
@@ -207,6 +191,46 @@ class _ListingFormState extends State<ListingForm> {
     }
     if (oc != null) ownerCases.markPublished(oc.id, id);
     unawaited(Nav.go(context, '/listings/$id'));
+  }
+
+  /// The listing of this form, with [text] as its description.
+  Listing _draft(String text, {String id = ''}) {
+    final s = spec;
+    final land = s.land ? optionalNum(landArea) : null;
+    final built = s.built ? optionalNum(builtArea) : null;
+    return Listing(
+      id: id,
+      kind: 'unit',
+      title: title.isNotEmpty ? title : 'عرض جديد',
+      purpose: purpose,
+      city: c,
+      neighborhood: hood,
+      propertyType: ptype,
+      source: role,
+      price: numOr0(price),
+      rooms: s.rooms && rooms.isNotEmpty ? numOr0(rooms) : null,
+      baths: s.rooms && baths.isNotEmpty ? numOr0(baths) : null,
+      halls: s.rooms && halls.isNotEmpty ? numOr0(halls) : null,
+      area: built ?? land ?? 0,
+      landArea: s.land ? land : null,
+      builtArea: s.built ? built : null,
+      images: photos.isNotEmpty ? photos : <String>[typeImage(ptype)],
+      description: text,
+      advertiser: widget.name,
+      advertiserRole: role,
+      license: lic,
+      floors: s.floors && floors.isNotEmpty ? numOr0(floors) : null,
+      annualIncome: s.income && income.isNotEmpty ? numOr0(income) : null,
+      negotiable: nego,
+      hasDeed: deed,
+      bankOk: !rent && deed ? bank : null,
+      occupancy: s.occupancy && rent ? occupancy : null,
+      floorLevel: s.floorLevel ? floorLevel : null,
+      floorNumber: s.floorLevel && floorLevel == 'number' ? (optionalNum(floorNumber) ?? 1) : null,
+      ageYears: s.age && age.isNotEmpty ? numOr0(age) : null,
+      landUse: s.landUse ? landUse : null,
+      mapsLink: mapsLink.trim().isNotEmpty ? mapsLink.trim() : null,
+    );
   }
 
   /// The owner sent the deed and identity: the brokerage contract is
@@ -240,8 +264,91 @@ class _ListingFormState extends State<ListingForm> {
         (desc.trim().isEmpty ? 'اكتب وصف العرض' : null);
   }
 
+  /// «تحقق» with a server: REGA's answer, not the number's length.
+  Future<void> _checkLicence() async {
+    setState(() {
+      _busy = true;
+      error = '';
+    });
+    try {
+      await ServerMyListings.checkLicence(lic);
+      if (mounted) setState(() => ok = true);
+    } on ApiError catch (e) {
+      if (mounted) setState(() => error = e.forUser);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// The owner's card with a server needs his mobile (the server keeps one card per mobile).
+  void _ownerDone() {
+    final wrote = ownerName.trim().isNotEmpty || ownerPhone.trim().isNotEmpty || ownerNote.trim().isNotEmpty;
+    if (_server && wrote && normalizeSaudiMobile(ownerPhone) == null) {
+      setState(() => error = 'رقم جوال المالك غير صحيح — مثال: 05XXXXXXXX');
+      return;
+    }
+    go(_Step.form);
+  }
+
+  /// With a server: the photos, then the listing, then the owner's card; then its wording's review.
+  Future<void> _publishOnServer() async {
+    final problem = _formProblem();
+    if (problem != null) {
+      setState(() => error = problem);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      error = '';
+    });
+    final epoch = store.serverEpoch;
+    try {
+      final ids = await ServerMyListings.upload(photos, known: _uploaded);
+      final draft = _draft(desc);
+      final operation = _operation.forBody(<String, Object?>{...ServerMyListings.form(draft), 'media_ids': ids, 'licence': lic});
+      final made = await ServerMyListings.create(draft, mediaIds: ids, licence: lic, operation: operation);
+      _operation.done();
+      if (!mounted || epoch != store.serverEpoch) return;
+      store.keepServer(<Listing>[made], epoch: epoch, detailed: true);
+      final card = await _saveOwnerCard(made);
+      if (!mounted) return;
+      if (card != null) await showAppNotice(context, icon: Lu.circleAlert, title: 'نُشر العرض، ولم تُحفظ بطاقة المالك', message: card);
+      if (mounted) unawaited(Nav.replace(context, '/account/listings/${made.id}/review'));
+    } on ApiError catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          error = e.forUser;
+        });
+      }
+    }
+  }
+
+  /// The owner's card of [listing], when he wrote one; why it was not saved, or null.
+  Future<String?> _saveOwnerCard(Listing listing) async {
+    final phone = normalizeSaudiMobile(ownerPhone);
+    if (phone == null) return null;
+    final card = <String, Object?>{
+      'name': ownerName.trim().isNotEmpty ? ownerName.trim() : 'مالك',
+      'phone': phone,
+      'listing_id': int.tryParse(listing.id.substring(1)),
+      'listing_title': listing.title,
+    };
+    try {
+      await ServerOwners.create(card, note: ownerNote.trim(), operation: _ownerOperation.forBody(card));
+      _ownerOperation.done();
+      return null;
+    } on ApiError catch (e) {
+      return e.forUser;
+    }
+  }
+
   /// Validates the details and moves to the AI review.
   void submitForm() {
+    if (_server) {
+      unawaited(_publishOnServer());
+      return;
+    }
     final problem = _formProblem();
     if (problem != null) {
       setState(() => error = problem);
@@ -283,7 +390,7 @@ class _ListingFormState extends State<ListingForm> {
               ok = false;
             }),
             ok: ok,
-            onVerify: () => setState(() => ok = lic.length >= 4),
+            onVerify: _server ? (_busy ? () {} : () => unawaited(_checkLicence())) : () => setState(() => ok = lic.length >= 4),
             qrBackground: AppColors.paper,
           )
         else
@@ -293,6 +400,7 @@ class _ListingFormState extends State<ListingForm> {
             child: Tx('زون تصدر الترخيص بعد إثبات الملكية.', style: ts(14, w: 500, lh: 21, c: AppColors.deep)),
           ),
         const SizedBox(height: 14),
+        if (isBroker && error.isNotEmpty) ...<Widget>[FormError(error), const SizedBox(height: 10)],
         if (isBroker)
           AppButton(label: 'متابعة', size: ButtonSize.large, onTap: ok ? () => go(_Step.owner) : null)
         else
@@ -573,7 +681,8 @@ class _ListingFormState extends State<ListingForm> {
             ),
           ),
           const SizedBox(height: 20),
-          AppButton(label: 'حفظ والمتابعة', size: ButtonSize.large, onTap: () => go(_Step.form)),
+          if (error.isNotEmpty) ...<Widget>[FormError(error), const SizedBox(height: 10)],
+          AppButton(label: 'حفظ والمتابعة', size: ButtonSize.large, onTap: _ownerDone),
           const SizedBox(height: 10),
           AppButton(label: 'تخطي', tone: ButtonTone.ghost, size: ButtonSize.large, onTap: () => go(_Step.form)),
         ],
@@ -792,20 +901,22 @@ class _ListingFormState extends State<ListingForm> {
         ),
         span: true,
       ),
-      GCell(
-        AppButton(
-          label: aiReady ? 'تم تنسيق الوصف بالذكاء' : 'تنسيق الوصف بالـ AI',
-          tone: ButtonTone.tonal,
-          icon: Lu.sparkles,
-          onTap: desc.trim().isEmpty
-              ? null
-              : () => setState(() {
-                  aiText = polishCopy(desc);
-                  aiReady = true;
-                }),
+      // the wording of this phone is a simulation: with a server it is its AI's, after «متابعة»
+      if (!_server)
+        GCell(
+          AppButton(
+            label: aiReady ? 'تم تنسيق الوصف بالذكاء' : 'تنسيق الوصف بالـ AI',
+            tone: ButtonTone.tonal,
+            icon: Lu.sparkles,
+            onTap: desc.trim().isEmpty
+                ? null
+                : () => setState(() {
+                    aiText = polishCopy(desc);
+                    aiReady = true;
+                  }),
+          ),
+          span: true,
         ),
-        span: true,
-      ),
     ];
     return ColoredBox(
       color: kSheetProj,
@@ -825,8 +936,8 @@ class _ListingFormState extends State<ListingForm> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 if (error.isNotEmpty) ...<Widget>[FormError(error), const SizedBox(height: 10)],
-                AppButton(label: 'متابعة', size: ButtonSize.large, onTap: submitForm),
-                if (aiReady) ...<Widget>[
+                AppButton(label: _busy ? 'جارٍ النشر…' : 'متابعة', size: ButtonSize.large, onTap: _busy ? null : submitForm),
+                if (aiReady && !_server) ...<Widget>[
                   const SizedBox(height: 10),
                   AppButton(label: 'نشر العرض', tone: ButtonTone.secondary, size: ButtonSize.large, onTap: () => publish(desc)),
                 ],

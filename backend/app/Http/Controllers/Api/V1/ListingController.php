@@ -8,6 +8,7 @@ use App\Actions\Listings\CreateListing;
 use App\Actions\Listings\DecideListingText;
 use App\Actions\Listings\MarkListingSold;
 use App\Actions\Listings\UpdateListing;
+use App\Actions\Listings\VerifyAdLicence;
 use App\Enums\BoostKind;
 use App\Enums\ErrorCode;
 use App\Enums\LicenceSource;
@@ -19,7 +20,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Listings\ListingRequest;
 use App\Http\Resources\ListingResource;
 use App\Indexing\IndexSync;
-use App\Integrations\Rega\RegaGateway;
 use App\Models\AdLicense;
 use App\Models\Customer;
 use App\Models\Favorite;
@@ -199,11 +199,23 @@ class ListingController extends Controller
     }
 
     /**
+     * «تحقق»: a broker's licence asked of REGA before he fills his listing, so the app says «تم التحقق» only when
+     * it is. Nothing is saved; the listing is checked again when it is.
+     */
+    public function checkLicence(Request $request, VerifyAdLicence $verify): JsonResponse
+    {
+        $number = (string) $request->validate(['licence_number' => ['required', 'regex:/^\d{6,12}$/']])['licence_number'];
+        $check = $verify($number);
+
+        return Api::ok(['licence_number' => $number, 'expires_at' => $check->expiry()->toDateString(), 'qr_url' => $check->qrUrl]);
+    }
+
+    /**
      * «تحديث الرخصة»: the advertiser renewed at REGA (the same number or a new one). REGA is asked again, the
      * listing gets the licence as a new row (the old one stays on record), and a listing that left because its
      * licence ended comes back.
      */
-    public function renewLicence(Request $request, Listing $listing, RegaGateway $rega, ChangeListingStatus $status): JsonResponse
+    public function renewLicence(Request $request, Listing $listing, VerifyAdLicence $verify, ChangeListingStatus $status): JsonResponse
     {
         $this->own($request, $listing);
         if (in_array($listing->status, [ListingStatus::Sold, ListingStatus::Hidden, ListingStatus::Rejected], true)) {
@@ -211,12 +223,7 @@ class ListingController extends Controller
         }
         $number = (string) ($request->validate(['licence_number' => ['nullable', 'regex:/^\d{6,12}$/']])['licence_number']
             ?? $listing->licence?->licence_number);
-        $check = $rega->verifyAdLicence($number);
-        if (! $check->valid || $check->expiry()->toDateString() < AdLicense::today()) {
-            throw ApiException::of(ErrorCode::ValidationFailed, ['fields' => ['licence_number' => [
-                $check->valid ? 'الرخصة منتهية لدى الهيئة. جدّدها لديها أولاً.' : 'رقم الترخيص الإعلاني غير صالح لدى الهيئة.',
-            ]]]);
-        }
+        $check = $verify($number);
 
         DB::transaction(function () use ($request, $listing, $number, $check, $status) {
             AdLicense::query()->create([

@@ -1,0 +1,8 @@
+{
+    "success": true,
+    "data": {
+        "licence_number": "7200123456",
+        "expires_at": "2027-11-13",
+        "qr_url": "https://sim.zon.local/rega/ad/7200123456"
+    }
+}

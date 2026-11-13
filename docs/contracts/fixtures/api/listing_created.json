@@ -1,0 +1,86 @@
+{
+    "success": true,
+    "data": {
+        "id": 1,
+        "status": "indexing",
+        "purpose": "sale",
+        "property_type": "apartment",
+        "title": "شقة في النرجس",
+        "city": "الرياض",
+        "neighborhood": "النرجس",
+        "price": 880000,
+        "negotiable": true,
+        "area_land": null,
+        "area_built": 150,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "halls": 1,
+        "age": 4,
+        "floor_level": "ground",
+        "floor_number": null,
+        "floors": null,
+        "occupancy": null,
+        "land_use": null,
+        "annual_income": null,
+        "has_deed": true,
+        "bank_accepted": true,
+        "description": "شقة واسعة قريبة من الخدمات والمدارس",
+        "features": [],
+        "featured": false,
+        "featured_until": null,
+        "urgent": false,
+        "urgent_until": null,
+        "cover_url": "http://localhost/media/2/01M79AV5KZ6SZSR9QMQPRC9JF0-card.jpg?expiration=1794539554",
+        "published_at": null,
+        "updated_at": "2026-11-13T02:12:34+00:00",
+        "views_count": null,
+        "is_favorite": false,
+        "share_url": "https://zon.sa/listings/1",
+        "advertiser": {
+            "id": 2,
+            "username": "qprzw7493",
+            "name": "حليمة السهلي",
+            "role": "broker",
+            "fal_verified": true,
+            "fal_number": "1175741006"
+        },
+        "photos": [
+            {
+                "id": 1,
+                "url": "http://localhost/media/2/01M79AV5KZ6SZSR9QMQPRC9JF0.jpg?expiration=1794539554",
+                "large_url": "http://localhost/media/2/01M79AV5KZ6SZSR9QMQPRC9JF0-large.jpg?expiration=1794539554",
+                "card_url": "http://localhost/media/2/01M79AV5KZ6SZSR9QMQPRC9JF0-card.jpg?expiration=1794539554",
+                "is_cover": true,
+                "width": 640,
+                "height": 480
+            },
+            {
+                "id": 2,
+                "url": "http://localhost/media/2/01M79AV5MF9ZV0J404J8MBDAW9.jpg?expiration=1794539554",
+                "large_url": "http://localhost/media/2/01M79AV5MF9ZV0J404J8MBDAW9-large.jpg?expiration=1794539554",
+                "card_url": "http://localhost/media/2/01M79AV5MF9ZV0J404J8MBDAW9-card.jpg?expiration=1794539554",
+                "is_cover": false,
+                "width": 640,
+                "height": 480
+            }
+        ],
+        "lat": null,
+        "lng": null,
+        "maps_link": null,
+        "licence": {
+            "number": "7200123456",
+            "qr_url": "https://sim.zon.local/rega/ad/7200123456",
+            "expires_at": "2027-11-13",
+            "verified": true
+        },
+        "phones": [
+            "0579234087"
+        ],
+        "desc_raw": "شقة واسعة قريبة من الخدمات والمدارس",
+        "desc_suggested": null,
+        "text_review": "pending",
+        "text_reviewed_at": null,
+        "paused_until": null,
+        "created_at": "2026-11-13T02:12:34+00:00"
+    }
+}

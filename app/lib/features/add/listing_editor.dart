@@ -25,9 +25,13 @@ import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_listings.dart';
+import 'package:zon/data/server/server_my_listings.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/widgets/service_form.dart';
 import 'package:zon/features/add/add_helpers.dart';
@@ -161,7 +165,41 @@ class _ListingEditorState extends State<ListingEditor> {
     return null;
   }
 
+  bool _sending = false;
+
+  /// With a server: the edit is its (PATCH /listings/{id}); new photos are uploaded first, the ones already there
+  /// keep their ids. A changed description goes back to the wording, so its review opens.
+  Future<void> _saveOnServer(Map<String, Object?> changes) async {
+    final known = <String, int>{
+      for (var i = 0; i < listing.images.length && i < (listing.photoIds?.length ?? 0); i++) listing.images[i]: listing.photoIds![i],
+    };
+    setState(() {
+      _sending = true;
+      error = '';
+    });
+    final epoch = store.serverEpoch;
+    try {
+      final ids = await ServerMyListings.upload(photos, known: known);
+      final saved = await ServerMyListings.update(listing.id, listing.merged(changes), mediaIds: ids);
+      store.keepServer(<Listing>[saved], epoch: epoch, detailed: true);
+      if (!mounted || epoch != store.serverEpoch) return;
+      setState(() {
+        _sending = false;
+        _dirty = false;
+      });
+      unawaited(Nav.go(context, saved.status == 'indexing' ? '/account/listings/${listing.id}/review' : '/account/listings'));
+    } on ApiError catch (e) {
+      if (mounted) {
+        setState(() {
+          _sending = false;
+          error = e.forUser;
+        });
+      }
+    }
+  }
+
   void _save() {
+    if (_sending) return;
     if (!store.canEditListing(listing.id)) {
       setState(() => error = 'لا يمكنك تعديل هذا العرض.');
       return;
@@ -178,7 +216,7 @@ class _ListingEditorState extends State<ListingEditor> {
     Object num(TextEditingController c, bool on) => on ? (optionalNum(c.text) ?? kUndefined) : kUndefined;
     // the floor was not touched: the stored value is kept as it is (QA F06)
     final floorKept = floorLevel == _floorShown.level && _floorNumber.text.trim() == editableNumber(_floorShown.number);
-    store.patchListing(listing.id, <String, Object?>{
+    final changes = <String, Object?>{
       'title': _title.text.trim(),
       'purpose': purpose,
       'city': city,
@@ -215,7 +253,12 @@ class _ListingEditorState extends State<ListingEditor> {
       'mapsLink': _maps.text.trim().isNotEmpty ? _maps.text.trim() : kUndefined,
       'description': _desc.text.trim(),
       // no 'active' here: saving never re-publishes a paused listing (QA F07)
-    });
+    };
+    if (Api.on && ServerListings.isServer(listing.id)) {
+      unawaited(_saveOnServer(changes));
+      return;
+    }
+    store.patchListing(listing.id, changes);
     setState(() => _dirty = false);
     Nav.go(context, '/account/listings');
   }
@@ -375,7 +418,7 @@ class _ListingEditorState extends State<ListingEditor> {
         ),
       ),
       if (error.isNotEmpty) FormError(error),
-      AppButton(label: 'حفظ وتحديث العرض', onTap: _save),
+      AppButton(label: _sending ? 'جارٍ الحفظ…' : 'حفظ وتحديث العرض', onTap: _sending ? null : _save),
       AppButton(label: 'إلغاء', tone: ButtonTone.ghost, onTap: _leave),
     ];
     return PopScope(

@@ -1,0 +1,64 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": 1,
+            "status": "pending_review",
+            "purpose": "sale",
+            "property_type": "apartment",
+            "title": "شقة في النرجس",
+            "city": "الرياض",
+            "neighborhood": "النرجس",
+            "price": 880000,
+            "negotiable": true,
+            "area_land": null,
+            "area_built": 150,
+            "bedrooms": 3,
+            "bathrooms": 2,
+            "halls": 1,
+            "age": 4,
+            "floor_level": "ground",
+            "floor_number": null,
+            "floors": null,
+            "occupancy": null,
+            "land_use": null,
+            "annual_income": null,
+            "has_deed": true,
+            "bank_accepted": true,
+            "description": "شقة واسعة قريبة من الخدمات والمدارس",
+            "features": [],
+            "featured": false,
+            "featured_until": null,
+            "urgent": false,
+            "urgent_until": null,
+            "cover_url": "http://localhost/media/2/01M79AV5KZ6SZSR9QMQPRC9JF0-card.jpg?expiration=1794539554",
+            "published_at": null,
+            "updated_at": "2026-11-13T02:12:34+00:00",
+            "views_count": 0,
+            "is_favorite": false,
+            "share_url": "https://zon.sa/listings/1",
+            "advertiser": {
+                "id": 2,
+                "username": "qprzw7493",
+                "name": "حليمة السهلي",
+                "role": "broker",
+                "fal_verified": true,
+                "fal_number": "1175741006"
+            },
+            "desc_raw": "شقة واسعة قريبة من الخدمات والمدارس",
+            "desc_suggested": "شقة واسعة قريبة من الخدمات والمدارس، في دور أرضي.",
+            "text_review": "ready",
+            "text_reviewed_at": null,
+            "paused_until": null,
+            "created_at": "2026-11-13T02:12:34+00:00"
+        }
+    ],
+    "meta": {
+        "page": {
+            "current": 1,
+            "per_page": 20,
+            "total": 1,
+            "last": 1
+        }
+    }
+}

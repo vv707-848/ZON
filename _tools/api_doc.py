@@ -94,6 +94,7 @@ DESCRIPTIONS = {
     # ── listings ──
     "GET listings/mine": ("listings", "عروضي بكل حالاتها"),
     "POST listings": ("listings", "إضافة عرض: البوابات (فال/نفاذ/الحد/الترخيص أو ملف المالك) ← الصياغة في طابور `ai` ← `pending_review` أو النشر"),
+    "POST listings/licence-check": ("listings", "«تحقق»: رقم الترخيص الإعلاني يُسأل عنه لدى الهيئة قبل تعبئة العرض — صالح وغير منتهٍ وتاريخ انتهائه، أو رسالة الحقل. لا يُحفظ شيء، ويُفحص ثانيةً عند النشر"),
     "PATCH listings/{listing}": ("listings", "تعديل عرضي؛ تغيير النص يعيده إلى مراجعة الصياغة"),
     "DELETE listings/{listing}": ("listings", "حذف عرضي (عدا المباع) وإخراجه من الفهرس"),
     "GET listings/{listing}/review": ("listings", "الصياغة المقترحة مقابل النص الأصلي"),

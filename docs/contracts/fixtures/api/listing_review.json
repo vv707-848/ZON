@@ -1,0 +1,10 @@
+{
+    "success": true,
+    "data": {
+        "status": "pending_review",
+        "text_review": "ready",
+        "raw": "شقة واسعة قريبة من الخدمات والمدارس",
+        "suggested": "شقة واسعة قريبة من الخدمات والمدارس، في دور أرضي.",
+        "auto_publish_at": "2026-11-16T02:12:34+00:00"
+    }
+}

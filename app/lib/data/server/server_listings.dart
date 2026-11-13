@@ -10,6 +10,7 @@
 // empty, never filled in: a project's sold units, a listing without a photo (no stock photo in its place).
 
 import 'package:zon/core/net/api.dart';
+import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/models/models.dart';
 import 'package:zon/data/server/server_pages.dart';
 
@@ -100,6 +101,7 @@ abstract final class ServerListings {
     final advertiser = _map(j['advertiser']);
     final licence = _map(j['licence']);
     final role = _str(advertiser['role']) ?? 'broker';
+    final status = _str(j['status']);
     return Listing(
       id: listingId(j['id'] ?? ''),
       kind: 'unit',
@@ -138,6 +140,12 @@ abstract final class ServerListings {
       isPremium: j['featured'] == true,
       premiumUntil: j['featured'] == true ? _str(j['featured_until']) : null,
       urgentUntil: j['urgent'] == true ? _str(j['urgent_until']) : null,
+      // whose it is (his own: «عروضي», the editor), and where it is in its life
+      ownerId: advertiser['id'] == null ? null : '${ServerSession.idPrefix}${advertiser['id']}',
+      status: status,
+      active: status == null ? null : status == 'published',
+      sold: status == 'sold' ? 1 : null,
+      photoIds: _photoIds(j),
     );
   }
 
@@ -219,6 +227,17 @@ abstract final class ServerListings {
     }
     final cover = _str(j['cover_url']);
     return cover == null ? const <String>[] : <String>[cover];
+  }
+
+  /// The server's id of each photo of a detail, in [_photos]' order; null for a card (it carries its cover only).
+  static List<int>? _photoIds(Map<String, Object?> j) {
+    final photos = j['photos'];
+    if (photos is! List) return null;
+    final ids = <int>[
+      for (final p in photos)
+        if (p is Map && (_str(p['large_url']) ?? _str(p['url'])) != null && p['id'] is int) p['id']! as int,
+    ];
+    return ids.length == _photos(j).length ? ids : null; // one photo without its id: none can be matched
   }
 
   static Map<String, Object?> _map(Object? v) => v is Map ? v.cast<String, Object?>() : const <String, Object?>{};
