@@ -52,6 +52,7 @@ Future<void> _enter(WidgetTester tester, Finder f, String text) async {
 void main() {
   final project = _one('project_created')['id']! as int;
   final unit = _one('project_unit_created')['id']! as int;
+  final developer = (_one('project_mine_detail')['developer']! as Map)['id']! as int; // his account: the projects are his
 
   Future<FakeServer> asDeveloper(WidgetTester tester, String path, [void Function(FakeServer)? before]) async {
     await freshDevice();
@@ -59,7 +60,7 @@ void main() {
     before?.call(server);
     await serverSignIn(
       server,
-      account: me(id: 41, role: 'developer', name: 'سنابل العسكر'),
+      account: me(id: developer, role: 'developer', name: 'سنابل العسكر'),
     );
     await pumpApp(tester, path);
     await _settle(tester);
@@ -198,7 +199,7 @@ void main() {
     server.on('GET', 'projects/mine', 200, recorded('projects_mine'));
     await serverSignIn(
       server,
-      account: me(id: 41, role: 'developer', name: 'سنابل العسكر'),
+      account: me(id: developer, role: 'developer', name: 'سنابل العسكر'),
     );
     await pumpApp(tester, '/account/listings');
     await _settle(tester);
