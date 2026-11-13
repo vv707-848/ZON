@@ -15,7 +15,6 @@ import 'package:flutter/material.dart';
 import 'package:zon/app/router.dart';
 import 'package:zon/core/layout/app_shell.dart';
 import 'package:zon/core/net/api_error.dart';
-import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/utils/dates.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/models/models.dart';
@@ -63,7 +62,7 @@ class _ListingReviewScreenState extends State<ListingReviewScreen> {
     for (var i = 0; i < ListingReviewScreen.tries; i++) {
       try {
         final review = await ServerMyListings.review(widget.id);
-        if (!_current) return;
+        if (!mounted || !_current) return;
         if (!review.preparing) {
           if (!review.waiting) {
             // published as he wrote it (or decided already): the listing itself
@@ -95,7 +94,7 @@ class _ListingReviewScreenState extends State<ListingReviewScreen> {
       final epoch = store.serverEpoch;
       final listing = await ServerMyListings.decide(widget.id, decision, text: decision == WordingDecision.edit ? _text.trim() : null);
       store.keepServer(<Listing>[listing], epoch: epoch, detailed: true);
-      if (_current) unawaited(Nav.replace(context, '/listings/${widget.id}'));
+      if (mounted && _current) unawaited(Nav.replace(context, '/listings/${widget.id}'));
     } on ApiError catch (e) {
       if (_current) {
         setState(() {

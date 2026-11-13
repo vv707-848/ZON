@@ -12,7 +12,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/services/photo_store.dart';
-import 'package:zon/data/models/models.dart';
 import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/server/server_my_listings.dart';
 import 'package:zon/data/store.dart';
@@ -281,7 +280,7 @@ void main() {
       await _settle(tester);
       expect(find.text('مخفي — أوقفته أنت'), findsOneWidget);
 
-      await tapText(tester, 'مباع');
+      await tapText(tester, 'مباع', last: true); // the listing's button, not the meter above
       await _settle(tester);
       expect(find.text('تأكيد البيع'), findsOneWidget);
       await tapText(tester, 'تم البيع', last: true);
