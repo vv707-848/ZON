@@ -5,7 +5,11 @@
 // With a server, a broker's or an owner's listings are its (GET /listings/mine, ServerMyListings): every state,
 // «نشط» being the published ones; hiding is a pause, «مباع» is final (asked first), «تمييز» and «عاجل» come from
 // the plan's balance (without it, the price — paying in the app comes with the plans). A listing whose wording
-// waits for him opens its review. A developer's projects come with their own slice.
+// waits for him opens its review.
+//
+// A developer's projects with a server are its too (GET /projects/mine, ServerMyProjects): a draft opens its
+// wording review, which publishes; hiding is a pause, showing asks publishing again. Editing a project, and
+// «تمييز» · «عاجل» for one, are not on the server yet: their buttons are off rather than local.
 
 import 'dart:async';
 
@@ -21,7 +25,9 @@ import 'package:zon/core/utils/clock.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/models/models.dart';
+import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/server/server_my_listings.dart';
+import 'package:zon/data/server/server_my_projects.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/widgets/desk.dart';
 import 'package:zon/shared/widgets/billing_flow.dart';
@@ -54,7 +60,8 @@ class _MyListingsViewState extends State<MyListingsView> {
   /// With a server: the ids of «عروضي» as it sent them (null until they come), for the account that asked.
   List<String>? _ids;
   String? _loadError;
-  bool get _server => Api.on && widget.role != 'developer';
+  bool get _server => Api.on;
+  bool get _projects => widget.role == 'developer';
 
   @override
   void initState() {
@@ -66,7 +73,7 @@ class _MyListingsViewState extends State<MyListingsView> {
     final epoch = store.serverEpoch;
     setState(() => _loadError = null);
     try {
-      final rows = await ServerMyListings.mine();
+      final rows = _projects ? await ServerMyProjects.mine() : await ServerMyListings.mine();
       if (!mounted || epoch != store.serverEpoch) return; // signed out, or another account, meanwhile
       store.keepServer(rows, epoch: epoch);
       setState(() => _ids = <String>[for (final l in rows) l.id]);
@@ -249,32 +256,43 @@ class _MyListingsViewState extends State<MyListingsView> {
     final featured = l.featuredAt(now);
     final urgentOn = l.urgentAt(now);
     final live = l.active != false;
+    final noProjectOnServer = _server && project; // not on the server yet: off, not local
     final buttons = <Widget>[
-      if (featured)
+      if (noProjectOnServer) ...<Widget>[_barBox('تمييز', icon: Lu.crown), _barBox('عاجل', icon: Lu.zap)] else if (featured)
         _barBox('مميّز', icon: Lu.crown, bg: const Color(0xFFF6E7B4), fg: const Color(0xFF6B5310), onTap: () => _boost(l, BoostKind.featured))
       else
         _barBox('تمييز', icon: Lu.crown, onTap: live ? () => _boost(l, BoostKind.featured) : null),
-      if (urgentOn)
-        _barBox('عاجل', icon: Lu.zap, bg: kUrgentRed, fg: AppColors.white, onTap: () => _boost(l, BoostKind.urgentListing))
-      else
-        _barBox('عاجل', icon: Lu.zap, onTap: live ? () => _boost(l, BoostKind.urgentListing) : null),
-      _barBox('تعديل', onTap: () => Nav.go(context, '/account/listings/${Uri.encodeComponent(l.id)}')),
-      if (_server && l.soldFlag)
-        _barBox('مباع')
-      else if (_server)
-        _barBox('مباع', onTap: _resumable(l) || l.status == 'published' ? () => _sold(l) : null)
-      else if (!project)
-        _barBox(
-          l.soldFlag ? 'إعادة' : 'مباع',
-          onTap: () {
-            store.patchListing(l.id, <String, Object?>{'sold': l.soldFlag ? 0 : 1, 'active': l.soldFlag ? true : (l.active ?? kUndefined)});
-            bump();
-          },
-        ),
+      if (!noProjectOnServer)
+        if (urgentOn)
+          _barBox('عاجل', icon: Lu.zap, bg: kUrgentRed, fg: AppColors.white, onTap: () => _boost(l, BoostKind.urgentListing))
+        else
+          _barBox('عاجل', icon: Lu.zap, onTap: live ? () => _boost(l, BoostKind.urgentListing) : null),
+      _barBox('تعديل', onTap: noProjectOnServer ? null : () => Nav.go(context, '/account/listings/${Uri.encodeComponent(l.id)}')),
+      if (!noProjectOnServer)
+        if (_server && l.soldFlag)
+          _barBox('مباع')
+        else if (_server)
+          _barBox('مباع', onTap: _resumable(l) || l.status == 'published' ? () => _sold(l) : null)
+        else if (!project)
+          _barBox(
+            l.soldFlag ? 'إعادة' : 'مباع',
+            onTap: () {
+              store.patchListing(l.id, <String, Object?>{'sold': l.soldFlag ? 0 : 1, 'active': l.soldFlag ? true : (l.active ?? kUndefined)});
+              bump();
+            },
+          ),
       if (_server && l.status == 'published')
-        _barBox('إخفاء', onTap: () => _change(l, ServerMyListings.pause, 'لم يُخفَ العرض'))
+        _barBox(
+          'إخفاء',
+          onTap: () => _change(l, project ? ServerMyProjects.pause : ServerMyListings.pause, project ? 'لم يُخفَ المشروع' : 'لم يُخفَ العرض'),
+        )
       else if (_server)
-        _barBox(isBroker ? 'تنشيط' : 'إظهار', onTap: _resumable(l) ? () => _change(l, ServerMyListings.resume, 'لم يُنشَّط العرض') : null)
+        _barBox(
+          isBroker ? 'تنشيط' : 'إظهار',
+          onTap: _resumable(l)
+              ? () => _change(l, project ? ServerMyProjects.resume : ServerMyListings.resume, project ? 'لم يُظهَر المشروع' : 'لم يُنشَّط العرض')
+              : null,
+        )
       else if (l.active == false)
         _barBox(
           isBroker && !project ? 'تنشيط' : 'إظهار',
@@ -345,11 +363,12 @@ class _MyListingsViewState extends State<MyListingsView> {
     'hidden': 'مخفي من فريق زون',
     'rejected': 'مرفوض من فريق زون',
     'licence_expired': 'انتهى الترخيص الإعلاني',
+    'draft': 'مسودة — راجع الأوصاف وانشر',
   };
 
   /// Where a listing that is not published is, and the way back when there is one (the wording's review).
   Widget _statusLine(Listing l) {
-    final review = l.status == 'pending_review';
+    final review = l.status == 'pending_review' || (l.kind == 'project' && l.status == 'draft');
     final line = Container(
       key: ValueKey<String>('status-${l.id}'),
       color: review ? const Color(0xFFF6E7B4) : AppColors.mist,
@@ -363,7 +382,8 @@ class _MyListingsViewState extends State<MyListingsView> {
         ],
       ),
     );
-    return review ? Tap(onTap: () => Nav.go(context, '/account/listings/${l.id}/review'), child: line) : line;
+    final to = l.kind == 'project' ? '/account/projects/${ServerListings.rawId(l.id)}/review' : '/account/listings/${l.id}/review';
+    return review ? Tap(onTap: () => Nav.go(context, to), child: line) : line;
   }
 
   Widget _barBox(String label, {VoidCallback? onTap, String? icon, Color bg = AppColors.mist, Color fg = AppColors.forest}) {

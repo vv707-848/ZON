@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Listings\VerifyAdLicence;
 use App\Actions\Projects\DecideProjectTexts;
 use App\Actions\Projects\SaveUnit;
 use App\Actions\Projects\SellUnits;
@@ -14,7 +15,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Projects\UnitRequest;
 use App\Http\Resources\UnitResource;
 use App\Indexing\IndexSync;
-use App\Integrations\Rega\RegaGateway;
 use App\Models\AdLicense;
 use App\Models\Project;
 use App\Models\ProjectUnit;
@@ -78,14 +78,11 @@ class ProjectUnitController extends Controller
     }
 
     /** A ready project's licence per unit model, verified with REGA (L01) — also its renewal: the latest licence counts. */
-    public function licence(Request $request, Project $project, ProjectUnit $unit, RegaGateway $rega, IndexSync $index): JsonResponse
+    public function licence(Request $request, Project $project, ProjectUnit $unit, VerifyAdLicence $verify, IndexSync $index): JsonResponse
     {
         $this->own($request, $project, $unit);
         $number = (string) $request->validate(['licence_number' => ['required', 'regex:/^\d{6,12}$/']])['licence_number'];
-        $check = $rega->verifyAdLicence($number);
-        if (! $check->valid) {
-            throw ApiException::of(ErrorCode::ValidationFailed, ['fields' => ['licence_number' => ['رقم الترخيص الإعلاني غير صالح لدى الهيئة.']]]);
-        }
+        $check = $verify($number);   // unknown to REGA, or past its last day: refused, as a listing's
         AdLicense::query()->create([
             'project_unit_id' => $unit->id, 'customer_id' => $project->developer_id, 'licence_number' => $number, 'qr_url' => $check->qrUrl,
             'source' => LicenceSource::Entered, 'status' => LicenceStatus::Valid, 'verified_at' => now(), 'expires_at' => $check->expiry(),

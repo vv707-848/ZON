@@ -1,0 +1,30 @@
+{
+    "success": true,
+    "data": {
+        "id": 1,
+        "project_id": 1,
+        "model_name": "C1",
+        "property_type": "villa",
+        "area": null,
+        "area_land": null,
+        "area_built": 380,
+        "bedrooms": 5,
+        "bathrooms": 5,
+        "halls": 2,
+        "land_use": null,
+        "price": 1950000,
+        "available_count": 6,
+        "payment_method": null,
+        "description": "نموذج C1 بخمس غرف ومجلس مستقل — مصقول.",
+        "licence": {
+            "number": "7200123456",
+            "qr_url": "https://sim.zon.local/rega/ad/7200123456",
+            "expires_at": "2027-11-13",
+            "verified": true
+        },
+        "photos": [],
+        "desc_raw": "نموذج C1 بخمس غرف ومجلس مستقل",
+        "desc_suggested": "نموذج C1 بخمس غرف ومجلس مستقل — مصقول.",
+        "text_review": "approved"
+    }
+}

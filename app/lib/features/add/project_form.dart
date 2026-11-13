@@ -12,14 +12,27 @@
 // publishing — a number ≥ 0 (Arabic digits are read); an invalid or negative
 // price stops publishing with a message and is never turned into 0. An empty
 // price is still 0, as before (a zero price waits for a product decision).
+//
+// With a server (ServerMyProjects): each unit model carries its count; «تحقق» asks REGA (as a listing's
+// licence); «متابعة» sends the photos, the project and its models — each once however often tried — then each
+// ready model's licence, and opens the wording review (project_review_screen.dart), which publishes. A send
+// that stopped midway is completed by the next «متابعة», with what he changed meanwhile. The phone's simulated
+// wording is not offered with a server.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
+import 'package:zon/core/net/operation_key.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_my_listings.dart';
+import 'package:zon/data/server/server_my_projects.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/add/add_helpers.dart';
 import 'package:zon/features/add/widgets/add_kit.dart';
@@ -57,6 +70,29 @@ class _ProjectFormState extends State<ProjectForm> {
   final Map<String, String> priceText = <String, String>{};
 
   String _priceOf(UnitModel u) => priceText[u.id] ?? (u.price != 0 ? editableNumber(u.price) : '');
+
+  // ------------------------------------------------------------- with a server
+
+  bool get _server => Api.on;
+
+  /// Each model's count of units as typed, by unit id (one when untouched).
+  final Map<String, String> countText = <String, String>{};
+  int? _countOf(UnitModel u) {
+    final t = toAsciiDigits(countText[u.id] ?? '1').trim();
+    final n = int.tryParse(t);
+    return n == null || n < 0 || n > 5000 ? null : n;
+  }
+
+  /// What a send that stopped midway already did, so the next «متابعة» completes it: the project, each model's
+  /// id, the photos uploaded, the licences given.
+  int? _projectId;
+  final Map<String, int> _unitIds = <String, int>{};
+  final Map<String, int> _uploaded = <String, int>{};
+  final Map<String, String> _licensed = <String, String>{};
+  final OperationKey _projectOp = OperationKey('prj');
+  final Map<String, OperationKey> _unitOps = <String, OperationKey>{};
+  bool _sending = false;
+  String? _sendError;
 
   /// Errors are shown after the first publish attempt.
   /// Set by the first «متابعة»: from then on the problems are shown.
@@ -145,6 +181,7 @@ class _ProjectFormState extends State<ProjectForm> {
     return (title.trim().isEmpty ? 'اكتب عنوان المشروع' : null) ??
         (desc.trim().isEmpty ? 'اكتب وصف المشروع' : null) ??
         _priceProblem() ??
+        _countProblem() ??
         (missing.isNotEmpty ? 'أكمل رقم الترخيص الإعلاني وتحقق منه: ${missing.join('، ')}' : null);
   }
 
@@ -162,10 +199,24 @@ class _ProjectFormState extends State<ProjectForm> {
     return error == null ? null : '$error: ${names.join('، ')}';
   }
 
+  /// With a server, a count that is not a whole number from 0 to 5000 stops it (never read as 0).
+  String? _countProblem() {
+    if (!_server) return null;
+    final names = <String>[
+      for (var i = 0; i < units.length; i++)
+        if (_countOf(units[i]) == null) units[i].name.isNotEmpty ? units[i].name : 'وحدة ${i + 1}',
+    ];
+    return names.isEmpty ? null : 'عدد الوحدات رقم صحيح من 0 إلى 5000: ${names.join('، ')}';
+  }
+
   /// Validates the form and opens the AI review.
   void _submit() {
     if (_problem() != null) {
       setState(() => showErrors = true);
+      return;
+    }
+    if (_server) {
+      unawaited(_send());
       return;
     }
     setState(() {
@@ -178,6 +229,97 @@ class _ProjectFormState extends State<ProjectForm> {
       editKey = null;
       reviewing = true;
     });
+  }
+
+  /// «متابعة» with a server: the photos, the project, its models, the ready models' licences; then the review.
+  Future<void> _send() async {
+    final epoch = store.serverEpoch;
+    setState(() {
+      _sending = true;
+      _sendError = null;
+    });
+    try {
+      final photos = await ServerMyListings.upload(cover, known: _uploaded, epoch: epoch);
+      var total = 0;
+      for (final u in units) {
+        total += _countOf(u)!;
+      }
+      final body = ServerMyProjects.form(
+        title: title,
+        city: c,
+        neighborhood: hood,
+        propertyType: ptype,
+        delivery: ptype == 'land' ? 'ready' : (delivery == 'soon' ? 'offplan' : delivery),
+        landUse: ptype == 'land' ? landUse : null,
+        description: desc,
+        mapsLink: mapsLink,
+        totalUnits: total < 1 ? 1 : total,
+        mediaIds: photos,
+      );
+      final sent = _projectId;
+      final int project;
+      if (sent == null) {
+        project = _projectId = await ServerMyProjects.create(body, operation: _projectOp.forBody(body), epoch: epoch);
+        _projectOp.done();
+      } else {
+        project = sent;
+        await ServerMyProjects.update(project, body, epoch: epoch); // a send before stopped midway: his changes since
+      }
+
+      // the models he took out after they were sent
+      final kept = <String>{for (final u in units) u.id};
+      for (final gone in _unitIds.keys.where((k) => !kept.contains(k)).toList()) {
+        await ServerMyProjects.removeUnit(project, _unitIds[gone]!, epoch: epoch);
+        _unitIds.remove(gone);
+        _licensed.remove(gone);
+      }
+      for (final u in units) {
+        final type = u.propertyType ?? ptype;
+        final image = await ServerMyListings.upload(<String>[if (u.image.isNotEmpty) u.image], known: _uploaded, epoch: epoch);
+        final unitBody = ServerMyProjects.unitForm(u, type: type, price: parsePrice(_priceOf(u)).value, count: _countOf(u)!, mediaIds: image);
+        final known = _unitIds[u.id];
+        if (known == null) {
+          final op = _unitOps.putIfAbsent(u.id, () => OperationKey('unit'));
+          _unitIds[u.id] = await ServerMyProjects.addUnit(project, unitBody, operation: op.forBody(unitBody), epoch: epoch);
+          op.done();
+        } else {
+          await ServerMyProjects.updateUnit(project, known, unitBody, epoch: epoch);
+        }
+        final number = toAsciiDigits(u.license ?? '').trim();
+        if (ready && _licensed[u.id] != number) {
+          await ServerMyProjects.licence(project, _unitIds[u.id]!, number, epoch: epoch);
+          _licensed[u.id] = number;
+        }
+      }
+      if (!mounted || epoch != store.serverEpoch) return;
+      setState(() => _sending = false);
+      unawaited(Nav.go(context, '/account/projects/$project/review'));
+    } on ApiError catch (e) {
+      if (mounted && epoch == store.serverEpoch) {
+        setState(() {
+          _sending = false;
+          _sendError = e.forUser;
+        });
+      }
+    } on AccountChanged {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  /// «تحقق» with a server: the number asked of REGA (valid and current), as a listing's licence.
+  Future<void> _verifyOnServer(int i) async {
+    final u = units[i];
+    final number = toAsciiDigits(u.license ?? '').trim();
+    final epoch = store.serverEpoch;
+    setState(() => _sendError = null);
+    try {
+      await ServerMyListings.checkLicence(number);
+      if (!mounted || epoch != store.serverEpoch) return;
+      final at = units.indexWhere((x) => x.id == u.id);
+      if (at >= 0 && toAsciiDigits(units[at].license ?? '').trim() == number) patch(at, <String, Object?>{'licenseVerified': true});
+    } on ApiError catch (e) {
+      if (mounted && epoch == store.serverEpoch) setState(() => _sendError = '${u.name.isNotEmpty ? u.name : 'وحدة ${i + 1}'}: ${e.forUser}');
+    }
   }
 
   @override
@@ -378,15 +520,16 @@ class _ProjectFormState extends State<ProjectForm> {
         ),
         span: true,
       ),
-      GCell(
-        AppButton(
-          label: pAi.isNotEmpty ? 'تم تنسيق وصف المشروع' : 'تنسيق الوصف ب AI',
-          tone: ButtonTone.tonal,
-          icon: Lu.sparkles,
-          onTap: desc.trim().isEmpty ? null : () => setState(() => pAi = polishCopy(desc, CopyKind.project)),
+      if (!_server)
+        GCell(
+          AppButton(
+            label: pAi.isNotEmpty ? 'تم تنسيق وصف المشروع' : 'تنسيق الوصف ب AI',
+            tone: ButtonTone.tonal,
+            icon: Lu.sparkles,
+            onTap: desc.trim().isEmpty ? null : () => setState(() => pAi = polishCopy(desc, CopyKind.project)),
+          ),
+          span: true,
         ),
-        span: true,
-      ),
     ];
 
     final second = <GCell>[
@@ -422,7 +565,8 @@ class _ProjectFormState extends State<ProjectForm> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 if (showErrors ? _problem() : null case final String problem) ...<Widget>[FormError(problem), const SizedBox(height: 10)],
-                AppButton(label: 'متابعة', size: ButtonSize.large, onTap: _submit),
+                if (_sendError case final String failed) ...<Widget>[FormError(failed), const SizedBox(height: 10)],
+                AppButton(label: _sending ? 'جارٍ الإرسال…' : 'متابعة', size: ButtonSize.large, onTap: _sending ? null : _submit),
               ],
             ),
           ),
@@ -533,6 +677,20 @@ class _ProjectFormState extends State<ProjectForm> {
         ),
         span: true,
       ),
+      if (_server)
+        GCell(
+          ProjField(
+            icon: Lu.layers,
+            label: 'عدد الوحدات من هذا النموذج',
+            child: projInput(
+              value: countText[u.id] ?? '1',
+              dir: TextDirection.ltr,
+              keyboard: TextInputType.number,
+              onChanged: (v) => setState(() => countText[u.id] = v),
+            ),
+          ),
+          span: true,
+        ),
       if (n.rooms)
         GCell(
           equalRow(
@@ -561,21 +719,22 @@ class _ProjectFormState extends State<ProjectForm> {
         ),
         span: true,
       ),
-      GCell(
-        AppButton(
-          label: (i < uAi.length && uAi[i].isNotEmpty) ? 'تم تنسيق وصف الوحدة' : 'تنسيق وصف الوحدة ب AI',
-          tone: ButtonTone.tonal,
-          icon: Lu.sparkles,
-          onTap: u.description.trim().isEmpty
-              ? null
-              : () => setState(() {
-                  final next = <String>[for (var k = 0; k < units.length; k++) k < uAi.length ? uAi[k] : ''];
-                  next[i] = polishCopy(u.description, CopyKind.unit);
-                  uAi = next;
-                }),
+      if (!_server)
+        GCell(
+          AppButton(
+            label: (i < uAi.length && uAi[i].isNotEmpty) ? 'تم تنسيق وصف الوحدة' : 'تنسيق وصف الوحدة ب AI',
+            tone: ButtonTone.tonal,
+            icon: Lu.sparkles,
+            onTap: u.description.trim().isEmpty
+                ? null
+                : () => setState(() {
+                    final next = <String>[for (var k = 0; k < units.length; k++) k < uAi.length ? uAi[k] : ''];
+                    next[i] = polishCopy(u.description, CopyKind.unit);
+                    uAi = next;
+                  }),
+          ),
+          span: true,
         ),
-        span: true,
-      ),
       GCell(
         PhotoDrop(
           current: <String>[u.image],
@@ -592,7 +751,9 @@ class _ProjectFormState extends State<ProjectForm> {
             verified: u.licenseVerified == true,
             missing: showErrors,
             onChanged: (v) => patch(i, <String, Object?>{'license': v, 'licenseVerified': false}),
-            onVerify: () => patch(i, <String, Object?>{'licenseVerified': licenceFormatOk(u.license ?? '')}),
+            onVerify: _server
+                ? () => unawaited(_verifyOnServer(i))
+                : () => patch(i, <String, Object?>{'licenseVerified': licenceFormatOk(u.license ?? '')}),
           ),
           span: true,
         ),

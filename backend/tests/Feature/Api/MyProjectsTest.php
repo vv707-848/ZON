@@ -2,9 +2,13 @@
 
 namespace Tests\Feature\Api;
 
+use App\Integrations\Rega\FakeRegaGateway;
+use App\Integrations\Rega\LicenceCheck;
+use App\Integrations\Rega\RegaGateway;
 use App\Models\Customer;
 use App\Models\Project;
 use App\Models\ProjectUnit;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -142,5 +146,33 @@ class MyProjectsTest extends TestCase
         $this->deleteJson("/api/v1/projects/{$id}/units/{$unit}")->assertNotFound();
         $this->getJson('/api/v1/projects/mine')->assertOk()->assertJsonCount(0, 'data');
         $this->assertSame($developer->id, Project::query()->sole()->developer_id);
+    }
+
+    public function test_a_ready_projects_units_each_need_a_current_licence_from_rega(): void
+    {
+        $this->aiCleans();
+        $this->signIn(Customer::factory()->developer()->create());
+        $id = $this->postJson('/api/v1/projects', ['delivery' => 'ready'] + $this->project())->assertCreated()->json('data.id');
+        $unit = $this->postJson("/api/v1/projects/{$id}/units", $this->unit('C1'))->json('data.id');
+        $this->postJson("/api/v1/projects/{$id}/review", ['decision' => 'approve'])->assertOk();
+        $this->postJson("/api/v1/projects/{$id}/units/review", ['decisions' => [['unit_id' => $unit, 'decision' => 'approve']]])->assertOk();
+        $this->postJson("/api/v1/projects/{$id}/publish")->assertStatus(409)->assertJsonPath('error.code', 'LICENCE_REQUIRED')->assertJsonPath('error.details.units.0', $unit);
+
+        $this->postJson("/api/v1/projects/{$id}/units/{$unit}/licence", ['licence_number' => '7200120000'])->assertStatus(422);   // unknown to REGA
+        $this->app->instance(RegaGateway::class, new class extends FakeRegaGateway
+        {
+            public function verifyAdLicence(string $number): LicenceCheck
+            {
+                return new LicenceCheck(true, $number, CarbonImmutable::now('Asia/Riyadh')->subDay());
+            }
+        });
+        $this->postJson("/api/v1/projects/{$id}/units/{$unit}/licence", ['licence_number' => '7200123456'])->assertStatus(422)
+            ->assertJsonPath('error.details.fields.licence_number.0', 'الرخصة منتهية لدى الهيئة. جدّدها لديها أولاً.');
+        $this->app->forgetInstance(RegaGateway::class);
+        $this->app->bind(RegaGateway::class, FakeRegaGateway::class);
+
+        $this->apiContract('project_unit_licence', $this->postJson("/api/v1/projects/{$id}/units/{$unit}/licence", ['licence_number' => '7200123456'])->assertOk()
+            ->assertJsonPath('data.licence.number', '7200123456'));
+        $this->postJson("/api/v1/projects/{$id}/publish")->assertOk()->assertJsonPath('data.status', 'published');
     }
 }
