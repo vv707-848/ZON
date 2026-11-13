@@ -228,7 +228,11 @@ class _ServerUserProfileState extends State<ServerUserProfile> {
             if (p != null && _blocked) ...<Widget>[
               _Note('حظرت ${p.name}؛ لن تظهر لك عروضه ولا رسائله.'),
               const SizedBox(height: 12),
-              AppButton(label: _busy == 'unblock' ? 'جارٍ التراجع…' : 'تراجع عن الحظر', tone: ButtonTone.tonal, onTap: _busy == null ? () => unawaited(_unblock(p)) : null),
+              AppButton(
+                label: _busy == 'unblock' ? 'جارٍ التراجع…' : 'تراجع عن الحظر',
+                tone: ButtonTone.tonal,
+                onTap: _busy == null ? () => unawaited(_unblock(p)) : null,
+              ),
               if (_error case final String e) ...<Widget>[const SizedBox(height: 10), FormError(e)],
             ] else if (p != null)
               ..._content(p),
@@ -248,7 +252,11 @@ class _ServerUserProfileState extends State<ServerUserProfile> {
     return <Widget>[
       BarqCard(name: p.name, verified: p.falVerified),
       const SizedBox(height: 10),
-      Tx(facts, style: ts(14, w: 600, lh: 21, c: AppColors.sage), align: TextAlign.center),
+      Tx(
+        facts,
+        style: ts(14, w: 600, lh: 21, c: AppColors.sage),
+        align: TextAlign.center,
+      ),
       if (p.falVerified || p.nafathVerified) ...<Widget>[
         const SizedBox(height: 8),
         Wrap(
@@ -264,12 +272,19 @@ class _ServerUserProfileState extends State<ServerUserProfile> {
       const SizedBox(height: 14),
       Row(
         children: <Widget>[
-          Expanded(child: MeStat(n: loc(p.followers), label: 'المتابِعون')),
-          const SizedBox(width: 8),
-          Expanded(child: MeStat(n: loc(p.listings), label: 'العروض')),
+          Expanded(
+            child: MeStat(n: loc(p.followers), label: 'المتابِعون'),
+          ),
           const SizedBox(width: 8),
           Expanded(
-            child: MeStat(n: p.ratingCount == 0 ? '—' : p.ratingAverage.toStringAsFixed(1), label: p.ratingCount == 0 ? 'لا تقييمات' : 'من ${loc(p.ratingCount)} تقييم'),
+            child: MeStat(n: loc(p.listings), label: 'العروض'),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: MeStat(
+              n: p.ratingCount == 0 ? '—' : p.ratingAverage.toStringAsFixed(1),
+              label: p.ratingCount == 0 ? 'لا تقييمات' : 'من ${loc(p.ratingCount)} تقييم',
+            ),
           ),
         ],
       ),
@@ -306,7 +321,9 @@ class _ServerUserProfileState extends State<ServerUserProfile> {
           children: <Widget>[
             Expanded(
               child: _reported
-                  ? Center(child: Tx('وصل البلاغ', style: ts(14, w: 600, lh: 21, c: AppColors.success)))
+                  ? Center(
+                      child: Tx('وصل البلاغ', style: ts(14, w: 600, lh: 21, c: AppColors.success)),
+                    )
                   : AppButton(label: 'بلاغ', tone: ButtonTone.ghost, icon: Lu.flag, onTap: _busy == null ? () => unawaited(_report(p)) : null),
             ),
             const SizedBox(width: 8),
@@ -333,7 +350,11 @@ class _Note extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 20),
-    child: Tx(text, style: ts(15, w: 500, lh: 22.5, c: AppColors.stone), align: TextAlign.center),
+    child: Tx(
+      text,
+      style: ts(15, w: 500, lh: 22.5, c: AppColors.stone),
+      align: TextAlign.center,
+    ),
   );
 }
 
@@ -376,7 +397,10 @@ class _Stars extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: const <BoxShadow>[BoxShadow(color: AppColors.mistLine, spreadRadius: 1), ...AppShadows.card],
+        boxShadow: const <BoxShadow>[
+          BoxShadow(color: AppColors.mistLine, spreadRadius: 1),
+          ...AppShadows.card,
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -69,17 +69,31 @@ void main() {
   testWidgets('the bell counts what the server says is unread; the page shows its notices; a tap is read there and opens its place', (tester) async {
     await freshDevice();
     final server = serverDevice();
-    server.on('GET', 'notifications', 200, _page(<Map<String, Object?>>[
-      _notice('a1', 'نُشر عرضك', '/listings/16'),
-      _notice('a2', 'تم تفعيل الباقة', '/account/plans', read: true, kind: 'plan'),
-    ], unread: 3));
-    server.on('POST', 'notifications/read', 200, <String, Object?>{'success': true, 'data': <String, Object?>{'unread': 2}});
+    server.on(
+      'GET',
+      'notifications',
+      200,
+      _page(<Map<String, Object?>>[
+        _notice('a1', 'نُشر عرضك', '/listings/16'),
+        _notice('a2', 'تم تفعيل الباقة', '/account/plans', read: true, kind: 'plan'),
+      ], unread: 3),
+    );
+    server.on('POST', 'notifications/read', 200, <String, Object?>{
+      'success': true,
+      'data': <String, Object?>{'unread': 2},
+    });
     server.on('GET', 'listings/16', 200, recorded('listing'));
-    await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
+    );
     await pumpApp(tester, '/');
     await _settle(tester);
-    expect(find.descendant(of: find.byKey(const ValueKey<String>('home-bell')), matching: find.text('3')), findsOneWidget,
-        reason: "the server's count, not the rows on the phone");
+    expect(
+      find.descendant(of: find.byKey(const ValueKey<String>('home-bell')), matching: find.text('3')),
+      findsOneWidget,
+      reason: "the server's count, not the rows on the phone",
+    );
 
     await tester.tap(find.byKey(const ValueKey<String>('home-bell')));
     await _settle(tester);
@@ -89,7 +103,9 @@ void main() {
 
     await tapText(tester, 'نُشر عرضك');
     await _settle(tester);
-    expect(FakeServer.body(server.sent('POST', 'notifications/read').single), <String, Object?>{'ids': <Object?>['a1']});
+    expect(FakeServer.body(server.sent('POST', 'notifications/read').single), <String, Object?>{
+      'ids': <Object?>['a1'],
+    });
     expect(_path(), '/listings/16');
     expect(notifications.unreadCount(), 2);
   });
@@ -97,11 +113,24 @@ void main() {
   testWidgets('older notices page by page; a read one is not sent again', (tester) async {
     await freshDevice();
     final server = serverDevice();
-    server.onQuery('GET', 'notifications', <String, String>{'page': '1'}, 200,
-        _page(<Map<String, Object?>>[_notice('b1', 'جديد', '/account/plans', read: true, kind: 'plan')], unread: 0, last: 2));
-    server.onQuery('GET', 'notifications', <String, String>{'page': '2'}, 200,
-        _page(<Map<String, Object?>>[_notice('b0', 'أقدم', '/account/plans', read: true, kind: 'plan')], unread: 0, current: 2, last: 2));
-    await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+    server.onQuery(
+      'GET',
+      'notifications',
+      <String, String>{'page': '1'},
+      200,
+      _page(<Map<String, Object?>>[_notice('b1', 'جديد', '/account/plans', read: true, kind: 'plan')], unread: 0, last: 2),
+    );
+    server.onQuery(
+      'GET',
+      'notifications',
+      <String, String>{'page': '2'},
+      200,
+      _page(<Map<String, Object?>>[_notice('b0', 'أقدم', '/account/plans', read: true, kind: 'plan')], unread: 0, current: 2, last: 2),
+    );
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
+    );
     await pumpApp(tester, '/notifications');
     await _settle(tester);
     expect(find.text('أقدم'), findsNothing);
@@ -117,16 +146,30 @@ void main() {
   testWidgets('another account signed in: nothing of the previous one is shown', (tester) async {
     await freshDevice();
     final server = serverDevice();
-    server.onFor('7|first', 'GET', 'notifications', 200, _page(<Map<String, Object?>>[_notice('c1', 'لحساب الأول', '/account/plans', kind: 'plan')], unread: 1));
+    server.onFor(
+      '7|first',
+      'GET',
+      'notifications',
+      200,
+      _page(<Map<String, Object?>>[_notice('c1', 'لحساب الأول', '/account/plans', kind: 'plan')], unread: 1),
+    );
     server.onFor('7|second', 'GET', 'notifications', 200, _page(<Map<String, Object?>>[], unread: 0));
     server.on('POST', 'auth/logout', 200, <String, Object?>{'success': true, 'data': null});
-    await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'), token: '7|first');
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
+      token: '7|first',
+    );
     await pumpApp(tester, '/notifications');
     await _settle(tester);
     expect(find.text('لحساب الأول'), findsOneWidget);
     expect(notifications.unreadCount(), 1);
 
-    await serverSignIn(server, account: me(id: 42, role: 'broker', name: 'مكتب آخر'), token: '7|second');
+    await serverSignIn(
+      server,
+      account: me(id: 42, role: 'broker', name: 'مكتب آخر'),
+      token: '7|second',
+    );
     expect(notifications.list(), isEmpty, reason: 'the rows were the first account’s');
     expect(notifications.unreadCount(), 0);
     await notifications.refresh(force: true);
@@ -137,7 +180,10 @@ void main() {
     await freshDevice();
     final server = serverDevice();
     server.offline('GET', 'notifications');
-    await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
+    );
     await pumpApp(tester, '/notifications');
     await _settle(tester);
     expect(find.text('لا إشعارات بعد'), findsNothing);

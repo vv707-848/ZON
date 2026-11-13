@@ -57,7 +57,11 @@ void main() {
     server.on('GET', at, 200, recorded('profile_public'));
     server.on('GET', '$at/listings', 200, recorded('profile_listings'));
     stubs?.call(server);
-    if (signedIn) await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+    if (signedIn)
+      await serverSignIn(
+        server,
+        account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
+      );
     await pumpApp(tester, '/users/$username');
     await _settle(tester);
     return server;
@@ -75,10 +79,13 @@ void main() {
   });
 
   testWidgets('follow, then stars: sent to the server, and its own count shown', (tester) async {
-    final server = await visit(tester, stubs: (s) {
-      s.on('POST', '$at/follow', 200, recorded('follow'));
-      s.on('POST', '$at/rating', 200, recorded('rating'));
-    });
+    final server = await visit(
+      tester,
+      stubs: (s) {
+        s.on('POST', '$at/follow', 200, recorded('follow'));
+        s.on('POST', '$at/rating', 200, recorded('rating'));
+      },
+    );
     await tapText(tester, 'متابعة');
     await _settle(tester);
     expect(server.sent('POST', '$at/follow'), hasLength(1));
@@ -103,7 +110,13 @@ void main() {
   });
 
   testWidgets('«بلاغ» on him: his reason to the server, once taken «وصل البلاغ»', (tester) async {
-    final server = await visit(tester, stubs: (s) => s.on('POST', 'reports', 201, <String, Object?>{'success': true, 'data': <String, Object?>{'id': 1}}));
+    final server = await visit(
+      tester,
+      stubs: (s) => s.on('POST', 'reports', 201, <String, Object?>{
+        'success': true,
+        'data': <String, Object?>{'id': 1},
+      }),
+    );
     await tapText(tester, 'بلاغ');
     expect(find.text('الإبلاغ عن الحساب'), findsOneWidget);
     await tester.enterText(find.byType(TextField).last, 'ينشر عروضاً غير موجودة');
@@ -119,10 +132,13 @@ void main() {
   });
 
   testWidgets('«حظر»: asked first, then his page is gone; «تراجع عن الحظر» brings it back', (tester) async {
-    final server = await visit(tester, stubs: (s) {
-      s.on('POST', '$at/block', 200, recorded('block'));
-      s.on('DELETE', '$at/block', 200, recorded('unblock'));
-    });
+    final server = await visit(
+      tester,
+      stubs: (s) {
+        s.on('POST', '$at/block', 200, recorded('block'));
+        s.on('DELETE', '$at/block', 200, recorded('unblock'));
+      },
+    );
     await tapText(tester, 'حظر');
     expect(find.text('حظر ${him['name']}؟'), findsOneWidget);
     expect(server.sent('POST', '$at/block'), isEmpty, reason: 'nothing before he confirms');
@@ -158,8 +174,14 @@ void main() {
     await freshDevice();
     final server = serverDevice();
     server.on('GET', 'listings/${listing['id']}', 200, recorded('listing'));
-    server.on('POST', 'reports', 201, <String, Object?>{'success': true, 'data': <String, Object?>{'id': 1}});
-    await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+    server.on('POST', 'reports', 201, <String, Object?>{
+      'success': true,
+      'data': <String, Object?>{'id': 1},
+    });
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
+    );
     await pumpApp(tester, '/listings/L${listing['id']}');
     await _settle(tester);
     await _tapSemantic(tester, 'بلاغ');
@@ -194,7 +216,10 @@ void main() {
     server.on('GET', 'me/followers', 200, <String, Object?>{'success': true, 'data': <Object?>[]});
     server.on('GET', 'me/following', 200, recorded('following'));
     server.on('DELETE', '$at/follow', 200, recorded('unfollow'));
-    await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
+    );
     await pumpApp(tester, '/account/people?kind=following');
     await _settle(tester);
     expect(find.text(him['name']! as String), findsOneWidget);
@@ -215,7 +240,10 @@ void main() {
     server.on('GET', 'listings/${listing['id']}', 200, recorded('listing'));
     server.on('POST', 'favorites', 200, recorded('favorite_added'));
     server.on('DELETE', 'favorites/listing/${listing['id']}', 200, recorded('favorite_removed'));
-    await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
+    );
     await pumpApp(tester, '/listings/L${listing['id']}');
     await _settle(tester);
     expect(listing['is_favorite'], isFalse);
@@ -234,7 +262,10 @@ void main() {
     final server = serverDevice();
     server.on('GET', 'listings/${listing['id']}', 200, recorded('listing'));
     server.on('POST', 'favorites', 404, apiFail('NOT_FOUND', 'العنصر غير موجود.'));
-    await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
+    );
     await pumpApp(tester, '/listings/L${listing['id']}');
     await _settle(tester);
     await _tapSemantic(tester, 'إعجاب');
@@ -251,7 +282,10 @@ void main() {
     server.on('GET', 'me/followers', 200, <String, Object?>{'success': true, 'data': <Object?>[]});
     server.on('GET', 'me/following', 200, <String, Object?>{'success': true, 'data': <Object?>[]});
     server.on('GET', 'favorites', 200, recorded('favorites'));
-    await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
+    );
     await pumpApp(tester, '/account/people?kind=favs');
     await _settle(tester);
     expect(find.text(listing), findsOneWidget);

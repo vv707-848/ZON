@@ -108,7 +108,16 @@ class _PeopleViewState extends State<PeopleView> {
     });
     try {
       await ServerPeople.follow(x.id, on: false, epoch: epoch);
-      if (_current(epoch)) setState(() => book = (followers: book.followers, following: <Person>[for (final p in book.following) if (p.id != x.id) p]));
+      if (_current(epoch))
+        setState(
+          () => book = (
+            followers: book.followers,
+            following: <Person>[
+              for (final p in book.following)
+                if (p.id != x.id) p,
+            ],
+          ),
+        );
     } on ApiError catch (e) {
       if (_current(epoch)) setState(() => _error = e.forUser);
     } on AccountChanged {
@@ -211,7 +220,8 @@ class _PeopleViewState extends State<PeopleView> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             for (var i = 0; i < rows.length; i++) ...<Widget>[if (i > 0) const SizedBox(height: 8), _row(rows[i])],
-            if (rows.isEmpty && !_loading) _empty(q.isEmpty ? (kind == 'following' ? 'لا تتابع أحداً بعد.' : 'لا متابِعين بعد.') : 'لا نتائج بهذا الاسم'),
+            if (rows.isEmpty && !_loading)
+              _empty(q.isEmpty ? (kind == 'following' ? 'لا تتابع أحداً بعد.' : 'لا متابِعين بعد.') : 'لا نتائج بهذا الاسم'),
           ],
         ),
       );

@@ -184,7 +184,12 @@ abstract final class ServerFavorites {
   /// What he liked that is still public: listings, then projects.
   static Future<List<Listing>> list() async {
     final r = (await Api.client!.get('favorites')).map;
-    List<Map<String, Object?>> rows(Object? v) => v is List ? <Map<String, Object?>>[for (final x in v) if (x is Map) x.cast<String, Object?>()] : const <Map<String, Object?>>[];
+    List<Map<String, Object?>> rows(Object? v) => v is List
+        ? <Map<String, Object?>>[
+            for (final x in v)
+              if (x is Map) x.cast<String, Object?>(),
+          ]
+        : const <Map<String, Object?>>[];
     return <Listing>[
       for (final row in rows(r['listings'])) ServerListings.fromListing(row),
       for (final row in rows(r['projects'])) ServerListings.fromProject(row),

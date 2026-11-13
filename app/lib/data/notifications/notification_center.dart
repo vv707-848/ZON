@@ -77,7 +77,10 @@ class NotificationCenter extends ChangeNotifier {
       final page = await ServerNotices.page();
       if (epoch != store.serverEpoch) return;
       final ids = <String>{for (final n in page.rows) n.id};
-      final older = <AppNotification>[for (final n in _server) if (!ids.contains(n.id) && _serverPage > 1) n];
+      final older = <AppNotification>[
+        for (final n in _server)
+          if (!ids.contains(n.id) && _serverPage > 1) n,
+      ];
       _server
         ..clear()
         ..addAll(page.rows)
@@ -234,7 +237,10 @@ class NotificationCenter extends ChangeNotifier {
   /// opened, so its results were seen).
   void markKindRead(String kind) {
     if (Api.on) {
-      final ids = <String>[for (final n in _server) if (n.kind == kind && !n.read) n.id];
+      final ids = <String>[
+        for (final n in _server)
+          if (n.kind == kind && !n.read) n.id,
+      ];
       if (ids.isNotEmpty) unawaited(_readOnServer(ids));
       return;
     }
