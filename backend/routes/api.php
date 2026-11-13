@@ -98,6 +98,7 @@ Route::middleware('throttle:api')->group(function () {
             Route::get('listings/mine', [V1\ListingController::class, 'mine']);
             Route::middleware('role:broker,owner,developer')->controller(V1\ListingController::class)->group(function () {
                 Route::post('listings', 'store')->middleware('throttle:wording');
+                Route::post('listings/licence-check', 'checkLicence')->middleware('throttle:licence');
                 Route::patch('listings/{listing}', 'update')->whereNumber('listing')->middleware('throttle:wording');
                 Route::delete('listings/{listing}', 'destroy')->whereNumber('listing');
                 Route::get('listings/{listing}/review', 'review')->whereNumber('listing');

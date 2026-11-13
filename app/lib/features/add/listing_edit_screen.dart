@@ -11,17 +11,23 @@
 // page — hiding the edit button is not the only protection. The editors
 // check the owner again before saving. On the server the same rule must be
 // enforced (403 for another account's listing).
+//
+// With a server, his listing (`L…`) is fetched fresh first (its photos and their ids, its state), and is his
+// when the server says so: its advertiser is his account.
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/layout/app_shell.dart';
+import 'package:zon/core/net/api.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
+import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/add/listing_editor.dart';
 import 'package:zon/features/add/project_editor.dart';
+import 'package:zon/shared/widgets/server_detail.dart';
 
 /// `/account/listings/$id` — edit a listing or a project.
 class ListingEditScreen extends StatelessWidget {
@@ -32,6 +38,13 @@ class ListingEditScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (store.readSession() == null) return const RedirectTo('/login');
+    if (Api.on && ServerListings.isServer(id)) {
+      return ServerDetail(id: id, title: 'تعديل', missing: 'العرض غير موجود.', builder: _editor);
+    }
+    return _editor(context);
+  }
+
+  Widget _editor(BuildContext context) {
     final listing = store.listingById(id);
     if (listing == null) {
       return const _Blocked(title: 'العرض غير موجود', text: 'ربما حُذف أو لم يعد متاحًا.');

@@ -13,6 +13,7 @@ use App\Models\ListingHistory;
 use App\Support\Actor;
 use App\Support\MediaLibrary;
 use Brick\Math\BigDecimal;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -56,7 +57,8 @@ final class UpdateListing
                 ]);
             }
             if ($newText) {
-                CleanListingText::dispatch($listing->id)->afterCommit();
+                // after the commit; a queue that cannot take it fails nothing (reported), RequeueStuckWording sends it again
+                DB::afterCommit(fn () => rescue(fn () => Bus::dispatch(new CleanListingText($listing->id)), report: true));
             }
 
             if ($listing->status === ListingStatus::Inactive) {

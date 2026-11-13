@@ -14,6 +14,7 @@ use App\Jobs\Scheduled\RecheckBrokerLicenses;
 use App\Jobs\Scheduled\RemindLicenceExpiry;
 use App\Jobs\Scheduled\RemindPendingReviews;
 use App\Jobs\Scheduled\RemindSubscriptionRenewals;
+use App\Jobs\Scheduled\RequeueStuckWording;
 use App\Jobs\Scheduled\ResumePausedListings;
 use App\Jobs\Scheduled\RetryPendingIndexEvents;
 use App\Jobs\Scheduled\SchedulerHeartbeat;
@@ -38,6 +39,7 @@ $at(Schedule::job(new SchedulerHeartbeat)->everyMinute());
 $at(Schedule::job(new RemindPendingReviews)->hourly());
 $at(Schedule::job(new AutoPublishPendingReviews)->hourlyAt(5));
 $at(Schedule::job(new ResumePausedListings)->everyFifteenMinutes());
+$at(Schedule::job(new RequeueStuckWording)->everyTenMinutes());
 $at(Schedule::job(new InactivateStaleListings)->dailyAt('03:30'));
 $at(Schedule::job(new EndBoosts)->hourlyAt(10));
 

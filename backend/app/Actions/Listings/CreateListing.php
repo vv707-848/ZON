@@ -10,7 +10,6 @@ use App\Enums\ListingStatus;
 use App\Enums\OwnerCaseStage;
 use App\Enums\TextReview;
 use App\Exceptions\ApiException;
-use App\Integrations\Rega\RegaGateway;
 use App\Jobs\CleanListingText;
 use App\Models\AdLicense;
 use App\Models\Customer;
@@ -21,6 +20,7 @@ use App\Services\Billing\Entitlements;
 use App\Support\Actor;
 use App\Support\MediaLibrary;
 use App\Support\PublishingGate;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class CreateListing
 {
-    public function __construct(private readonly RegaGateway $rega) {}
+    public function __construct(private readonly VerifyAdLicence $verify) {}
 
     /**
      * @param  array<string, mixed>  $columns
@@ -54,14 +54,10 @@ final class CreateListing
             if ($licenceNumber === null) {
                 throw ApiException::of(ErrorCode::ValidationFailed, ['fields' => ['licence_number' => [__('validation.required', ['attribute' => __('validation.attributes.licence_number')])]]]);
             }
-            $check = $this->rega->verifyAdLicence($licenceNumber);
-            if (! $check->valid) {
-                throw ApiException::of(ErrorCode::ValidationFailed, ['fields' => ['licence_number' => ['رقم الترخيص الإعلاني غير صالح لدى الهيئة.']]]);
-            }
-            $check->expiry();   // REGA's date, before anything is saved
+            $check = ($this->verify)($licenceNumber);   // valid at REGA and not past its last day, before anything is saved
         }
 
-        return DB::transaction(function () use ($customer, $columns, $mediaIds, $coverId, $case, $licenceNumber, $check) {
+        $listing = DB::transaction(function () use ($customer, $columns, $mediaIds, $coverId, $case, $licenceNumber, $check) {
             $listing = Listing::query()->create([
                 ...$columns,
                 'customer_id' => $customer->id,
@@ -91,9 +87,13 @@ final class CreateListing
                 'listing_id' => $listing->id, 'field' => 'status', 'old_value' => null, 'new_value' => ListingStatus::Indexing->value,
                 'actor' => (string) Actor::customer($customer), 'changed_at' => now(),
             ]);
-            CleanListingText::dispatch($listing->id)->afterCommit();
 
             return $listing;
         });
+        // the wording follows what is saved: a queue that cannot take it now fails nothing (reported), and
+        // RequeueStuckWording sends it again (Bus::dispatch sends at once, within rescue)
+        rescue(fn () => Bus::dispatch(new CleanListingText($listing->id)), report: true);
+
+        return $listing;
     }
 }

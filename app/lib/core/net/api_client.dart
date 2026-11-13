@@ -99,17 +99,31 @@ class ApiClient {
     return base.replace(path: '$prefix$relative', queryParameters: query == null || query.isEmpty ? null : query);
   }
 
-  Future<ApiResult> send(String method, String path, {Map<String, Object?>? body, Map<String, String>? query, String? idempotencyKey}) async {
+  Future<ApiResult> send(String method, String path, {Map<String, Object?>? body, Map<String, String>? query, String? idempotencyKey}) {
     final requestId = 'app${newId(12)}';
-    final uri = resolve(path, query);
     final sent = token(); // the session this request belongs to
-    final request = http.Request(method, uri)..headers.addAll(headers(requestId, sent));
+    final request = http.Request(method, resolve(path, query))..headers.addAll(headers(requestId, sent));
     if (idempotencyKey != null) request.headers['Idempotency-Key'] = idempotencyKey;
     if (body != null) {
       request.bodyBytes = utf8.encode(jsonEncode(body));
       request.headers['Content-Type'] = 'application/json';
     }
+    return _exchange(request, requestId, sent);
+  }
 
+  /// A file to [path] as `multipart/form-data` (POST /media's `photo`).
+  Future<ApiResult> upload(String path, {required String field, required List<int> bytes, required String filename}) {
+    final requestId = 'app${newId(12)}';
+    final sent = token();
+    final request = http.MultipartRequest('POST', resolve(path))
+      ..headers.addAll(headers(requestId, sent))
+      ..files.add(http.MultipartFile.fromBytes(field, bytes, filename: filename));
+    return _exchange(request, requestId, sent);
+  }
+
+  Future<ApiResult> _exchange(http.BaseRequest request, String requestId, String? sent) async {
+    final method = request.method;
+    final uri = request.url;
     final http.Response response;
     try {
       final streamed = await _http.send(request).timeout(timeout);

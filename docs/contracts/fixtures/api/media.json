@@ -1,0 +1,12 @@
+{
+    "success": true,
+    "data": {
+        "id": 3,
+        "url": "http://localhost/media/2/01M79AV5MWZK41MBG8GM3EFP6Q.jpg?expiration=1794539554",
+        "large_url": "http://localhost/media/2/01M79AV5MWZK41MBG8GM3EFP6Q-large.jpg?expiration=1794539554",
+        "card_url": "http://localhost/media/2/01M79AV5MWZK41MBG8GM3EFP6Q-card.jpg?expiration=1794539554",
+        "is_cover": null,
+        "width": 640,
+        "height": 480
+    }
+}

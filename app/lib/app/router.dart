@@ -8,6 +8,7 @@ import 'package:zon/features/account/account_screen.dart';
 import 'package:zon/features/account/service_screen.dart';
 import 'package:zon/features/add/add_screen.dart';
 import 'package:zon/features/add/listing_edit_screen.dart';
+import 'package:zon/features/add/listing_review_screen.dart';
 import 'package:zon/features/auth/login_screen.dart';
 import 'package:zon/features/chats/barq_chat_screen.dart';
 import 'package:zon/features/chats/chat_thread_screen.dart';
@@ -97,6 +98,7 @@ Widget screenFor(String location) {
     case 'account':
       if (s.length == 1) return const AccountScreen();
       if (s.length == 3 && s[1] == 'listings') return ListingEditScreen(id: s[2]);
+      if (s.length == 4 && s[1] == 'listings' && s[3] == 'review') return ListingReviewScreen(id: _serverId(s[2], 'L'));
       if (s.length == 2) return ServiceScreen(svc: s[1], query: loc.params);
     case 'users':
       if (s.length == 2) return UserProfileScreen(id: s[1], listing: loc.params['listing']);

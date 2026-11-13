@@ -142,6 +142,8 @@ class Listing {
     required this.license,
     this.available,
     this.totalUnits,
+    this.status,
+    this.photoIds,
     this.sold,
     this.isPremium,
     this.delivery,
@@ -190,6 +192,13 @@ class Listing {
 
   /// A project's units in all, as its developer declared them (server projects; the samples count [sold] instead).
   final double? totalUnits;
+
+  /// Where a listing of the server is in its life (`indexing` · `pending_review` · `published` · `paused` ·
+  /// `inactive` · `sold` · `hidden` · `rejected` · `licence_expired`); null on this phone only.
+  final String? status;
+
+  /// The server's id of each photo of [images], in the same order (sent back as `media_ids` on an edit).
+  final List<int>? photoIds;
 
   /// Number of sold units (projects) or a 0/1 "sold" flag (unit listings).
   final double? sold;
@@ -268,6 +277,8 @@ class Listing {
     'license': license,
     if (available != null) 'available': available,
     if (totalUnits != null) 'totalUnits': totalUnits,
+    if (status != null) 'status': status,
+    if (photoIds != null) 'photoIds': photoIds,
     if (sold != null) 'sold': sold,
     if (isPremium != null) 'isPremium': isPremium,
     if (delivery != null) 'delivery': delivery,
@@ -318,6 +329,8 @@ class Listing {
       license: j['license'] as String? ?? '',
       available: numOrNull(j['available']),
       totalUnits: numOrNull(j['totalUnits']),
+      status: j['status'] is String ? j['status']! as String : null,
+      photoIds: j['photoIds'] is List ? <int>[for (final v in j['photoIds']! as List) if (v is int) v] : null,
       sold: soldRaw is bool ? (soldRaw ? 1 : 0) : numOrNull(soldRaw),
       isPremium: j['isPremium'] as bool?,
       delivery: j['delivery'] as String?,
