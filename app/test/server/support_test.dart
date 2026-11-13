@@ -63,7 +63,10 @@ void main() {
     await freshDevice();
     final server = serverDevice();
     stubs(server);
-    await serverSignIn(server, account: me(id: 41, role: 'seeker', name: 'سلمان القحطاني'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'seeker', name: 'سلمان القحطاني'),
+    );
     await pumpApp(tester, path);
     await _settle(tester);
     return server;
@@ -146,7 +149,11 @@ void main() {
       await tester.enterText(find.byType(EditableText).at(1), 'رقم جوالي 0551234567');
       await tester.pump();
 
-      await serverSignIn(server, account: me(id: 42, name: 'مكتب آخر'), token: '7|second');
+      await serverSignIn(
+        server,
+        account: me(id: 42, name: 'مكتب آخر'),
+        token: '7|second',
+      );
       await _settle(tester);
       expect(find.text(ticket['subject']! as String), findsNothing);
       expect(find.text('رقم جوالي 0551234567'), findsNothing);
@@ -268,7 +275,11 @@ void main() {
       await _settle(tester);
       expect(find.text(messages.first['body']! as String), findsOneWidget);
 
-      await serverSignIn(server, account: me(id: 42, name: 'مكتب آخر'), token: '7|second');
+      await serverSignIn(
+        server,
+        account: me(id: 42, name: 'مكتب آخر'),
+        token: '7|second',
+      );
       await _settle(tester);
       expect(_path(), home);
       expect(find.text(messages.first['body']! as String), findsNothing);

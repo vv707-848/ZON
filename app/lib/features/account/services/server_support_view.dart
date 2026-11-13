@@ -225,7 +225,10 @@ class _ServerSupportViewState extends State<ServerSupportView> {
           ),
           if (_guest) ...<Widget>[
             const SizedBox(height: 12),
-            SvcField(label: 'الاسم', child: selInput(controller: _name)),
+            SvcField(
+              label: 'الاسم',
+              child: selInput(controller: _name),
+            ),
             const SizedBox(height: 12),
             SvcField(
               label: 'الجوال',
@@ -250,10 +253,7 @@ class _ServerSupportViewState extends State<ServerSupportView> {
             ),
           ),
           if (_formError case final String e) ...<Widget>[const SizedBox(height: 12), FormError(e)],
-          if (_sent case final String s) ...<Widget>[
-            const SizedBox(height: 12),
-            Tx(s, style: ts(15, w: 600, lh: 21.5, c: AppColors.teal)),
-          ],
+          if (_sent case final String s) ...<Widget>[const SizedBox(height: 12), Tx(s, style: ts(15, w: 600, lh: 21.5, c: AppColors.teal))],
           const SizedBox(height: 12),
           AppButton(label: _sending ? 'جارٍ الإرسال…' : 'إرسال', onTap: _sending ? null : () => unawaited(_send())),
         ],
@@ -267,20 +267,24 @@ class _ServerSupportViewState extends State<ServerSupportView> {
         const SizedBox(height: 8),
         form,
         if (!_guest) ...<Widget>[
-        const SizedBox(height: 20),
-        Tx('تذاكري', style: ts(14, w: 700, lh: 21, c: AppColors.ink)),
-        const SizedBox(height: 8),
-        if (_error case final String e) ...<Widget>[FormError(e), const SizedBox(height: 8)],
-        if (_loading)
-          const LoadingBox()
-        else if (_tickets.isEmpty && _error == null)
-          Tx('لا تذاكر بعد.', style: ts(15, lh: 22.5, c: AppColors.muted), align: TextAlign.center),
-        for (final t in _tickets) ...<Widget>[
-          TicketCard(ticket: t, onTap: () => Nav.go(context, '/support/${t.reference}')),
-          const SizedBox(height: 10),
-        ],
-        if (_hasMore)
-          AppButton(label: _more ? 'جارٍ الجلب…' : 'تذاكر أقدم', tone: ButtonTone.tonal, onTap: _more ? null : () => unawaited(_loadMore())),
+          const SizedBox(height: 20),
+          Tx('تذاكري', style: ts(14, w: 700, lh: 21, c: AppColors.ink)),
+          const SizedBox(height: 8),
+          if (_error case final String e) ...<Widget>[FormError(e), const SizedBox(height: 8)],
+          if (_loading)
+            const LoadingBox()
+          else if (_tickets.isEmpty && _error == null)
+            Tx(
+              'لا تذاكر بعد.',
+              style: ts(15, lh: 22.5, c: AppColors.muted),
+              align: TextAlign.center,
+            ),
+          for (final t in _tickets) ...<Widget>[
+            TicketCard(ticket: t, onTap: () => Nav.go(context, '/support/${t.reference}')),
+            const SizedBox(height: 10),
+          ],
+          if (_hasMore)
+            AppButton(label: _more ? 'جارٍ الجلب…' : 'تذاكر أقدم', tone: ButtonTone.tonal, onTap: _more ? null : () => unawaited(_loadMore())),
         ],
       ],
     );

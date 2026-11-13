@@ -543,45 +543,45 @@ class _SettingsViewState extends State<SettingsView> {
               const ServerSupportView()
             else
               _block(
-              'تذكرة دعم',
-              _panel(
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: _gap(<Widget>[
-                    SvcField(
-                      label: 'الاسم',
-                      child: selInput(controller: _tName),
-                    ),
-                    SvcField(
-                      label: 'الجوال',
-                      child: selInput(controller: _tPhone, dir: TextDirection.ltr),
-                    ),
-                    SvcField(
-                      label: 'نص التذكرة',
-                      child: FieldBox(
-                        controller: _tBody,
-                        style: kSelText,
-                        height: 112,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: kSelDeco,
-                        multiline: true,
+                'تذكرة دعم',
+                _panel(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: _gap(<Widget>[
+                      SvcField(
+                        label: 'الاسم',
+                        child: selInput(controller: _tName),
                       ),
-                    ),
-                    if (sent.isNotEmpty) Tx(sent, style: ts(15, w: 600, lh: 21.5, c: AppColors.teal)),
-                    AppButton(
-                      label: 'إرسال',
-                      onTap: () {
-                        if (_tBody.text.trim().isEmpty) return;
-                        setState(() {
-                          sent = 'وصلت التذكرة — يصدر رقم قيد من لوحة الإدارة';
-                          _tBody.clear();
-                        });
-                      },
-                    ),
-                  ], 12),
+                      SvcField(
+                        label: 'الجوال',
+                        child: selInput(controller: _tPhone, dir: TextDirection.ltr),
+                      ),
+                      SvcField(
+                        label: 'نص التذكرة',
+                        child: FieldBox(
+                          controller: _tBody,
+                          style: kSelText,
+                          height: 112,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: kSelDeco,
+                          multiline: true,
+                        ),
+                      ),
+                      if (sent.isNotEmpty) Tx(sent, style: ts(15, w: 600, lh: 21.5, c: AppColors.teal)),
+                      AppButton(
+                        label: 'إرسال',
+                        onTap: () {
+                          if (_tBody.text.trim().isEmpty) return;
+                          setState(() {
+                            sent = 'وصلت التذكرة — يصدر رقم قيد من لوحة الإدارة';
+                            _tBody.clear();
+                          });
+                        },
+                      ),
+                    ], 12),
+                  ),
                 ),
               ),
-            ),
             AppButton(
               label: 'حذف حسابي',
               tone: ButtonTone.danger,

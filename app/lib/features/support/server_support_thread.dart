@@ -163,7 +163,11 @@ class _ServerSupportThreadState extends State<ServerSupportThread> {
           if (t?.aboutListing case final int listing)
             Tap(
               onTap: () => Nav.go(context, '/listings/$listing'),
-              child: Tx('بخصوص: ${t!.aboutTitle ?? 'إعلان'}', style: ts(13, w: 600, lh: 19.5, c: AppColors.teal), align: TextAlign.center),
+              child: Tx(
+                'بخصوص: ${t!.aboutTitle ?? 'إعلان'}',
+                style: ts(13, w: 600, lh: 19.5, c: AppColors.teal),
+                align: TextAlign.center,
+              ),
             ),
           for (final m in messages) TalkBubble(text: m.body, mine: !m.zon),
           if (_sending case final String s) Opacity(opacity: 0.6, child: TalkBubble(text: '$s\nيُرسل…', mine: true)),

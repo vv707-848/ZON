@@ -69,7 +69,9 @@ class SupportTicket {
       subject: subject,
       aboutListing: about?['type'] == 'listing' && about?['id'] is int ? about!['id']! as int : null,
       aboutTitle: about?['title'] is String ? about!['title']! as String : null,
-      last: last == null ? null : SupportMsg(zon: last['author'] == 'zon', body: '${last['excerpt'] ?? ''}', at: DateTime.tryParse('${last['at'] ?? ''}')?.toLocal()),
+      last: last == null
+          ? null
+          : SupportMsg(zon: last['author'] == 'zon', body: '${last['excerpt'] ?? ''}', at: DateTime.tryParse('${last['at'] ?? ''}')?.toLocal()),
       resolution: j['resolution'] is String ? j['resolution']! as String : null,
       createdAt: DateTime.tryParse('${j['created_at'] ?? ''}')?.toLocal(),
       messages: <SupportMsg>[
