@@ -460,6 +460,12 @@ class Store extends ChangeNotifier {
   int get serverEpoch => _serverEpoch;
   int _serverEpoch = 0;
 
+  /// For a sequence of requests begun under [epoch] (photos, then the listing…): throws [AccountChanged] when the
+  /// account changed since, so none of the rest goes out under the new account. Read right before each request.
+  void stillAccount(int epoch) {
+    if (epoch != _serverEpoch) throw const AccountChanged();
+  }
+
   /// Keeps rows of the server for the screens that read synchronously (cards, details, favourites); [epoch] is
   /// [serverEpoch] when they were asked for.
   void keepServer(Iterable<Listing> rows, {required int epoch, bool detailed = false}) {
@@ -1061,6 +1067,12 @@ class Store extends ChangeNotifier {
 String slugName(String n) => Uri.encodeComponent(n.trim());
 
 final Store store = Store.instance;
+
+/// The account changed (sign-out, another account) in the middle of a sequence begun under the one before
+/// ([Store.stillAccount]); nothing of it is sent further, and its screen shows nothing of it.
+class AccountChanged implements Exception {
+  const AccountChanged();
+}
 
 /// Convenience alias used by widgets (`readSession()` in the design).
 Session? readSession() => store.readSession();

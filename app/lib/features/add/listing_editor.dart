@@ -179,8 +179,8 @@ class _ListingEditorState extends State<ListingEditor> {
     });
     final epoch = store.serverEpoch;
     try {
-      final ids = await ServerMyListings.upload(photos, known: known);
-      final saved = await ServerMyListings.update(listing.id, listing.merged(changes), mediaIds: ids);
+      final ids = await ServerMyListings.upload(photos, known: known, epoch: epoch);
+      final saved = await ServerMyListings.update(listing.id, listing.merged(changes), mediaIds: ids, epoch: epoch);
       store.keepServer(<Listing>[saved], epoch: epoch, detailed: true);
       if (!mounted || epoch != store.serverEpoch) return;
       setState(() {
@@ -195,6 +195,8 @@ class _ListingEditorState extends State<ListingEditor> {
           error = e.forUser;
         });
       }
+    } on AccountChanged {
+      if (mounted) setState(() => _sending = false); // nothing more went out under the new account
     }
   }
 
