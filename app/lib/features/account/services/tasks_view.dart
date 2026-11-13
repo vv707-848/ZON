@@ -1,5 +1,10 @@
 // مهامي — personal tasks: summary card, filters, add / edit / delete,
 // grouped by priority (مهم / مؤجل / هادي) with a done section.
+//
+// With a server (ServerTasks) the tasks are the server's: each change is sent and shown once it is taken, a new
+// task once however often tried, «تم» says which (sent twice it stays), and its reminder comes from the server.
+// «لخّص يومي» is the server's model (402 → the plans); nothing is simulated. Another account signed in: its own
+// tasks, nothing of the previous one.
 
 import 'dart:async';
 
@@ -8,11 +13,15 @@ import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
+import 'package:zon/core/net/operation_key.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/utils/dates.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_desk.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/widgets/desk.dart';
 import 'package:zon/features/account/services/widgets/service_form.dart';
@@ -38,7 +47,7 @@ class TasksView extends StatefulWidget {
 }
 
 class _TasksViewState extends State<TasksView> {
-  late List<Task> items = store.tasks();
+  late List<Task> items = Api.on ? <Task>[] : store.tasks();
   bool open = false;
   String? edit;
   String sum = '';
@@ -46,11 +55,80 @@ class _TasksViewState extends State<TasksView> {
   String filter = 'الكل';
   Timer? _timer;
 
+  /// With a server: asking it, what it could not do, the task being sent, and whether its summary needs a plan.
+  bool _loading = Api.on;
+  String? _error;
+  String? _busy;
+  bool _needsPlan = false;
+  int _epoch = store.serverEpoch;
+  final OperationKey _newOp = OperationKey('task');
+
+  @override
+  void initState() {
+    super.initState();
+    if (Api.on) {
+      store.addListener(_onAccount);
+      unawaited(_load());
+    }
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
+    if (Api.on) store.removeListener(_onAccount);
     super.dispose();
   }
+
+  void _onAccount() {
+    if (!mounted || _epoch == store.serverEpoch) return;
+    _epoch = store.serverEpoch;
+    setState(() {
+      items = <Task>[];
+      _loading = true;
+      _error = null;
+      _busy = null;
+      sum = '';
+      open = false;
+      edit = null;
+      _needsPlan = false;
+    });
+    unawaited(_load());
+  }
+
+  bool _current(int epoch) => mounted && epoch == _epoch && epoch == store.serverEpoch;
+
+  Future<void> _load() async {
+    final epoch = _epoch;
+    try {
+      final rows = await ServerTasks.list();
+      if (_current(epoch)) setState(() => items = rows);
+    } on ApiError catch (e) {
+      if (_current(epoch)) setState(() => _error = e.forUser);
+    } finally {
+      if (_current(epoch)) setState(() => _loading = false);
+    }
+  }
+
+  /// Sends [what] for [id] (one at a time); its error is said and nothing changes.
+  Future<void> _send(String id, Future<void> Function(int epoch) what) async {
+    if (_busy != null) return;
+    final epoch = _epoch;
+    setState(() {
+      _busy = id;
+      _error = null;
+    });
+    try {
+      await what(epoch);
+    } on ApiError catch (e) {
+      if (_current(epoch)) setState(() => _error = e.forUser);
+    } on AccountChanged {
+      // the next account's tasks are its own
+    } finally {
+      if (_current(epoch)) setState(() => _busy = null);
+    }
+  }
+
+  void _put(Task row) => setState(() => items = <Task>[for (final t in items) t.id == row.id ? row : t]);
 
   bool _matchPri(String pri, String label) => label == 'هادي' ? pri == 'عادي' : pri == label;
 
@@ -59,7 +137,85 @@ class _TasksViewState extends State<TasksView> {
     store.saveTasks(next);
   }
 
-  void _toggle(Task t) => _persist(<Task>[for (final x in items) x.id == t.id ? x.toggled() : x]);
+  void _toggle(Task t) {
+    if (!Api.on) return _persist(<Task>[for (final x in items) x.id == t.id ? x.toggled() : x]);
+    unawaited(
+      _send(t.id, (epoch) async {
+        final row = await ServerTasks.done(t.id, done: t.done != true, epoch: epoch);
+        if (_current(epoch)) _put(row);
+      }),
+    );
+  }
+
+  /// A task saved from the form: on the server, or on this phone.
+  void _saved(Task row) {
+    final before = edit == null ? null : items.where((t) => t.id == edit).firstOrNull;
+    if (!Api.on) {
+      _persist(before != null ? <Task>[for (final t in items) t.id == row.id ? row : t] : <Task>[row, ...items]);
+      setState(() {
+        open = false;
+        edit = null;
+      });
+      return;
+    }
+    unawaited(
+      _send(before?.id ?? 'new', (epoch) async {
+        if (before == null) {
+          final made = await ServerTasks.create(row, operation: _newOp.forBody(ServerTasks.body(row)), epoch: epoch);
+          _newOp.done();
+          if (_current(epoch)) setState(() => items = <Task>[made, ...items]);
+        } else {
+          final kept = await ServerTasks.update(row, before: before, epoch: epoch);
+          if (_current(epoch)) _put(kept);
+        }
+        if (_current(epoch)) {
+          setState(() {
+            open = false;
+            edit = null;
+          });
+        }
+      }),
+    );
+  }
+
+  /// «لخّص يومي»: the server's model with a server; without one, the order of his tasks.
+  void _summarize(List<Task> openRows) {
+    setState(() => scan = true);
+    if (Api.on) {
+      final epoch = _epoch;
+      unawaited(() async {
+        try {
+          final text = await ServerSummaries.of('tasks');
+          if (_current(epoch)) setState(() => sum = text);
+        } on NeedsPlan {
+          if (_current(epoch)) setState(() => _needsPlan = true);
+        } on ApiError catch (e) {
+          if (_current(epoch)) setState(() => _error = e.forUser);
+        } finally {
+          if (_current(epoch)) setState(() => scan = false);
+        }
+      }());
+      return;
+    }
+    _timer = Timer(const Duration(milliseconds: 1600), () {
+      if (!mounted) return;
+      setState(() {
+        scan = false;
+        if (openRows.isNotEmpty) {
+          Task? first;
+          for (final t in openRows) {
+            if (t.pri == 'مهم') {
+              first = t;
+              break;
+            }
+          }
+          sum = 'ابدأ بـ «${(first ?? openRows.first).title}» ثم أكمل الباقي حسب الأولوية.';
+        } else {
+          sum = '';
+        }
+      });
+    });
+  }
 
   /// Asks for confirmation, then removes [t] for good.
   Future<void> _delete(Task t) async {
@@ -73,6 +229,19 @@ class _TasksViewState extends State<TasksView> {
     );
     if (!ok || !mounted) return;
     if (edit == t.id) edit = null;
+    if (Api.on) {
+      return _send(t.id, (epoch) async {
+        await ServerTasks.remove(t.id, epoch: epoch);
+        if (_current(epoch)) {
+          setState(
+            () => items = <Task>[
+              for (final x in items)
+                if (x.id != t.id) x,
+            ],
+          );
+        }
+      });
+    }
     _persist(<Task>[
       for (final x in items)
         if (x.id != t.id) x,
@@ -87,7 +256,8 @@ class _TasksViewState extends State<TasksView> {
     final hold = openRows.where((t) => t.pri == 'مؤجل').length;
     final ok = openRows.where((t) => t.pri == 'عادي').length;
     final pct = items.isNotEmpty ? ((done.length / items.length) * 100).round() : 0;
-    final sub = billing.isSubscribed();
+    // with a server the server says whether his plan includes it (402)
+    final sub = Api.on ? !_needsPlan : billing.isSubscribed();
 
     final children = <Widget>[
       DeskCard(
@@ -136,27 +306,7 @@ class _TasksViewState extends State<TasksView> {
               label: scan ? 'الذكاء يرتّب يومك…' : 'لخّص يومي بالذكاء',
               icon: Lu.sparkles,
               disabled: openRows.isEmpty || scan,
-              onTap: () {
-                setState(() => scan = true);
-                _timer = Timer(const Duration(milliseconds: 1600), () {
-                  if (!mounted) return;
-                  setState(() {
-                    scan = false;
-                    if (openRows.isNotEmpty) {
-                      Task? first;
-                      for (final t in openRows) {
-                        if (t.pri == 'مهم') {
-                          first = t;
-                          break;
-                        }
-                      }
-                      sum = 'ابدأ بـ «${(first ?? openRows.first).title}» ثم أكمل الباقي حسب الأولوية.';
-                    } else {
-                      sum = '';
-                    }
-                  });
-                });
-              },
+              onTap: () => _summarize(openRows),
             )
           else
             DeskAi(label: 'تلخيص الذكاء ضمن الخدمة', onTap: () => Nav.go(context, '/account/plans')),
@@ -182,21 +332,12 @@ class _TasksViewState extends State<TasksView> {
       for (final t in items) {
         if (t.id == edit) task = t;
       }
-      children.add(
-        TaskForm(
-          key: ValueKey<String?>(edit),
-          task: task,
-          onSaved: (row) {
-            _persist(edit != null ? <Task>[for (final t in items) t.id == row.id ? row : t] : <Task>[row, ...items]);
-            setState(() {
-              open = false;
-              edit = null;
-            });
-          },
-        ),
-      );
+      children.add(TaskForm(key: ValueKey<String?>(edit), task: task, busy: _busy != null, onSaved: _saved));
     }
-    if (items.isEmpty) {
+    if (_error case final String e) children.add(FormError(e));
+    if (_loading) {
+      children.add(const LoadingBox());
+    } else if (items.isEmpty) {
       children.add(Tx('لا مهام — مثال: روح أكلم خالد يشتري الفيلا — حدّد المنبّه والأولوية.', style: ts(14, w: 500, lh: 22.5, c: AppColors.muted)));
     }
     for (final label in const <String>['مهم', 'مؤجل', 'هادي']) {
@@ -282,19 +423,23 @@ class Ticket extends StatelessWidget {
             width: 36,
             child: Align(
               alignment: AlignmentDirectional.topStart,
-              child: Tap(
-                onTap: onToggle,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  margin: const EdgeInsets.only(top: 2),
-                  decoration: BoxDecoration(
-                    color: done ? AppColors.forest : AppColors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.forest),
+              child: Semantics(
+                button: true,
+                label: done ? 'إعادة المهمة' : 'إنجاز المهمة',
+                child: Tap(
+                  onTap: onToggle,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    margin: const EdgeInsets.only(top: 2),
+                    decoration: BoxDecoration(
+                      color: done ? AppColors.forest : AppColors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.forest),
+                    ),
+                    alignment: Alignment.center,
+                    child: done ? const LucideIcon(Lu.check, size: 14, color: AppColors.white) : null,
                   ),
-                  alignment: Alignment.center,
-                  child: done ? const LucideIcon(Lu.check, size: 14, color: AppColors.white) : null,
                 ),
               ),
             ),
@@ -386,10 +531,13 @@ class _TicketAction extends StatelessWidget {
 
 /// Add / edit task form.
 class TaskForm extends StatefulWidget {
-  const TaskForm({super.key, this.task, required this.onSaved});
+  const TaskForm({super.key, this.task, required this.onSaved, this.busy = false});
 
   final Task? task;
   final ValueChanged<Task> onSaved;
+
+  /// Being sent to the server: the button waits.
+  final bool busy;
 
   @override
   State<TaskForm> createState() => _TaskFormState();
@@ -506,7 +654,10 @@ class _TaskFormState extends State<TaskForm> {
           ),
           const SizedBox(height: 12),
           if (error.isNotEmpty) ...<Widget>[FormError(error), const SizedBox(height: 12)],
-          AppButton(label: widget.task != null ? 'حفظ التعديل' : 'حفظ المهمة', onTap: _title.text.isEmpty ? null : _save),
+          AppButton(
+            label: widget.busy ? 'جارٍ الحفظ…' : (widget.task != null ? 'حفظ التعديل' : 'حفظ المهمة'),
+            onTap: _title.text.isEmpty || widget.busy ? null : _save,
+          ),
         ],
       ),
     );

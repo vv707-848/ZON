@@ -27,6 +27,7 @@ class Client {
     required this.types,
     required this.budget,
     required this.notes,
+    this.notesCount,
     this.purpose,
     this.area,
     this.rooms,
@@ -41,6 +42,9 @@ class Client {
   final String types;
   final String budget;
   final List<Note> notes;
+
+  /// How many notes the server keeps for him (his notes come apart); null without a server.
+  final int? notesCount;
   final Purpose? purpose;
   final String? area;
   final String? rooms;

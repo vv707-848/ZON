@@ -582,6 +582,12 @@ mixin CliNotesState<T extends StatefulWidget> on State<T> {
   /// Noun in the default placeholder ("العميل" / "المالك").
   String get whoNoun;
 
+  /// Whether a note can be edited (the server keeps a note as written: it is removed, not changed).
+  bool get canEditNotes => true;
+
+  /// Removes [n] (on this phone; a server's page sends it).
+  void removeNote(Note n) => persist(notes.where((x) => x.id != n.id).toList());
+
   void runBrief() {
     setState(() => busy = true);
     // the design computes from the notes at click time
@@ -769,14 +775,18 @@ mixin CliNotesState<T extends StatefulWidget> on State<T> {
   }
 
   Widget _article(Note n) {
-    Widget act(String icon, VoidCallback onTap) => Tap(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(color: AppColors.mist, borderRadius: BorderRadius.circular(10)),
-        alignment: Alignment.center,
-        child: LucideIcon(icon, size: 24, strokeWidth: 2, color: AppColors.forest),
+    Widget act(String icon, String label, VoidCallback onTap) => Semantics(
+      button: true,
+      label: label,
+      child: Tap(
+        onTap: onTap,
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(color: AppColors.mist, borderRadius: BorderRadius.circular(10)),
+          alignment: Alignment.center,
+          child: LucideIcon(icon, size: 24, strokeWidth: 2, color: AppColors.forest),
+        ),
       ),
     );
     return Container(
@@ -807,17 +817,19 @@ mixin CliNotesState<T extends StatefulWidget> on State<T> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        act(Lu.pencil, () {
-                          body.text = n.text;
-                          setState(() {
-                            editingId = n.id;
-                            kind = n.kind;
-                          });
-                          box.requestFocus();
-                        }),
-                        const SizedBox(width: 6),
-                        act(Lu.trash2, () {
-                          persist(notes.where((x) => x.id != n.id).toList());
+                        if (canEditNotes) ...<Widget>[
+                          act(Lu.pencil, 'تعديل الملاحظة', () {
+                            body.text = n.text;
+                            setState(() {
+                              editingId = n.id;
+                              kind = n.kind;
+                            });
+                            box.requestFocus();
+                          }),
+                          const SizedBox(width: 6),
+                        ],
+                        act(Lu.trash2, 'حذف الملاحظة', () {
+                          removeNote(n);
                           if (editingId == n.id) {
                             body.text = '';
                             setState(() => editingId = null);

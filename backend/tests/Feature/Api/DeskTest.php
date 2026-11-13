@@ -45,6 +45,27 @@ class DeskTest extends TestCase
         $this->assertSame(1, ClientNote::query()->count(), 'his notes go with him; خالد keeps his');
     }
 
+    public function test_the_apps_reads_and_first_writes_of_the_desk(): void
+    {
+        $this->signIn(Customer::factory()->broker()->create());
+        $created = $this->postJson('/api/v1/clients', ['name' => 'سلمان العتيبي', 'phone' => '0557776665', 'purpose' => 'sale', 'city' => 'الرياض',
+            'neighborhoods' => ['النرجس', 'الياسمين'], 'property_types' => ['villa', 'apartment'], 'budget_min' => 1200000, 'budget_max' => 1800000, 'area_min' => 300,
+            'rooms_min' => 4, 'description' => 'يبحث عن فيلا قريبة من المدارس'], ['Idempotency-Key' => 'client-0001-abcdef'])->assertCreated()
+            ->assertJsonPath('data.phone', '0557776665')->assertJsonPath('data.neighborhoods', ['النرجس', 'الياسمين']);
+        $this->apiContract('client_created', $created);
+        $id = $created->json('data.id');
+        $this->apiContract('client_note_added', $this->postJson("/api/v1/clients/{$id}/notes", ['category' => 'interested', 'body' => 'أعجبته فيلا النرجس'], ['Idempotency-Key' => 'note-0001-abcdef'])
+            ->assertCreated()->assertJsonPath('data.category', 'interested'));
+        $this->apiContract('clients', $this->getJson('/api/v1/clients')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.notes_count', 1)
+            ->assertJsonPath('meta.page.last', 1));
+        $this->apiContract('client', $this->getJson("/api/v1/clients/{$id}")->assertOk()->assertJsonPath('data.notes_count', 1));
+
+        $this->apiContract('task_created', $this->postJson('/api/v1/tasks', ['title' => 'اتصال بسلمان', 'body' => 'عن فيلا النرجس', 'priority' => 'high',
+            'remind_at' => now()->addDay()->startOfHour()->toIso8601String()], ['Idempotency-Key' => 'task-0001-abcdef'])->assertCreated()->assertJsonPath('data.done', false));
+        $this->postJson('/api/v1/tasks', ['title' => 'تجديد رخصة عرض', 'priority' => 'low'])->assertCreated();
+        $this->apiContract('tasks', $this->getJson('/api/v1/tasks')->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('data.0.priority', 'high'));
+    }
+
     public function test_an_owners_note_removed(): void
     {
         $broker = $this->signIn(Customer::factory()->broker()->create());
