@@ -96,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final server = Api.on;
     return AppShell(
       child: ListenableBuilder(
-        listenable: Listenable.merge(<Listenable>[store, _feed]),
+        listenable: Listenable.merge(<Listenable>[store, _feed, notifications]),
         builder: (context, _) {
           // a new filter, or another account (its rows are not shown): the server is asked again
           if (server && (_feed.query != _query() || _feed.stale)) {
@@ -110,8 +110,13 @@ class _HomeScreenState extends State<HomeScreen> {
           final waiting = server && list.isEmpty && (_feed.loading || _feed.firstLoad);
           final failed = server && list.isEmpty && _feed.error != null;
           final more = server ? _feed.hasMore || (_feed.error != null && list.isNotEmpty) : list.length > limit;
-          // unread notifications of the signed-in account (bell badge)
+          // unread notifications of the signed-in account (bell badge); with a server, asked of it now and then
           final alerts = user != null ? notifications.unreadCount() : 0;
+          if (server && user != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) unawaited(notifications.refresh());
+            });
+          }
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[

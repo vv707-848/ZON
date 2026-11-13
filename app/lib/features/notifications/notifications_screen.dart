@@ -11,13 +11,18 @@
 //   plan    → the plan or the related service
 // A target that no longer exists (deleted listing, removed chat…) or that
 // the account's role cannot open shows a short notice instead.
-// The rows come from data/notifications/notification_center.dart.
+// The rows come from data/notifications/notification_center.dart — with a server, the server's, asked again
+// each time the page opens; the server's targets are opened as they are (the screen it leads to says when its
+// item is gone).
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/layout/app_shell.dart';
+import 'package:zon/core/net/api.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/utils/clock.dart';
 import 'package:zon/core/utils/dates.dart';
@@ -40,7 +45,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     super.initState();
     // Save the rows computed from the data so their time stays fixed.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) notifications.sync();
+      if (!mounted) return;
+      notifications.sync();
+      unawaited(notifications.refresh(force: true));
     });
   }
 
@@ -59,7 +66,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (store.readSession() == null) return const RedirectTo('/login');
     return AppShell(
       child: ListenableBuilder(
-        listenable: store,
+        listenable: Listenable.merge(<Listenable>[store, notifications]),
         builder: (context, _) {
           final rows = notifications.list();
           final now = appNow();
@@ -72,13 +79,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 const SizedBox(height: 12),
                 Tx('الإشعارات', style: ts(20, w: 700, lh: 28, c: AppColors.ink)),
                 const SizedBox(height: 16),
-                if (rows.isEmpty)
+                if (Api.on && !notifications.serverLoaded)
+                  const LoadingBox()
+                else if (rows.isEmpty && notifications.serverError != null)
+                  FormError(notifications.serverError!)
+                else if (rows.isEmpty)
                   const _Empty()
                 else
                   for (var i = 0; i < rows.length; i++) ...<Widget>[
                     if (i > 0) const SizedBox(height: 8),
                     NotificationRow(item: rows[i], time: arRelative(rows[i].time, now), onTap: () => _open(rows[i])),
                   ],
+                if (Api.on && rows.isNotEmpty && notifications.serverHasMore) ...<Widget>[
+                  const SizedBox(height: 14),
+                  AppButton(label: 'إشعارات أقدم', tone: ButtonTone.tonal, onTap: () => unawaited(notifications.more())),
+                ],
               ],
             ),
           );
@@ -94,6 +109,8 @@ bool targetAvailable(String target) {
   if (s == null) return false;
   final seg = Loc(target).segs;
   if (seg.isEmpty) return true;
+  // with a server its items are not on the phone: the screen asks for it, and says when it is gone
+  if (Api.on && seg[0] != 'account') return true;
   switch (seg[0]) {
     case 'listings':
     case 'projects':

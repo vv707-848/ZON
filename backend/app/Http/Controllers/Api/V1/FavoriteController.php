@@ -23,6 +23,7 @@ class FavoriteController extends Controller
         $me = $request->user('api');
         $ids = fn (string $type) => Favorite::query()->where('customer_id', $me->id)->where('favoritable_type', $type)->latest('id')->pluck('favoritable_id');
         $request->attributes->set('favorite_listing_ids', $ids('listing')->map(fn ($id) => (int) $id)->all());
+        $request->attributes->set('favorite_project_ids', $ids('project')->map(fn ($id) => (int) $id)->all());
         $hidden = Blocks::hiddenFor($me);
 
         return Api::ok([

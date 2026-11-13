@@ -6,6 +6,7 @@ use App\Models\BuyerPreference;
 use App\Models\Customer;
 use App\Models\Follow;
 use App\Models\Listing;
+use App\Models\Project;
 use Tests\TestCase;
 
 /**
@@ -75,6 +76,37 @@ class ProfilesTest extends TestCase
         $this->apiContract('unblock', $this->deleteJson("/api/v1/customers/{$broker->username}/block")->assertOk()->assertJsonPath('data.blocked', false));
         $this->getJson("/api/v1/customers/{$broker->username}")->assertOk()->assertJsonPath('data.is_following', false);   // not followed again by itself
         $this->getJson("/api/v1/listings/{$listing->id}")->assertOk();
+    }
+
+    public function test_a_liked_listing_and_project_are_marked_wherever_he_meets_them(): void
+    {
+        $listing = Listing::factory()->published()->create(['title' => 'شقة أعجبته']);
+        $project = Project::factory()->published()->create(['title' => 'مشروع أعجبه']);
+        Project::factory()->published()->create();
+        $this->signIn($this->seeker());
+
+        $this->apiContract('favorite_added', $this->postJson('/api/v1/favorites', ['type' => 'project', 'id' => $project->id])->assertOk()->assertJsonPath('data.favorite', true));
+        $this->postJson('/api/v1/favorites', ['type' => 'listing', 'id' => $listing->id])->assertOk();
+        $this->postJson('/api/v1/favorites', ['type' => 'project', 'id' => $project->id])->assertOk();   // liked once
+
+        $this->getJson("/api/v1/projects/{$project->id}")->assertOk()->assertJsonPath('data.is_favorite', true);
+        $this->getJson("/api/v1/listings/{$listing->id}")->assertOk()->assertJsonPath('data.is_favorite', true);
+        /** @var list<array{id: int, is_favorite: bool}> $projects */
+        $projects = $this->getJson('/api/v1/projects')->assertOk()->json('data');
+        $this->assertSame([$project->id], array_values(array_map(fn ($p) => $p['id'], array_filter($projects, fn ($p) => $p['is_favorite']))), 'only the one he liked');
+        /** @var list<array{kind: string, id: int, is_favorite: bool}> $feed */
+        $feed = $this->getJson('/api/v1/feed')->assertOk()->json('data');
+        $liked = array_map(fn ($row) => "{$row['kind']}:{$row['id']}", array_filter($feed, fn ($row) => $row['is_favorite']));
+        sort($liked);
+        $this->assertSame(["listing:{$listing->id}", "project:{$project->id}"], $liked, 'the feed marks both, and only them');
+        $this->apiContract('favorites', $this->getJson('/api/v1/favorites')->assertOk()->assertJsonCount(1, 'data.listings')->assertJsonCount(1, 'data.projects')
+            ->assertJsonPath('data.projects.0.is_favorite', true)->assertJsonPath('data.listings.0.is_favorite', true));
+
+        $this->deleteJson("/api/v1/favorites/project/{$project->id}")->assertOk();
+        $this->getJson("/api/v1/projects/{$project->id}")->assertJsonPath('data.is_favorite', false);
+        $this->postJson('/api/v1/favorites', ['type' => 'project', 'id' => $project->id])->assertOk();
+        $this->signIn(Customer::factory()->broker()->create());
+        $this->getJson("/api/v1/projects/{$project->id}")->assertOk()->assertJsonPath('data.is_favorite', false);   // his like is his
     }
 
     public function test_a_favourite_removed_and_a_conversation_read(): void

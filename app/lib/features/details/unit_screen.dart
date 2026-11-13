@@ -65,7 +65,7 @@ class UnitScreen extends StatelessWidget {
     ];
     return DetailScaffold(
       backRoute: '/projects/$id',
-      actions: OfferReact(id: u.id),
+      actions: OfferReact(id: u.id, offer: project.id, favorite: project.favorite),
       gallery: PhotoGallery(photos: photos, badge: u.sold ? const DetailSeal('تم البيع', sold: true) : DetailSeal(kTypeLabel[kind] ?? '')),
       children: <Widget>[
         DetailTitle('وحدة ${u.name}'),

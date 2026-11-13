@@ -3,6 +3,7 @@
     "data": {
         "id": 4,
         "status": "published",
+        "is_favorite": false,
         "title": "مشروع النرجس السكني",
         "city": "الرياض",
         "neighborhood": "النرجس",

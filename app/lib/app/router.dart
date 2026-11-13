@@ -22,6 +22,7 @@ import 'package:zon/features/details/unit_screen.dart';
 import 'package:zon/features/home/home_screen.dart';
 import 'package:zon/features/legal/legal_screen.dart';
 import 'package:zon/features/notifications/notifications_screen.dart';
+import 'package:zon/features/profile/server_user_profile.dart';
 import 'package:zon/features/profile/user_profile_screen.dart';
 import 'package:zon/features/requests/request_detail_screen.dart';
 import 'package:zon/features/requests/requests_screen.dart';
@@ -108,11 +109,12 @@ Widget screenFor(String location) {
       if (s.length == 2) return ChatThreadScreen(id: s[1]);
     case 'account':
       if (s.length == 1) return const AccountScreen();
-      if (s.length == 3 && s[1] == 'listings') return ListingEditScreen(id: s[2]);
+      if (s.length == 3 && s[1] == 'listings') return ListingEditScreen(id: _serverId(s[2], 'L')); // a notice names it by number
       if (s.length == 4 && s[1] == 'listings' && s[3] == 'review') return ListingReviewScreen(id: _serverId(s[2], 'L'));
       if (s.length == 4 && s[1] == 'projects' && s[3] == 'review' && int.tryParse(s[2]) != null) return ProjectReviewScreen(id: int.parse(s[2]));
       if (s.length == 2) return ServiceScreen(svc: s[1], query: loc.params);
     case 'users':
+      if (s.length == 2 && Api.on) return ServerUserProfile(username: Loc._dec(s[1])); // `/users/<username>`
       if (s.length == 2) return UserProfileScreen(id: s[1], listing: loc.params['listing']);
     case 'legal':
       if (s.length == 2) return LegalScreen(slug: s[1]);

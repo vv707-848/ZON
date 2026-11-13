@@ -40,7 +40,7 @@ class ListingScreen extends StatelessWidget {
     final rent = l.purpose == 'rent';
     final photos = l.images.isNotEmpty ? l.images : <String>[if (ServerListings.isServer(l.id)) kNoPhoto else '/listings/villa-1.jpg'];
     return DetailScaffold(
-      actions: OfferReact(id: l.id),
+      actions: OfferReact(id: l.id, favorite: l.favorite),
       gallery: PhotoGallery(photos: photos, badge: DetailSeal(rent ? 'للإيجار' : 'للبيع')),
       children: <Widget>[
         // title + location

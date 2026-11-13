@@ -20,6 +20,7 @@ use App\Models\ProjectUnit;
 use App\Support\Actor;
 use App\Support\Api;
 use App\Support\Blocks;
+use App\Support\Favorites;
 use App\Support\Ownership;
 use App\Support\PublicView;
 use Illuminate\Database\Eloquent\Builder;
@@ -54,6 +55,7 @@ class ProjectController extends Controller
             ->orderByRaw('featured_until IS NOT NULL AND featured_until > ? DESC', [now()])->orderByDesc('published_at')
             ->paginate((int) ($filters['per_page'] ?? 20));
         $page->getCollection()->each(fn (Project $project) => $this->publicUnits($project));
+        Favorites::mark($request, 'project', $page->getCollection()->modelKeys());
 
         return Api::page($page, ProjectResource::class);
     }
@@ -68,6 +70,7 @@ class ProjectController extends Controller
             }
             $this->publicUnits($project);
         }
+        Favorites::mark($request, 'project', [$project->id]);
 
         return Api::ok(ProjectResource::detail($project));
     }

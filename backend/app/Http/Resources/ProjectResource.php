@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Models\Customer;
 use App\Models\Project;
+use App\Support\Favorites;
 use App\Support\Phone;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -37,6 +38,7 @@ class ProjectResource extends JsonResource
         return [
             'id' => $this->id,
             'status' => $this->status->value,
+            'is_favorite' => Favorites::of($request, 'project', $this->id),
             'title' => $this->title,
             'city' => $this->city,
             'neighborhood' => $this->neighborhood,

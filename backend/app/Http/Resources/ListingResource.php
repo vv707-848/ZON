@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Http\Requests\Api\Listings\ListingRequest;
 use App\Models\Customer;
 use App\Models\Listing;
+use App\Support\Favorites;
 use App\Support\Phone;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -57,7 +58,7 @@ class ListingResource extends JsonResource
             'published_at' => $this->published_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'views_count' => $this->views_count,
-            'is_favorite' => in_array($this->id, (array) $request->attributes->get('favorite_listing_ids', []), true),
+            'is_favorite' => Favorites::of($request, 'listing', $this->id),
             'share_url' => rtrim((string) config('zon.deep_link_base'), '/')."/listings/{$this->id}",
             'advertiser' => $this->relationLoaded('customer') ? new AdvertiserResource($this->customer) : null,
             $this->mergeWhen($this->detailed, fn () => [
