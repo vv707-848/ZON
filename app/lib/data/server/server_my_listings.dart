@@ -88,7 +88,13 @@ abstract final class ServerMyListings {
   }
 
   /// A new listing from [l] (a broker's, with his [licence]). [operation] is the same on every try of one publish.
-  static Future<Listing> create(Listing l, {required List<int> mediaIds, required String licence, required String operation, required int epoch}) async {
+  static Future<Listing> create(
+    Listing l, {
+    required List<int> mediaIds,
+    required String licence,
+    required String operation,
+    required int epoch,
+  }) async {
     store.stillAccount(epoch);
     final r = await Api.client!.post('listings', <String, Object?>{...form(l), ...photos(mediaIds), 'licence_number': licence}, operation);
     return ServerListings.fromListing(r.map);
@@ -96,7 +102,9 @@ abstract final class ServerMyListings {
 
   static Future<Listing> update(String appId, Listing l, {required List<int> mediaIds, required int epoch}) async {
     store.stillAccount(epoch);
-    return ServerListings.fromListing((await Api.client!.patch('listings/${ServerListings.rawId(appId)}', <String, Object?>{...form(l), ...photos(mediaIds)})).map);
+    return ServerListings.fromListing(
+      (await Api.client!.patch('listings/${ServerListings.rawId(appId)}', <String, Object?>{...form(l), ...photos(mediaIds)})).map,
+    );
   }
 
   static Future<WordingReview> review(String appId) async {
