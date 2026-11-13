@@ -1,0 +1,61 @@
+{
+    "success": true,
+    "data": {
+        "id": 1,
+        "status": "paused",
+        "title": "مشروع الأفق الجديد",
+        "city": "الرياض",
+        "neighborhood": "النرجس",
+        "property_type": "villa",
+        "delivery": "offplan",
+        "land_use": null,
+        "total_units": 20,
+        "available_units": 6,
+        "models_count": 1,
+        "start_price": 1950000,
+        "description": "فلل حديثة بحدائق خاصة ومسبح لكل فيلا",
+        "featured": false,
+        "cover_url": null,
+        "published_at": "2026-11-13T10:03:42+00:00",
+        "share_url": "https://zon.sa/projects/1",
+        "developer": {
+            "id": 1,
+            "username": "jxztj1810",
+            "name": "سنابل العسكر",
+            "role": "developer",
+            "fal_verified": false,
+            "fal_number": null
+        },
+        "units": [
+            {
+                "id": 1,
+                "project_id": 1,
+                "model_name": "C1",
+                "property_type": "villa",
+                "area": null,
+                "area_land": null,
+                "area_built": 380,
+                "bedrooms": 5,
+                "bathrooms": 5,
+                "halls": 2,
+                "land_use": null,
+                "price": 1950000,
+                "available_count": 6,
+                "payment_method": null,
+                "description": "نموذج C1 بخمس غرف ومجلس مستقل — مصقول.",
+                "licence": null,
+                "photos": []
+            }
+        ],
+        "photos": [],
+        "lat": null,
+        "lng": null,
+        "maps_link": null,
+        "phones": [
+            "0591371282"
+        ],
+        "desc_raw": "فلل حديثة بحدائق خاصة ومسبح لكل فيلا",
+        "desc_suggested": "فلل حديثة بحدائق خاصة ومسبح لكل فيلا — مصقول.",
+        "text_review": "ready"
+    }
+}

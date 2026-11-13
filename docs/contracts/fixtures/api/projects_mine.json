@@ -1,0 +1,43 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": 1,
+            "status": "draft",
+            "title": "مشروع الأفق",
+            "city": "الرياض",
+            "neighborhood": "النرجس",
+            "property_type": "villa",
+            "delivery": "offplan",
+            "land_use": null,
+            "total_units": 20,
+            "available_units": 9,
+            "models_count": 2,
+            "start_price": 1950000,
+            "description": "فلل حديثة بتشطيب فاخر وحدائق خاصة",
+            "featured": false,
+            "cover_url": null,
+            "published_at": null,
+            "share_url": "https://zon.sa/projects/1",
+            "developer": {
+                "id": 1,
+                "username": "jxztj1810",
+                "name": "سنابل العسكر",
+                "role": "developer",
+                "fal_verified": false,
+                "fal_number": null
+            },
+            "desc_raw": "فلل حديثة بتشطيب فاخر وحدائق خاصة",
+            "desc_suggested": "فلل حديثة بتشطيب فاخر وحدائق خاصة — مصقول.",
+            "text_review": "ready"
+        }
+    ],
+    "meta": {
+        "page": {
+            "current": 1,
+            "per_page": 20,
+            "total": 1,
+            "last": 1
+        }
+    }
+}
