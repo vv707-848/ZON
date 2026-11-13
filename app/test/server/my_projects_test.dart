@@ -231,7 +231,7 @@ void main() {
     expect(find.text('مخفي — أوقفته أنت'), findsNothing);
   });
 
-  testWidgets("«تمييز» of his published project: free while his free ones last; then its price, paid here", (tester) async {
+  testWidgets('«تمييز» of his published project: free while his free ones last; then its price, paid here', (tester) async {
     final published = <String, Object?>{
       ...recorded('projects_mine'),
       'data': <Object?>[_one('project_published')],
