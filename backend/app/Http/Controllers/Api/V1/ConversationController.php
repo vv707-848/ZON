@@ -75,7 +75,7 @@ class ConversationController extends Controller
         return Message::query()
             ->join('conversation_participants as mine', fn ($j) => $j->on('mine.conversation_id', '=', 'messages.conversation_id')->where('mine.customer_id', $me->id))
             ->whereIn('messages.conversation_id', $ids)->where('messages.sender_id', '!=', $me->id)
-            ->where(fn ($q) => $q->whereNull('mine.last_read_at')->orWhereColumn('messages.created_at', '>', 'mine.last_read_at'))
+            ->where(fn ($q) => $q->whereNull('mine.last_read_message_id')->orWhereColumn('messages.id', '>', 'mine.last_read_message_id'))
             ->groupBy('messages.conversation_id')->selectRaw('messages.conversation_id, COUNT(*) AS unread')
             ->pluck('unread', 'messages.conversation_id')->map(fn ($n) => (int) $n)->all();
     }
@@ -146,7 +146,13 @@ class ConversationController extends Controller
 
     public function markRead(Request $request, Conversation $conversation): JsonResponse
     {
-        $this->participant($conversation, $request->user('api'))->forceFill(['last_read_at' => now()])->save();
+        // up to the last message he was shown (`up_to`), else the last one there is: one arriving meanwhile stays unread
+        $upTo = $request->validate(['up_to' => ['nullable', 'integer']])['up_to'] ?? null;
+        $last = $conversation->messages()->when($upTo, fn ($q) => $q->where('id', '<=', $upTo))->max('id');
+        $mine = $this->participant($conversation, $request->user('api'));
+        if ($last !== null && ($mine->last_read_message_id === null || $last > $mine->last_read_message_id)) {
+            $mine->forceFill(['last_read_at' => now(), 'last_read_message_id' => $last])->save();
+        }
 
         return Api::ok();
     }
@@ -163,13 +169,18 @@ class ConversationController extends Controller
         $message = DB::transaction(function () use ($conversation, $me, $body) {
             $message = $conversation->messages()->create(['sender_id' => $me->id, 'body' => trim($body)]);
             $conversation->forceFill(['last_message_at' => now()])->save();
-            $conversation->participants()->where('customer_id', $me->id)->update(['last_read_at' => now()]);
+            $conversation->participants()->where('customer_id', $me->id)->update(['last_read_at' => now(), 'last_read_message_id' => $message->id]);
 
             return $message;
         });
 
+        // saved: its live and push delivery cannot fail it (a queue down is reported; the other side reads it on
+        // his next look). A pending broadcast is sent by its destructor, so it is dropped inside the rescue.
         $visible = $others->whereNull('hidden_at')->reject(fn (ConversationParticipant $p) => Sandbox::hides($p->customer, $me));
-        broadcast(new MessageSent($message, $visible->pluck('customer_id')->map(fn ($id) => (int) $id)->all()));
+        rescue(function () use ($message, $visible) {
+            $live = broadcast(new MessageSent($message, $visible->pluck('customer_id')->map(fn ($id) => (int) $id)->all()));
+            unset($live);
+        }, report: true);
         $visible->each(fn (ConversationParticipant $p) => $p->customer->notify(Notices::newMessage($conversation->id, $me, $message->body)));
 
         return $message;

@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_chats.dart';
 import 'package:zon/data/store.dart';
 
 const Color _askPill = Color(0xFFF2F4F3);
@@ -425,7 +427,7 @@ class _AskFoot extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          AskContact(name: e.author, role: e.role, requestId: e.id),
+          AskContact(name: e.author, role: e.role, requestId: e.id, username: e.authorUsername),
         ],
       ),
     );
@@ -435,11 +437,14 @@ class _AskFoot extends StatelessWidget {
 /// The chat button (only for signed-in users). No call: the server never
 /// shares a request author's phone.
 class AskContact extends StatelessWidget {
-  const AskContact({super.key, required this.name, required this.role, this.requestId});
+  const AskContact({super.key, required this.name, required this.role, this.requestId, this.username});
 
   final String name;
   final Role role;
   final String? requestId;
+
+  /// With a server: the author's username (a conversation with him about the request).
+  final String? username;
 
   @override
   Widget build(BuildContext context) {
@@ -460,6 +465,11 @@ class AskContact extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         btn(Lu.messageCircle, () {
+          final u = username;
+          if (Api.on && u != null) {
+            Nav.go(context, ServerChats.startPath(u, about: requestId, name: name, role: role));
+            return;
+          }
           store.openChat(Chat(id: id, name: name, role: role, last: 'طلب مسحوب', requestId: requestId));
           Nav.go(context, '/chats/$id');
         }),

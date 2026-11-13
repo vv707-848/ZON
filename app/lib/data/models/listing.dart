@@ -167,6 +167,7 @@ class Listing {
     this.active,
     this.phones,
     this.ownerId,
+    this.advertiserUsername,
     this.premiumUntil,
     this.urgentUntil,
     this.unclaimed,
@@ -228,6 +229,9 @@ class Listing {
   /// Account id of the publisher (`acc-…`). Only this account may edit,
   /// boost or hide the listing. Sample listings have none (nobody owns them).
   final String? ownerId;
+
+  /// The advertiser's username on the server: his public page and a conversation with him.
+  final String? advertiserUsername;
 
   /// End of a paid / quota featuring («مميز»), ISO-8601. Sample listings use
   /// [isPremium] without an end.
@@ -302,6 +306,7 @@ class Listing {
     if (active != null) 'active': active,
     if (phones != null) 'phones': phones,
     if (ownerId != null) 'ownerId': ownerId,
+    if (advertiserUsername != null) 'advertiserUsername': advertiserUsername,
     if (premiumUntil != null) 'premiumUntil': premiumUntil,
     if (urgentUntil != null) 'urgentUntil': urgentUntil,
     if (unclaimed != null) 'unclaimed': unclaimed,
@@ -359,6 +364,7 @@ class Listing {
       active: j['active'] as bool?,
       phones: (j['phones'] as List?)?.map((e) => e.toString()).toList(),
       ownerId: j['ownerId'] as String?,
+      advertiserUsername: j['advertiserUsername'] as String?,
       premiumUntil: j['premiumUntil'] as String?,
       urgentUntil: j['urgentUntil'] as String?,
       unclaimed: j['unclaimed'] as bool?,

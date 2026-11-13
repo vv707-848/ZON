@@ -1,0 +1,12 @@
+{
+    "success": true,
+    "data": {
+        "conversation_id": 1,
+        "message": {
+            "id": 1,
+            "body": "هل العرض متاح؟",
+            "mine": true,
+            "at": "2026-11-13T17:11:45+00:00"
+        }
+    }
+}

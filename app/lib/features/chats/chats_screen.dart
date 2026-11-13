@@ -1,13 +1,22 @@
 // `/chats` — المحادثات: the Barq entry card, filters and conversations.
+//
+// With a server they are his conversations there (ServerChats.list): newest first, what is unread in each, and
+// what each is about; asked again every few seconds while the page is open. Another account signed in: the
+// list is asked again for it, nothing of the one before shown.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/layout/app_shell.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_chats.dart';
 import 'package:zon/data/store.dart';
 
 class _Filter {
@@ -39,11 +48,61 @@ class ChatsScreen extends StatefulWidget {
 class _ChatsScreenState extends State<ChatsScreen> {
   String tab = 'all';
 
+  /// With a server: his conversations, while they load, and why they did not.
+  List<Chat>? _server;
+  String? _error;
+  int _epoch = store.serverEpoch;
+  Timer? _poll;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Api.on) {
+      store.addListener(_onAccount);
+      unawaited(_load());
+      _poll = Timer.periodic(const Duration(seconds: 15), (_) => unawaited(_load()));
+    }
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    if (Api.on) store.removeListener(_onAccount);
+    super.dispose();
+  }
+
+  void _onAccount() {
+    if (!mounted || _epoch == store.serverEpoch) return;
+    setState(() {
+      _epoch = store.serverEpoch;
+      _server = null;
+      _error = null;
+    });
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final epoch = _epoch;
+    if (store.readSession() == null) return;
+    try {
+      final rows = await ServerChats.list();
+      if (mounted && epoch == _epoch && epoch == store.serverEpoch) {
+        setState(() {
+          _server = rows;
+          _error = null;
+        });
+      }
+    } on ApiError catch (e) {
+      if (mounted && epoch == _epoch && _server == null) setState(() => _error = e.forUser);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = store.readSession();
     if (user == null) return const RedirectTo('/login');
-    final rows = store.chats().where((c) => tab == 'all' || c.role == tab).toList();
+    final all = Api.on ? (_server ?? const <Chat>[]) : store.chats();
+    final rows = all.where((c) => tab == 'all' || c.role == tab).toList();
     return AppShell(
       child: Padding(
         padding: const EdgeInsets.only(top: 10, bottom: 28),
@@ -69,7 +128,20 @@ class _ChatsScreenState extends State<ChatsScreen> {
                 ],
               ),
             ),
-            if (rows.isNotEmpty)
+            if (Api.on && _server == null)
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: _error == null
+                    ? const LoadingBox()
+                    : EmptyBox(
+                        title: 'تعذّر جلب المحادثات',
+                        text: _error!,
+                        textStyle: emptyTextStyle(),
+                        action: 'أعد المحاولة',
+                        onAction: () => unawaited(_load()),
+                      ),
+              )
+            else if (rows.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
@@ -272,10 +344,10 @@ class _WireRow extends StatelessWidget {
                         softWrap: false,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (c.listingId != null && c.listingId!.isNotEmpty) ...<Widget>[
+                      if (c.subjectTitle != null || (c.listingId != null && c.listingId!.isNotEmpty)) ...<Widget>[
                         const SizedBox(height: 2),
                         Tx(
-                          'عرض مسحوب',
+                          c.subjectTitle != null ? 'بخصوص: ${c.subjectTitle}' : 'عرض مسحوب',
                           style: ts(12, lh: 18, c: _grey8a),
                           maxLines: 1,
                           softWrap: false,
@@ -291,7 +363,26 @@ class _WireRow extends StatelessWidget {
                 alignment: Alignment.topCenter,
                 child: Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: Tx(c.at ?? '', style: ts(12, lh: 18, c: _grey8a), softWrap: false),
+                  child: Column(
+                    children: <Widget>[
+                      Tx(c.at ?? '', style: ts(12, lh: 18, c: _grey8a), softWrap: false),
+                      if (c.unread > 0) ...<Widget>[
+                        const SizedBox(height: 6),
+                        Container(
+                          constraints: const BoxConstraints(minWidth: 22),
+                          height: 22,
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          decoration: BoxDecoration(color: AppColors.forest, borderRadius: BorderRadius.circular(999)),
+                          alignment: Alignment.center,
+                          child: Semantics(
+                            label: '${c.unread} غير مقروءة',
+                            excludeSemantics: true,
+                            child: Tx('${c.unread}', style: ts(12, w: 700, lh: 16, c: AppColors.white)),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ],

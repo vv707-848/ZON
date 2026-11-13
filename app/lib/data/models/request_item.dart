@@ -21,6 +21,7 @@ class RequestItem {
     required this.role,
     this.urgent,
     this.ownerId,
+    this.authorUsername,
     this.createdAt,
     this.unclaimed,
     this.closed,
@@ -47,6 +48,9 @@ class RequestItem {
 
   /// Account id of the author (`acc-…`); sample requests have none.
   final String? ownerId;
+
+  /// The author's username on the server: a conversation with him.
+  final String? authorUsername;
 
   /// ISO-8601 time of publishing (user requests).
   final String? createdAt;
@@ -78,6 +82,7 @@ class RequestItem {
     'role': role,
     if (urgent != null) 'urgent': urgent,
     if (ownerId != null) 'ownerId': ownerId,
+    if (authorUsername != null) 'authorUsername': authorUsername,
     if (createdAt != null) 'createdAt': createdAt,
     if (unclaimed != null) 'unclaimed': unclaimed,
     if (closed != null) 'closed': closed,
@@ -101,6 +106,7 @@ class RequestItem {
     role: j['role'] as String? ?? 'seeker',
     urgent: j['urgent'] as bool?,
     ownerId: j['ownerId'] as String?,
+    authorUsername: j['authorUsername'] as String?,
     createdAt: j['createdAt'] as String?,
     unclaimed: j['unclaimed'] as bool?,
     closed: j['closed'] as bool?,

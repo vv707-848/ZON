@@ -7,20 +7,25 @@ import 'package:flutter/material.dart';
 import 'package:zon/app/external_links.dart';
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
 import 'package:zon/core/simulations.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_chats.dart';
 import 'package:zon/data/store.dart';
 
 /// The advertiser's card: avatar, name, role, chat and call buttons.
 class AdvertiserCard extends StatelessWidget {
-  const AdvertiserCard({super.key, required this.name, required this.role, this.listingId, this.phones});
+  const AdvertiserCard({super.key, required this.name, required this.role, this.listingId, this.phones, this.username});
 
   final String name;
   final Role role;
   final String? listingId;
   final List<String>? phones;
+
+  /// With a server: his username — his page, and a conversation with him (none for one's own listing).
+  final String? username;
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +70,10 @@ class AdvertiserCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Tap(
-            onTap: () => Nav.go(context, '/users/$id${listingId != null ? '?listing=$listingId' : ''}'),
+            onTap: () => Nav.go(
+              context,
+              '/users/${Api.on && username != null ? Uri.encodeComponent(username!) : id}${listingId != null ? '?listing=$listingId' : ''}',
+            ),
             child: Row(
               children: <Widget>[
                 Container(
@@ -104,6 +112,11 @@ class AdvertiserCard extends StatelessWidget {
                   icon: Lu.messageCircle,
                   ghost: false,
                   onTap: () {
+                    final u = username;
+                    if (Api.on && u != null) {
+                      Nav.go(context, store.readSession() == null ? '/login' : ServerChats.startPath(u, about: listingId, name: p, role: role));
+                      return;
+                    }
                     store.openChat(Chat(id: id, name: p, role: role, last: listingId != null ? 'عرض مسحوب' : 'مرحباً', listingId: listingId));
                     Nav.go(context, '/chats/$id');
                   },
