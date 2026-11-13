@@ -1055,7 +1055,7 @@ class Store extends ChangeNotifier {
   List<String> likedIds() {
     final s = likedSet();
     if (s.isNotEmpty) return s.toList();
-    if (_likesInit) return <String>[];
+    if (_likesInit || Api.on) return <String>[]; // sample likes are for the local build, never a server's
     final ids = allListings().take(5).map((l) => l.id).toList();
     _likes = ids.toSet();
     _likesInit = true;

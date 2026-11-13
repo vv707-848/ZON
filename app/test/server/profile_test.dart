@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/data/store.dart';
+import 'package:zon/shared/widgets/barq_card.dart';
 
 import '../support/server_env.dart';
 import '../support/test_env.dart';
@@ -57,11 +58,9 @@ void main() {
     server.on('GET', at, 200, recorded('profile_public'));
     server.on('GET', '$at/listings', 200, recorded('profile_listings'));
     stubs?.call(server);
-    if (signedIn)
-      await serverSignIn(
-        server,
-        account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
-      );
+    if (signedIn) {
+      await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+    }
     await pumpApp(tester, '/users/$username');
     await _settle(tester);
     return server;
@@ -216,6 +215,10 @@ void main() {
     server.on('GET', 'me/followers', 200, <String, Object?>{'success': true, 'data': <Object?>[]});
     server.on('GET', 'me/following', 200, recorded('following'));
     server.on('DELETE', '$at/follow', 200, recorded('unfollow'));
+    server.on('GET', 'favorites', 200, <String, Object?>{
+      'success': true,
+      'data': <String, Object?>{'listings': <Object?>[], 'projects': <Object?>[]},
+    });
     await serverSignIn(
       server,
       account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
@@ -290,5 +293,18 @@ void main() {
     await _settle(tester);
     expect(find.text(listing), findsOneWidget);
     expect(find.text(project), findsOneWidget);
+  });
+
+  testWidgets("«حسابي» counts the server's followers, followed and likes — no sample numbers", (tester) async {
+    await freshDevice();
+    final server = serverDevice();
+    server.on('GET', 'me/followers', 200, <String, Object?>{'success': true, 'data': <Object?>[]});
+    server.on('GET', 'me/following', 200, recorded('following'));
+    server.on('GET', 'favorites', 200, recorded('favorites'));
+    await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+    await pumpApp(tester, '/account');
+    await _settle(tester);
+    final stats = tester.widgetList<MeStat>(find.byType(MeStat)).map((w) => '${w.label}:${w.n}').toList();
+    expect(stats, <String>['المتابِعون:0', 'يتابِع:1', 'المفضلة:2']);
   });
 }

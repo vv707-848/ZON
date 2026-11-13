@@ -108,16 +108,9 @@ class _PeopleViewState extends State<PeopleView> {
     });
     try {
       await ServerPeople.follow(x.id, on: false, epoch: epoch);
-      if (_current(epoch))
-        setState(
-          () => book = (
-            followers: book.followers,
-            following: <Person>[
-              for (final p in book.following)
-                if (p.id != x.id) p,
-            ],
-          ),
-        );
+      if (_current(epoch)) {
+        setState(() => book = (followers: book.followers, following: <Person>[for (final p in book.following) if (p.id != x.id) p]));
+      }
     } on ApiError catch (e) {
       if (_current(epoch)) setState(() => _error = e.forUser);
     } on AccountChanged {

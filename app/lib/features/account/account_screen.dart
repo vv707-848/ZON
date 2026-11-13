@@ -1,15 +1,21 @@
 // `/account` — حسابي: the identity card, counters, the services the user's
 // role can open, and the settings row. Guests see a sign-in invitation.
+// With a server the counters are the server's (his followers, the accounts he follows, his likes).
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/layout/app_shell.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_people.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/shared/widgets/barq_card.dart';
 
@@ -81,12 +87,6 @@ class _Me extends StatelessWidget {
       const _Svc('requests', 'طلباتي', Lu.inbox),
       _Svc('listings', c == 'developer' ? 'مشاريعي' : 'عروضي المنشورة', c == 'developer' ? Lu.building2 : Lu.layoutGrid),
     ].where((s) => kSvcRoles[s.svc]?.contains(c) ?? false).toList();
-    final book = store.follows();
-
-    Widget stat(int n, String l, String kind) => Tap(
-      onTap: () => Nav.go(context, '/account/people?kind=$kind'),
-      child: MeStat(n: loc(n), label: l),
-    );
 
     final rows = <Widget>[];
     for (var i = 0; i < services.length; i += 2) {
@@ -131,15 +131,7 @@ class _Me extends StatelessWidget {
           children: <Widget>[
             BarqCard(name: user.name, verified: verified),
             const SizedBox(height: 16),
-            Row(
-              children: <Widget>[
-                Expanded(child: stat(book.followers.length, 'المتابِعون', 'followers')),
-                const SizedBox(width: 8),
-                Expanded(child: stat(book.following.length, 'يتابِع', 'following')),
-                const SizedBox(width: 8),
-                Expanded(child: stat(store.likedIds().length, 'المفضلة', 'favs')),
-              ],
-            ),
+            const _Counts(),
             if (!sub && c != 'developer') ...<Widget>[
               const SizedBox(height: 16),
               Tap(
@@ -274,6 +266,63 @@ class SvcTile extends StatelessWidget {
     return Tap(
       onTap: go,
       child: locked ? Opacity(opacity: 0.4, child: tile) : tile,
+    );
+  }
+}
+
+/// المتابِعون · يتابِع · المفضلة — each opens its list.
+class _Counts extends StatefulWidget {
+  const _Counts();
+
+  @override
+  State<_Counts> createState() => _CountsState();
+}
+
+class _CountsState extends State<_Counts> {
+  /// With a server: its counts once it answered (null until then, or when it could not).
+  ({int followers, int following, int favs})? _server;
+  int _epoch = store.serverEpoch;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Api.on) unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final epoch = _epoch = store.serverEpoch;
+    try {
+      final followers = await ServerPeople.people(followers: true);
+      final following = await ServerPeople.people(followers: false);
+      final favs = await ServerFavorites.list();
+      if (mounted && epoch == store.serverEpoch) setState(() => _server = (followers: followers.length, following: following.length, favs: favs.length));
+    } on ApiError {
+      // shown as «—»: not a made-up zero
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (Api.on && _epoch != store.serverEpoch) {
+      _server = null;
+      unawaited(_load());
+    }
+    final book = Api.on ? null : store.follows();
+    final n = Api.on
+        ? _server
+        : (followers: book!.followers.length, following: book.following.length, favs: store.likedIds().length);
+    Widget stat(int? count, String l, String kind) => Tap(
+      onTap: () => Nav.go(context, '/account/people?kind=$kind'),
+      child: MeStat(n: count == null ? '—' : loc(count), label: l),
+    );
+    return Row(
+      children: <Widget>[
+        Expanded(child: stat(n?.followers, 'المتابِعون', 'followers')),
+        const SizedBox(width: 8),
+        Expanded(child: stat(n?.following, 'يتابِع', 'following')),
+        const SizedBox(width: 8),
+        Expanded(child: stat(n?.favs, 'المفضلة', 'favs')),
+      ],
     );
   }
 }
