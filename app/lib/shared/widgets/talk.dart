@@ -193,11 +193,15 @@ class _TalkPageState extends State<TalkPage> {
 
 /// Message composer: camera / gallery, text field and send button.
 class TalkBar extends StatefulWidget {
-  const TalkBar({super.key, required this.controller, required this.onSend, this.placeholder = 'اكتب رسالتك هنا...'});
+  const TalkBar({super.key, required this.controller, required this.onSend, this.placeholder = 'اكتب رسالتك هنا...', this.photos = true});
 
   final TextEditingController controller;
   final ValueChanged<String> onSend;
   final String placeholder;
+
+  /// The camera and gallery buttons. Off with a server: a conversation there carries text only, and a picked
+  /// photo must not be told as sent.
+  final bool photos;
 
   @override
   State<TalkBar> createState() => _TalkBarState();
@@ -246,6 +250,7 @@ class _TalkBarState extends State<TalkBar> {
         textDirection: TextDirection.ltr,
         child: Row(
           children: <Widget>[
+            if (widget.photos) ...<Widget>[
             Container(
               height: 44,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -272,6 +277,7 @@ class _TalkBarState extends State<TalkBar> {
               ),
             ),
             const SizedBox(width: 8),
+            ],
             Expanded(
               child: SizedBox(
                 height: 44,

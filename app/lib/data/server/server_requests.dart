@@ -190,6 +190,7 @@ abstract final class ServerRequests {
       role: j['author_role'] is String ? j['author_role']! as String : 'seeker',
       urgent: j['urgent'] == true,
       ownerId: author != null && author['id'] != null ? '${ServerSession.idPrefix}${author['id']}' : null,
+      authorUsername: author != null && author['username'] is String ? author['username']! as String : null,
       createdAt: j['created_at'] is String ? j['created_at']! as String : null,
       closed: j['status'] == 'closed',
       canAddToClients: j['can_add_to_clients'] == true,

@@ -4,7 +4,19 @@ import 'package:zon/data/models/types.dart';
 
 /// A conversation in the chats list.
 class Chat {
-  const Chat({required this.id, required this.name, required this.role, required this.last, this.listingId, this.requestId, this.at});
+  const Chat({
+    required this.id,
+    required this.name,
+    required this.role,
+    required this.last,
+    this.listingId,
+    this.requestId,
+    this.at,
+    this.username,
+    this.subjectTitle,
+    this.unread = 0,
+    this.blocked = false,
+  });
 
   final String id;
   final String name;
@@ -14,6 +26,13 @@ class Chat {
   final String? requestId;
   final String? at;
 
+  /// With a server: the other side's username (his page, a first message), the subject's title, the messages
+  /// unread, and whether one of the two blocked the other.
+  final String? username;
+  final String? subjectTitle;
+  final int unread;
+  final bool blocked;
+
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
     'name': name,
@@ -22,6 +41,10 @@ class Chat {
     if (listingId != null) 'listingId': listingId,
     if (requestId != null) 'requestId': requestId,
     if (at != null) 'at': at,
+    if (username != null) 'username': username,
+    if (subjectTitle != null) 'subjectTitle': subjectTitle,
+    if (unread != 0) 'unread': unread,
+    if (blocked) 'blocked': blocked,
   };
 
   factory Chat.fromJson(Map<String, Object?> j) => Chat(
@@ -32,6 +55,10 @@ class Chat {
     listingId: j['listingId'] as String?,
     requestId: j['requestId'] as String?,
     at: j['at'] as String?,
+    username: j['username'] as String?,
+    subjectTitle: j['subjectTitle'] as String?,
+    unread: j['unread'] as int? ?? 0,
+    blocked: j['blocked'] as bool? ?? false,
   );
 }
 
