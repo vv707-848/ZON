@@ -149,7 +149,7 @@
 | `POST` | `/listings/{listing}/resume` | 🔒 · رغبة · وسيط · مالك · مطوّر | استئناف ما أوقفه المعلن أو صار «غير نشط». المخفي والمرفوض يعيدهما الإشراف وحده، ومنتهي الرخصة يعيده التجديد | `ListingController@resume` |
 | `GET` | `/listings/{listing}/review` | 🔒 · رغبة · وسيط · مالك · مطوّر | الصياغة المقترحة مقابل النص الأصلي | `ListingController@review` |
 | `POST` | `/listings/{listing}/review` | 🔒 · رغبة · وسيط · مالك · مطوّر | قرار المعلن: `approve` المقترح · `edit` بنصه · `reject` فيبقى نصه الأصلي ← النشر | `ListingController@decide` |
-| `POST` | `/listings/{listing}/sold` | 🔒 · رغبة · وسيط · مالك · مطوّر | تم البيع (نهائي)؛ عرض المالك يُنشئ سعي زون المستحق من سعر البيع | `ListingController@sold` |
+| `POST` | `/listings/{listing}/sold` | 🔒 · رغبة · وسيط · مالك · مطوّر | تم البيع (نهائي)؛ عرض المالك يتطلب `sale_price` (سعر البيع الفعلي، خانتان عشريتان)، وعليه يُحسب سعي زون المستحق | `ListingController@sold` |
 | `POST` | `/media` | 🔒 · رغبة · uploads: 40/د | رفع صورة `photo` (jpg · png · webp حتى 8MB) إلى MinIO؛ تُربط بالعرض أو المشروع بمعرّفها | `MediaController@store` |
 | `DELETE` | `/media/{media}` | 🔒 · رغبة | حذف صورة لي | `MediaController@destroy` |
 

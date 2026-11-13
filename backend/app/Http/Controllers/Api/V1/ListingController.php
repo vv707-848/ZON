@@ -244,7 +244,9 @@ class ListingController extends Controller
     public function sold(Request $request, Listing $listing, MarkListingSold $sold): JsonResponse
     {
         $this->own($request, $listing);
-        $data = $request->validate(['sale_price' => ['nullable', 'numeric', 'gt:0']]);
+        // an owner's listing is sold at the price he says it sold for: Zon's commission is reckoned on it
+        $owners = $listing->ownerCase()->exists();
+        $data = $request->validate(['sale_price' => [$owners ? 'required' : 'nullable', 'numeric', 'gt:0', 'decimal:0,2']]);
         $sold($listing, Actor::customer($request->user('api')), isset($data['sale_price']) ? (string) $data['sale_price'] : null);
 
         return Api::ok(ListingResource::detail($listing->load(['customer', 'media', 'licence'])));

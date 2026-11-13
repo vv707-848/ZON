@@ -29,6 +29,7 @@ import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/server/server_my_listings.dart';
 import 'package:zon/data/server/server_my_projects.dart';
 import 'package:zon/data/store.dart';
+import 'package:zon/features/account/services/sale_price_dialog.dart';
 import 'package:zon/features/account/services/widgets/desk.dart';
 import 'package:zon/shared/widgets/billing_flow.dart';
 import 'package:zon/shared/widgets/boost.dart';
@@ -95,13 +96,18 @@ class _MyListingsViewState extends State<MyListingsView> {
 
   /// «مباع» with a server is final: asked first.
   Future<void> _sold(Listing l) async {
+    if (_server && widget.role == 'owner') {
+      final price = await askSalePrice(context, listed: l.price);
+      if (price != null && mounted) await _change(l, (id) => ServerMyListings.sold(id, salePrice: price), 'لم يُسجَّل البيع');
+      return;
+    }
     final ok = await showAppDialog(
       context,
       icon: Lu.circleAlert,
       title: 'تأكيد البيع',
       message:
           'يُسجَّل العرض مباعاً ويخرج من البحث نهائياً، ولا يُعاد نشره.'
-          '${widget.role == 'owner' ? ' ويُستحق سعي زون المتفق عليه في عقد الوساطة، محسوباً على سعر العرض.' : ''}',
+          '${widget.role == 'owner' ? ' ويُستحق سعي زون المتفق عليه في عقد الوساطة.' : ''}',
       confirmLabel: 'تم البيع',
     );
     if (ok && mounted) await _change(l, ServerMyListings.sold, 'لم يُسجَّل البيع');

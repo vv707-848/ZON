@@ -102,7 +102,7 @@ DESCRIPTIONS = {
     "POST listings/{listing}/pause": ("listings", "إيقاف مؤقت (من «منشور» فقط)"),
     "POST listings/{listing}/resume": ("listings", "استئناف ما أوقفه المعلن أو صار «غير نشط». المخفي والمرفوض يعيدهما الإشراف وحده، ومنتهي الرخصة يعيده التجديد"),
     "POST listings/{listing}/licence": ("listings", "تجديد الرخصة: رقمها (أو رقم جديد) يُفحص لدى الهيئة بتاريخ انتهائها، ويعود العرض «منتهي الترخيص» إلى النشر"),
-    "POST listings/{listing}/sold": ("listings", "تم البيع (نهائي)؛ عرض المالك يُنشئ سعي زون المستحق من سعر البيع"),
+    "POST listings/{listing}/sold": ("listings", "تم البيع (نهائي)؛ عرض المالك يتطلب `sale_price` (سعر البيع الفعلي، خانتان عشريتان)، وعليه يُحسب سعي زون المستحق"),
     "POST listings/{listing}/boost": ("listings", "تمييز أو عاجل: من رصيد الباقة، وإلا عملية دفع"),
     "POST media": ("listings", "رفع صورة `photo` (jpg · png · webp حتى 8MB) إلى MinIO؛ تُربط بالعرض أو المشروع بمعرّفها"),
     "DELETE media/{media}": ("listings", "حذف صورة لي"),

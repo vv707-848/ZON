@@ -157,4 +157,43 @@ void main() {
     await _settle(tester);
     expect(find.text('إرسال عقد الوساطة'), findsOneWidget);
   });
+
+  testWidgets('«مباع»: he says the price it sold for, checked before it is sent', (tester) async {
+    await freshDevice();
+    final server = serverDevice();
+    final mine = <String, Object?>{..._one('owner_listing_sold'), 'status': 'published'};
+    server.on('GET', 'listings/mine', 200, <String, Object?>{
+      'success': true,
+      'data': <Object?>[mine],
+      'meta': <String, Object?>{'page': 1, 'per_page': 20, 'total': 1, 'last_page': 1},
+    });
+    final id = mine['id']! as int;
+    server.on('POST', 'listings/$id/sold', 200, recorded('owner_listing_sold'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'owner', name: 'عبدالرحمن الدوسري'),
+    );
+    await pumpApp(tester, '/account/listings');
+    await _settle(tester);
+
+    await tapText(tester, 'مباع', last: true);
+    await _settle(tester);
+    expect(find.textContaining('اكتب سعر البيع الفعلي'), findsOneWidget);
+    final price = find.byType(EditableText); // the dialog's is the last
+    expect(tester.widget<EditableText>(price.last).controller.text, '2000000', reason: 'the listed price offered first');
+    await tester.enterText(price.last, '0');
+    await tapText(tester, 'تم البيع');
+    await tester.pump();
+    expect(find.text('سعر البيع أكبر من صفر'), findsOneWidget);
+    await tester.enterText(price.last, '1850000.505');
+    await tapText(tester, 'تم البيع');
+    await tester.pump();
+    expect(find.text('سعر البيع رقم بخانتين عشريتين على الأكثر'), findsOneWidget);
+    expect(server.sent('POST', 'listings/$id/sold'), isEmpty, reason: 'nothing sent before a valid price');
+
+    await tester.enterText(price.last, '١٨٥٠٠٠٠');
+    await tapText(tester, 'تم البيع');
+    await _settle(tester);
+    expect(FakeServer.body(server.sent('POST', 'listings/$id/sold').single), <String, Object?>{'sale_price': '1850000'});
+  });
 }
