@@ -235,8 +235,10 @@ void main() {
       s.on('GET', 'projects/$project', 200, recorded('project_mine_detail'));
     });
 
-    Finder unitField(String label, int index) => find
-        .descendant(of: find.ancestor(of: find.text(label), matching: find.byType(ProjField)).at(index), matching: find.byType(EditableText));
+    Finder unitField(String label, int index) => find.descendant(
+      of: find.ancestor(of: find.text(label), matching: find.byType(ProjField)).at(index),
+      matching: find.byType(EditableText),
+    );
 
     testWidgets("a model's price and count saved, a new text sent to its wording; nothing sent when a value is not one", (tester) async {
       final server = await editor(tester);
@@ -292,7 +294,11 @@ void main() {
       final server = await editor(tester);
       server.on('DELETE', 'projects/$project/units/2', 409, <String, Object?>{
         'success': false,
-        'error': <String, Object?>{'code': 'PROJECT_NO_UNITS', 'message': 'أضف نموذج وحدة واحداً على الأقل قبل النشر.', 'details': <String, Object?>{'reason': 'last_unit'}},
+        'error': <String, Object?>{
+          'code': 'PROJECT_NO_UNITS',
+          'message': 'أضف نموذج وحدة واحداً على الأقل قبل النشر.',
+          'details': <String, Object?>{'reason': 'last_unit'},
+        },
       });
       await tapText(tester, 'حذف', index: 1);
       await _settle(tester);

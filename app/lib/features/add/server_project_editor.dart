@@ -166,11 +166,7 @@ class _ServerProjectEditorState extends State<ServerProjectEditor> {
       return;
     }
     final p = _p!;
-    final body = <String, Object?>{
-      'title': _title.trim(),
-      'description': _text.trim(),
-      'maps_link': _maps.trim().isEmpty ? null : _maps.trim(),
-    };
+    final body = <String, Object?>{'title': _title.trim(), 'description': _text.trim(), 'maps_link': _maps.trim().isEmpty ? null : _maps.trim()};
     final textChanged = _text.trim() != p.text.trim();
     unawaited(
       _run(
@@ -185,7 +181,8 @@ class _ServerProjectEditorState extends State<ServerProjectEditor> {
     final price = _priceOf(_price[u.id] ?? '', 'سعر ${u.name}');
     final count = _countOf(_count[u.id] ?? '');
     final text = (_unitText[u.id] ?? '').trim();
-    final problem = price.error ?? (count == null ? 'عدد ${u.name} رقم صحيح من 0 إلى 5000' : null) ?? (text.length < 10 ? 'وصف ${u.name} 10 أحرف فأكثر' : null);
+    final problem =
+        price.error ?? (count == null ? 'عدد ${u.name} رقم صحيح من 0 إلى 5000' : null) ?? (text.length < 10 ? 'وصف ${u.name} 10 أحرف فأكثر' : null);
     if (problem != null) {
       setState(() => _error = problem);
       return;
@@ -323,7 +320,13 @@ class _ServerProjectEditorState extends State<ServerProjectEditor> {
       return Padding(
         padding: const EdgeInsets.all(20),
         child: _loadError != null
-            ? EmptyBox(title: 'تعذّر جلب المشروع', text: _loadError!, textStyle: emptyTextStyle(), action: 'أعد المحاولة', onAction: () => unawaited(_load()))
+            ? EmptyBox(
+                title: 'تعذّر جلب المشروع',
+                text: _loadError!,
+                textStyle: emptyTextStyle(),
+                action: 'أعد المحاولة',
+                onAction: () => unawaited(_load()),
+              )
             : const LoadingBox(),
       );
     }
@@ -342,7 +345,12 @@ class _ServerProjectEditorState extends State<ServerProjectEditor> {
         BackLink(label: 'مشاريعي', onTap: () => Nav.go(context, '/account/listings')),
         const SizedBox(height: 12),
         if (p.wordingWaits) ...<Widget>[
-          AppButton(label: 'أوصاف تنتظر قرارك', icon: Lu.sparkles, tone: ButtonTone.secondary, onTap: () => Nav.go(context, '/account/projects/${p.id}/review')),
+          AppButton(
+            label: 'أوصاف تنتظر قرارك',
+            icon: Lu.sparkles,
+            tone: ButtonTone.secondary,
+            onTap: () => Nav.go(context, '/account/projects/${p.id}/review'),
+          ),
           const SizedBox(height: 12),
         ],
         if (_error case final String e) ...<Widget>[FormError(e), const SizedBox(height: 10)],
@@ -385,7 +393,11 @@ class _ServerProjectEditorState extends State<ServerProjectEditor> {
                 const SizedBox(height: 8),
                 ButtonPair(
                   secondary: AppButton(label: 'حذف', tone: ButtonTone.tonal, onTap: sending ? null : () => unawaited(_remove(u))),
-                  primary: AppButton(label: 'بيع وحدات', tone: ButtonTone.secondary, onTap: sending || u.available < 1 ? null : () => unawaited(_sell(u))),
+                  primary: AppButton(
+                    label: 'بيع وحدات',
+                    tone: ButtonTone.secondary,
+                    onTap: sending || u.available < 1 ? null : () => unawaited(_sell(u)),
+                  ),
                 ),
               ],
             ),

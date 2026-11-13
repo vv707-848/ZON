@@ -203,9 +203,8 @@ abstract final class ServerMyProjects {
   static Future<MyProject> detail(int project) async => MyProject.fromJson((await Api.client!.get('projects/$project')).map);
 
   /// [count] units of model [unit] sold, at [salePrice] each (the contract's commission is reckoned on it).
-  static Future<MyUnit> sell(int project, int unit, {required int count, required String salePrice}) async => MyUnit.fromJson(
-    (await Api.client!.post('projects/$project/units/$unit/sold', <String, Object?>{'count': count, 'sale_price': salePrice})).map,
-  );
+  static Future<MyUnit> sell(int project, int unit, {required int count, required String salePrice}) async =>
+      MyUnit.fromJson((await Api.client!.post('projects/$project/units/$unit/sold', <String, Object?>{'count': count, 'sale_price': salePrice})).map);
 
   static Future<ProjectWording> review(int project) async {
     final j = (await Api.client!.get('projects/$project/review')).map;
