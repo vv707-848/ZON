@@ -8,8 +8,9 @@
 // waits for him opens its review.
 //
 // A developer's projects with a server are its too (GET /projects/mine, ServerMyProjects): a draft opens its
-// wording review, which publishes; hiding is a pause, showing asks publishing again. Editing a project, and
-// «تمييز» · «عاجل» for one, are not on the server yet: their buttons are off rather than local.
+// wording review, which publishes; hiding is a pause, showing asks publishing again; «تعديل» opens its editor
+// (server_project_editor.dart). «تمييز» · «عاجل» for a project are not on the server: their buttons are off
+// rather than local.
 
 import 'dart:async';
 
@@ -273,7 +274,7 @@ class _MyListingsViewState extends State<MyListingsView> {
           _barBox('عاجل', icon: Lu.zap, bg: kUrgentRed, fg: AppColors.white, onTap: () => _boost(l, BoostKind.urgentListing))
         else
           _barBox('عاجل', icon: Lu.zap, onTap: live ? () => _boost(l, BoostKind.urgentListing) : null),
-      _barBox('تعديل', onTap: noProjectOnServer ? null : () => Nav.go(context, '/account/listings/${Uri.encodeComponent(l.id)}')),
+      _barBox('تعديل', onTap: () => Nav.go(context, '/account/listings/${Uri.encodeComponent(l.id)}')),
       if (!noProjectOnServer)
         if (_server && l.soldFlag)
           _barBox('مباع')

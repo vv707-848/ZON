@@ -1,0 +1,27 @@
+{
+    "success": true,
+    "data": {
+        "status": "published",
+        "project": {
+            "text_review": "ready",
+            "raw": "فلل حديثة بحدائق خاصة ومسبح لكل فيلا",
+            "suggested": "فلل حديثة بحدائق خاصة ومسبح لكل فيلا — مصقول."
+        },
+        "units": [
+            {
+                "id": 1,
+                "model_name": "C1",
+                "text_review": "approved",
+                "raw": "نموذج C1 بخمس غرف ومجلس مستقل",
+                "suggested": "نموذج C1 بخمس غرف ومجلس مستقل — مصقول."
+            },
+            {
+                "id": 2,
+                "model_name": "D2",
+                "text_review": "rejected",
+                "raw": "نموذج D2 بخمس غرف ومجلس مستقل",
+                "suggested": "نموذج D2 بخمس غرف ومجلس مستقل — مصقول."
+            }
+        ]
+    }
+}

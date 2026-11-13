@@ -31,6 +31,7 @@ class ProjectResource extends JsonResource
         $viewer = $request->user('api');
         $mine = $viewer instanceof Customer && $viewer->id === $this->developer_id;
         $units = $this->relationLoaded('units') ? $this->units : collect();
+        $units->each(fn ($unit) => $unit->setRelation('project', $this->resource));   // each unit knows it is its developer's (his own texts)
         $available = $units->where('available_count', '>', 0);
 
         return [

@@ -3,7 +3,8 @@
 // The server prepares the AI's wording of each text after it is saved. The page asks again every few seconds
 // while any is prepared; when it takes longer, it says so and sends him to «مشاريعي». Then each text with a
 // suggestion waits for his decision: «موافق» (the suggestion, or his edit of it) or «رفض» (his own text). A text
-// the AI left as he wrote it needs none. «نشر» sends the decisions and publishes: the server asks every
+// the AI left as he wrote it needs none. «نشر» sends the decisions and publishes a draft (a published project,
+// after an edit, keeps its state: «حفظ القرارات»): the server asks every
 // condition again (each text decided; a ready project's models each with a current licence) and says what stops it.
 
 import 'dart:async';
@@ -135,8 +136,10 @@ class _ProjectReviewScreenState extends State<ProjectReviewScreen> {
       };
       if (units.isNotEmpty) await ServerMyProjects.decideUnits(widget.id, units);
       if (!_currentFor(epoch)) return;
-      final project = await ServerMyProjects.publish(widget.id);
-      store.keepServer(<Listing>[project], epoch: epoch, detailed: true);
+      if (wording.status == 'draft') {
+        final project = await ServerMyProjects.publish(widget.id);
+        store.keepServer(<Listing>[project], epoch: epoch, detailed: true);
+      } // a published project keeps its state: his decisions alone
       if (mounted && _currentFor(epoch)) unawaited(Nav.replace(context, '/projects/${ServerListings.projectId(widget.id)}'));
     } on ApiError catch (e) {
       if (_currentFor(epoch)) {
@@ -215,7 +218,10 @@ class _ProjectReviewScreenState extends State<ProjectReviewScreen> {
                       }
                     }),
             ),
-          AppButton(label: _sending ? 'جارٍ النشر…' : 'نشر المشروع', onTap: _sending || open > 0 ? null : _publish),
+          AppButton(
+            label: wording.status == 'draft' ? (_sending ? 'جارٍ النشر…' : 'نشر المشروع') : (_sending ? 'جارٍ الحفظ…' : 'حفظ القرارات'),
+            onTap: _sending || open > 0 ? null : _publish,
+          ),
         ],
         children: <Widget>[
           for (var i = 0; i < cards.length; i++) ...<Widget>[if (i > 0) const SizedBox(height: 12), cards[i]],

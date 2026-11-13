@@ -9,6 +9,8 @@
 //   POST   /projects/{id}/units/review          his decision on each model's
 //   POST   /projects/{id}/publish               published once every text is decided (and, ready, every model licensed)
 //   GET    /projects/mine                       «مشاريعي», every state
+//   GET    /projects/{id}                       his project for his editor (his own texts, each model's count)
+//   POST   /projects/{id}/units/{u}/sold        units of a model sold, at the price he says
 //   POST   /projects/{id}/pause · /resume       «إخفاء» · «إظهار» (publishing asked again)
 //
 // A sequence begun under one account sends nothing once another is signed in (Store.stillAccount).
@@ -48,12 +50,99 @@ class TextWording {
 
 /// The wording of a project and of its models.
 class ProjectWording {
-  const ProjectWording({required this.project, required this.units});
+  const ProjectWording({required this.project, required this.units, this.status = 'draft'});
 
+  /// The project's status: a draft is published from its review; a published one keeps its state.
+  final String status;
   final TextWording project;
   final List<TextWording> units;
 
   bool get preparing => project.preparing || units.any((u) => u.preparing);
+}
+
+/// A model of his project as his editor reads it (GET /projects/{id}): his own text, its count available.
+class MyUnit {
+  const MyUnit({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.price,
+    required this.available,
+    required this.text,
+    required this.textReview,
+    this.licence,
+  });
+
+  factory MyUnit.fromJson(Map<String, Object?> j) {
+    final licence = j['licence'] is Map ? (j['licence']! as Map).cast<String, Object?>() : null;
+    return MyUnit(
+      id: j['id'] is int ? j['id']! as int : 0,
+      name: '${j['model_name'] ?? ''}',
+      type: '${j['property_type'] ?? ''}',
+      price: j['price'] is num ? (j['price']! as num).toDouble() : double.tryParse('${j['price']}'),
+      available: j['available_count'] is int ? j['available_count']! as int : 0,
+      text: '${j['desc_raw'] ?? j['description'] ?? ''}',
+      textReview: '${j['text_review'] ?? ''}',
+      licence: licence == null ? null : '${licence['number']}',
+    );
+  }
+
+  final int id;
+  final String name;
+  final String type;
+  final double? price;
+  final int available;
+
+  /// His own text (not the wording decided for the public).
+  final String text;
+  final String textReview;
+  final String? licence;
+}
+
+/// His project as his editor reads it.
+class MyProject {
+  const MyProject({
+    required this.id,
+    required this.status,
+    required this.title,
+    required this.text,
+    required this.mapsLink,
+    required this.delivery,
+    required this.propertyType,
+    required this.textReview,
+    required this.units,
+  });
+
+  factory MyProject.fromJson(Map<String, Object?> j) => MyProject(
+    id: j['id'] is int ? j['id']! as int : 0,
+    status: '${j['status'] ?? ''}',
+    title: '${j['title'] ?? ''}',
+    text: '${j['desc_raw'] ?? j['description'] ?? ''}',
+    mapsLink: j['maps_link'] is String ? j['maps_link']! as String : '',
+    delivery: '${j['delivery'] ?? ''}',
+    propertyType: '${j['property_type'] ?? ''}',
+    textReview: '${j['text_review'] ?? ''}',
+    units: <MyUnit>[
+      if (j['units'] is List)
+        for (final u in j['units']! as List)
+          if (u is Map) MyUnit.fromJson(u.cast<String, Object?>()),
+    ],
+  );
+
+  final int id;
+  final String status;
+  final String title;
+  final String text;
+  final String mapsLink;
+  final String delivery;
+  final String propertyType;
+  final String textReview;
+  final List<MyUnit> units;
+
+  bool get ready => delivery == 'ready';
+
+  /// A text waits for his decision (after an edit).
+  bool get wordingWaits => textReview == 'ready' || units.any((u) => u.textReview == 'ready');
 }
 
 /// His decision on a text.
@@ -110,10 +199,18 @@ abstract final class ServerMyProjects {
     await Api.client!.post('projects/$project/units/$unit/licence', <String, Object?>{'licence_number': number});
   }
 
+  /// His project with his own texts and each model's count, for his editor.
+  static Future<MyProject> detail(int project) async => MyProject.fromJson((await Api.client!.get('projects/$project')).map);
+
+  /// [count] units of model [unit] sold, at [salePrice] each (the contract's commission is reckoned on it).
+  static Future<MyUnit> sell(int project, int unit, {required int count, required String salePrice}) async =>
+      MyUnit.fromJson((await Api.client!.post('projects/$project/units/$unit/sold', <String, Object?>{'count': count, 'sale_price': salePrice})).map);
+
   static Future<ProjectWording> review(int project) async {
     final j = (await Api.client!.get('projects/$project/review')).map;
     final units = j['units'];
     return ProjectWording(
+      status: j['status'] is String ? j['status']! as String : 'draft',
       project: TextWording.fromJson(j['project'] is Map ? (j['project']! as Map).cast<String, Object?>() : const <String, Object?>{}),
       units: <TextWording>[
         if (units is List)

@@ -97,7 +97,7 @@ class ProjectUnitController extends Controller
     public function sold(Request $request, Project $project, ProjectUnit $unit, SellUnits $sell): JsonResponse
     {
         $this->own($request, $project, $unit);
-        $data = $request->validate(['count' => ['nullable', 'integer', 'min:1'], 'sale_price' => ['nullable', 'numeric', 'gt:0']]);
+        $data = $request->validate(['count' => ['nullable', 'integer', 'min:1'], 'sale_price' => ['nullable', 'numeric', 'gt:0', 'decimal:0,2']]);
         $unit = $sell($unit, (int) ($data['count'] ?? 1), isset($data['sale_price']) ? (string) $data['sale_price'] : null);
 
         return Api::ok(new UnitResource($unit->load(['licence', 'media'])));

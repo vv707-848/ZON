@@ -158,6 +158,7 @@ abstract final class ServerListings {
     return Listing(
       status: status,
       active: status == null ? null : status == 'published',
+      ownerId: developer['id'] == null ? null : '${ServerSession.idPrefix}${developer['id']}', // his own: his editor opens
       id: projectId(j['id'] ?? ''),
       kind: 'project',
       title: _str(j['title']) ?? '',

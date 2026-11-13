@@ -13,7 +13,8 @@
 // enforced (403 for another account's listing).
 //
 // With a server, his listing (`L…`) is fetched fresh first (its photos and their ids, its state), and is his
-// when the server says so: its advertiser is his account.
+// when the server says so: its advertiser is his account. His project (`P…`) opens ServerProjectEditor: on the
+// server a unit model carries a count, not one card per unit.
 
 import 'package:flutter/material.dart';
 
@@ -27,6 +28,7 @@ import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/add/listing_editor.dart';
 import 'package:zon/features/add/project_editor.dart';
+import 'package:zon/features/add/server_project_editor.dart';
 import 'package:zon/shared/widgets/server_detail.dart';
 
 /// `/account/listings/$id` — edit a listing or a project.
@@ -53,7 +55,9 @@ class ListingEditScreen extends StatelessWidget {
       return const _Blocked(title: 'لا يمكنك تعديل هذا العرض', text: 'التعديل متاح لصاحب العرض فقط.');
     }
     return AppShell(
-      child: listing.kind == 'project' ? ProjectEditor(listing: listing) : ListingEditor(listing: listing),
+      child: listing.kind == 'project'
+          ? (Api.on && ServerListings.isServer(id) ? ServerProjectEditor(id: int.parse(ServerListings.rawId(id))) : ProjectEditor(listing: listing))
+          : ListingEditor(listing: listing),
     );
   }
 }
