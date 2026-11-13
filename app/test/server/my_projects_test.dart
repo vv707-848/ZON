@@ -242,6 +242,8 @@ void main() {
 
     testWidgets("a model's price and count saved, a new text sent to its wording; nothing sent when a value is not one", (tester) async {
       final server = await editor(tester);
+      // ignore: avoid_print
+      print('SCREEN: ${find.byType(RichText).evaluate().map((e) => (e.widget as RichText).text.toPlainText()).join(' | ')} PATH ${_path()} SENT ${server.sent('GET', 'projects/$project').length}');
       expect(find.text('C1 · المتاح 6'), findsOneWidget);
       expect(find.text('نموذج C1 بخمس غرف ومجلس مستقل'), findsOneWidget, reason: 'his own text, not the public wording');
 
