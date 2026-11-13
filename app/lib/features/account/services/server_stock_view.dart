@@ -104,7 +104,13 @@ class _ServerStockViewState extends State<ServerStockView> {
     });
     try {
       await ServerStock.remove(item.id, epoch: epoch);
-      if (_current(epoch)) setState(() => _items = <StockItem>[for (final x in _items) if (x.id != item.id) x]);
+      if (_current(epoch))
+        setState(
+          () => _items = <StockItem>[
+            for (final x in _items)
+              if (x.id != item.id) x,
+          ],
+        );
     } on ApiError catch (e) {
       if (_current(epoch)) setState(() => _error = e.forUser);
     } on AccountChanged {
@@ -146,7 +152,11 @@ class _ServerStockViewState extends State<ServerStockView> {
       if (_loading)
         const LoadingBox()
       else if (_items.isEmpty && !_adding)
-        Tx('المخزون فارغ. أضف عقاراً غير منشور لترتيب المتابعة.', style: ts(15, lh: 22.5, c: AppColors.muted), align: TextAlign.center),
+        Tx(
+          'المخزون فارغ. أضف عقاراً غير منشور لترتيب المتابعة.',
+          style: ts(15, lh: 22.5, c: AppColors.muted),
+          align: TextAlign.center,
+        ),
       for (final item in _items)
         if (_editing == item.id)
           StockServerForm(
@@ -265,9 +275,13 @@ class _StockCard extends StatelessWidget {
           else
             Row(
               children: <Widget>[
-                Expanded(child: AppButton(label: 'نشر كإعلان', onTap: busy ? null : onPublish)),
+                Expanded(
+                  child: AppButton(label: 'نشر كإعلان', onTap: busy ? null : onPublish),
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: AppButton(label: 'تعديل', tone: ButtonTone.tonal, onTap: busy ? null : onEdit)),
+                Expanded(
+                  child: AppButton(label: 'تعديل', tone: ButtonTone.tonal, onTap: busy ? null : onEdit),
+                ),
               ],
             ),
           const SizedBox(height: 8),
@@ -343,7 +357,10 @@ class _StockServerFormState extends State<StockServerForm> {
     try {
       final photo = photos.isEmpty ? null : photos.first;
       if (photo != null && _photoId == null) _photoId = await ServerStock.upload(photo, epoch: epoch); // once, kept for a retry
-      final body = <String, Object?>{..._body(), if (_photoId != null) 'media_ids': <int>[_photoId!]};
+      final body = <String, Object?>{
+        ..._body(),
+        if (_photoId != null) 'media_ids': <int>[_photoId!],
+      };
       final StockItem saved;
       if (init != null) {
         saved = await ServerStock.update(init!.id, body, epoch: epoch);
@@ -428,9 +445,13 @@ class _StockServerFormState extends State<StockServerForm> {
       if (_error case final String e) FormError(e),
       Row(
         children: <Widget>[
-          Expanded(child: AppButton(label: 'إلغاء', tone: ButtonTone.tonal, onTap: _busy ? null : widget.onCancel)),
+          Expanded(
+            child: AppButton(label: 'إلغاء', tone: ButtonTone.tonal, onTap: _busy ? null : widget.onCancel),
+          ),
           const SizedBox(width: 8),
-          Expanded(child: AppButton(label: _busy ? 'جارٍ الحفظ…' : 'حفظ', onTap: _busy ? null : () => unawaited(_save()))),
+          Expanded(
+            child: AppButton(label: _busy ? 'جارٍ الحفظ…' : 'حفظ', onTap: _busy ? null : () => unawaited(_save())),
+          ),
         ],
       ),
     ];
@@ -557,7 +578,9 @@ class _PublishCardState extends State<_PublishCard> {
             label: 'رقم الترخيص الإعلاني',
             child: Row(
               children: <Widget>[
-                Expanded(child: selInput(controller: _licence, keyboard: TextInputType.number, dir: TextDirection.ltr)),
+                Expanded(
+                  child: selInput(controller: _licence, keyboard: TextInputType.number, dir: TextDirection.ltr),
+                ),
                 const SizedBox(width: 8),
                 SizedBox(
                   width: 96,
@@ -576,7 +599,10 @@ class _PublishCardState extends State<_PublishCard> {
           ],
           if (_needsPrice) ...<Widget>[
             const SizedBox(height: 12),
-            SvcField(label: 'السعر (ريال)', child: selInput(controller: _price, keyboard: TextInputType.number)),
+            SvcField(
+              label: 'السعر (ريال)',
+              child: selInput(controller: _price, keyboard: TextInputType.number),
+            ),
           ],
           if (_needsDesc) ...<Widget>[
             const SizedBox(height: 12),

@@ -666,7 +666,12 @@ mixin CliNotesState<T extends StatefulWidget> on State<T> {
       sendDesk((epoch) async {
         await serverNotes!.remove(personId, n.id, epoch: epoch);
         if (!notesCurrent) return;
-        setState(() => _kept = <Note>[for (final x in _kept) if (x.id != n.id) x]);
+        setState(
+          () => _kept = <Note>[
+            for (final x in _kept)
+              if (x.id != n.id) x,
+          ],
+        );
         notesChanged();
       }),
     );

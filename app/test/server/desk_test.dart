@@ -352,10 +352,24 @@ void main() {
 
     testWidgets('his stock as the server keeps it: no price, area or rooms made up', (tester) async {
       await _open(tester, '/account/inventory', (s) {
-        s.on('GET', 'inventory', 200, list(<Map<String, Object?>>[
-          item,
-          <String, Object?>{...item, 'id': 2, 'title': 'أرض بلا سعر', 'property_type': 'land', 'price': null, 'area_land': null, 'area_built': null, 'bedrooms': null},
-        ]));
+        s.on(
+          'GET',
+          'inventory',
+          200,
+          list(<Map<String, Object?>>[
+            item,
+            <String, Object?>{
+              ...item,
+              'id': 2,
+              'title': 'أرض بلا سعر',
+              'property_type': 'land',
+              'price': null,
+              'area_land': null,
+              'area_built': null,
+              'bedrooms': null,
+            },
+          ]),
+        );
       });
       expect(find.text(item['title']! as String), findsOneWidget);
       expect(find.text('فيلا · بيع · الرياض · الملقا · 520 م² · 6 غرف'), findsOneWidget);
@@ -411,8 +425,9 @@ void main() {
       expect(find.textContaining('تم التحقق لدى الهيئة'), findsOneWidget);
       await tapText(tester, 'انشر الإعلان');
       await _settle(tester);
-      expect(FakeServer.body(server.sent('POST', 'inventory/$sid/publish').single), <String, Object?>{'licence_number': '7200111222'},
-          reason: 'its price and description are the stock\'s');
+      expect(FakeServer.body(server.sent('POST', 'inventory/$sid/publish').single), <String, Object?>{
+        'licence_number': '7200111222',
+      }, reason: 'its price and description are the stock\'s');
       expect(_path(), '/account/listings/L${_one('inventory_published')['listing_id']}/review');
     });
 
@@ -428,7 +443,14 @@ void main() {
       await tester.pump();
       await tapText(tester, 'تحقق');
       await _settle(tester);
-      server.on('GET', 'inventory', 200, list(<Map<String, Object?>>[<String, Object?>{...item, 'published_listing_id': 9}]));
+      server.on(
+        'GET',
+        'inventory',
+        200,
+        list(<Map<String, Object?>>[
+          <String, Object?>{...item, 'published_listing_id': 9},
+        ]),
+      );
       await tapText(tester, 'انشر الإعلان');
       await _settle(tester);
       expect(find.text('منشور — إعلاناتي'), findsOneWidget);
@@ -437,7 +459,14 @@ void main() {
 
     testWidgets('a property without a price asks it before publishing', (tester) async {
       final server = await _open(tester, '/account/inventory', (s) {
-        s.on('GET', 'inventory', 200, list(<Map<String, Object?>>[<String, Object?>{...item, 'price': null, 'description': null}]));
+        s.on(
+          'GET',
+          'inventory',
+          200,
+          list(<Map<String, Object?>>[
+            <String, Object?>{...item, 'price': null, 'description': null},
+          ]),
+        );
         s.on('POST', 'listings/licence-check', 200, recorded('licence_check'));
         s.on('POST', 'inventory/$sid/publish', 422, recorded('inventory_publish_needs'));
       });
