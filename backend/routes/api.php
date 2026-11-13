@@ -40,7 +40,8 @@ Route::middleware('throttle:api')->group(function () {
     Route::get('requests/{searchRequest}', [V1\RequestController::class, 'show'])->whereNumber('searchRequest');
     Route::get('customers/{customer:username}', [V1\ProfileController::class, 'show']);
     Route::get('customers/{customer:username}/listings', [V1\ProfileController::class, 'listings']);
-    Route::post('support-tickets', [V1\SupportController::class, 'store'])->middleware('throttle:reports');
+    // signed in, sent once however often tried (a visitor has no account to key it by)
+    Route::post('support-tickets', [V1\SupportController::class, 'store'])->middleware(['throttle:reports', 'idempotent']);
 
     // ── Signed in ─────────────────────────────────────────────────────────────────────────────────────────
     Route::middleware(['auth:api', 'active', 'idempotent'])->group(function () {

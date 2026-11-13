@@ -13,11 +13,14 @@ import 'package:zon/core/widgets/widgets.dart';
 
 /// Conversation header: back link, avatar and name.
 class TalkHead extends StatelessWidget {
-  const TalkHead({super.key, required this.avatar, required this.name, required this.sub});
+  const TalkHead({super.key, required this.avatar, required this.name, required this.sub, this.back = '/chats'});
 
   final Widget avatar;
   final String name;
   final String sub;
+
+  /// Where its back link goes.
+  final String back;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +33,7 @@ class TalkHead extends StatelessWidget {
       child: Row(
         children: <Widget>[
           Tap(
-            onTap: () => Nav.go(context, '/chats'),
+            onTap: () => Nav.go(context, back),
             child: const LucideIcon(Lu.chevronRight, size: 24, strokeWidth: 2.2, color: AppColors.ink),
           ),
           const SizedBox(width: 10),

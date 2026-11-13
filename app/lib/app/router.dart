@@ -26,6 +26,7 @@ import 'package:zon/features/profile/server_user_profile.dart';
 import 'package:zon/features/profile/user_profile_screen.dart';
 import 'package:zon/features/requests/request_detail_screen.dart';
 import 'package:zon/features/requests/requests_screen.dart';
+import 'package:zon/features/support/server_support_thread.dart';
 
 /// A parsed location such as `/users/فهد?listing=l1`: path segments and
 /// query parameters.
@@ -78,6 +79,8 @@ class Loc {
 /// | `/legal/:slug` | policy pages |
 /// | `/add` | add a listing / project / request |
 /// | `/notifications` | the notifications list (bell) |
+/// | `/support` | a visitor's support ticket (server; signed in → «الدعم» in «الإعدادات») |
+/// | `/support/:reference` | a support thread with «فريق زون» (server) |
 /// A link from outside the app (a shared link, a notification) names a server row by its number
 /// (`/listings/12`); with a server it is the app's `L12`, `P12` (ServerListings) or `R12` (ServerRequests).
 String _serverId(String id, String prefix) => Api.on && RegExp(r'^\d+$').hasMatch(id) ? '$prefix$id' : id;
@@ -122,6 +125,9 @@ Widget screenFor(String location) {
       if (s.length == 1) return AddScreen(start: loc.params['type']);
     case 'notifications':
       if (s.length == 1) return const NotificationsScreen();
+    case 'support':
+      if (s.length == 1 && Api.on) return const SupportScreen();
+      if (s.length == 2 && Api.on) return ServerSupportThread(reference: s[1]);
   }
   return const NotFoundScreen();
 }

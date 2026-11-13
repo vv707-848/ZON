@@ -1,0 +1,36 @@
+{
+    "success": true,
+    "data": {
+        "reference": "ZT-261113-KK4R5",
+        "type": "complaint",
+        "subject": "إعلان مضلل",
+        "status": "answered",
+        "opened_by": "me",
+        "about": {
+            "type": "listing",
+            "id": 2,
+            "title": "شقة للبيع في الياسمين"
+        },
+        "unread": false,
+        "last_message": {
+            "author": "zon",
+            "excerpt": "تواصلنا مع المعلن.",
+            "at": "2026-11-13T22:25:36+00:00"
+        },
+        "resolution": null,
+        "created_at": "2026-11-13T22:25:36+00:00",
+        "closed_at": null,
+        "messages": [
+            {
+                "author": "me",
+                "body": "السعر في العرض غير صحيح",
+                "at": "2026-11-13T22:25:36+00:00"
+            },
+            {
+                "author": "zon",
+                "body": "تواصلنا مع المعلن.",
+                "at": "2026-11-13T22:25:36+00:00"
+            }
+        ]
+    }
+}
