@@ -77,11 +77,19 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
   String _error = '';
   final OperationKey _operation = OperationKey('wish');
 
+  /// The account the wish shown belongs to (Store.serverEpoch): an answer for another one is dropped, and when the
+  /// account changes under this page, the new account's wish is fetched in its place.
+  int _epoch = store.serverEpoch;
+  String? _account = store.readSession()?.id;
+
   @override
   void initState() {
     super.initState();
     text.addListener(() => setState(() {}));
-    if (Api.on) unawaited(_loadFromServer());
+    if (Api.on) {
+      store.addListener(_onAccount);
+      unawaited(_loadFromServer());
+    }
     // useEffect(() => { if (!scan && query) clearRadarPing(); }, [scan, query])
     if (query != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -96,15 +104,37 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
 
   @override
   void dispose() {
+    store.removeListener(_onAccount);
     text.dispose();
     super.dispose();
   }
 
+  /// Another account (or none) under this page: nothing of the one before stays shown.
+  void _onAccount() {
+    final account = store.readSession()?.id;
+    if (!mounted || (_epoch == store.serverEpoch && _account == account)) return;
+    _epoch = store.serverEpoch;
+    _account = account;
+    text.text = '';
+    setState(() {
+      saved = null;
+      query = null;
+      edit = true;
+      _sending = false;
+      _error = '';
+    });
+    if (account != null) unawaited(_loadFromServer());
+  }
+
+  /// Whether an answer asked for under [epoch] still belongs to the account shown.
+  bool _current(int epoch) => mounted && epoch == store.serverEpoch;
+
   /// The wish kept on the server is the one shown (this phone may hold an older one, or none).
   Future<void> _loadFromServer() async {
+    final epoch = _epoch = store.serverEpoch;
     try {
       final w = await ServerWishes.mine();
-      if (!mounted) return;
+      if (!_current(epoch)) return;
       if (w == null) {
         if (saved != null) store.clearWish();
         text.text = '';
@@ -122,7 +152,7 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
         edit = w.text.isEmpty;
       });
     } on ApiError catch (e) {
-      if (mounted) setState(() => _error = e.forUser);
+      if (_current(epoch)) setState(() => _error = e.forUser);
     }
   }
 
@@ -132,13 +162,15 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
       _sending = true;
       _error = '';
     });
+    final epoch = store.serverEpoch;
     try {
       final kept = await ServerWishes.save(w, operation: _operation.forBody(ServerWishes.form(w)));
-      if (!mounted) return;
+      if (!_current(epoch)) return;
+      _operation.done(); // saved: the next save is another operation
       setState(() => _sending = false);
       _persistHere(kept);
     } on ApiError catch (e) {
-      if (mounted) {
+      if (_current(epoch)) {
         setState(() {
           _sending = false;
           _error = e.forUser;
@@ -153,13 +185,15 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
       _sending = true;
       _error = '';
     });
+    final epoch = store.serverEpoch;
     try {
       if (w != null) await ServerWishes.remove(w);
-      if (!mounted) return;
+      if (!_current(epoch)) return;
+      _operation.done(); // a wish made after this one is another operation, even if it reads the same
       setState(() => _sending = false);
       _stopHere();
     } on ApiError catch (e) {
-      if (!mounted) return;
+      if (!mounted || !_current(epoch)) return;
       setState(() => _sending = false);
       await showAppNotice(context, icon: Lu.circleAlert, title: 'لم تُحذف الرغبة', message: e.forUser);
     }

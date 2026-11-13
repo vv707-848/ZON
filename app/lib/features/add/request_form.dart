@@ -139,6 +139,7 @@ class _RequestFormState extends State<RequestForm> {
       // one publish, one key: tried again after a lost answer, it is the same operation; changed, it is another
       final operation = _operation.forBody(<String, Object?>{...ServerRequests.form(draft), 'urgent': urgent});
       final made = await ServerRequests.create(draft, urgent: urgent, operation: operation);
+      _operation.done();
       store.keepServerRequests(<RequestItem>[made.item], epoch: epoch);
       if (!mounted) return;
       if (made.urgent == UrgentOutcome.paymentRequired) {

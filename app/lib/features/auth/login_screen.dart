@@ -465,7 +465,9 @@ class _SignUpState extends State<_SignUp> {
   /// The seeker's first wish, on the server (POST /preferences): the wish saved, or the line to show.
   Future<(Wish?, String?)> _saveWish(Wish wish) async {
     try {
-      return (await ServerWishes.save(wish, operation: _wishOperation.forBody(ServerWishes.form(wish))), null);
+      final saved = await ServerWishes.save(wish, operation: _wishOperation.forBody(ServerWishes.form(wish)));
+      _wishOperation.done();
+      return (saved, null);
     } on ApiError catch (e) {
       return (null, e.forUser);
     }
