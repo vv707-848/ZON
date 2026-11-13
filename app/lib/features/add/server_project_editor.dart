@@ -65,6 +65,9 @@ class _ServerProjectEditorState extends State<ServerProjectEditor> {
   String _newText = '';
   final OperationKey _newOp = OperationKey('unit');
 
+  /// A sale of units sent again (its answer lost) is the same sale: the server counts it once (R-07).
+  final OperationKey _sellOp = OperationKey('sold');
+
   /// What is being sent ('project', a model's id, 'new'), and what the last send said.
   String? _busy;
   String? _error;
@@ -211,9 +214,12 @@ class _ServerProjectEditorState extends State<ServerProjectEditor> {
     );
     if (price == null || !mounted) return;
     final p = _p!;
+    final salePrice = price.isEmpty ? null : price;
+    final operation = _sellOp.forBody(<String, Object?>{'project': p.id, 'unit': u.id, 'count': count, 'sale_price': salePrice});
     await _run('${u.id}', (epoch) async {
       store.stillAccount(epoch);
-      await ServerMyProjects.sell(p.id, u.id, count: count, salePrice: price.isEmpty ? null : price);
+      await ServerMyProjects.sell(p.id, u.id, count: count, salePrice: salePrice, operation: operation);
+      _sellOp.done();
     }, 'سُجّل بيع $count من ${u.name}.');
   }
 
