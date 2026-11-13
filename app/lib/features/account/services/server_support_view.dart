@@ -80,7 +80,7 @@ class _ServerSupportViewState extends State<ServerSupportView> {
       _tickets.clear();
       _page = 0;
       _hasMore = false;
-      _loading = true;
+      _loading = !_guest;
       _sending = false;
       _error = null;
       _formError = null;
@@ -98,7 +98,7 @@ class _ServerSupportViewState extends State<ServerSupportView> {
   Future<void> _load() async {
     final epoch = _epoch;
     if (_guest) {
-      setState(() => _loading = false);
+      _loading = false; // nothing to ask (also from initState, where setState may not be called)
       return;
     }
     try {
