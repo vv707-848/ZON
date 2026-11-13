@@ -65,6 +65,7 @@
                 "start_price": null,
                 "description": "فلل حديثة بتشطيب فاخر، قريبة من طريق الملك سلمان.",
                 "featured": false,
+                "featured_until": null,
                 "cover_url": null,
                 "published_at": "2026-11-13T17:27:49+00:00",
                 "share_url": "https://zon.sa/projects/1",

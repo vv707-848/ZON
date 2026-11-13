@@ -300,9 +300,10 @@ void main() {
       await tapText(tester, 'مباع', last: true); // the listing's button, not the meter above
       await _settle(tester);
       expect(find.text('تأكيد البيع'), findsOneWidget);
+      expect(find.text('يساعدنا على فهم السوق.'), findsOneWidget, reason: "a broker's sale price is asked, not required");
       await tapText(tester, 'تم البيع', last: true);
       await _settle(tester);
-      expect(server.sent('POST', 'listings/1/sold'), hasLength(1));
+      expect(FakeServer.body(server.sent('POST', 'listings/1/sold').single), <String, Object?>{});
       expect(find.text('تم البيع'), findsWidgets);
     });
 

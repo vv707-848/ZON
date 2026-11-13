@@ -118,9 +118,9 @@ class ClientBookReportsTest extends AdminTestCase
         app(SuperAgent::class)->manual($staff, Catalog::find('time_to_sell'), ['neighborhood' => 'حي لا وجود له'], 'مدة البيع', analyse: false);
     }
 
-    public function test_the_catalog_counts_twenty_two_reports(): void
+    public function test_the_catalog_counts_twenty_three_reports(): void
     {
-        $this->assertCount(22, Catalog::all());
+        $this->assertCount(23, Catalog::all());
         $this->assertSame(0, ExecReport::query()->count());
     }
 }

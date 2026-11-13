@@ -17,6 +17,7 @@
             "start_price": 1950000,
             "description": "فلل حديثة بتشطيب فاخر وحدائق خاصة",
             "featured": false,
+            "featured_until": null,
             "cover_url": null,
             "published_at": null,
             "share_url": "https://zon.sa/projects/1",

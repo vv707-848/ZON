@@ -203,6 +203,7 @@ void main() {
       'unit_licence_expiring': ListingEditScreen,
       'unit_licence_expired': ListingEditScreen,
       'boost_ended': ListingScreen,
+      'project_boost_ended': ProjectScreen,
       'project_wording_ready': ProjectReviewScreen,
       'project_published': ProjectScreen,
       'followed_published': ListingScreen,

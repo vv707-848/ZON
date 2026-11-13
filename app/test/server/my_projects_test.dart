@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/features/add/widgets/add_kit.dart';
+import 'package:zon/shared/widgets/billing_flow.dart';
 
 import '../support/server_env.dart';
 import '../support/test_env.dart';
@@ -230,6 +231,55 @@ void main() {
     expect(find.text('مخفي — أوقفته أنت'), findsNothing);
   });
 
+  testWidgets('«تمييز» of his published project: free while his free ones last; then its price, paid here', (tester) async {
+    final published = <String, Object?>{
+      ...recorded('projects_mine'),
+      'data': <Object?>[_one('project_published')],
+    };
+    final featured = <String, Object?>{
+      ...recorded('projects_mine'),
+      'data': <Object?>[
+        <String, Object?>{
+          ..._one('project_published'),
+          'featured': true,
+          'featured_until': DateTime.now().toUtc().add(const Duration(days: 7)).toIso8601String(),
+        },
+      ],
+    };
+    final server = await asDeveloper(tester, '/account/listings', (s) {
+      s.on('GET', 'projects/mine', 200, published);
+      s.on('POST', 'projects/$project/boost', 200, recorded('project_boosted'));
+    });
+    expect(find.text('عاجل'), findsNothing, reason: 'a project has no «عاجل»');
+    server.on('GET', 'projects/mine', 200, featured);
+    await tapText(tester, 'تمييز');
+    await _settle(tester);
+    expect(FakeServer.body(server.sent('POST', 'projects/$project/boost').single), <String, Object?>{'kind': 'featured'});
+    expect(find.text('مميّز'), findsOneWidget);
+    expect(server.sent('POST', 'checkout'), isEmpty, reason: 'free: nothing to pay');
+
+    // his free ones used: its price, paid here (the server's simulation), then featured
+    server.on('GET', 'projects/mine', 200, published);
+    await pumpApp(tester, '/account/listings');
+    await _settle(tester);
+    server.on('POST', 'projects/$project/boost', 402, recorded('project_boost_price'));
+    server.on('POST', 'checkout', 201, recorded('checkout_project_featured'));
+    final payment = _one('checkout_project_featured')['payment_id'];
+    server.on('POST', 'payments/$payment/confirm', 200, recorded('payment_project_featured'));
+    await tapText(tester, 'تمييز');
+    await _settle(tester);
+    expect(FakeServer.body(server.sent('POST', 'checkout').single), <String, Object?>{
+      'purpose': 'featured',
+      'target': <String, Object?>{'type': 'project', 'id': project},
+    });
+    expect(find.textContaining('تمييز المشروع — 100'), findsOneWidget);
+    server.on('GET', 'projects/mine', 200, featured);
+    await tapText(tester, 'ادفع ${riyals(100)}', last: true);
+    await _settle(tester, 10);
+    expect(server.sent('POST', 'payments/$payment/confirm'), hasLength(1));
+    expect(find.text('مميّز'), findsOneWidget);
+  });
+
   group('his project edited with a server', () {
     Future<FakeServer> editor(WidgetTester tester) => asDeveloper(tester, '/account/listings/P$project', (s) {
       s.on('GET', 'projects/$project', 200, recorded('project_mine_detail'));
@@ -271,7 +321,7 @@ void main() {
       expect(find.text('حُفظ المشروع، ووصفه الجديد يُصاغ الآن. راجعه حين يجهز.'), findsOneWidget);
     });
 
-    testWidgets('units sold: how many (at most those available) and the price each sold for', (tester) async {
+    testWidgets('units sold: how many (at most those available), and the price each sold for when he says it', (tester) async {
       final server = await editor(tester);
       server.on('POST', 'projects/$project/units/1/sold', 200, recorded('project_unit_sold'));
       await tapText(tester, 'بيع وحدات', index: 0);
@@ -283,11 +333,26 @@ void main() {
       await tester.enterText(find.byType(EditableText).last, '2');
       await tapText(tester, 'متابعة');
       await _settle(tester);
-      expect(tester.widget<EditableText>(find.byType(EditableText).last).controller.text, '1950000', reason: 'its price offered first');
+      expect(
+        tester.widget<EditableText>(find.byType(EditableText).last).controller.text,
+        isEmpty,
+        reason: 'not the listed price: a price not said is not sent as if it were',
+      );
+      expect(find.text('يساعدنا على فهم السوق.'), findsOneWidget);
       await tester.enterText(find.byType(EditableText).last, '1900000');
       await tapText(tester, 'تم البيع');
       await _settle(tester);
       expect(FakeServer.body(server.sent('POST', 'projects/$project/units/1/sold').single), <String, Object?>{'count': 2, 'sale_price': '1900000'});
+
+      // the price is not required (decision of 13 November): sold without one
+      await tapText(tester, 'بيع وحدات', index: 0);
+      await _settle(tester);
+      await tester.enterText(find.byType(EditableText).last, '1');
+      await tapText(tester, 'متابعة');
+      await _settle(tester);
+      await tapText(tester, 'تم البيع');
+      await _settle(tester);
+      expect(FakeServer.body(server.sent('POST', 'projects/$project/units/1/sold').last), <String, Object?>{'count': 1});
     });
 
     testWidgets("a model removed after he confirms; the server's refusal of the last one is said", (tester) async {

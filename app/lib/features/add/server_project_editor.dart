@@ -203,12 +203,17 @@ class _ServerProjectEditorState extends State<ServerProjectEditor> {
     if (u.available < 1) return;
     final count = await _askCount(u);
     if (count == null || !mounted) return;
-    final price = await askSalePrice(context, listed: u.price ?? 0);
+    final price = await askSalePrice(
+      context,
+      listed: u.price ?? 0,
+      optional: true,
+      message: 'تنقص الوحدات المتاحة من ${u.name} بـ$count. سعر البيع الفعلي للوحدة اختياري.',
+    );
     if (price == null || !mounted) return;
     final p = _p!;
     await _run('${u.id}', (epoch) async {
       store.stillAccount(epoch);
-      await ServerMyProjects.sell(p.id, u.id, count: count, salePrice: price);
+      await ServerMyProjects.sell(p.id, u.id, count: count, salePrice: price.isEmpty ? null : price);
     }, 'سُجّل بيع $count من ${u.name}.');
   }
 

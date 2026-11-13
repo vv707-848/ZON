@@ -1,0 +1,16 @@
+{
+    "success": false,
+    "error": {
+        "code": "PAYMENT_REQUIRED",
+        "message": "هذه الخدمة ضمن الباقات.",
+        "details": {
+            "purpose": "featured",
+            "price": "100.00",
+            "target": {
+                "type": "project",
+                "id": 21
+            }
+        },
+        "trace_id": "01M7B5QNXR4M22QSF63RX5SYWE"
+    }
+}

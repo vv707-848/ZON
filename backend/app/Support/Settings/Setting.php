@@ -21,6 +21,8 @@ enum Setting: string
     case BoostDays = 'boosts.days';
     case FeaturedPrice = 'boosts.featured_price';
     case UrgentListingPrice = 'boosts.urgent_listing_price';
+    case ProjectFeaturedFree = 'boosts.project_featured_free';
+    case ProjectFeaturedPrice = 'boosts.project_featured_price';
     case UrgentRequestPrice = 'requests.urgent_price';
     case UrgentRequestDays = 'requests.urgent_days';
 
@@ -70,7 +72,8 @@ enum Setting: string
             self::RequireNafath => true,
             self::ReportsToAutoHide => 3,
             self::BoostDays => 7,
-            self::FeaturedPrice, self::UrgentListingPrice => 10_000,
+            self::FeaturedPrice, self::UrgentListingPrice, self::ProjectFeaturedPrice => 10_000,
+            self::ProjectFeaturedFree => 3,
             self::UrgentRequestPrice, self::AdLicenceFee => 5_000,
             self::UrgentRequestDays => 7,
             self::OwnerCommissionPercent => '0.5',
@@ -97,7 +100,7 @@ enum Setting: string
     {
         return match ($this) {
             self::RequireNafath, self::VatRegistered, self::GooglePlayVatByZon => 'bool',
-            self::FeaturedPrice, self::UrgentListingPrice, self::UrgentRequestPrice, self::AdLicenceFee => 'money',
+            self::FeaturedPrice, self::UrgentListingPrice, self::ProjectFeaturedPrice, self::UrgentRequestPrice, self::AdLicenceFee => 'money',
             self::OwnerCommissionPercent, self::BrokerFreeSharePercent, self::VatRate => 'decimal',
             self::VatNumber, self::SellerName, self::SiteLegalName, self::SiteCrNumber, self::SiteFalLicence, self::SiteAddress,
             self::SiteEmail, self::SitePhone => 'text',
@@ -115,9 +118,11 @@ enum Setting: string
             self::ListingPhotosMax => 'أقصى عدد للصور في العرض',
             self::RequireNafath => 'التحقق عبر نفاذ شرط للنشر',
             self::ReportsToAutoHide => 'عدد المبلّغين المختلفين للإخفاء الآلي',
-            self::BoostDays => 'مدة التمييز والعاجل للعرض (يوم)',
+            self::BoostDays => 'مدة التمييز والعاجل للعرض والمشروع (يوم)',
             self::FeaturedPrice => 'سعر التمييز بعد نفاد الرصيد (ريال)',
             self::UrgentListingPrice => 'سعر «عاجل» للعرض بعد نفاد الرصيد (ريال)',
+            self::ProjectFeaturedFree => 'عدد مشاريع المطوّر المميزة مجاناً في وقت واحد',
+            self::ProjectFeaturedPrice => 'سعر تمييز المشروع بعد العدد المجاني (ريال)',
             self::UrgentRequestPrice => 'سعر الطلب العاجل (ريال)',
             self::UrgentRequestDays => 'مدة بقاء الطلب عاجلاً (يوم)',
             self::AdLicenceFee => 'رسوم الترخيص الإعلاني للمالك (ريال، تمرير للهيئة بلا ضريبة)',

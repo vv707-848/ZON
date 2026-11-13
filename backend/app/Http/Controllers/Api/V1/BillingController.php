@@ -37,6 +37,8 @@ class BillingController extends Controller
             ]),
             'one_off' => [
                 'featured' => ApplyBoost::price(BoostKind::Featured)->riyals(),
+                'project_featured' => Settings::money(Setting::ProjectFeaturedPrice)->riyals(),
+                'project_featured_free' => Settings::int(Setting::ProjectFeaturedFree),
                 'urgent_listing' => ApplyBoost::price(BoostKind::UrgentListing)->riyals(),
                 'urgent_request' => ApplyBoost::price(BoostKind::UrgentRequest)->riyals(),
                 'ad_licence' => Settings::money(Setting::AdLicenceFee)->riyals(),

@@ -10,12 +10,16 @@ use App\Indexing\IndexSync;
 use App\Models\CommissionDue;
 use App\Models\MarketingContract;
 use App\Models\ProjectUnit;
+use App\Models\SaleReport;
 use App\Support\Money;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use Illuminate\Support\Facades\DB;
 
-/** Units of a model sold: fewer available (none left → out of the index) and the contract's commission per unit. */
+/**
+ * Units of a model sold: fewer available (none left → out of the index), the contract's commission per unit, and
+ * the sale reported to the market as said — its price only when he gave it (SaleReport).
+ */
 final class SellUnits
 {
     public function __construct(private readonly IndexSync $index) {}
@@ -28,6 +32,7 @@ final class SellUnits
                 throw ApiException::of(ErrorCode::ValidationFailed, ['fields' => ['count' => [__('validation.between.numeric', ['attribute' => 'العدد', 'min' => 1, 'max' => $unit->available_count])]]]);
             }
             $unit->forceFill(['available_count' => $unit->available_count - $count])->save();
+            SaleReport::forUnits($unit, $count, $salePrice);
 
             $contract = MarketingContract::query()->where('developer_id', $unit->project->developer_id)->where('status', MarketingContractStatus::Active)
                 ->where(fn ($q) => $q->whereNull('project_id')->orWhere('project_id', $unit->project_id))->orderByDesc('project_id')->first();

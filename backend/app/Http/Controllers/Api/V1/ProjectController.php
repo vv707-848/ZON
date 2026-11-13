@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Billing\ApplyBoost;
 use App\Actions\Projects\ChangeProjectStatus;
 use App\Actions\Projects\DecideProjectTexts;
 use App\Actions\Projects\PublishProject;
 use App\Actions\Projects\SaveProject;
+use App\Enums\BoostKind;
 use App\Enums\ErrorCode;
 use App\Enums\ListingStatus;
 use App\Enums\ReviewDecision;
@@ -142,6 +144,19 @@ class ProjectController extends Controller
         $publish($project);
 
         return Api::ok(ProjectResource::detail($project->load(self::WITH)));
+    }
+
+    /**
+     * «تمييز» of his published project: free while fewer than the free number of his projects are featured free,
+     * then 402 with the price (the app opens checkout for it).
+     */
+    public function boost(Request $request, Project $project, ApplyBoost $boost): JsonResponse
+    {
+        Ownership::assert($project, $request->user('api'));
+        $request->validate(['kind' => ['required', 'in:featured']]);
+        $usage = $boost($request->user('api'), $project, BoostKind::Featured);
+
+        return Api::ok(['kind' => $usage->kind->value, 'via' => $usage->via->value, 'active_until' => $usage->active_until?->toIso8601String()]);
     }
 
     public function pause(Request $request, Project $project, ChangeProjectStatus $status): JsonResponse

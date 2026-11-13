@@ -52,7 +52,7 @@ class BoostUsageResource extends Resource
             ->columns([
                 TextColumn::make('customer.name')->label('الحساب')->searchable(),
                 Columns::enum('kind', 'النوع'),
-                TextColumn::make('target_type')->label('على')->formatStateUsing(fn (string $state, BoostUsage $b) => ($state === 'listing' ? 'عرض' : 'طلب')." #{$b->target_id}"),
+                TextColumn::make('target_type')->label('على')->formatStateUsing(fn (string $state, BoostUsage $b) => (['listing' => 'عرض', 'project' => 'مشروع'][$state] ?? 'طلب')." #{$b->target_id}"),
                 Columns::enum('via', 'المصدر', ['quota' => 'success', 'payment' => 'primary', 'grant' => 'warning']),
                 TextColumn::make('starts_at')->label('من')->dateTime(),
                 TextColumn::make('active_until')->label('حتى')->dateTime(),

@@ -1,19 +1,25 @@
 // «تم البيع» for an owner's listing: he says the price it sold for, and Zon's commission (his contract's percent)
 // is reckoned on it. The listed price is offered; what he types is checked here as the server checks it — a
 // number above zero with two decimals at most — and never read as 0.
+//
+// A broker's listing or a developer's units ([optional], decision of 13 November): the price is asked, not
+// required — some would type any number — and starts empty, so no listed price is sent as if it were said. It
+// helps Zon read the market (the market report «أسعار البيع الفعلية»).
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/features/add/add_helpers.dart';
 import 'package:zon/features/add/widgets/form_inputs.dart';
 
-/// The price his listing sold for, or null when he cancels. [listed] is offered first.
-Future<String?> askSalePrice(BuildContext context, {required double listed}) => showAppFrame<String>(
+/// The price his listing sold for, or null when he cancels. [listed] is offered first. With [optional] it starts
+/// empty and may stay so: then '' — sold, with no price said.
+Future<String?> askSalePrice(BuildContext context, {required double listed, bool optional = false, String? message}) => showAppFrame<String>(
   context,
   label: 'سعر البيع',
-  builder: (ctx) => _SalePriceCard(listed: listed),
+  builder: (ctx) => _SalePriceCard(listed: listed, optional: optional, message: message),
 );
 
 /// [text] as the server reads a sale price ("1850000", "1850000.5"), or why it is not one.
@@ -27,19 +33,25 @@ Future<String?> askSalePrice(BuildContext context, {required double listed}) => 
 }
 
 class _SalePriceCard extends StatefulWidget {
-  const _SalePriceCard({required this.listed});
+  const _SalePriceCard({required this.listed, required this.optional, this.message});
 
   final double listed;
+  final bool optional;
+  final String? message;
 
   @override
   State<_SalePriceCard> createState() => _SalePriceCardState();
 }
 
 class _SalePriceCardState extends State<_SalePriceCard> {
-  late String _text = widget.listed > 0 ? editableNumber(widget.listed) : '';
+  late String _text = widget.listed > 0 && !widget.optional ? editableNumber(widget.listed) : '';
   String? _error;
 
   void _confirm() {
+    if (widget.optional && _text.trim().isEmpty) {
+      Navigator.of(context).pop('');
+      return;
+    }
     final r = salePriceOf(_text);
     if (r.error != null) {
       setState(() => _error = r.error);
@@ -52,7 +64,7 @@ class _SalePriceCardState extends State<_SalePriceCard> {
   Widget build(BuildContext context) => AppDialogCard(
     icon: Lu.circleAlert,
     title: 'تأكيد البيع',
-    message: 'يُسجَّل العرض مباعاً ويخرج من البحث نهائياً. اكتب سعر البيع الفعلي: عليه يُحسب سعي زون المتفق عليه في عقد الوساطة.',
+    message: widget.message ?? 'يُسجَّل العرض مباعاً ويخرج من البحث نهائياً. اكتب سعر البيع الفعلي: عليه يُحسب سعي زون المتفق عليه في عقد الوساطة.',
     extra: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -60,12 +72,13 @@ class _SalePriceCardState extends State<_SalePriceCard> {
           value: _text,
           dir: TextDirection.ltr,
           keyboard: const TextInputType.numberWithOptions(decimal: true),
-          placeholder: 'سعر البيع (ريال)',
+          placeholder: widget.optional ? 'سعر البيع (ريال) — اختياري' : 'سعر البيع (ريال)',
           onChanged: (v) => setState(() {
             _text = v;
             _error = null;
           }),
         ),
+        if (widget.optional) ...<Widget>[const SizedBox(height: 6), Tx('يساعدنا على فهم السوق.', style: ts(13, w: 500, lh: 19.5, c: AppColors.sage))],
         if (_error case final String e) ...<Widget>[const SizedBox(height: 8), FormError(e)],
       ],
     ),
