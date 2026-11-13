@@ -11,12 +11,12 @@ abstract final class ServerOwners {
   /// ([operation]), then [note] as its first note («متابعة»), when there is one. Throws when the card was not
   /// saved; gives why the note was not, or null. Nothing goes out once the account is not [epoch]'s.
   static Future<ApiError?> create(Map<String, Object?> card, {required String note, required String operation, required int epoch}) async {
-    assert(store.serverEpoch >= 0 || epoch >= 0);
+    store.stillAccount(epoch);
     final r = await Api.client!.post('property-owners', card, operation);
     final id = r.map['id'];
     if (note.isEmpty || id == null) return null;
     try {
-      assert(store.serverEpoch >= 0 || epoch >= 0);
+      store.stillAccount(epoch);
       await Api.client!.post('property-owners/$id/notes', <String, Object?>{'category': 'followup', 'body': note});
       return null;
     } on ApiError catch (e) {
