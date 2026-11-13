@@ -323,7 +323,7 @@ void main() {
 
     testWidgets('R-07: a sale whose answer was lost is sent again as the same sale; the next sale is another', (tester) async {
       final server = await editor(tester);
-      const path = 'projects/$project/units/1/sold';
+      final path = 'projects/$project/units/1/sold';
 
       Future<void> sellTwo() async {
         await tapText(tester, 'بيع وحدات', index: 0);
