@@ -59,7 +59,10 @@ void main() {
     server.on('GET', '$at/listings', 200, recorded('profile_listings'));
     stubs?.call(server);
     if (signedIn) {
-      await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+      await serverSignIn(
+        server,
+        account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
+      );
     }
     await pumpApp(tester, '/users/$username');
     await _settle(tester);
@@ -301,7 +304,10 @@ void main() {
     server.on('GET', 'me/followers', 200, <String, Object?>{'success': true, 'data': <Object?>[]});
     server.on('GET', 'me/following', 200, recorded('following'));
     server.on('GET', 'favorites', 200, recorded('favorites'));
-    await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الريادة'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'broker', name: 'مكتب الريادة'),
+    );
     await pumpApp(tester, '/account');
     await _settle(tester);
     final stats = tester.widgetList<MeStat>(find.byType(MeStat)).map((w) => '${w.label}:${w.n}').toList();

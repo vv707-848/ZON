@@ -295,7 +295,8 @@ class _CountsState extends State<_Counts> {
       final followers = await ServerPeople.people(followers: true);
       final following = await ServerPeople.people(followers: false);
       final favs = await ServerFavorites.list();
-      if (mounted && epoch == store.serverEpoch) setState(() => _server = (followers: followers.length, following: following.length, favs: favs.length));
+      if (mounted && epoch == store.serverEpoch)
+        setState(() => _server = (followers: followers.length, following: following.length, favs: favs.length));
     } on ApiError {
       // shown as «—»: not a made-up zero
     }
@@ -308,9 +309,7 @@ class _CountsState extends State<_Counts> {
       unawaited(_load());
     }
     final book = Api.on ? null : store.follows();
-    final n = Api.on
-        ? _server
-        : (followers: book!.followers.length, following: book.following.length, favs: store.likedIds().length);
+    final n = Api.on ? _server : (followers: book!.followers.length, following: book.following.length, favs: store.likedIds().length);
     Widget stat(int? count, String l, String kind) => Tap(
       onTap: () => Nav.go(context, '/account/people?kind=$kind'),
       child: MeStat(n: count == null ? '—' : loc(count), label: l),
