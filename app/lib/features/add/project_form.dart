@@ -29,7 +29,6 @@ import 'package:zon/core/net/api.dart';
 import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/net/operation_key.dart';
 import 'package:zon/core/theme/theme.dart';
-import 'package:zon/core/utils/input.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/server/server_my_listings.dart';
@@ -522,15 +521,15 @@ class _ProjectFormState extends State<ProjectForm> {
         span: true,
       ),
       if (!_server)
-      GCell(
-        AppButton(
-          label: pAi.isNotEmpty ? 'تم تنسيق وصف المشروع' : 'تنسيق الوصف ب AI',
-          tone: ButtonTone.tonal,
-          icon: Lu.sparkles,
-          onTap: desc.trim().isEmpty ? null : () => setState(() => pAi = polishCopy(desc, CopyKind.project)),
+        GCell(
+          AppButton(
+            label: pAi.isNotEmpty ? 'تم تنسيق وصف المشروع' : 'تنسيق الوصف ب AI',
+            tone: ButtonTone.tonal,
+            icon: Lu.sparkles,
+            onTap: desc.trim().isEmpty ? null : () => setState(() => pAi = polishCopy(desc, CopyKind.project)),
+          ),
+          span: true,
         ),
-        span: true,
-      ),
     ];
 
     final second = <GCell>[
@@ -721,21 +720,21 @@ class _ProjectFormState extends State<ProjectForm> {
         span: true,
       ),
       if (!_server)
-      GCell(
-        AppButton(
-          label: (i < uAi.length && uAi[i].isNotEmpty) ? 'تم تنسيق وصف الوحدة' : 'تنسيق وصف الوحدة ب AI',
-          tone: ButtonTone.tonal,
-          icon: Lu.sparkles,
-          onTap: u.description.trim().isEmpty
-              ? null
-              : () => setState(() {
-                  final next = <String>[for (var k = 0; k < units.length; k++) k < uAi.length ? uAi[k] : ''];
-                  next[i] = polishCopy(u.description, CopyKind.unit);
-                  uAi = next;
-                }),
+        GCell(
+          AppButton(
+            label: (i < uAi.length && uAi[i].isNotEmpty) ? 'تم تنسيق وصف الوحدة' : 'تنسيق وصف الوحدة ب AI',
+            tone: ButtonTone.tonal,
+            icon: Lu.sparkles,
+            onTap: u.description.trim().isEmpty
+                ? null
+                : () => setState(() {
+                    final next = <String>[for (var k = 0; k < units.length; k++) k < uAi.length ? uAi[k] : ''];
+                    next[i] = polishCopy(u.description, CopyKind.unit);
+                    uAi = next;
+                  }),
+          ),
+          span: true,
         ),
-        span: true,
-      ),
       GCell(
         PhotoDrop(
           current: <String>[u.image],

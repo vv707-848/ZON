@@ -264,29 +264,34 @@ class _MyListingsViewState extends State<MyListingsView> {
         _barBox('تمييز', icon: Lu.crown, onTap: live ? () => _boost(l, BoostKind.featured) : null),
       if (!noProjectOnServer)
         if (urgentOn)
-        _barBox('عاجل', icon: Lu.zap, bg: kUrgentRed, fg: AppColors.white, onTap: () => _boost(l, BoostKind.urgentListing))
-      else
-        _barBox('عاجل', icon: Lu.zap, onTap: live ? () => _boost(l, BoostKind.urgentListing) : null),
+          _barBox('عاجل', icon: Lu.zap, bg: kUrgentRed, fg: AppColors.white, onTap: () => _boost(l, BoostKind.urgentListing))
+        else
+          _barBox('عاجل', icon: Lu.zap, onTap: live ? () => _boost(l, BoostKind.urgentListing) : null),
       _barBox('تعديل', onTap: noProjectOnServer ? null : () => Nav.go(context, '/account/listings/${Uri.encodeComponent(l.id)}')),
       if (!noProjectOnServer)
         if (_server && l.soldFlag)
-        _barBox('مباع')
-      else if (_server)
-        _barBox('مباع', onTap: _resumable(l) || l.status == 'published' ? () => _sold(l) : null)
-      else if (!project)
-        _barBox(
-          l.soldFlag ? 'إعادة' : 'مباع',
-          onTap: () {
-            store.patchListing(l.id, <String, Object?>{'sold': l.soldFlag ? 0 : 1, 'active': l.soldFlag ? true : (l.active ?? kUndefined)});
-            bump();
-          },
-        ),
+          _barBox('مباع')
+        else if (_server)
+          _barBox('مباع', onTap: _resumable(l) || l.status == 'published' ? () => _sold(l) : null)
+        else if (!project)
+          _barBox(
+            l.soldFlag ? 'إعادة' : 'مباع',
+            onTap: () {
+              store.patchListing(l.id, <String, Object?>{'sold': l.soldFlag ? 0 : 1, 'active': l.soldFlag ? true : (l.active ?? kUndefined)});
+              bump();
+            },
+          ),
       if (_server && l.status == 'published')
-        _barBox('إخفاء', onTap: () => _change(l, project ? ServerMyProjects.pause : ServerMyListings.pause, project ? 'لم يُخفَ المشروع' : 'لم يُخفَ العرض'))
+        _barBox(
+          'إخفاء',
+          onTap: () => _change(l, project ? ServerMyProjects.pause : ServerMyListings.pause, project ? 'لم يُخفَ المشروع' : 'لم يُخفَ العرض'),
+        )
       else if (_server)
         _barBox(
           isBroker ? 'تنشيط' : 'إظهار',
-          onTap: _resumable(l) ? () => _change(l, project ? ServerMyProjects.resume : ServerMyListings.resume, project ? 'لم يُظهَر المشروع' : 'لم يُنشَّط العرض') : null,
+          onTap: _resumable(l)
+              ? () => _change(l, project ? ServerMyProjects.resume : ServerMyListings.resume, project ? 'لم يُظهَر المشروع' : 'لم يُنشَّط العرض')
+              : null,
         )
       else if (l.active == false)
         _barBox(

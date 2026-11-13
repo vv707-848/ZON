@@ -158,7 +158,13 @@ class _ProjectReviewScreenState extends State<ProjectReviewScreen> {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: _error != null
-              ? EmptyBox(title: 'تعذّر جلب الصياغة', text: _error!, textStyle: emptyTextStyle(), action: 'أعد المحاولة', onAction: () => unawaited(_ask()))
+              ? EmptyBox(
+                  title: 'تعذّر جلب الصياغة',
+                  text: _error!,
+                  textStyle: emptyTextStyle(),
+                  action: 'أعد المحاولة',
+                  onAction: () => unawaited(_ask()),
+                )
               : _late
               ? EmptyBox(
                   title: 'الصياغة تأخذ وقتاً',
@@ -187,9 +193,7 @@ class _ProjectReviewScreenState extends State<ProjectReviewScreen> {
       onNo: () => setState(() => _verdicts[key] = Verdict.no),
       onEdit: () => setState(() => _editKey = _editKey == key ? null : key),
     );
-    final cards = <Widget>[
-      for (final (key, t) in waiting) block(key, key == 'p' ? 'وصف المشروع' : 'وحدة ${t.name}', t, project: key == 'p'),
-    ];
+    final cards = <Widget>[for (final (key, t) in waiting) block(key, key == 'p' ? 'وصف المشروع' : 'وحدة ${t.name}', t, project: key == 'p')];
     return AppShell(
       child: PolishStage(
         onBack: () => Nav.go(context, '/account/listings'),

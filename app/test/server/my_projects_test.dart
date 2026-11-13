@@ -53,10 +53,14 @@ void main() {
   final project = _one('project_created')['id']! as int;
   final unit = _one('project_unit_created')['id']! as int;
 
-  Future<FakeServer> asDeveloper(WidgetTester tester, String path) async {
+  Future<FakeServer> asDeveloper(WidgetTester tester, String path, [void Function(FakeServer)? before]) async {
     await freshDevice();
     final server = serverDevice();
-    await serverSignIn(server, account: me(id: 41, role: 'developer', name: 'سنابل العسكر'));
+    before?.call(server);
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'developer', name: 'سنابل العسكر'),
+    );
     await pumpApp(tester, path);
     await _settle(tester);
     return server;
@@ -156,7 +160,7 @@ void main() {
   });
 
   testWidgets('his decision on each text, then publishing', (tester) async {
-    final server = await asDeveloper(tester, '/account/projects/$project/review');
+    final server = await asDeveloper(tester, '/account/projects/$project/review', (s) => s.on('GET', 'projects/$project/review', 200, recorded('project_review')));
     final review = _one('project_review');
     final units = (review['units']! as List).cast<Map<String, Object?>>();
     expect(find.text((review['project']! as Map)['suggested']! as String), findsOneWidget);
@@ -188,16 +192,23 @@ void main() {
     await freshDevice();
     final server = serverDevice();
     server.on('GET', 'projects/mine', 200, recorded('projects_mine'));
-    await serverSignIn(server, account: me(id: 41, role: 'developer', name: 'سنابل العسكر'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'developer', name: 'سنابل العسكر'),
+    );
     await pumpApp(tester, '/account/listings');
     await _settle(tester);
+    await tapText(tester, 'غير النشط 1'); // a draft is not public yet
     expect(find.text('مسودة — راجع الأوصاف وانشر'), findsOneWidget);
     expect(find.text('تعديل'), findsOneWidget);
     await tapText(tester, 'مسودة — راجع الأوصاف وانشر');
     await _settle(tester);
     expect(_path(), '/account/projects/$project/review');
 
-    server.on('GET', 'projects/mine', 200, <String, Object?>{...recorded('projects_mine'), 'data': <Object?>[_one('project_published')]});
+    server.on('GET', 'projects/mine', 200, <String, Object?>{
+      ...recorded('projects_mine'),
+      'data': <Object?>[_one('project_published')],
+    });
     server.on('POST', 'projects/$project/pause', 200, recorded('project_paused'));
     await pumpApp(tester, '/account/listings');
     await _settle(tester);
