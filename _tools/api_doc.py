@@ -175,7 +175,7 @@ DESCRIPTIONS = {
     "POST tasks": ("desk", "إضافة مهمة (أولوية، موعد تذكير)"),
     "PUT|PATCH tasks/{task}": ("desk", "تعديل مهمة"),
     "DELETE tasks/{task}": ("desk", "حذف مهمة"),
-    "POST tasks/{task}/done": ("desk", "إنجاز مهمة"),
+    "POST tasks/{task}/done": ("desk", "إنجاز مهمة أو إعادتها: `done` true · false، فتكرار الطلب لا يعكسها؛ بدونه تتبدّل"),
     # ── billing ──
     "GET subscription": ("billing", "باقتي ومدتها وأرصدتها وحدودها"),
     "POST checkout": (

@@ -41,7 +41,12 @@ class TaskController extends Controller
     public function done(Request $request, Task $task): JsonResponse
     {
         Ownership::assert($task, $request->user('api'));
-        $task->forceFill(['done_at' => $task->done_at === null ? now() : null])->save();
+        // `done` says which: sent twice (a lost answer, tried again) it stays as asked. Without it, it toggles.
+        $data = $request->validate(['done' => ['sometimes', 'boolean']]);
+        $done = array_key_exists('done', $data) ? (bool) $data['done'] : $task->done_at === null;
+        if ($done !== ($task->done_at !== null)) {
+            $task->forceFill(['done_at' => $done ? now() : null])->save();
+        }
 
         return Api::ok($this->present($task));
     }

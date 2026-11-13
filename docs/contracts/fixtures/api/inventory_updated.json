@@ -1,0 +1,20 @@
+{
+    "success": true,
+    "data": {
+        "id": 1,
+        "purpose": "sale",
+        "property_type": "apartment",
+        "title": "شقة من المخزون",
+        "city": "الرياض",
+        "neighborhood": "النرجس",
+        "price": 720000,
+        "area_land": null,
+        "area_built": 140,
+        "bedrooms": 3,
+        "bathrooms": null,
+        "description": "شقة مخزون جديدة",
+        "cover_url": null,
+        "published_listing_id": null,
+        "updated_at": "2026-11-13T10:06:41+00:00"
+    }
+}
