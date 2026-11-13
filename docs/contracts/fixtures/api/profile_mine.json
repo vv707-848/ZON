@@ -1,0 +1,23 @@
+{
+    "success": true,
+    "data": {
+        "id": 1,
+        "username": "fmson2821",
+        "name": "مكتب الإتقان",
+        "role": "broker",
+        "fal_verified": true,
+        "fal_number": "1193591901",
+        "city": "الرياض",
+        "member_since": "2026-11-13",
+        "nafath_verified": true,
+        "rating": {
+            "average": 5,
+            "count": 1
+        },
+        "my_rating": 5,
+        "followers_count": 1,
+        "following_count": 0,
+        "listings_count": 1,
+        "is_following": true
+    }
+}
