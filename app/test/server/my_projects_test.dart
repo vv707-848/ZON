@@ -215,6 +215,13 @@ void main() {
     await tapText(tester, 'إخفاء');
     await _settle(tester);
     expect(server.sent('POST', 'projects/$project/pause'), hasLength(1));
+    await tapText(tester, 'غير النشط 1');
     expect(find.text('مخفي — أوقفته أنت'), findsOneWidget);
+
+    server.on('POST', 'projects/$project/resume', 200, recorded('project_published'));
+    await tapText(tester, 'إظهار');
+    await _settle(tester);
+    expect(server.sent('POST', 'projects/$project/resume'), hasLength(1));
+    expect(find.text('مخفي — أوقفته أنت'), findsNothing);
   });
 }
