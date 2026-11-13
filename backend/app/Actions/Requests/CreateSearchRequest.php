@@ -10,6 +10,7 @@ use App\Indexing\IndexSync;
 use App\Jobs\NotifyAreaBrokers;
 use App\Models\Customer;
 use App\Models\SearchRequest;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,24 +30,30 @@ final class CreateSearchRequest
         $urgent = (bool) ($form['urgent'] ?? false);
         unset($form['urgent']);
 
-        $request = DB::transaction(function () use ($customer, $form) {
+        // the request and its «عاجل» are saved together or not at all: an answer that fails after them would let a
+        // retry of the same operation (Idempotency-Key) publish and charge again
+        [$request, $outcome] = DB::transaction(function () use ($customer, $form, $urgent) {
             $request = SearchRequest::query()->create([...$form, 'customer_id' => $customer->id, 'urgent' => false]);
             $this->index->request($request);
+            $outcome = null;
+            if ($urgent) {
+                try {
+                    ($this->boost)($customer, $request, BoostKind::UrgentRequest);
+                    $outcome = ['status' => 'applied'];
+                } catch (ApiException) {
+                    $outcome = ['status' => 'payment_required', 'purpose' => PaymentPurpose::UrgentRequest->value, 'price' => ApplyBoost::price(BoostKind::UrgentRequest)->riyals(),
+                        'target' => ['type' => 'request', 'id' => $request->id]];
+                }
+            }
 
-            return $request;
+            return [$request, $outcome];
         });
 
-        $outcome = null;
-        if ($urgent) {
-            try {
-                ($this->boost)($customer, $request, BoostKind::UrgentRequest);
-                $outcome = ['status' => 'applied'];
-            } catch (ApiException $e) {
-                $outcome = ['status' => 'payment_required', 'purpose' => PaymentPurpose::UrgentRequest->value, 'price' => ApplyBoost::price(BoostKind::UrgentRequest)->riyals(),
-                    'target' => ['type' => 'request', 'id' => $request->id]];
-            }
-        }
-        NotifyAreaBrokers::dispatch($request->id);
+        // the brokers' notice follows what is saved: if the queue cannot take it, the request stands (the failure is
+        // reported), and its answer is the one a retry gets
+        // (Bus::dispatch sends it now; ::dispatch() would send it later, when its PendingDispatch is destroyed,
+        // out of reach of rescue)
+        rescue(fn () => Bus::dispatch(new NotifyAreaBrokers($request->id)), report: true);
 
         return [$request->refresh(), $outcome];
     }

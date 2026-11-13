@@ -3,13 +3,18 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\BoostKind;
+use App\Jobs\NotifyAreaBrokers;
 use App\Models\BoostUsage;
 use App\Models\Customer;
 use App\Models\IdempotencyKey;
 use App\Models\Package;
 use App\Models\SearchRequest;
 use App\Models\Subscription;
+use Illuminate\Contracts\Bus\Dispatcher;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Testing\TestResponse;
+use Mockery;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\TestCase;
 
@@ -106,5 +111,52 @@ class IdempotencyTest extends TestCase
         $this->travel(25)->hours();
         $this->artisan('model:prune', ['--model' => [IdempotencyKey::class]])->assertSuccessful();
         $this->assertSame(0, IdempotencyKey::query()->count());
+    }
+
+    public function test_a_retry_after_the_notice_could_not_be_queued_publishes_and_charges_nothing_more(): void
+    {
+        $real = app(Dispatcher::class);
+        $failOnce = true;
+        $bus = Mockery::mock(Dispatcher::class);
+        $bus->shouldReceive('dispatch')->andReturnUsing(function (object $job) use ($real, &$failOnce) {
+            if ($failOnce && $job instanceof NotifyAreaBrokers) {
+                $failOnce = false;
+                throw new RuntimeException('queue unavailable');
+            }
+
+            return $real->dispatch($job);
+        });
+        $bus->shouldIgnoreMissing($real);
+        $this->app->instance(Dispatcher::class, $bus);
+        $reported = [];
+        $this->app->make(ExceptionHandler::class)->reportable(function (RuntimeException $e) use (&$reported) {
+            $reported[] = $e->getMessage();
+        });
+
+        $first = $this->send('req-after-save-0001')->assertCreated()->assertJsonPath('meta.urgent.status', 'applied');
+        $this->send('req-after-save-0001')->assertCreated()->assertHeader('Idempotent-Replayed', 'true');
+
+        $this->assertSame($first->json('data.id'), SearchRequest::query()->where('customer_id', $this->author->id)->sole()->id);
+        $this->assertSame(1, $this->urgentSpent());
+        $this->assertSame(['queue unavailable'], $reported, 'the lost notice is reported, not hidden');
+    }
+
+    public function test_when_the_charge_fails_after_the_request_is_saved_nothing_stays_and_the_retry_runs_once(): void
+    {
+        $failOnce = true;
+        BoostUsage::creating(function () use (&$failOnce) {
+            if ($failOnce) {
+                $failOnce = false;
+                throw new RuntimeException('database went away');
+            }
+        });
+
+        $this->send('req-charge-fails-0001')->assertStatus(500);
+        $this->assertSame(0, SearchRequest::query()->count(), 'the request went with its charge');
+        $this->assertSame(0, $this->urgentSpent());
+
+        $this->send('req-charge-fails-0001')->assertCreated()->assertJsonPath('meta.urgent.status', 'applied');
+        $this->assertSame(1, SearchRequest::query()->count());
+        $this->assertSame(1, $this->urgentSpent());
     }
 }

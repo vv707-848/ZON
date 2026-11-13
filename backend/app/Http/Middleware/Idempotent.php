@@ -19,6 +19,10 @@ use Symfony\Component\HttpFoundation\Response;
  * still runs gets 409 IDEMPOTENCY_IN_PROGRESS; the same key with another body is 422 IDEMPOTENCY_MISMATCH. «First»
  * holds under concurrency: the unique (customer, key) lets one insert win. An answer that says nothing was done for
  * good (a 5xx, a 401, a 429) is not kept, so a retry runs again. A request without the header is not touched.
+ *
+ * So an operation behind it saves its effects together or not at all (one transaction), and what follows them (a
+ * notice queued) cannot fail it: a 5xx after something was saved would let the retry save it again
+ * (CreateSearchRequest; IdempotencyTest).
  */
 class Idempotent
 {

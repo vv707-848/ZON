@@ -88,9 +88,8 @@ abstract final class ServerListings {
 
   /// A listing (`L…`) or a project (`P…`) in detail.
   static Future<Listing> detail(String appId) async {
-    final project = appId.startsWith('P');
-    final r = await Api.client!.get('${project ? 'projects' : 'listings'}/${rawId(appId)}');
-    return project ? fromProject(r.map) : fromListing(r.map);
+    if (appId.startsWith('P')) return fromProject((await Api.client!.get('projects/${rawId(appId)}')).map);
+    return fromListing((await Api.client!.get('listings/${rawId(appId)}')).map);
   }
 
   /// A row of GET /feed (its `kind` says which).
