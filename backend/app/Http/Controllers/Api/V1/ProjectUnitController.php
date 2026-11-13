@@ -22,6 +22,7 @@ use App\Support\Api;
 use App\Support\Ownership;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /** A developer's unit models: add · edit · remove · their wording decisions · licence (ready projects) · sales. */
@@ -46,9 +47,17 @@ class ProjectUnitController extends Controller
     public function destroy(Request $request, Project $project, ProjectUnit $unit, IndexSync $index): JsonResponse
     {
         $this->own($request, $project, $unit);
-        $unit->forceFill(['available_count' => 0])->save();
-        $index->unit($unit->setRelation('project', $project));          // out of the index first
-        $unit->delete();
+        DB::transaction(function () use ($project, $unit, $index) {
+            // a project once published keeps one unit model at least (as publishing asked); held, so two removals
+            // at once cannot both take the last two
+            $held = Project::query()->lockForUpdate()->findOrFail($project->id);
+            if ($held->status !== ListingStatus::Draft && $held->units()->count() <= 1) {
+                throw ApiException::of(ErrorCode::ProjectNoUnits, ['reason' => 'last_unit']);
+            }
+            $unit->forceFill(['available_count' => 0])->save();
+            $index->unit($unit->setRelation('project', $project));      // out of the index first
+            $unit->delete();
+        });
 
         return Api::ok();
     }

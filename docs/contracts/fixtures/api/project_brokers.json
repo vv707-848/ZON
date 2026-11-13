@@ -1,0 +1,16 @@
+{
+    "success": true,
+    "data": [
+        {
+            "broker": {
+                "id": 3,
+                "username": "ldlbx0848",
+                "name": "مكتب النرجس",
+                "role": "broker",
+                "fal_verified": true,
+                "fal_number": "1149912610"
+            },
+            "clients": 2
+        }
+    ]
+}

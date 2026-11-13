@@ -1,0 +1,25 @@
+{
+    "success": true,
+    "data": {
+        "id": 2,
+        "project_id": 1,
+        "model_name": "D2",
+        "property_type": "villa",
+        "area": null,
+        "area_land": null,
+        "area_built": 380,
+        "bedrooms": 5,
+        "bathrooms": 5,
+        "halls": 2,
+        "land_use": null,
+        "price": 2300000,
+        "available_count": 3,
+        "payment_method": null,
+        "description": "نموذج D2 بخمس غرف ومجلس مستقل",
+        "licence": null,
+        "photos": [],
+        "desc_raw": "نموذج D2 بخمس غرف ومجلس مستقل",
+        "desc_suggested": "نموذج D2 بخمس غرف ومجلس مستقل — مصقول.",
+        "text_review": "rejected"
+    }
+}

@@ -1,0 +1,26 @@
+{
+    "success": true,
+    "data": {
+        "project": {
+            "text_review": "ready",
+            "raw": "فلل حديثة بتشطيب فاخر وحدائق خاصة",
+            "suggested": "فلل حديثة بتشطيب فاخر وحدائق خاصة — مصقول."
+        },
+        "units": [
+            {
+                "id": 1,
+                "model_name": "C1",
+                "text_review": "ready",
+                "raw": "نموذج C1 بخمس غرف ومجلس مستقل",
+                "suggested": "نموذج C1 بخمس غرف ومجلس مستقل — مصقول."
+            },
+            {
+                "id": 2,
+                "model_name": "D2",
+                "text_review": "ready",
+                "raw": "نموذج D2 بخمس غرف ومجلس مستقل",
+                "suggested": "نموذج D2 بخمس غرف ومجلس مستقل — مصقول."
+            }
+        ]
+    }
+}
