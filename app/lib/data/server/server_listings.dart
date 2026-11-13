@@ -154,7 +154,10 @@ abstract final class ServerListings {
   static Listing fromProject(Map<String, Object?> j) {
     final developer = _map(j['developer']);
     final units = j['units'];
+    final status = _str(j['status']);
     return Listing(
+      status: status,
+      active: status == null ? null : status == 'published',
       id: projectId(j['id'] ?? ''),
       kind: 'project',
       title: _str(j['title']) ?? '',

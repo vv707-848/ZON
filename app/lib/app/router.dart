@@ -9,6 +9,7 @@ import 'package:zon/features/account/service_screen.dart';
 import 'package:zon/features/add/add_screen.dart';
 import 'package:zon/features/add/listing_edit_screen.dart';
 import 'package:zon/features/add/listing_review_screen.dart';
+import 'package:zon/features/add/project_review_screen.dart';
 import 'package:zon/features/auth/login_screen.dart';
 import 'package:zon/features/chats/barq_chat_screen.dart';
 import 'package:zon/features/chats/chat_thread_screen.dart';
@@ -68,6 +69,8 @@ class Loc {
 /// | `/account` | account page |
 /// | `/account/:service` | a service (tasks, clients, plans…) |
 /// | `/account/listings/:id` | edit my listing / project |
+/// | `/account/listings/:id/review` | the wording of my listing (server) |
+/// | `/account/projects/:id/review` | the wording of my project and its models (server) |
 /// | `/users/:name` | public profile |
 /// | `/legal/:slug` | policy pages |
 /// | `/add` | add a listing / project / request |
@@ -99,6 +102,7 @@ Widget screenFor(String location) {
       if (s.length == 1) return const AccountScreen();
       if (s.length == 3 && s[1] == 'listings') return ListingEditScreen(id: s[2]);
       if (s.length == 4 && s[1] == 'listings' && s[3] == 'review') return ListingReviewScreen(id: _serverId(s[2], 'L'));
+      if (s.length == 4 && s[1] == 'projects' && s[3] == 'review' && int.tryParse(s[2]) != null) return ProjectReviewScreen(id: int.parse(s[2]));
       if (s.length == 2) return ServiceScreen(svc: s[1], query: loc.params);
     case 'users':
       if (s.length == 2) return UserProfileScreen(id: s[1], listing: loc.params['listing']);
