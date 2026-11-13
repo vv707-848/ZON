@@ -251,32 +251,32 @@ class _TalkBarState extends State<TalkBar> {
         child: Row(
           children: <Widget>[
             if (widget.photos) ...<Widget>[
-            Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(color: AppColors.forest, borderRadius: BorderRadius.circular(999)),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Tap(
-                    onTap: () => _attach(ImageSource.camera),
-                    child: const Padding(
-                      padding: EdgeInsets.all(4),
-                      child: LucideIcon(Lu.camera, size: 20, strokeWidth: 1.8, color: AppColors.white),
+              Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(color: AppColors.forest, borderRadius: BorderRadius.circular(999)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Tap(
+                      onTap: () => _attach(ImageSource.camera),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: LucideIcon(Lu.camera, size: 20, strokeWidth: 1.8, color: AppColors.white),
+                      ),
                     ),
-                  ),
-                  Container(width: 1, height: 18, margin: const EdgeInsets.symmetric(horizontal: 10), color: const Color(0x55FFFFFF)),
-                  Tap(
-                    onTap: () => _attach(ImageSource.gallery),
-                    child: const Padding(
-                      padding: EdgeInsets.all(4),
-                      child: LucideIcon(Lu.image, size: 20, strokeWidth: 1.8, color: AppColors.white),
+                    Container(width: 1, height: 18, margin: const EdgeInsets.symmetric(horizontal: 10), color: const Color(0x55FFFFFF)),
+                    Tap(
+                      onTap: () => _attach(ImageSource.gallery),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: LucideIcon(Lu.image, size: 20, strokeWidth: 1.8, color: AppColors.white),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
+              const SizedBox(width: 8),
             ],
             Expanded(
               child: SizedBox(

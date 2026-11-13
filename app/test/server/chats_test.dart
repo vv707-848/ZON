@@ -59,7 +59,10 @@ void main() {
     await freshDevice();
     final server = serverDevice();
     stubs(server);
-    await serverSignIn(server, account: me(id: 41, role: 'broker', name: 'مكتب الإتقان'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'broker', name: 'مكتب الإتقان'),
+    );
     await pumpApp(tester, path);
     await _settle(tester);
     return server;
@@ -97,7 +100,7 @@ void main() {
     expect(FakeServer.body(sent), <String, Object?>{'body': 'متاح، تفضل بزيارة.'});
     expect(sent.headers['Idempotency-Key'], isNotNull, reason: 'a reply sent once however often tried');
     expect(find.text('متاح، تفضل بزيارة.'), findsOneWidget);
-    expect(find.textContaining('تم، أراجع وأردّك'), findsNothing, reason: "no simulated reply with a server");
+    expect(find.textContaining('تم، أراجع وأردّك'), findsNothing, reason: 'no simulated reply with a server');
     await _leave(tester);
   });
 
@@ -121,7 +124,10 @@ void main() {
   });
 
   testWidgets('older messages: the page before the first shown', (tester) async {
-    final page = <String, Object?>{...recorded('messages'), 'meta': <String, Object?>{'has_more': true}};
+    final page = <String, Object?>{
+      ...recorded('messages'),
+      'meta': <String, Object?>{'has_more': true},
+    };
     final server = await signedIn(tester, '/chats/C$id', (s) {
       s.on('GET', 'conversations', 200, recorded('conversations'));
       s.on('GET', 'conversations/$id/messages', 200, page);
@@ -137,7 +143,7 @@ void main() {
     await _leave(tester);
   });
 
-  testWidgets("«محادثة» on a listing: its first message opens the conversation about it", (tester) async {
+  testWidgets('«محادثة» on a listing: its first message opens the conversation about it', (tester) async {
     final listing = (recorded('listing')['data']! as Map).cast<String, Object?>();
     final advertiser = (listing['advertiser']! as Map).cast<String, Object?>();
     final server = await signedIn(tester, '/listings/L${listing['id']}', (s) {

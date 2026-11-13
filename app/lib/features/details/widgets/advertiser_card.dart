@@ -70,7 +70,10 @@ class AdvertiserCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Tap(
-            onTap: () => Nav.go(context, '/users/${Api.on && username != null ? Uri.encodeComponent(username!) : id}${listingId != null ? '?listing=$listingId' : ''}'),
+            onTap: () => Nav.go(
+              context,
+              '/users/${Api.on && username != null ? Uri.encodeComponent(username!) : id}${listingId != null ? '?listing=$listingId' : ''}',
+            ),
             child: Row(
               children: <Widget>[
                 Container(

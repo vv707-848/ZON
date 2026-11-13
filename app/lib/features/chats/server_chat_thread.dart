@@ -100,6 +100,7 @@ class _ServerChatThreadState extends State<ServerChatThread> {
         // before the first message: the conversation they already have about the same subject, if any
         for (final c in list) {
           if (c.username == widget.to && (c.listingId ?? c.requestId) == widget.about) {
+            if (!mounted) return;
             unawaited(Nav.replace(context, '/chats/${c.id}'));
             return;
           }
@@ -231,10 +232,18 @@ class _ServerChatThreadState extends State<ServerChatThread> {
           if (_loading) const LoadingBox(),
           if (_hasMore)
             Center(
-              child: AppButton(label: _older ? 'جارٍ الجلب…' : 'رسائل أقدم', tone: ButtonTone.tonal, onTap: _older ? null : () => unawaited(_loadOlder())),
+              child: AppButton(
+                label: _older ? 'جارٍ الجلب…' : 'رسائل أقدم',
+                tone: ButtonTone.tonal,
+                onTap: _older ? null : () => unawaited(_loadOlder()),
+              ),
             ),
           if (!_loading && ordered.isEmpty && _sending == null)
-            Tx(_id == null ? 'اكتب رسالتك الأولى.' : 'لا رسائل بعد.', style: ts(14, c: AppColors.muted), align: TextAlign.center),
+            Tx(
+              _id == null ? 'اكتب رسالتك الأولى.' : 'لا رسائل بعد.',
+              style: ts(14, c: AppColors.muted),
+              align: TextAlign.center,
+            ),
           for (final m in ordered) TalkBubble(text: m.body, mine: m.mine),
           if (_sending case final String t) Opacity(opacity: 0.6, child: TalkBubble(text: '$t\nيُرسل…', mine: true)),
           if (_error case final String e) FormError(e),
@@ -242,7 +251,11 @@ class _ServerChatThreadState extends State<ServerChatThread> {
         bar: blocked
             ? Padding(
                 padding: const EdgeInsets.all(12),
-                child: Tx('لا يمكن إرسال رسائل في هذه المحادثة.', style: ts(14, c: AppColors.muted), align: TextAlign.center),
+                child: Tx(
+                  'لا يمكن إرسال رسائل في هذه المحادثة.',
+                  style: ts(14, c: AppColors.muted),
+                  align: TextAlign.center,
+                ),
               )
             : TalkBar(controller: _bar, onSend: (t) => unawaited(_send(t)), photos: false),
       ),

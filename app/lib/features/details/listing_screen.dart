@@ -66,7 +66,8 @@ class ListingScreen extends StatelessWidget {
         const InfoHeading('المواصفات'),
         SpecGrid(items: listingSpecs(l)),
         if (l.license.isNotEmpty) LicensePanel(license: l.license),
-        if (!(Api.on && store.ownsListing(l))) AdvertiserCard(name: l.advertiser, role: l.advertiserRole, listingId: l.id, phones: l.phones, username: l.advertiserUsername),
+        if (!(Api.on && store.ownsListing(l)))
+          AdvertiserCard(name: l.advertiser, role: l.advertiserRole, listingId: l.id, phones: l.phones, username: l.advertiserUsername),
       ],
     );
   }

@@ -133,7 +133,13 @@ class _ChatsScreenState extends State<ChatsScreen> {
                 padding: const EdgeInsets.all(24),
                 child: _error == null
                     ? const LoadingBox()
-                    : EmptyBox(title: 'تعذّر جلب المحادثات', text: _error!, textStyle: emptyTextStyle(), action: 'أعد المحاولة', onAction: () => unawaited(_load())),
+                    : EmptyBox(
+                        title: 'تعذّر جلب المحادثات',
+                        text: _error!,
+                        textStyle: emptyTextStyle(),
+                        action: 'أعد المحاولة',
+                        onAction: () => unawaited(_load()),
+                      ),
               )
             else if (rows.isNotEmpty)
               Padding(

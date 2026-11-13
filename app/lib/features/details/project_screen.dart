@@ -153,7 +153,8 @@ class _ProjectScreenState extends State<ProjectScreen> {
             ],
           ],
         ),
-        if (!(Api.on && store.ownsListing(l))) AdvertiserCard(name: l.advertiser, role: l.advertiserRole, listingId: l.id, phones: l.phones, username: l.advertiserUsername),
+        if (!(Api.on && store.ownsListing(l)))
+          AdvertiserCard(name: l.advertiser, role: l.advertiserRole, listingId: l.id, phones: l.phones, username: l.advertiserUsername),
       ],
     );
   }

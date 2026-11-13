@@ -555,7 +555,7 @@ class _ClientProfileState extends State<ClientProfile> with CliNotesState<Client
           phone: client.phone,
           // a client of his desk is not an account: with a server there is no conversation with him to open
           second: Api.on
-              ? CliHeroAct(icon: Lu.messageCircle, label: 'محادثة', off: true)
+              ? const CliHeroAct(icon: Lu.messageCircle, label: 'محادثة', off: true)
               : CliHeroAct(
                   icon: Lu.messageCircle,
                   label: 'محادثة',

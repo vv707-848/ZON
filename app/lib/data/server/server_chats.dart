@@ -74,7 +74,9 @@ abstract final class ServerChats {
       role: '${other['role'] ?? 'seeker'}',
       username: other['username'] is String ? other['username']! as String : null,
       last: last == null ? '' : '${last['mine'] == true ? 'أنت: ' : ''}${last['body'] ?? ''}',
-      listingId: sid is int && type == 'listing' ? ServerListings.listingId(sid) : (sid is int && type == 'project' ? ServerListings.projectId(sid) : null),
+      listingId: sid is int && type == 'listing'
+          ? ServerListings.listingId(sid)
+          : (sid is int && type == 'project' ? ServerListings.projectId(sid) : null),
       requestId: sid is int && type == 'request' ? 'R$sid' : null,
       subjectTitle: subject?['title'] is String ? subject!['title']! as String : null,
       at: last == null ? null : _ago(DateTime.tryParse('${last['at'] ?? ''}')),
@@ -100,9 +102,16 @@ abstract final class ServerChats {
       _ => null,
     };
     final id = subject == null || key == null ? null : int.tryParse(subject.substring(1));
-    final r = await Api.client!.post('conversations', <String, Object?>{'to': username, 'body': body, if (key != null && id != null) key: id}, operation);
+    final r = await Api.client!.post('conversations', <String, Object?>{
+      'to': username,
+      'body': body,
+      if (key != null && id != null) key: id,
+    }, operation);
     final m = r.map['message'];
-    return (r.map['conversation_id'] is int ? r.map['conversation_id']! as int : 0, ServerMsg.fromJson(m is Map ? m.cast<String, Object?>() : const <String, Object?>{}));
+    return (
+      r.map['conversation_id'] is int ? r.map['conversation_id']! as int : 0,
+      ServerMsg.fromJson(m is Map ? m.cast<String, Object?>() : const <String, Object?>{}),
+    );
   }
 
   static Future<ServerMsg> send(int conversation, String body, {required String operation, required int epoch}) async {
@@ -111,14 +120,11 @@ abstract final class ServerChats {
   }
 
   /// Read up to [upTo], the last message he was shown.
-  static Future<void> read(int conversation, int upTo) =>
-      Api.client!.post('conversations/$conversation/read', <String, Object?>{'up_to': upTo});
+  static Future<void> read(int conversation, int upTo) => Api.client!.post('conversations/$conversation/read', <String, Object?>{'up_to': upTo});
 
   /// Where «محادثة» with [username] about [about] goes: the conversation, or its first message.
-  static String startPath(String username, {String? about, required String name, required String role}) => Uri(
-    path: '/chats/new',
-    queryParameters: <String, String>{'to': username, 'about': ?about, 'name': name, 'role': role},
-  ).toString();
+  static String startPath(String username, {String? about, required String name, required String role}) =>
+      Uri(path: '/chats/new', queryParameters: <String, String>{'to': username, 'about': ?about, 'name': name, 'role': role}).toString();
 
   /// «الآن» · «منذ 5 د» · «منذ 3 س» · «أمس» · the date.
   static String? _ago(DateTime? at) {
