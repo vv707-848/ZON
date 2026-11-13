@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Jobs;
 
+use App\Actions\Projects\SaveUnit;
 use App\Enums\ListingStatus;
 use App\Enums\TextReview;
 use App\Jobs\CleanListingText;
 use App\Jobs\CleanProjectText;
 use App\Jobs\CleanUnitTexts;
+use App\Jobs\Scheduled\RequeueStuckWording;
 use App\Models\Customer;
 use App\Models\Listing;
 use App\Models\Project;
@@ -101,5 +103,38 @@ class WordingRaceTest extends TestCase
         $this->assertSame(TextReview::Pending, $edited->text_review);
         $this->assertSame('نموذج بخمس غرف ومجلس مستقل واسع.', $kept->refresh()->desc_suggested, 'the other is kept');
         $this->assertSame(TextReview::Ready, $kept->text_review);
+    }
+
+    public function test_a_unit_edited_while_its_wording_runs_gets_the_wording_of_its_new_text(): void
+    {
+        $project = Project::factory()->create(['developer_id' => Customer::factory()->developer()->create()->id]);
+        $unit = ProjectUnit::factory()->create(['project_id' => $project->id, 'text_review' => TextReview::Pending, 'desc_suggested' => null]);
+        $newText = 'وصف جديد للوحدة بأربع غرف';
+        $newWording = 'وحدة بأربع غرف ومجلس مستقل.';
+        $this->aiAnswersAfter(function () use ($project, $unit, $newText, $newWording) {
+            $this->aiAnswersAfter(null, ['units' => [['id' => $unit->id, 'desc_clean' => $newWording]]]);
+            app(SaveUnit::class)($project, $unit->fresh(), ['desc_raw' => $newText], null);    // the edit, sent while it ran
+        }, ['units' => [['id' => $unit->id, 'desc_clean' => 'صياغة الوصف القديم للوحدة']]]);
+
+        CleanUnitTexts::dispatch($project->id);   // through the queue, its unique lock and all
+
+        $this->assertSame($newText, $unit->refresh()->desc_raw);
+        $this->assertSame($newWording, $unit->desc_suggested, 'the edit\'s own wording was sent, and kept');
+        $this->assertSame(TextReview::Ready, $unit->text_review);
+    }
+
+    public function test_a_project_or_unit_whose_wording_never_left_is_sent_again(): void
+    {
+        $project = Project::factory()->create(['developer_id' => Customer::factory()->developer()->create()->id, 'text_review' => TextReview::Pending, 'desc_suggested' => null]);
+        $unit = ProjectUnit::factory()->create(['project_id' => $project->id, 'text_review' => TextReview::Pending, 'desc_suggested' => null]);
+        $this->aiAnswersAfter(null, ['desc_clean' => 'مشروع سكني متكامل قرب الخدمات.', 'units' => [['id' => $unit->id, 'desc_clean' => 'وحدة بثلاث غرف.']]]);
+
+        (new RequeueStuckWording)->handle();
+        $this->assertSame(TextReview::Pending, $project->refresh()->text_review, 'not before a quarter of an hour');
+        $this->travel(RequeueStuckWording::AFTER_MINUTES + 1)->minutes();
+        (new RequeueStuckWording)->handle();
+
+        $this->assertSame('مشروع سكني متكامل قرب الخدمات.', $project->refresh()->desc_suggested);
+        $this->assertSame('وحدة بثلاث غرف.', $unit->refresh()->desc_suggested);
     }
 }

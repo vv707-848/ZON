@@ -431,6 +431,36 @@ void main() {
       expect(server.sent('POST', 'listings'), isEmpty, reason: "A's listing is not created as B");
     });
 
+    testWidgets("an owner's card typed under A is not left in the form for B", (tester) async {
+      await freshDevice();
+      final server = serverDevice();
+      server.on('POST', 'listings/licence-check', 200, recorded('licence_check'));
+      await serverSignIn(server, account: me(id: 41), token: '7|token-a');
+      await pumpApp(tester, '/add?type=listing');
+      await _settle(tester);
+      await tester.enterText(_field('72001122'), '7200123456');
+      await tester.pump();
+      await tapText(tester, 'تحقق');
+      await _settle(tester);
+      await tapText(tester, 'متابعة');
+      await _settle(tester);
+      const typed = <String>{'اسم مالك خاص بالوسيط الأول', '0551234567', 'ملاحظة سرية غير منشورة'};
+      for (final (i, text) in typed.indexed) {
+        await tester.enterText(find.byType(EditableText).at(i), text);
+      }
+      await tester.pump();
+      expect(find.byWidgetPredicate((w) => w is EditableText && typed.contains(w.controller.text)), findsNWidgets(3));
+
+      await switchTo(server);
+      await _settle(tester);
+      expect(find.byWidgetPredicate((w) => w is EditableText && typed.contains(w.controller.text)), findsNothing);
+      expect(
+        find.byWidgetPredicate((w) => w is EditableText && w.controller.text == '7200123456'),
+        findsNothing,
+        reason: 'the form starts again, empty',
+      );
+    });
+
     testWidgets("the wording of A's listing is not left on the screen when B signs in", (tester) async {
       await freshDevice();
       final server = serverDevice();

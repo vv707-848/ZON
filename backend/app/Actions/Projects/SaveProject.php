@@ -10,6 +10,7 @@ use App\Models\Customer;
 use App\Models\Project;
 use App\Support\MediaLibrary;
 use App\Support\PublishingGate;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 
 /** Creates or edits a project. A new description goes back to the AI wording; units are re-indexed with it. */
@@ -25,7 +26,8 @@ final class SaveProject
     {
         PublishingGate::assert($developer, CustomerRole::Developer);
 
-        return DB::transaction(function () use ($developer, $project, $columns, $mediaIds, $coverId) {
+        $newText = false;
+        $saved = DB::transaction(function () use ($developer, $project, $columns, $mediaIds, $coverId, &$newText) {
             $newText = $project === null || (isset($columns['desc_raw']) && $columns['desc_raw'] !== $project->desc_raw);
             $project ??= new Project(['developer_id' => $developer->id]);
             $project->fill($columns);
@@ -37,9 +39,6 @@ final class SaveProject
             if ($mediaIds !== null) {
                 MediaLibrary::sync($project, $developer, $mediaIds, $coverId);
             }
-            if ($newText) {
-                CleanProjectText::dispatch($project->id)->afterCommit();
-            }
             foreach ($project->units()->get() as $unit) {
                 $unit->setRelation('project', $project);
                 $this->index->unit($unit);           // city, neighbourhood and context travel with every unit
@@ -47,5 +46,11 @@ final class SaveProject
 
             return $project;
         });
+        if ($newText) {
+            // after the save: a queue that cannot take it fails nothing saved (RequeueStuckWording sends it again)
+            rescue(fn () => Bus::dispatch(new CleanProjectText($saved->id)), report: true);
+        }
+
+        return $saved;
     }
 }

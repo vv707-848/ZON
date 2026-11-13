@@ -21,7 +21,8 @@ final class SaveUnit
      */
     public function __invoke(Project $project, ?ProjectUnit $unit, array $columns, ?array $mediaIds): ProjectUnit
     {
-        return DB::transaction(function () use ($project, $unit, $columns, $mediaIds) {
+        $newText = false;
+        $saved = DB::transaction(function () use ($project, $unit, $columns, $mediaIds, &$newText) {
             $newText = $unit === null || (isset($columns['desc_raw']) && $columns['desc_raw'] !== $unit->desc_raw);
             $unit ??= new ProjectUnit(['project_id' => $project->id]);
             $unit->fill($columns);
@@ -34,9 +35,16 @@ final class SaveUnit
             if ($mediaIds !== null) {
                 MediaLibrary::sync($unit, $project->developer, $mediaIds, null);
             }
-            $newText ? CleanUnitTexts::dispatch($project->id)->afterCommit() : $this->index->unit($unit);
+            if (! $newText) {
+                $this->index->unit($unit);
+            }
 
             return $unit;
         });
+        if ($newText) {
+            CleanUnitTexts::sendFor($project->id);
+        }
+
+        return $saved;
     }
 }

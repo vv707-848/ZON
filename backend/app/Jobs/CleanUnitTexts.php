@@ -9,7 +9,7 @@ use App\Indexing\IndexSync;
 use App\Models\Project;
 use App\Models\ProjectUnit;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -18,8 +18,11 @@ use Illuminate\Support\Facades\DB;
 /**
  * The second review: every unit model still waiting, in ONE call (clean_units). Ids the model invents are dropped;
  * a unit the AI could not word keeps its own text (auto) and becomes searchable at once.
+ *
+ * One waiting per project (units saved together go in one call), but only until it starts: an edit while it runs
+ * sends its own, which the AI answers about the new text (this one's answer about the old text is dropped).
  */
-class CleanUnitTexts implements ShouldBeUnique, ShouldQueue
+class CleanUnitTexts implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable;
 
@@ -33,6 +36,19 @@ class CleanUnitTexts implements ShouldBeUnique, ShouldQueue
     public function uniqueId(): string
     {
         return (string) $this->projectId;
+    }
+
+    /**
+     * Sends the wording of [projectId]'s waiting units, after a save: one already waiting takes them; a queue that
+     * cannot take it fails nothing saved (RequeueStuckWording sends it again). A pending dispatch sends (and takes
+     * the unique lock) in its destructor, so it is dropped here, inside the rescue.
+     */
+    public static function sendFor(int $projectId): void
+    {
+        rescue(function () use ($projectId) {
+            $pending = self::dispatch($projectId);
+            unset($pending);
+        }, report: true);
     }
 
     public function handle(AiGateway $ai, IndexSync $index): void
