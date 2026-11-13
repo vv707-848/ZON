@@ -66,7 +66,19 @@ for (const [kind, pattern] of KINDS) {
 }
 for (const [kind, path] of CLOSED) pages.push({ kind, path, indexed: false, scores: {} });
 
-const chrome = await chromeLauncher.launch({ chromeFlags: ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'] });
+// Chrome on a CI runner sometimes never opens its debugging port ("waiting for dynamic debugging port"): it is
+// launched again, three times at most, before the audit fails on it.
+async function launchChrome(tries = 3) {
+  for (let i = 1; ; i++) {
+    try {
+      return await chromeLauncher.launch({ chromeFlags: ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'] });
+    } catch (e) {
+      if (i >= tries) throw e;
+      console.error(`Chrome did not start (${e.message}); again (${i + 1}/${tries})`);
+    }
+  }
+}
+const chrome = await launchChrome();
 try {
   const flags = { port: chrome.port, output: 'json', logLevel: 'error', onlyCategories: CATEGORIES };
   const run = async (path, config) => (await lighthouse(base + path, flags, config)).lhr;
