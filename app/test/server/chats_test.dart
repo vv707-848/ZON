@@ -174,6 +174,17 @@ void main() {
     await _leave(tester);
   });
 
+  testWidgets('a notice of a message (`/chats/<number>`) opens its conversation', (tester) async {
+    await signedIn(tester, '/chats/$id', (s) {
+      s.on('GET', 'conversations', 200, recorded('conversations'));
+      s.on('GET', 'conversations/$id/messages', 200, recorded('messages'));
+      s.on('POST', 'conversations/$id/read', 200, <String, Object?>{'success': true, 'data': null});
+    });
+    expect(find.byType(ServerChatThread), findsOneWidget);
+    expect(find.text('هل العرض متاح؟'), findsOneWidget);
+    await _leave(tester);
+  });
+
   testWidgets("with a server, the phone's simulated conversations are not shown", (tester) async {
     await signedIn(tester, '/chats/some-name', (s) => s.on('GET', 'conversations', 200, none));
     expect(find.text('اكتب رسالتك الأولى.'), findsNothing);

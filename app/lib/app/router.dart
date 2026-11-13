@@ -99,9 +99,10 @@ Widget screenFor(String location) {
     case 'chats':
       if (s.length == 1) return const ChatsScreen();
       if (s.length == 2 && s[1] == 'barq') return const BarqChatScreen();
-      if (s.length == 2 && Api.on && (s[1] == 'new' || ServerChats.rawId(s[1]) != null)) {
+      if (s.length == 2 && Api.on && (s[1] == 'new' || ServerChats.rawId(_serverId(s[1], 'C')) != null)) {
         final q = loc.params;
-        return ServerChatThread(id: ServerChats.rawId(s[1]), to: q['to'], about: q['about'], name: q['name'], role: q['role']);
+        // a notice names the conversation by its number (`/chats/5`), the app by `C5`
+        return ServerChatThread(id: ServerChats.rawId(_serverId(s[1], 'C')), to: q['to'], about: q['about'], name: q['name'], role: q['role']);
       }
       if (s.length == 2 && Api.on) return const ChatsScreen(); // the phone's simulated conversations are not shown with a server
       if (s.length == 2) return ChatThreadScreen(id: s[1]);
