@@ -27,7 +27,7 @@
 | تطبيق Flutter وربطه | **37%** (13 / 35) | 77.8% | — | لا شيء معروف |
 | خدمة الذكاء وربطها | **33%** (4 / 12) | 87.3% | **غير مقاس** | لا شيء معروف |
 
-التغطية من تشغيل `main` الأخير: [Platform](https://github.com/vv707-848/ZON/actions/runs/43303838613) · [App](https://github.com/vv707-848/ZON/actions/runs/43303838727).
+التغطية من تشغيل `main` بعد #55: [Platform](https://github.com/vv707-848/ZON/actions/runs/43437583922) · [App](https://github.com/vv707-848/ZON/actions/runs/43437584376).
 
 **المؤشران المساعدان:**
 - مسارات API يصلها اختبار: 148 / 148. صفحات الموقع: 42 / 42.
