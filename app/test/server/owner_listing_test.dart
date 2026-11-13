@@ -49,7 +49,10 @@ void main() {
     await freshDevice();
     final server = serverDevice();
     server.on('GET', 'owner-cases', 200, cases);
-    await serverSignIn(server, account: me(id: 41, role: 'owner', name: 'عبدالرحمن الدوسري'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'owner', name: 'عبدالرحمن الدوسري'),
+    );
     await pumpApp(tester, '/add?type=listing');
     await _settle(tester);
     return server;
@@ -141,10 +144,13 @@ void main() {
   });
 
   testWidgets('a contract REGA refused says so, and the deed can be sent again', (tester) async {
-    await asOwner(tester, cases: <String, Object?>{
-      'success': true,
-      'data': <Object?>[_one('owner_case_refused')],
-    });
+    await asOwner(
+      tester,
+      cases: <String, Object?>{
+        'success': true,
+        'data': <Object?>[_one('owner_case_refused')],
+      },
+    );
     expect(find.text('لم يُعتمد'), findsOneWidget);
     expect(find.text('لم يُعتمد عقد الوساطة لدى الهيئة. راجع رقم الصك ثم أرسل العقد من جديد.'), findsOneWidget);
     await tapText(tester, 'إرسال العقد من جديد');

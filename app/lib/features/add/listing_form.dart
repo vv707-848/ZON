@@ -644,36 +644,36 @@ class _ListingFormState extends State<ListingForm> {
               if (_server)
                 GCell(labeled('رقم الصك أو رقم العقار', input(deedNo, (v) => setState(() => deedNo = v), keyboard: TextInputType.number)), span: true)
               else ...<GCell>[
-              GCell(
-                labeled(
-                  'نوع الصك',
-                  projSelect(
-                    value: deedKind,
-                    options: optsOf(const <String>['إلكتروني', 'ورقي', 'سجل عيني']),
-                    onChanged: (v) => setState(() => deedKind = v),
+                GCell(
+                  labeled(
+                    'نوع الصك',
+                    projSelect(
+                      value: deedKind,
+                      options: optsOf(const <String>['إلكتروني', 'ورقي', 'سجل عيني']),
+                      onChanged: (v) => setState(() => deedKind = v),
+                    ),
                   ),
                 ),
-              ),
-              GCell(
-                labeled(
-                  'نوع المالك',
-                  projSelect(
-                    value: ownerKind,
-                    options: optsOf(const <String>['فرد', 'شركة', 'ورثة']),
-                    onChanged: (v) => setState(() => ownerKind = v),
+                GCell(
+                  labeled(
+                    'نوع المالك',
+                    projSelect(
+                      value: ownerKind,
+                      options: optsOf(const <String>['فرد', 'شركة', 'ورثة']),
+                      onChanged: (v) => setState(() => ownerKind = v),
+                    ),
                   ),
                 ),
-              ),
-              GCell(labeled('رقم الصك أو رقم العقار أو السجل العيني', input(deedNo, (v) => setState(() => deedNo = v))), span: true),
-              GCell(labeled('رقم جوال المالك', input(ownerPhone, (v) => setState(() => ownerPhone = v), keyboard: TextInputType.phone))),
-              GCell(labeled('رقم هوية المالك', input(ownerNid, (v) => setState(() => ownerNid = v), keyboard: TextInputType.number))),
-              GCell(
-                labeled(
-                  'تاريخ ميلاد المالك',
-                  DateField(value: ownerDob, onChanged: (v) => setState(() => ownerDob = v), decoration: kProjBox, style: kProjText, height: 48),
+                GCell(labeled('رقم الصك أو رقم العقار أو السجل العيني', input(deedNo, (v) => setState(() => deedNo = v))), span: true),
+                GCell(labeled('رقم جوال المالك', input(ownerPhone, (v) => setState(() => ownerPhone = v), keyboard: TextInputType.phone))),
+                GCell(labeled('رقم هوية المالك', input(ownerNid, (v) => setState(() => ownerNid = v), keyboard: TextInputType.number))),
+                GCell(
+                  labeled(
+                    'تاريخ ميلاد المالك',
+                    DateField(value: ownerDob, onChanged: (v) => setState(() => ownerDob = v), decoration: kProjBox, style: kProjText, height: 48),
+                  ),
+                  span: true,
                 ),
-                span: true,
-              ),
               ],
             ], rowGap: 14),
           ),
@@ -711,7 +711,13 @@ class _ListingFormState extends State<ListingForm> {
     if (failed != null) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 80, 16, 0),
-        child: EmptyBox(title: 'تعذّر التحميل', text: failed, textStyle: emptyTextStyle(), action: 'أعد المحاولة', onAction: () => unawaited(_loadCase())),
+        child: EmptyBox(
+          title: 'تعذّر التحميل',
+          text: failed,
+          textStyle: emptyTextStyle(),
+          action: 'أعد المحاولة',
+          onAction: () => unawaited(_loadCase()),
+        ),
       );
     }
     return OwnerIntro(onContinue: () => go(_Step.deed), onClose: widget.onBack);
@@ -785,47 +791,49 @@ class _ListingFormState extends State<ListingForm> {
           actions = <Widget>[AppButton(label: 'متابعة إلى تفاصيل العرض', size: ButtonSize.large, onTap: () => go(_Step.form))];
       }
     } else {
-    switch (c.stage) {
-      case 'contract':
-        lead =
-            'أرسلنا عقد الوساطة. وافق عليه في منصة الهيئة العامة للعقار عبر نفاذ، ثم حدّث الحالة. '
-            'السعي ${Pricing.ownerCommissionPercent}٪ بعد بيع هذا العقار — ثابت في العقد.';
-        actions = <Widget>[
-          AppButton(
-            label: 'تحديث حالة العقد',
-            tone: ButtonTone.tonal,
-            size: ButtonSize.large,
-            onTap: () => showAppNotice(
-              context,
-              icon: Lu.clock,
-              title: 'لم تصل الموافقة بعد',
-              message: 'تظهر الموافقة هنا بعد تأكيدها من الهيئة. الربط مع منصة الهيئة ونفاذ ينتظر الخادم.',
-            ),
-          ),
-          if (kSimulations) ...<Widget>[
-            const SizedBox(height: 10),
+      switch (c.stage) {
+        case 'contract':
+          lead =
+              'أرسلنا عقد الوساطة. وافق عليه في منصة الهيئة العامة للعقار عبر نفاذ، ثم حدّث الحالة. '
+              'السعي ${Pricing.ownerCommissionPercent}٪ بعد بيع هذا العقار — ثابت في العقد.';
+          actions = <Widget>[
             AppButton(
-              label: 'محاكاة موافقة العقد (نسخة تجريبية)',
-              tone: ButtonTone.secondary,
+              label: 'تحديث حالة العقد',
+              tone: ButtonTone.tonal,
               size: ButtonSize.large,
-              onTap: () => setState(() => ownerCase = ownerCases.approveContract(c.id, reference: 'SIM-${DateTime.now().millisecondsSinceEpoch}')),
+              onTap: () => showAppNotice(
+                context,
+                icon: Lu.clock,
+                title: 'لم تصل الموافقة بعد',
+                message: 'تظهر الموافقة هنا بعد تأكيدها من الهيئة. الربط مع منصة الهيئة ونفاذ ينتظر الخادم.',
+              ),
             ),
-            const SizedBox(height: 6),
-            Tx(
-              'للتجربة فقط — في الإصدار الفعلي تصل الموافقة من الهيئة.',
-              style: ts(12, lh: 18, c: AppColors.muted),
-              align: TextAlign.center,
-            ),
-          ],
-        ];
-      case 'fee':
-      case 'licence':
-        lead = 'العقد موثّق. ادفع رسوم الترخيص الإعلاني ليصدر رقم ترخيص الإعلان.';
-        actions = <Widget>[AppButton(label: 'ادفع رسوم الترخيص — ${riyals(Pricing.adLicenceFee)}', size: ButtonSize.large, onTap: () => _payFee(c))];
-      default:
-        lead = 'صدر رقم الترخيص. أكمل تفاصيل العرض وانشره — تتفعّل الباقة بعد النشر.';
-        actions = <Widget>[AppButton(label: 'متابعة إلى تفاصيل العرض', size: ButtonSize.large, onTap: () => go(_Step.form))];
-    }
+            if (kSimulations) ...<Widget>[
+              const SizedBox(height: 10),
+              AppButton(
+                label: 'محاكاة موافقة العقد (نسخة تجريبية)',
+                tone: ButtonTone.secondary,
+                size: ButtonSize.large,
+                onTap: () => setState(() => ownerCase = ownerCases.approveContract(c.id, reference: 'SIM-${DateTime.now().millisecondsSinceEpoch}')),
+              ),
+              const SizedBox(height: 6),
+              Tx(
+                'للتجربة فقط — في الإصدار الفعلي تصل الموافقة من الهيئة.',
+                style: ts(12, lh: 18, c: AppColors.muted),
+                align: TextAlign.center,
+              ),
+            ],
+          ];
+        case 'fee':
+        case 'licence':
+          lead = 'العقد موثّق. ادفع رسوم الترخيص الإعلاني ليصدر رقم ترخيص الإعلان.';
+          actions = <Widget>[
+            AppButton(label: 'ادفع رسوم الترخيص — ${riyals(Pricing.adLicenceFee)}', size: ButtonSize.large, onTap: () => _payFee(c)),
+          ];
+        default:
+          lead = 'صدر رقم الترخيص. أكمل تفاصيل العرض وانشره — تتفعّل الباقة بعد النشر.';
+          actions = <Widget>[AppButton(label: 'متابعة إلى تفاصيل العرض', size: ButtonSize.large, onTap: () => go(_Step.form))];
+      }
     }
     return Container(
       color: kSheetIos,
@@ -844,7 +852,11 @@ class _ListingFormState extends State<ListingForm> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                row('عقد الوساطة', c.contractApproved ? 'موثّق' : (serverCase?.refused ?? false ? 'لم يُعتمد' : 'بانتظار موافقتك'), c.contractApproved),
+                row(
+                  'عقد الوساطة',
+                  c.contractApproved ? 'موثّق' : (serverCase?.refused ?? false ? 'لم يُعتمد' : 'بانتظار موافقتك'),
+                  c.contractApproved,
+                ),
                 row('رسوم الترخيص الإعلاني', c.feePaid ? 'مدفوعة' : 'لم تُدفع', c.feePaid),
                 row('رقم الترخيص', c.licenceNumber ?? '—', c.licenceNumber != null),
                 if (c.licenceSimulated && c.licenceNumber != null)
