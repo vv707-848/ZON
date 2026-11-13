@@ -6,12 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ListingResource;
 use App\Http\Resources\ProjectResource;
 use App\Models\Customer;
-use App\Models\Favorite;
 use App\Models\Listing;
 use App\Models\Project;
 use App\Models\ProjectUnit;
 use App\Support\Api;
 use App\Support\Blocks;
+use App\Support\Favorites;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -89,10 +89,8 @@ class FeedController extends Controller
         $listingModels = Listing::query()->with(['customer', 'media' => fn ($q) => $q->where('is_cover', true)])->whereKey($ids('listing'))->get()->keyBy('id');
         $projectModels = Project::query()->with(['developer', 'media' => fn ($q) => $q->where('is_cover', true), 'units.licence'])->whereKey($ids('project'))->get()->keyBy('id');
         $projectModels->each(fn (Project $p) => $p->setRelation('units', $p->units->filter(fn (ProjectUnit $u) => $u->isAdvertisable($p))->values()));
-        if ($viewer !== null && $ids('listing') !== []) {
-            $request->attributes->set('favorite_listing_ids', Favorite::query()->where('customer_id', $viewer->id)->where('favoritable_type', 'listing')
-                ->whereIn('favoritable_id', $ids('listing'))->pluck('favoritable_id')->map(fn ($id) => (int) $id)->all());
-        }
+        Favorites::mark($request, 'listing', $ids('listing'));
+        Favorites::mark($request, 'project', $ids('project'));
 
         $items = $rows->map(fn (object $row) => $row->kind === 'listing'
             ? ['kind' => 'listing', ...(new ListingResource($listingModels[(int) $row->id]))->resolve($request)]

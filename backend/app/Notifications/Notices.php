@@ -24,12 +24,12 @@ final class Notices
 {
     public static function wordingReady(Listing $listing): AppNotice
     {
-        return new AppNotice(NoteKind::Listing, 'صياغة عرضك جاهزة', "راجع الوصف المقترح لـ «{$listing->title}» واعتمده أو عدّله.", "/listings/{$listing->id}", NoticePref::ListingStatus, "wording:{$listing->id}");
+        return new AppNotice(NoteKind::Listing, 'صياغة عرضك جاهزة', "راجع الوصف المقترح لـ «{$listing->title}» واعتمده أو عدّله.", "/account/listings/{$listing->id}/review", NoticePref::ListingStatus, "wording:{$listing->id}");
     }
 
     public static function wordingReminder(Listing $listing): AppNotice
     {
-        return new AppNotice(NoteKind::Listing, 'عرضك بانتظار قرارك', "لم تراجع صياغة «{$listing->title}» بعد. سيُنشر بنصك بعد المهلة.", "/listings/{$listing->id}", NoticePref::ListingStatus, "wording-reminder:{$listing->id}");
+        return new AppNotice(NoteKind::Listing, 'عرضك بانتظار قرارك', "لم تراجع صياغة «{$listing->title}» بعد. سيُنشر بنصك بعد المهلة.", "/account/listings/{$listing->id}/review", NoticePref::ListingStatus, "wording-reminder:{$listing->id}");
     }
 
     public static function listingPublished(Listing $listing): AppNotice
@@ -66,14 +66,14 @@ final class Notices
     {
         return new AppNotice(NoteKind::Listing, 'رخصة وحدة في مشروعك قاربت على الانتهاء',
             "رخصة النموذج «{$unit->model_name}» في «{$unit->project->title}» ".self::endsIn($daysLeft).'. جدّدها لدى الهيئة ثم حدّث رقمها في الوحدة.',
-            "/account/listings/{$unit->project_id}", null, "unit-licence-expiring:{$unit->id}:{$stage}");
+            "/account/listings/P{$unit->project_id}", null, "unit-licence-expiring:{$unit->id}:{$stage}");
     }
 
     public static function unitLicenceExpired(ProjectUnit $unit): AppNotice
     {
         return new AppNotice(NoteKind::Listing, 'انتهت رخصة وحدة في مشروعك',
             "النموذج «{$unit->model_name}» في «{$unit->project->title}» خرج من النتائج. جدّد رخصته لدى الهيئة ثم حدّث رقمها في الوحدة.",
-            "/account/listings/{$unit->project_id}", null, "unit-licence-expired:{$unit->id}");
+            "/account/listings/P{$unit->project_id}", null, "unit-licence-expired:{$unit->id}");
     }
 
     public static function boostEnded(Listing $listing, BoostKind $kind): AppNotice
@@ -85,7 +85,7 @@ final class Notices
 
     public static function projectWordingReady(Project $project): AppNotice
     {
-        return new AppNotice(NoteKind::Listing, 'صياغة مشروعك جاهزة', "راجع الوصف المقترح لـ «{$project->title}».", "/account/listings/{$project->id}", NoticePref::ListingStatus, "project-wording:{$project->id}");
+        return new AppNotice(NoteKind::Listing, 'صياغة مشروعك جاهزة', "راجع الوصف المقترح لـ «{$project->title}».", "/account/projects/{$project->id}/review", NoticePref::ListingStatus, "project-wording:{$project->id}");
     }
 
     public static function projectPublished(Project $project): AppNotice

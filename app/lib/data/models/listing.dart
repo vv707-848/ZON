@@ -168,6 +168,7 @@ class Listing {
     this.phones,
     this.ownerId,
     this.advertiserUsername,
+    this.favorite,
     this.premiumUntil,
     this.urgentUntil,
     this.unclaimed,
@@ -232,6 +233,9 @@ class Listing {
 
   /// The advertiser's username on the server: his public page and a conversation with him.
   final String? advertiserUsername;
+
+  /// Whether he liked it, as the server said when it sent it (null without a server).
+  final bool? favorite;
 
   /// End of a paid / quota featuring («مميز»), ISO-8601. Sample listings use
   /// [isPremium] without an end.
@@ -307,6 +311,7 @@ class Listing {
     if (phones != null) 'phones': phones,
     if (ownerId != null) 'ownerId': ownerId,
     if (advertiserUsername != null) 'advertiserUsername': advertiserUsername,
+    if (favorite != null) 'favorite': favorite,
     if (premiumUntil != null) 'premiumUntil': premiumUntil,
     if (urgentUntil != null) 'urgentUntil': urgentUntil,
     if (unclaimed != null) 'unclaimed': unclaimed,
@@ -365,6 +370,7 @@ class Listing {
       phones: (j['phones'] as List?)?.map((e) => e.toString()).toList(),
       ownerId: j['ownerId'] as String?,
       advertiserUsername: j['advertiserUsername'] as String?,
+      favorite: j['favorite'] as bool?,
       premiumUntil: j['premiumUntil'] as String?,
       urgentUntil: j['urgentUntil'] as String?,
       unclaimed: j['unclaimed'] as bool?,

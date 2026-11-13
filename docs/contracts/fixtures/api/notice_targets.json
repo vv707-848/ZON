@@ -1,0 +1,30 @@
+{
+    "success": true,
+    "data": {
+        "wording_ready": "/account/listings/12/review",
+        "wording_reminder": "/account/listings/12/review",
+        "listing_published": "/listings/12",
+        "listing_inactive": "/account/listings/12",
+        "listing_hidden": "/account/listings/12",
+        "licence_expiring": "/account/listings/12",
+        "licence_expired": "/account/listings/12",
+        "unit_licence_expiring": "/account/listings/P3",
+        "unit_licence_expired": "/account/listings/P3",
+        "boost_ended": "/listings/12",
+        "project_wording_ready": "/account/projects/3/review",
+        "project_published": "/projects/3",
+        "followed_published": "/listings/12",
+        "rated": "/users/fmson2821",
+        "new_message": "/chats/1",
+        "area_request": "/requests/7",
+        "matches": "/account/matching",
+        "plan_activated": "/account/plans",
+        "renewal_reminder": "/account/plans",
+        "task_reminder": "/account/tasks",
+        "owner_case": "/add",
+        "account_activated": "/account",
+        "support_message": "/support/ZT-1001",
+        "support_closed": "/support/ZT-1001",
+        "announcement": "/notifications"
+    }
+}

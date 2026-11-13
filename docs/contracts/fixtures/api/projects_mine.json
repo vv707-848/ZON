@@ -4,6 +4,7 @@
         {
             "id": 1,
             "status": "draft",
+            "is_favorite": false,
             "title": "مشروع الأفق",
             "city": "الرياض",
             "neighborhood": "النرجس",

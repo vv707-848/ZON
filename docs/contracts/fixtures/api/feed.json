@@ -189,6 +189,7 @@
             "kind": "project",
             "id": 1,
             "status": "published",
+            "is_favorite": false,
             "title": "مشروع النرجس السكني",
             "city": "الرياض",
             "neighborhood": "النرجس",

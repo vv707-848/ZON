@@ -82,7 +82,7 @@ class _ProjectScreenState extends State<ProjectScreen> {
     final photos = l.images.isNotEmpty ? l.images : <String>[if (server) kNoPhoto else '/listings/tower-1.jpg'];
 
     return DetailScaffold(
-      actions: OfferReact(id: l.id),
+      actions: OfferReact(id: l.id, favorite: l.favorite),
       gallery: PhotoGallery(photos: photos, index: _photo, onIndex: (n) => _photo = n),
       children: <Widget>[
         // title, location and delivery status

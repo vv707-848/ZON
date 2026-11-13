@@ -1,11 +1,19 @@
 // Badge on the gallery photo and the user's two actions in the top bar:
-// إعجاب (like) and بلاغ (report).
+// إعجاب (like) and بلاغ (report). With a server the report goes to it (ServerPeople.report): one per reporter and
+// offer, and until it is taken his reason stays in the dialog with why.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
+import 'package:zon/data/server/server_listings.dart';
+import 'package:zon/data/server/server_people.dart';
 import 'package:zon/data/store.dart';
 
 /// Pill pinned on the gallery photo: "للبيع" / "للإيجار", the unit type, or
@@ -36,32 +44,77 @@ class DetailSeal extends StatelessWidget {
 
 /// Like + report buttons for the detail top bar.
 ///
-/// * Like toggles the offer in the saved likes (persisted in the store).
+/// * Like toggles the offer in the saved likes (persisted in the store) — with a server, on the server
+///   (ServerFavorites): it shows liked once the server took it, and says why when it could not.
 /// * Report opens a dialog asking for the reason; after sending, the flag is
 ///   replaced by a small "وصل البلاغ" confirmation.
 class OfferReact extends StatefulWidget {
-  const OfferReact({super.key, required this.id});
+  const OfferReact({super.key, required this.id, this.offer, this.favorite});
 
   /// Listing / project / unit id.
   final String id;
+
+  /// What the server knows it as when it is not [id]: a project's unit is liked and reported as its project.
+  final String? offer;
+
+  /// Whether he liked it, as the server sent it ([Listing.favorite]).
+  final bool? favorite;
 
   @override
   State<OfferReact> createState() => _OfferReactState();
 }
 
 class _OfferReactState extends State<OfferReact> {
-  late bool _liked = store.likedSet().contains(widget.id);
+  String get _target => widget.offer ?? widget.id;
+  bool get _onServer => Api.on && ServerListings.isServer(_target);
+  late bool _liked = _onServer ? widget.favorite ?? false : store.likedSet().contains(widget.id);
+  bool _liking = false;
   bool _reported = false;
 
-  void _toggleLike() {
-    final next = store.likedSet();
-    if (!next.remove(widget.id)) next.add(widget.id);
-    store.persistLikes(next);
-    setState(() => _liked = next.contains(widget.id));
+  @override
+  void didUpdateWidget(OfferReact old) {
+    super.didUpdateWidget(old);
+    if (_onServer && !_liking && old.favorite != widget.favorite) _liked = widget.favorite ?? false;
+  }
+
+  Future<void> _toggleLike() async {
+    if (!_onServer) {
+      final next = store.likedSet();
+      if (!next.remove(widget.id)) next.add(widget.id);
+      store.persistLikes(next);
+      setState(() => _liked = next.contains(widget.id));
+      return;
+    }
+    if (store.readSession() == null) {
+      unawaited(Nav.go(context, '/login'));
+      return;
+    }
+    if (_liking) return;
+    final epoch = store.serverEpoch;
+    setState(() => _liking = true);
+    try {
+      final now = await ServerFavorites.set(_target, on: !_liked, epoch: epoch);
+      if (mounted && epoch == store.serverEpoch) setState(() => _liked = now);
+    } on ApiError catch (e) {
+      if (mounted) await showAppNotice(context, icon: Lu.info, title: 'لم يُحفظ الإعجاب', message: e.forUser);
+    } on AccountChanged {
+      // the next account's likes are its own
+    } finally {
+      if (mounted) setState(() => _liking = false);
+    }
   }
 
   Future<void> _report() async {
-    final sent = await showReportDialog(context);
+    final target = _target;
+    if (Api.on && store.readSession() == null) {
+      unawaited(Nav.go(context, '/login'));
+      return;
+    }
+    final epoch = store.serverEpoch;
+    final sent = await showReportDialog(
+      context,
+      send: Api.on ? (reason) => ServerPeople.report(reason, target: target, epoch: epoch) : null,
+    );
     if (sent && mounted) setState(() => _reported = true);
   }
 
@@ -83,10 +136,10 @@ class _OfferReactState extends State<OfferReact> {
         const SizedBox(width: 4),
         BarIconButton(
           icon: Lu.heart,
-          label: 'إعجاب',
+          label: _liked ? 'إلغاء الإعجاب' : 'إعجاب',
           color: _liked ? AppColors.liked : AppColors.deep,
           fill: _liked ? AppColors.liked : null,
-          onTap: _toggleLike,
+          onTap: () => unawaited(_toggleLike()),
         ),
       ],
     );
@@ -124,8 +177,9 @@ class BarIconButton extends StatelessWidget {
   }
 }
 
-/// Asks for the report reason. Resolves to `true` when a report was sent.
-Future<bool> showReportDialog(BuildContext context) async {
+/// Asks for the report reason. Resolves to `true` when a report was sent. With [send] (a server) the dialog
+/// stays open until it is taken, and says why when it is not.
+Future<bool> showReportDialog(BuildContext context, {String title = 'الإبلاغ عن العرض', Future<void> Function(String reason)? send}) async {
   final sent = await showGeneralDialog<bool>(
     context: context,
     barrierDismissible: true,
@@ -133,13 +187,16 @@ Future<bool> showReportDialog(BuildContext context) async {
     barrierColor: const Color(0x661C2B24),
     transitionDuration: const Duration(milliseconds: 160),
     transitionBuilder: (ctx, anim, _, child) => FadeTransition(opacity: anim, child: child),
-    pageBuilder: (ctx, a, b) => const _ReportDialog(),
+    pageBuilder: (ctx, a, b) => _ReportDialog(title: title, send: send),
   );
   return sent ?? false;
 }
 
 class _ReportDialog extends StatefulWidget {
-  const _ReportDialog();
+  const _ReportDialog({required this.title, this.send});
+
+  final String title;
+  final Future<void> Function(String reason)? send;
 
   @override
   State<_ReportDialog> createState() => _ReportDialogState();
@@ -147,6 +204,8 @@ class _ReportDialog extends StatefulWidget {
 
 class _ReportDialogState extends State<_ReportDialog> {
   final TextEditingController _reason = TextEditingController();
+  bool _busy = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -154,7 +213,34 @@ class _ReportDialogState extends State<_ReportDialog> {
     super.dispose();
   }
 
-  bool get _ready => _reason.text.trim().isNotEmpty;
+  /// The server asks for three letters at least.
+  bool get _ready => _reason.text.trim().length >= (widget.send == null ? 1 : 3) && !_busy;
+
+  Future<void> _submit() async {
+    if (!_ready) return;
+    final send = widget.send;
+    if (send == null) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await send(_reason.text);
+      if (mounted) Navigator.of(context).pop(true);
+    } on ApiError catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = e.forUser;
+        });
+      }
+    } on AccountChanged {
+      if (mounted) Navigator.of(context).pop(false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +271,7 @@ class _ReportDialogState extends State<_ReportDialog> {
                             child: const LucideIcon(Lu.flag, size: 18, strokeWidth: 2, color: AppColors.forest),
                           ),
                           const SizedBox(width: 10),
-                          Tx('الإبلاغ عن العرض', style: ts(16, w: 600, lh: 24, c: AppColors.deep)),
+                          Tx(widget.title, style: ts(16, w: 600, lh: 24, c: AppColors.deep)),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -209,6 +295,7 @@ class _ReportDialogState extends State<_ReportDialog> {
                           ),
                         ),
                       ),
+                      if (_error case final String e) ...<Widget>[const SizedBox(height: 10), FormError(e)],
                       const SizedBox(height: 12),
                       Row(
                         children: <Widget>[
@@ -216,12 +303,10 @@ class _ReportDialogState extends State<_ReportDialog> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: _ReportButton(
-                              'إرسال البلاغ',
+                              _busy ? 'جارٍ الإرسال…' : 'إرسال البلاغ',
                               _ready ? AppColors.forest : AppColors.forest.withValues(alpha: 0.4),
                               AppColors.white,
-                              () {
-                                if (_ready) Navigator.of(context).pop(true);
-                              },
+                              () => unawaited(_submit()),
                             ),
                           ),
                         ],

@@ -22,11 +22,11 @@ use App\Http\Resources\ListingResource;
 use App\Indexing\IndexSync;
 use App\Models\AdLicense;
 use App\Models\Customer;
-use App\Models\Favorite;
 use App\Models\Listing;
 use App\Support\Actor;
 use App\Support\Api;
 use App\Support\Blocks;
+use App\Support\Favorites;
 use App\Support\Ownership;
 use App\Support\PublicView;
 use App\Support\Settings\Setting;
@@ -78,7 +78,7 @@ class ListingController extends Controller
             default => $query->orderByRaw('featured_until IS NOT NULL AND featured_until > ? DESC', [now()])->orderByDesc('published_at'),
         };
         $page = $query->paginate((int) ($filters['per_page'] ?? 20));
-        $this->markFavorites($request, $page->getCollection()->modelKeys());
+        Favorites::mark($request, 'listing', $page->getCollection()->modelKeys());
 
         return Api::page($page, ListingResource::class);
     }
@@ -95,7 +95,7 @@ class ListingController extends Controller
             $listing->increment('views_count');         // a tester's look is not a view
         }
         $listing->load(['customer', 'media', 'licence']);
-        $this->markFavorites($request, [$listing->id]);
+        Favorites::mark($request, 'listing', [$listing->id]);
 
         return Api::ok(ListingResource::detail($listing));
     }
@@ -265,15 +265,5 @@ class ListingController extends Controller
     private function own(Request $request, Listing $listing): void
     {
         Ownership::assert($listing, $request->user('api'));
-    }
-
-    /** @param list<int> $ids */
-    private function markFavorites(Request $request, array $ids): void
-    {
-        $viewer = $request->user('api');
-        if ($viewer instanceof Customer && $ids !== []) {
-            $request->attributes->set('favorite_listing_ids', Favorite::query()->where('customer_id', $viewer->id)
-                ->where('favoritable_type', 'listing')->whereIn('favoritable_id', $ids)->pluck('favoritable_id')->map(fn ($id) => (int) $id)->all());
-        }
     }
 }

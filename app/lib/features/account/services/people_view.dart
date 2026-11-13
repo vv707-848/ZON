@@ -1,12 +1,19 @@
-// المتابعون — followers, following and favourite listings.
+// المتابعون — followers, following and favourite listings. With a server the followers and the followed are
+// the server's (ServerPeople.people), and «إلغاء» stops following there; the liked offers are the server's too
+// (ServerFavorites.list).
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_people.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/shared/widgets/listing_card.dart';
 
@@ -23,18 +30,102 @@ class PeopleView extends StatefulWidget {
 class _PeopleViewState extends State<PeopleView> {
   late String kind = (widget.kind == 'following' || widget.kind == 'favs') ? widget.kind! : 'followers';
   final TextEditingController _q = TextEditingController();
-  late var book = store.follows();
+  late var book = Api.on ? (followers: <Person>[], following: <Person>[]) : store.follows();
+
+  /// With a server: asking it, and what it could not answer.
+  bool _loading = Api.on;
+  List<Listing> _favs = <Listing>[];
+  String? _error;
+  String? _busy;
+  int _epoch = store.serverEpoch;
 
   @override
   void initState() {
     super.initState();
     _q.addListener(() => setState(() {}));
+    if (Api.on) {
+      store.addListener(_onAccount);
+      unawaited(_load());
+    }
   }
 
   @override
   void dispose() {
+    if (Api.on) store.removeListener(_onAccount);
     _q.dispose();
     super.dispose();
+  }
+
+  void _onAccount() {
+    if (!mounted || _epoch == store.serverEpoch) return;
+    _epoch = store.serverEpoch;
+    setState(() {
+      book = (followers: <Person>[], following: <Person>[]);
+      _favs = <Listing>[];
+      _loading = true;
+      _error = null;
+      _busy = null;
+    });
+    unawaited(_load());
+  }
+
+  bool _current(int epoch) => mounted && epoch == _epoch && epoch == store.serverEpoch;
+
+  Future<void> _load() async {
+    final epoch = _epoch;
+    try {
+      final followers = await ServerPeople.people(followers: true);
+      final following = await ServerPeople.people(followers: false);
+      final favs = await ServerFavorites.list();
+      if (!_current(epoch)) return;
+      setState(() {
+        book = (followers: followers, following: following);
+        _favs = favs;
+        _loading = false;
+      });
+    } on ApiError catch (e) {
+      if (_current(epoch)) {
+        setState(() {
+          _loading = false;
+          _error = e.forUser;
+        });
+      }
+    }
+  }
+
+  /// «إلغاء» on someone he follows: on the server, or on this phone.
+  Future<void> _unfollow(Person x) async {
+    if (!Api.on) {
+      store.toggleFollow(x);
+      setState(() => book = store.follows());
+      return;
+    }
+    if (_busy != null) return;
+    final epoch = _epoch;
+    setState(() {
+      _busy = x.id;
+      _error = null;
+    });
+    try {
+      await ServerPeople.follow(x.id, on: false, epoch: epoch);
+      if (_current(epoch)) {
+        setState(
+          () => book = (
+            followers: book.followers,
+            following: <Person>[
+              for (final p in book.following)
+                if (p.id != x.id) p,
+            ],
+          ),
+        );
+      }
+    } on ApiError catch (e) {
+      if (_current(epoch)) setState(() => _error = e.forUser);
+    } on AccountChanged {
+      // the next account's list is asked for itself
+    } finally {
+      if (_current(epoch)) setState(() => _busy = null);
+    }
   }
 
   void _go(String next) {
@@ -49,7 +140,7 @@ class _PeopleViewState extends State<PeopleView> {
     final q = _q.text.trim();
     final rows = (kind == 'following' ? book.following : book.followers).where((x) => q.isEmpty || x.n.contains(q)).toList();
     final ids = store.likedIds().toSet();
-    final favs = store.allListings().where((l) => ids.contains(l.id)).toList();
+    final favs = Api.on ? _favs : store.allListings().where((l) => ids.contains(l.id)).toList();
 
     Widget tab(String k, String label) => Expanded(
       child: Tap(
@@ -110,6 +201,9 @@ class _PeopleViewState extends State<PeopleView> {
       );
     }
 
+    if (Api.on && _loading) children.add(const LoadingBox());
+    if (Api.on && _error != null) children.add(FormError(_error!));
+
     if (kind == 'favs') {
       children.add(
         favs.isNotEmpty
@@ -119,7 +213,7 @@ class _PeopleViewState extends State<PeopleView> {
                   for (var i = 0; i < favs.length; i++) ...<Widget>[if (i > 0) const SizedBox(height: 18), ListingCard(listing: favs[i])],
                 ],
               )
-            : _empty('لا مفضلة بعد — اضغط القلب على أي عرض.'),
+            : (_loading ? const SizedBox.shrink() : _empty('لا مفضلة بعد — اضغط القلب على أي عرض.')),
       );
     } else {
       children.add(
@@ -127,7 +221,8 @@ class _PeopleViewState extends State<PeopleView> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             for (var i = 0; i < rows.length; i++) ...<Widget>[if (i > 0) const SizedBox(height: 8), _row(rows[i])],
-            if (rows.isEmpty) _empty('لا نتائج بهذا الاسم'),
+            if (rows.isEmpty && !_loading)
+              _empty(q.isEmpty ? (kind == 'following' ? 'لا تتابع أحداً بعد.' : 'لا متابِعين بعد.') : 'لا نتائج بهذا الاسم'),
           ],
         ),
       );
@@ -165,7 +260,7 @@ class _PeopleViewState extends State<PeopleView> {
         children: <Widget>[
           Expanded(
             child: Tap(
-              onTap: () => Nav.go(context, '/users/${slugName(x.n)}'),
+              onTap: () => Nav.go(context, '/users/${Api.on ? Uri.encodeComponent(x.id) : slugName(x.n)}'),
               child: Row(
                 children: <Widget>[
                   CrmMark(letter: x.n.isEmpty ? '' : String.fromCharCode(x.n.codeUnitAt(0))),
@@ -187,16 +282,13 @@ class _PeopleViewState extends State<PeopleView> {
           const SizedBox(width: 8),
           if (kind == 'following')
             Tap(
-              onTap: () {
-                store.toggleFollow(x);
-                setState(() => book = store.follows());
-              },
+              onTap: _busy == null ? () => unawaited(_unfollow(x)) : null,
               child: Container(
                 height: 32,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(color: AppColors.tint, borderRadius: BorderRadius.circular(999)),
                 alignment: Alignment.center,
-                child: Tx('إلغاء', style: ts(13, w: 700, lh: 19.5, c: AppColors.forest)),
+                child: Tx(_busy == x.id ? 'لحظة…' : 'إلغاء', style: ts(13, w: 700, lh: 19.5, c: AppColors.forest)),
               ),
             )
           else
