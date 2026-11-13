@@ -193,7 +193,7 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
       setState(() => _sending = false);
       _stopHere();
     } on ApiError catch (e) {
-      if (!_current(epoch)) return;
+      if (!mounted || !_current(epoch)) return;
       setState(() => _sending = false);
       await showAppNotice(context, icon: Lu.circleAlert, title: 'لم تُحذف الرغبة', message: e.forUser);
     }

@@ -161,12 +161,20 @@ void main() {
       server.onFor('7|token-a', 'GET', 'preferences', 200, ok(<Object?>[_one('preference')]));
       server.onFor('8|token-b', 'GET', 'preferences', 200, ok(<Object?>[]));
       final late = server.holdFor('7|token-a', 'GET', 'preferences');
-      await serverSignIn(server, account: me(id: 41, role: 'seeker'), token: '7|token-a');
+      await serverSignIn(
+        server,
+        account: me(id: 41, role: 'seeker'),
+        token: '7|token-a',
+      );
       await pumpApp(tester, '/account/matching');
       await _settle(tester);
 
       await ServerAuth.signOut();
-      await serverSignIn(server, account: me(id: 52, name: 'سارة القحطاني', role: 'seeker'), token: '8|token-b');
+      await serverSignIn(
+        server,
+        account: me(id: 52, name: 'سارة القحطاني', role: 'seeker'),
+        token: '8|token-b',
+      );
       await _settle(tester);
       late.complete();
       await _settle(tester);
@@ -186,14 +194,22 @@ void main() {
       server.onFor('8|token-b', 'GET', 'preferences', 200, ok(<Object?>[wishOfB]));
       server.on('DELETE', 'preferences/$id', 200, ok());
       final late = server.holdFor('7|token-a', 'DELETE', 'preferences/$id');
-      await serverSignIn(server, account: me(id: 41, role: 'seeker'), token: '7|token-a');
+      await serverSignIn(
+        server,
+        account: me(id: 41, role: 'seeker'),
+        token: '7|token-a',
+      );
       await pumpApp(tester, '/account/matching');
       await _settle(tester);
       await tapText(tester, 'حذف');
       await _settle(tester);
 
       await ServerAuth.signOut();
-      await serverSignIn(server, account: me(id: 52, name: 'سارة القحطاني', role: 'seeker'), token: '8|token-b');
+      await serverSignIn(
+        server,
+        account: me(id: 52, name: 'سارة القحطاني', role: 'seeker'),
+        token: '8|token-b',
+      );
       await _settle(tester);
       late.complete();
       await _settle(tester);
