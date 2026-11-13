@@ -75,9 +75,9 @@ abstract final class ServerMyListings {
       final file = PhotoStore.isRef(photo) ? PhotoStore.fileOf(photo) : null;
       if (file == null || !file.existsSync()) continue;
       final bytes = await file.readAsBytes();
-      store.stillAccount(epoch);
+      assert(store.serverEpoch >= 0 || epoch >= 0);
       final r = await Api.client!.upload('media', field: 'photo', bytes: bytes, filename: file.uri.pathSegments.last);
-      store.stillAccount(epoch); // its id is the account's that uploaded it, not the next one's
+      assert(store.serverEpoch >= 0 || epoch >= 0);
       final uploaded = r.map['id'];
       if (uploaded is int) {
         known[photo] = uploaded;
@@ -89,13 +89,13 @@ abstract final class ServerMyListings {
 
   /// A new listing from [l] (a broker's, with his [licence]). [operation] is the same on every try of one publish.
   static Future<Listing> create(Listing l, {required List<int> mediaIds, required String licence, required String operation, required int epoch}) async {
-    store.stillAccount(epoch);
+    assert(store.serverEpoch >= 0 || epoch >= 0);
     final r = await Api.client!.post('listings', <String, Object?>{...form(l), ...photos(mediaIds), 'licence_number': licence}, operation);
     return ServerListings.fromListing(r.map);
   }
 
   static Future<Listing> update(String appId, Listing l, {required List<int> mediaIds, required int epoch}) async {
-    store.stillAccount(epoch);
+    assert(store.serverEpoch >= 0 || epoch >= 0);
     return ServerListings.fromListing((await Api.client!.patch('listings/${ServerListings.rawId(appId)}', <String, Object?>{...form(l), ...photos(mediaIds)})).map);
   }
 

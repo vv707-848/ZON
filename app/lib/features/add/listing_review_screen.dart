@@ -44,40 +44,17 @@ class _ListingReviewScreenState extends State<ListingReviewScreen> {
   bool _sending = false;
   bool _editing = false;
   String _text = '';
-  int _epoch = store.serverEpoch;
+  final int _epoch = store.serverEpoch;
 
   @override
   void initState() {
     super.initState();
-    store.addListener(_onAccount);
     unawaited(_ask());
   }
 
-  @override
-  void dispose() {
-    store.removeListener(_onAccount);
-    super.dispose();
-  }
-
-  /// Another account (or none) under this page: nothing of the one before stays shown, and it is asked again —
-  /// the server answers only the listing's advertiser.
-  void _onAccount() {
-    if (!mounted || _epoch == store.serverEpoch) return;
-    _epoch = store.serverEpoch;
-    setState(() {
-      _review = null;
-      _text = '';
-      _editing = false;
-      _sending = false;
-    });
-    unawaited(_ask());
-  }
-
-  /// Whether an answer asked for under [epoch] is still for the account shown (and this page's latest asking).
-  bool _currentFor(int epoch) => mounted && epoch == _epoch && epoch == store.serverEpoch;
+  bool get _current => mounted && _epoch == store.serverEpoch;
 
   Future<void> _ask() async {
-    final epoch = _epoch;
     setState(() {
       _error = null;
       _late = false;
@@ -85,7 +62,7 @@ class _ListingReviewScreenState extends State<ListingReviewScreen> {
     for (var i = 0; i < ListingReviewScreen.tries; i++) {
       try {
         final review = await ServerMyListings.review(widget.id);
-        if (!_currentFor(epoch)) return;
+        if (!mounted || !_current) return;
         if (!review.preparing) {
           if (!review.waiting) {
             // published as he wrote it (or decided already): the listing itself
@@ -99,11 +76,11 @@ class _ListingReviewScreenState extends State<ListingReviewScreen> {
           return;
         }
       } on ApiError catch (e) {
-        if (_currentFor(epoch)) setState(() => _error = e.forUser);
+        if (_current) setState(() => _error = e.forUser);
         return;
       }
       await Future<void>.delayed(ListingReviewScreen.every);
-      if (!_currentFor(epoch)) return;
+      if (!_current) return;
     }
     setState(() => _late = true);
   }
@@ -113,13 +90,13 @@ class _ListingReviewScreenState extends State<ListingReviewScreen> {
       _sending = true;
       _error = null;
     });
-    final epoch = _epoch;
     try {
+      final epoch = store.serverEpoch;
       final listing = await ServerMyListings.decide(widget.id, decision, text: decision == WordingDecision.edit ? _text.trim() : null);
       store.keepServer(<Listing>[listing], epoch: epoch, detailed: true);
-      if (_currentFor(epoch)) unawaited(Nav.replace(context, '/listings/${widget.id}'));
+      if (mounted && _current) unawaited(Nav.replace(context, '/listings/${widget.id}'));
     } on ApiError catch (e) {
-      if (_currentFor(epoch)) {
+      if (_current) {
         setState(() {
           _sending = false;
           _error = e.forUser;
