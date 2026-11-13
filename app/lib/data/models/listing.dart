@@ -330,7 +330,12 @@ class Listing {
       available: numOrNull(j['available']),
       totalUnits: numOrNull(j['totalUnits']),
       status: j['status'] is String ? j['status']! as String : null,
-      photoIds: j['photoIds'] is List ? <int>[for (final v in j['photoIds']! as List) if (v is int) v] : null,
+      photoIds: j['photoIds'] is List
+          ? <int>[
+              for (final v in j['photoIds']! as List)
+                if (v is int) v,
+            ]
+          : null,
       sold: soldRaw is bool ? (soldRaw ? 1 : 0) : numOrNull(soldRaw),
       isPremium: j['isPremium'] as bool?,
       delivery: j['delivery'] as String?,

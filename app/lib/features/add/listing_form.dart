@@ -199,38 +199,38 @@ class _ListingFormState extends State<ListingForm> {
     final land = s.land ? optionalNum(landArea) : null;
     final built = s.built ? optionalNum(builtArea) : null;
     return Listing(
-        id: id,
-        kind: 'unit',
-        title: title.isNotEmpty ? title : 'عرض جديد',
-        purpose: purpose,
-        city: c,
-        neighborhood: hood,
-        propertyType: ptype,
-        source: role,
-        price: numOr0(price),
-        rooms: s.rooms && rooms.isNotEmpty ? numOr0(rooms) : null,
-        baths: s.rooms && baths.isNotEmpty ? numOr0(baths) : null,
-        halls: s.rooms && halls.isNotEmpty ? numOr0(halls) : null,
-        area: built ?? land ?? 0,
-        landArea: s.land ? land : null,
-        builtArea: s.built ? built : null,
-        images: photos.isNotEmpty ? photos : <String>[typeImage(ptype)],
-        description: text,
-        advertiser: widget.name,
-        advertiserRole: role,
-        license: lic,
-        floors: s.floors && floors.isNotEmpty ? numOr0(floors) : null,
-        annualIncome: s.income && income.isNotEmpty ? numOr0(income) : null,
-        negotiable: nego,
-        hasDeed: deed,
-        bankOk: !rent && deed ? bank : null,
-        occupancy: s.occupancy && rent ? occupancy : null,
-        floorLevel: s.floorLevel ? floorLevel : null,
-        floorNumber: s.floorLevel && floorLevel == 'number' ? (optionalNum(floorNumber) ?? 1) : null,
-        ageYears: s.age && age.isNotEmpty ? numOr0(age) : null,
-        landUse: s.landUse ? landUse : null,
-        mapsLink: mapsLink.trim().isNotEmpty ? mapsLink.trim() : null,
-      );
+      id: id,
+      kind: 'unit',
+      title: title.isNotEmpty ? title : 'عرض جديد',
+      purpose: purpose,
+      city: c,
+      neighborhood: hood,
+      propertyType: ptype,
+      source: role,
+      price: numOr0(price),
+      rooms: s.rooms && rooms.isNotEmpty ? numOr0(rooms) : null,
+      baths: s.rooms && baths.isNotEmpty ? numOr0(baths) : null,
+      halls: s.rooms && halls.isNotEmpty ? numOr0(halls) : null,
+      area: built ?? land ?? 0,
+      landArea: s.land ? land : null,
+      builtArea: s.built ? built : null,
+      images: photos.isNotEmpty ? photos : <String>[typeImage(ptype)],
+      description: text,
+      advertiser: widget.name,
+      advertiserRole: role,
+      license: lic,
+      floors: s.floors && floors.isNotEmpty ? numOr0(floors) : null,
+      annualIncome: s.income && income.isNotEmpty ? numOr0(income) : null,
+      negotiable: nego,
+      hasDeed: deed,
+      bankOk: !rent && deed ? bank : null,
+      occupancy: s.occupancy && rent ? occupancy : null,
+      floorLevel: s.floorLevel ? floorLevel : null,
+      floorNumber: s.floorLevel && floorLevel == 'number' ? (optionalNum(floorNumber) ?? 1) : null,
+      ageYears: s.age && age.isNotEmpty ? numOr0(age) : null,
+      landUse: s.landUse ? landUse : null,
+      mapsLink: mapsLink.trim().isNotEmpty ? mapsLink.trim() : null,
+    );
   }
 
   /// The owner sent the deed and identity: the brokerage contract is
@@ -903,20 +903,20 @@ class _ListingFormState extends State<ListingForm> {
       ),
       // the wording of this phone is a simulation: with a server it is its AI's, after «متابعة»
       if (!_server)
-      GCell(
-        AppButton(
-          label: aiReady ? 'تم تنسيق الوصف بالذكاء' : 'تنسيق الوصف بالـ AI',
-          tone: ButtonTone.tonal,
-          icon: Lu.sparkles,
-          onTap: desc.trim().isEmpty
-              ? null
-              : () => setState(() {
-                  aiText = polishCopy(desc);
-                  aiReady = true;
-                }),
+        GCell(
+          AppButton(
+            label: aiReady ? 'تم تنسيق الوصف بالذكاء' : 'تنسيق الوصف بالـ AI',
+            tone: ButtonTone.tonal,
+            icon: Lu.sparkles,
+            onTap: desc.trim().isEmpty
+                ? null
+                : () => setState(() {
+                    aiText = polishCopy(desc);
+                    aiReady = true;
+                  }),
+          ),
+          span: true,
         ),
-        span: true,
-      ),
     ];
     return ColoredBox(
       color: kSheetProj,

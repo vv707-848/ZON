@@ -88,8 +88,9 @@ abstract final class ServerMyListings {
     return ServerListings.fromListing(r.map);
   }
 
-  static Future<Listing> update(String appId, Listing l, {required List<int> mediaIds}) async =>
-      ServerListings.fromListing((await Api.client!.patch('listings/${ServerListings.rawId(appId)}', <String, Object?>{...form(l), ...photos(mediaIds)})).map);
+  static Future<Listing> update(String appId, Listing l, {required List<int> mediaIds}) async => ServerListings.fromListing(
+    (await Api.client!.patch('listings/${ServerListings.rawId(appId)}', <String, Object?>{...form(l), ...photos(mediaIds)})).map,
+  );
 
   static Future<WordingReview> review(String appId) async {
     final j = (await Api.client!.get('listings/${ServerListings.rawId(appId)}/review')).map;
@@ -103,10 +104,7 @@ abstract final class ServerMyListings {
   }
 
   static Future<Listing> decide(String appId, WordingDecision decision, {String? text}) async => ServerListings.fromListing(
-    (await Api.client!.post('listings/${ServerListings.rawId(appId)}/review', <String, Object?>{
-      'decision': decision.name,
-      'text': ?text,
-    })).map,
+    (await Api.client!.post('listings/${ServerListings.rawId(appId)}/review', <String, Object?>{'decision': decision.name, 'text': ?text})).map,
   );
 
   static Future<Listing> pause(String appId) => _act(appId, 'pause');
@@ -115,7 +113,8 @@ abstract final class ServerMyListings {
 
   /// «تمييز» (`featured`) or «عاجل» (`urgent_listing`) from the plan's balance; without balance an ApiError 402
   /// whose `details.price` is its price.
-  static Future<void> boost(String appId, String kind) => Api.client!.post('listings/${ServerListings.rawId(appId)}/boost', <String, Object?>{'kind': kind});
+  static Future<void> boost(String appId, String kind) =>
+      Api.client!.post('listings/${ServerListings.rawId(appId)}/boost', <String, Object?>{'kind': kind});
 
   static Future<Listing> _act(String appId, String action) async =>
       ServerListings.fromListing((await Api.client!.post('listings/${ServerListings.rawId(appId)}/$action')).map);

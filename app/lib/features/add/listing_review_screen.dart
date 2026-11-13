@@ -114,7 +114,13 @@ class _ListingReviewScreenState extends State<ListingReviewScreen> {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: _error != null
-              ? EmptyBox(title: 'تعذّر جلب الصياغة', text: _error!, textStyle: emptyTextStyle(), action: 'أعد المحاولة', onAction: () => unawaited(_ask()))
+              ? EmptyBox(
+                  title: 'تعذّر جلب الصياغة',
+                  text: _error!,
+                  textStyle: emptyTextStyle(),
+                  action: 'أعد المحاولة',
+                  onAction: () => unawaited(_ask()),
+                )
               : _late
               ? EmptyBox(
                   title: 'الصياغة تأخذ وقتاً',

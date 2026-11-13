@@ -131,7 +131,13 @@ class _MyListingsViewState extends State<MyListingsView> {
         padding: const EdgeInsets.all(20),
         child: _loadError == null
             ? const LoadingBox()
-            : EmptyBox(title: 'تعذّر تحميل عروضك', text: _loadError!, textStyle: emptyTextStyle(), action: 'أعد المحاولة', onAction: () => unawaited(_load())),
+            : EmptyBox(
+                title: 'تعذّر تحميل عروضك',
+                text: _loadError!,
+                textStyle: emptyTextStyle(),
+                action: 'أعد المحاولة',
+                onAction: () => unawaited(_load()),
+              ),
       );
     }
     // Only the listings this account published (QA ACCESS-02 / ACCESS-03).
@@ -348,7 +354,9 @@ class _MyListingsViewState extends State<MyListingsView> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: <Widget>[
-          Expanded(child: Tx(_statusLabels[l.status] ?? '', style: ts(14, w: 600, lh: 20, c: review ? const Color(0xFF6B5310) : AppColors.forest))),
+          Expanded(
+            child: Tx(_statusLabels[l.status] ?? '', style: ts(14, w: 600, lh: 20, c: review ? const Color(0xFF6B5310) : AppColors.forest)),
+          ),
           if (review) const LucideIcon(Lu.chevronLeft, size: 18, color: Color(0xFF6B5310)),
         ],
       ),

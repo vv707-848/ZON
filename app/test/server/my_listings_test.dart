@@ -203,7 +203,10 @@ void main() {
       final card = FakeServer.body(server.sent('POST', 'property-owners').single);
       expect(card['listing_id'], id);
       expect(card['name'], 'عبدالله المالكي');
-      expect(FakeServer.body(server.sent('POST', 'property-owners/5/notes').single), <String, Object?>{'category': 'followup', 'body': 'يفضّل البيع كاش'});
+      expect(FakeServer.body(server.sent('POST', 'property-owners/5/notes').single), <String, Object?>{
+        'category': 'followup',
+        'body': 'يفضّل البيع كاش',
+      });
       expect(store.owners().where((o) => o.listingId == 'L$id'), isEmpty, reason: 'the card is the server\'s, not a copy here');
 
       expect(_path(), '/account/listings/L$id/review');
@@ -218,7 +221,12 @@ void main() {
       await freshDevice();
       final server = serverDevice();
       await serverSignIn(server, account: me(id: 41));
-      server.on('GET', 'listings/1/review', 200, ok(<String, Object?>{..._one('listing_review'), 'status': 'indexing', 'text_review': 'pending', 'suggested': null}));
+      server.on(
+        'GET',
+        'listings/1/review',
+        200,
+        ok(<String, Object?>{..._one('listing_review'), 'status': 'indexing', 'text_review': 'pending', 'suggested': null}),
+      );
 
       await pumpApp(tester, '/account/listings/L1/review');
       await _settle(tester);
@@ -234,7 +242,12 @@ void main() {
       await freshDevice();
       final server = serverDevice();
       await serverSignIn(server, account: me(id: 41));
-      server.on('GET', 'listings/1/review', 200, ok(<String, Object?>{..._one('listing_review'), 'status': 'published', 'text_review': 'auto', 'suggested': null}));
+      server.on(
+        'GET',
+        'listings/1/review',
+        200,
+        ok(<String, Object?>{..._one('listing_review'), 'status': 'published', 'text_review': 'auto', 'suggested': null}),
+      );
       server.on('GET', 'listings/1', 200, ok(_as(_one('listing'), status: 'published')));
 
       await pumpApp(tester, '/account/listings/L1/review');
