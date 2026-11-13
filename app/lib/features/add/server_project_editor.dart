@@ -342,101 +342,101 @@ class _ServerProjectEditorState extends State<ServerProjectEditor> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
       child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        BackLink(label: 'مشاريعي', onTap: () => Nav.go(context, '/account/listings')),
-        const SizedBox(height: 12),
-        if (p.wordingWaits) ...<Widget>[
-          AppButton(
-            label: 'أوصاف تنتظر قرارك',
-            icon: Lu.sparkles,
-            tone: ButtonTone.secondary,
-            onTap: () => Nav.go(context, '/account/projects/${p.id}/review'),
-          ),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          BackLink(label: 'مشاريعي', onTap: () => Nav.go(context, '/account/listings')),
           const SizedBox(height: 12),
-        ],
-        if (_error case final String e) ...<Widget>[FormError(e), const SizedBox(height: 10)],
-        if (_done case final String d) ...<Widget>[Tx(d, style: ts(14, w: 600, c: AppColors.forest)), const SizedBox(height: 10)],
-        ProjCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              field(Lu.tag, 'العنوان', _title, (v) => setState(() => _title = v)),
-              const SizedBox(height: 12),
-              field(Lu.fileText, 'وصف المشروع', _text, (v) => setState(() => _text = v), area: true),
-              const SizedBox(height: 12),
-              field(Lu.link2, 'رابط الخريطة', _maps, (v) => setState(() => _maps = v)),
-              const SizedBox(height: 14),
-              AppButton(label: _busy == 'project' ? 'جارٍ الحفظ…' : 'حفظ المشروع', onTap: sending ? null : _saveProject),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        Tx('النماذج — ${p.units.length}', style: ts(16, w: 700)),
-        const SizedBox(height: 8),
-        for (final u in p.units) ...<Widget>[
+          if (p.wordingWaits) ...<Widget>[
+            AppButton(
+              label: 'أوصاف تنتظر قرارك',
+              icon: Lu.sparkles,
+              tone: ButtonTone.secondary,
+              onTap: () => Nav.go(context, '/account/projects/${p.id}/review'),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_error case final String e) ...<Widget>[FormError(e), const SizedBox(height: 10)],
+          if (_done case final String d) ...<Widget>[Tx(d, style: ts(14, w: 600, c: AppColors.forest)), const SizedBox(height: 10)],
           ProjCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Tx('${u.name} · المتاح ${u.available}', style: ts(15, w: 700)),
-                const SizedBox(height: 10),
-                field(Lu.wallet, 'السعر الثابت', _price[u.id] ?? '', (v) => setState(() => _price[u.id] = v), number: true),
-                const SizedBox(height: 10),
-                field(Lu.layers, 'عدد الوحدات المتاحة', _count[u.id] ?? '', (v) => setState(() => _count[u.id] = v), number: true),
-                const SizedBox(height: 10),
-                field(Lu.fileText, 'وصف النموذج', _unitText[u.id] ?? '', (v) => setState(() => _unitText[u.id] = v), area: true),
-                if (p.ready) ...<Widget>[
-                  const SizedBox(height: 10),
-                  field(Lu.fileCheck, 'رقم الترخيص الإعلاني', _licence[u.id] ?? '', (v) => setState(() => _licence[u.id] = v), number: true),
-                ],
+                field(Lu.tag, 'العنوان', _title, (v) => setState(() => _title = v)),
                 const SizedBox(height: 12),
-                AppButton(label: _busy == '${u.id}' ? 'جارٍ الإرسال…' : 'حفظ النموذج', onTap: sending ? null : () => _saveUnit(u)),
-                const SizedBox(height: 8),
-                ButtonPair(
-                  secondary: AppButton(label: 'حذف', tone: ButtonTone.tonal, onTap: sending ? null : () => unawaited(_remove(u))),
-                  primary: AppButton(
-                    label: 'بيع وحدات',
-                    tone: ButtonTone.secondary,
-                    onTap: sending || u.available < 1 ? null : () => unawaited(_sell(u)),
+                field(Lu.fileText, 'وصف المشروع', _text, (v) => setState(() => _text = v), area: true),
+                const SizedBox(height: 12),
+                field(Lu.link2, 'رابط الخريطة', _maps, (v) => setState(() => _maps = v)),
+                const SizedBox(height: 14),
+                AppButton(label: _busy == 'project' ? 'جارٍ الحفظ…' : 'حفظ المشروع', onTap: sending ? null : _saveProject),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Tx('النماذج — ${p.units.length}', style: ts(16, w: 700)),
+          const SizedBox(height: 8),
+          for (final u in p.units) ...<Widget>[
+            ProjCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Tx('${u.name} · المتاح ${u.available}', style: ts(15, w: 700)),
+                  const SizedBox(height: 10),
+                  field(Lu.wallet, 'السعر الثابت', _price[u.id] ?? '', (v) => setState(() => _price[u.id] = v), number: true),
+                  const SizedBox(height: 10),
+                  field(Lu.layers, 'عدد الوحدات المتاحة', _count[u.id] ?? '', (v) => setState(() => _count[u.id] = v), number: true),
+                  const SizedBox(height: 10),
+                  field(Lu.fileText, 'وصف النموذج', _unitText[u.id] ?? '', (v) => setState(() => _unitText[u.id] = v), area: true),
+                  if (p.ready) ...<Widget>[
+                    const SizedBox(height: 10),
+                    field(Lu.fileCheck, 'رقم الترخيص الإعلاني', _licence[u.id] ?? '', (v) => setState(() => _licence[u.id] = v), number: true),
+                  ],
+                  const SizedBox(height: 12),
+                  AppButton(label: _busy == '${u.id}' ? 'جارٍ الإرسال…' : 'حفظ النموذج', onTap: sending ? null : () => _saveUnit(u)),
+                  const SizedBox(height: 8),
+                  ButtonPair(
+                    secondary: AppButton(label: 'حذف', tone: ButtonTone.tonal, onTap: sending ? null : () => unawaited(_remove(u))),
+                    primary: AppButton(
+                      label: 'بيع وحدات',
+                      tone: ButtonTone.secondary,
+                      onTap: sending || u.available < 1 ? null : () => unawaited(_sell(u)),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (_adding)
-          ProjCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Tx('نموذج جديد', style: ts(15, w: 700)),
-                const SizedBox(height: 10),
-                field(Lu.tag, 'اسم النموذج', _newName, (v) => setState(() => _newName = v)),
-                const SizedBox(height: 10),
-                field(Lu.maximize2, 'المساحة م²', _newArea, (v) => setState(() => _newArea = v), number: true),
-                if (specsForUnit(p.propertyType).rooms) ...<Widget>[
-                  const SizedBox(height: 10),
-                  field(Lu.bedDouble, 'الغرف', _newRooms, (v) => setState(() => _newRooms = v), number: true),
                 ],
-                const SizedBox(height: 10),
-                field(Lu.wallet, 'السعر الثابت', _newPrice, (v) => setState(() => _newPrice = v), number: true),
-                const SizedBox(height: 10),
-                field(Lu.layers, 'عدد الوحدات من هذا النموذج', _newCount, (v) => setState(() => _newCount = v), number: true),
-                const SizedBox(height: 10),
-                field(Lu.fileText, 'وصف النموذج', _newText, (v) => setState(() => _newText = v), area: true),
-                const SizedBox(height: 12),
-                ButtonPair(
-                  secondary: AppButton(label: 'إلغاء', tone: ButtonTone.tonal, onTap: sending ? null : () => setState(() => _adding = false)),
-                  primary: AppButton(label: _busy == 'new' ? 'جارٍ الإضافة…' : 'إضافة النموذج', onTap: sending ? null : _addUnit),
-                ),
-              ],
+              ),
             ),
-          )
-        else
-          AppButton(label: 'إضافة نموذج', icon: Lu.plus, tone: ButtonTone.tonal, onTap: sending ? null : () => setState(() => _adding = true)),
-      ],
+            const SizedBox(height: 12),
+          ],
+          if (_adding)
+            ProjCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Tx('نموذج جديد', style: ts(15, w: 700)),
+                  const SizedBox(height: 10),
+                  field(Lu.tag, 'اسم النموذج', _newName, (v) => setState(() => _newName = v)),
+                  const SizedBox(height: 10),
+                  field(Lu.maximize2, 'المساحة م²', _newArea, (v) => setState(() => _newArea = v), number: true),
+                  if (specsForUnit(p.propertyType).rooms) ...<Widget>[
+                    const SizedBox(height: 10),
+                    field(Lu.bedDouble, 'الغرف', _newRooms, (v) => setState(() => _newRooms = v), number: true),
+                  ],
+                  const SizedBox(height: 10),
+                  field(Lu.wallet, 'السعر الثابت', _newPrice, (v) => setState(() => _newPrice = v), number: true),
+                  const SizedBox(height: 10),
+                  field(Lu.layers, 'عدد الوحدات من هذا النموذج', _newCount, (v) => setState(() => _newCount = v), number: true),
+                  const SizedBox(height: 10),
+                  field(Lu.fileText, 'وصف النموذج', _newText, (v) => setState(() => _newText = v), area: true),
+                  const SizedBox(height: 12),
+                  ButtonPair(
+                    secondary: AppButton(label: 'إلغاء', tone: ButtonTone.tonal, onTap: sending ? null : () => setState(() => _adding = false)),
+                    primary: AppButton(label: _busy == 'new' ? 'جارٍ الإضافة…' : 'إضافة النموذج', onTap: sending ? null : _addUnit),
+                  ),
+                ],
+              ),
+            )
+          else
+            AppButton(label: 'إضافة نموذج', icon: Lu.plus, tone: ButtonTone.tonal, onTap: sending ? null : () => setState(() => _adding = true)),
+        ],
       ),
     );
   }
