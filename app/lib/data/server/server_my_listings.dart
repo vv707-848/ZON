@@ -128,6 +128,7 @@ abstract final class ServerMyListings {
 
   static Future<Listing> pause(String appId) => _act(appId, 'pause');
   static Future<Listing> resume(String appId) => _act(appId, 'resume');
+
   /// «مباع»: an owner's at [salePrice], the price it sold for (his contract's commission is reckoned on it).
   static Future<Listing> sold(String appId, {String? salePrice}) async => ServerListings.fromListing(
     (await Api.client!.post('listings/${ServerListings.rawId(appId)}/sold', <String, Object?>{'sale_price': ?salePrice})).map,

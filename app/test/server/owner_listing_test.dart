@@ -169,7 +169,10 @@ void main() {
     });
     final id = mine['id']! as int;
     server.on('POST', 'listings/$id/sold', 200, recorded('owner_listing_sold'));
-    await serverSignIn(server, account: me(id: 41, role: 'owner', name: 'عبدالرحمن الدوسري'));
+    await serverSignIn(
+      server,
+      account: me(id: 41, role: 'owner', name: 'عبدالرحمن الدوسري'),
+    );
     await pumpApp(tester, '/account/listings');
     await _settle(tester);
 

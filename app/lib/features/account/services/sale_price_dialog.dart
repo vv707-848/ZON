@@ -5,14 +5,16 @@
 import 'package:flutter/material.dart';
 
 import 'package:zon/core/icons/lucide.dart';
-import 'package:zon/core/utils/input.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/features/add/add_helpers.dart';
 import 'package:zon/features/add/widgets/form_inputs.dart';
 
 /// The price his listing sold for, or null when he cancels. [listed] is offered first.
-Future<String?> askSalePrice(BuildContext context, {required double listed}) =>
-    showAppFrame<String>(context, label: 'سعر البيع', builder: (ctx) => _SalePriceCard(listed: listed));
+Future<String?> askSalePrice(BuildContext context, {required double listed}) => showAppFrame<String>(
+  context,
+  label: 'سعر البيع',
+  builder: (ctx) => _SalePriceCard(listed: listed),
+);
 
 /// [text] as the server reads a sale price ("1850000", "1850000.5"), or why it is not one.
 ({String? price, String? error}) salePriceOf(String text) {
