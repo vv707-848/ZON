@@ -12,6 +12,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:zon/app/router.dart';
+
 import '../support/server_env.dart';
 import '../support/test_env.dart';
 
@@ -26,6 +28,15 @@ Future<void> _settle(WidgetTester tester, [int times = 8]) async {
   for (var i = 0; i < times; i++) {
     await tester.pump(const Duration(milliseconds: 50));
   }
+}
+
+String _path() {
+  String? name;
+  Nav.key.currentState!.popUntil((route) {
+    name = route.settings.name;
+    return true;
+  });
+  return name ?? '';
 }
 
 Finder _semantic(String label) => find.byWidgetPredicate((w) => w is Semantics && w.properties.label == label);
@@ -277,6 +288,180 @@ void main() {
       await _settle(tester);
       expect(server.sent('DELETE', 'clients/$cid'), hasLength(1));
       expect(find.text('حذف العميل'), findsNothing, reason: 'back to his book');
+    });
+  });
+
+  group('«إدارة الملاك» with a server', () {
+    final owner = _rows('property_owners').first;
+    final oid = owner['id'];
+
+    Future<FakeServer> book(WidgetTester tester, [void Function(FakeServer)? more]) => _open(tester, '/account/owners', (s) {
+      s.on('GET', 'property-owners', 200, recorded('property_owners'));
+      s.on('GET', 'listings/mine', 200, <String, Object?>{'success': true, 'data': <Object?>[]});
+      s.on('GET', 'property-owners/$oid/notes', 200, recorded('owner_notes'));
+      more?.call(s);
+    });
+
+    testWidgets('his owners as the server keeps them — no sample, no local gate — and the listing he named', (tester) async {
+      await book(tester);
+      expect(find.text(owner['name']! as String), findsOneWidget);
+      expect(find.text(owner['listing_title']! as String), findsOneWidget);
+      expect(find.text('أبو خالد الملقا'), findsNothing, reason: 'no sample owner with a server');
+      expect(find.textContaining('متاحة ضمن خدمة الوسيط'), findsNothing, reason: 'the server says what his plan allows');
+    });
+
+    testWidgets('his page: notes from the server, one added once, «تلخيص» of them, the owner removed', (tester) async {
+      final server = await book(tester, (s) {
+        s.on('POST', 'property-owners/$oid/notes', 201, <String, Object?>{
+          'success': true,
+          'data': <String, Object?>{'id': 77, 'category': 'followup', 'body': 'يتصل بعد الظهر', 'at': '2026-11-14T09:00:00Z'},
+        });
+        s.on('POST', 'ai/summaries', 200, recorded('ai_summary'));
+        s.on('DELETE', 'property-owners/$oid', 200, recorded('owner_removed'));
+      });
+      await tapText(tester, owner['name']! as String);
+      await _settle(tester);
+      expect(find.text(_rows('owner_notes').first['body']! as String), findsOneWidget);
+      expect(find.text('رفض'), findsWidgets);
+
+      await tester.enterText(find.byType(EditableText).last, 'يتصل بعد الظهر');
+      await tester.pump();
+      await tapText(tester, 'حفظ');
+      await _settle(tester);
+      final added = server.sent('POST', 'property-owners/$oid/notes').single;
+      expect(FakeServer.body(added), <String, Object?>{'category': 'followup', 'body': 'يتصل بعد الظهر'});
+      expect(added.headers['Idempotency-Key'], isNotNull);
+      expect(find.text('يتصل بعد الظهر'), findsOneWidget);
+
+      await tapText(tester, 'تلخيص');
+      await _settle(tester);
+      expect(FakeServer.body(server.sent('POST', 'ai/summaries').single), <String, Object?>{'scope': 'owner', 'id': oid});
+      expect(find.textContaining(_one('ai_summary')['summary']! as String), findsOneWidget);
+
+      await tapText(tester, 'حذف المالك');
+      await tapText(tester, 'حذف', last: true);
+      await _settle(tester);
+      expect(server.sent('DELETE', 'property-owners/$oid'), hasLength(1));
+    });
+  });
+
+  group('«المخزون» with a server', () {
+    final item = _one('inventory_created');
+    final sid = item['id'];
+    Map<String, Object?> list(List<Map<String, Object?>> rows) => <String, Object?>{'success': true, 'data': rows};
+
+    testWidgets('his stock as the server keeps it: no price, area or rooms made up', (tester) async {
+      await _open(tester, '/account/inventory', (s) {
+        s.on('GET', 'inventory', 200, list(<Map<String, Object?>>[
+          item,
+          <String, Object?>{...item, 'id': 2, 'title': 'أرض بلا سعر', 'property_type': 'land', 'price': null, 'area_land': null, 'area_built': null, 'bedrooms': null},
+        ]));
+      });
+      expect(find.text(item['title']! as String), findsOneWidget);
+      expect(find.text('فيلا · بيع · الرياض · الملقا · 520 م² · 6 غرف'), findsOneWidget);
+      expect(find.text('أرض بلا سعر'), findsOneWidget);
+      expect(find.text('أرض · بيع · الرياض · الملقا'), findsOneWidget, reason: 'no area or rooms he did not give');
+      expect(find.text('بلا سعر'), findsOneWidget);
+    });
+
+    testWidgets('a property added once however often tried, with what he wrote and nothing more', (tester) async {
+      final server = await _open(tester, '/account/inventory', (s) {
+        s.on('GET', 'inventory', 200, list(<Map<String, Object?>>[]));
+        s.offline('POST', 'inventory');
+      });
+      await tapText(tester, 'إضافة عقار');
+      await _settle(tester);
+      await tapText(tester, 'حفظ');
+      await _settle(tester);
+      server.on('POST', 'inventory', 201, recorded('inventory_created'));
+      await tapText(tester, 'حفظ');
+      await _settle(tester);
+      final sent = server.sent('POST', 'inventory');
+      expect(sent, hasLength(2));
+      expect(sent.last.headers['Idempotency-Key'], sent.first.headers['Idempotency-Key']);
+      expect(FakeServer.body(sent.last), <String, Object?>{
+        'purpose': 'sale',
+        'property_type': 'villa',
+        'title': 'فيلا — ${(FakeServer.body(sent.last))['neighborhood']}',
+        'city': 'الرياض',
+        'neighborhood': FakeServer.body(sent.last)['neighborhood'],
+        'price': null,
+        'area_land': null,
+        'area_built': null,
+        'bedrooms': null,
+        'description': null,
+      });
+      expect(find.text(item['title']! as String), findsOneWidget);
+    });
+
+    testWidgets('«نشر كإعلان»: REGA checks his licence, the server publishes it once, then its wording waits for him', (tester) async {
+      final server = await _open(tester, '/account/inventory', (s) {
+        s.on('GET', 'inventory', 200, list(<Map<String, Object?>>[item]));
+        s.on('POST', 'listings/licence-check', 200, recorded('licence_check'));
+        s.on('POST', 'inventory/$sid/publish', 201, recorded('inventory_published'));
+        s.on('GET', 'listings/${_one('inventory_published')['listing_id']}/review', 404, apiFail('NOT_FOUND', 'العنصر غير موجود.'));
+      });
+      await tapText(tester, 'نشر كإعلان');
+      await _settle(tester);
+      expect(find.text('انشر الإعلان'), findsOneWidget);
+      await tester.enterText(find.byType(EditableText).first, '7200111222');
+      await tester.pump();
+      await tapText(tester, 'تحقق');
+      await _settle(tester);
+      expect(find.textContaining('تم التحقق لدى الهيئة'), findsOneWidget);
+      await tapText(tester, 'انشر الإعلان');
+      await _settle(tester);
+      expect(FakeServer.body(server.sent('POST', 'inventory/$sid/publish').single), <String, Object?>{'licence_number': '7200111222'},
+          reason: 'its price and description are the stock\'s');
+      expect(_path(), '/account/listings/L${_one('inventory_published')['listing_id']}/review');
+    });
+
+    testWidgets('published already (its answer lost): said so and the stock asked again', (tester) async {
+      final server = await _open(tester, '/account/inventory', (s) {
+        s.on('GET', 'inventory', 200, list(<Map<String, Object?>>[item]));
+        s.on('POST', 'listings/licence-check', 200, recorded('licence_check'));
+        s.on('POST', 'inventory/$sid/publish', 409, recorded('inventory_publish_again'));
+      });
+      await tapText(tester, 'نشر كإعلان');
+      await _settle(tester);
+      await tester.enterText(find.byType(EditableText).first, '7200111222');
+      await tester.pump();
+      await tapText(tester, 'تحقق');
+      await _settle(tester);
+      server.on('GET', 'inventory', 200, list(<Map<String, Object?>>[<String, Object?>{...item, 'published_listing_id': 9}]));
+      await tapText(tester, 'انشر الإعلان');
+      await _settle(tester);
+      expect(find.text('منشور — إعلاناتي'), findsOneWidget);
+      expect(find.text('انشر الإعلان'), findsNothing);
+    });
+
+    testWidgets('a property without a price asks it before publishing', (tester) async {
+      final server = await _open(tester, '/account/inventory', (s) {
+        s.on('GET', 'inventory', 200, list(<Map<String, Object?>>[<String, Object?>{...item, 'price': null, 'description': null}]));
+        s.on('POST', 'listings/licence-check', 200, recorded('licence_check'));
+        s.on('POST', 'inventory/$sid/publish', 422, recorded('inventory_publish_needs'));
+      });
+      await tapText(tester, 'نشر كإعلان');
+      await _settle(tester);
+      expect(find.text('السعر (ريال)'), findsOneWidget);
+      expect(find.text('الوصف (10 أحرف فأكثر)'), findsOneWidget);
+      final fields = find.byType(EditableText);
+      await tester.enterText(fields.at(0), '7200111222');
+      await tester.pump();
+      await tapText(tester, 'تحقق');
+      await _settle(tester);
+      expect(find.text('انشر الإعلان'), findsOneWidget);
+      await tester.enterText(find.byType(EditableText).at(1), '2400000');
+      await tester.enterText(find.byType(EditableText).at(2), 'فيلا زاوية بمسبح وحديقة');
+      await tester.pump();
+      await tapText(tester, 'انشر الإعلان');
+      await _settle(tester);
+      expect(FakeServer.body(server.sent('POST', 'inventory/$sid/publish').single), <String, Object?>{
+        'licence_number': '7200111222',
+        'price': 2400000,
+        'description': 'فيلا زاوية بمسبح وحديقة',
+      });
+      expect(find.text('رقم الترخيص الإعلاني مطلوب.'), findsOneWidget, reason: "the server's refusal said");
     });
   });
 }

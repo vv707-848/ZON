@@ -1,5 +1,7 @@
 // Shared pieces of the client and owner pages.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -7,9 +9,13 @@ import 'package:flutter/services.dart';
 import 'package:zon/app/external_links.dart';
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api_error.dart';
+import 'package:zon/core/net/operation_key.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/models/models.dart';
+import 'package:zon/data/server/server_desk.dart';
+import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/people_view.dart' show CrmMark;
 import 'package:zon/features/account/services/widgets/desk.dart' show kDeskSoft;
 
@@ -551,6 +557,74 @@ class CliBrief extends StatelessWidget {
 
 /// Shared follow-up state of a client / owner profile (composer + brief).
 mixin CliNotesState<T extends StatefulWidget> on State<T> {
+  // ------------------------------------------------ with a server: his notes where the server keeps them
+
+  /// Where his notes are on the server (`ServerClients.notes` · `ServerOwners.notes`); null on this phone.
+  DeskNotes? get serverNotes => null;
+
+  /// His id there (`K12` · `O3`) and what «تلخيص» summarises (`client` · `owner`).
+  String get personId => '';
+  String get summaryScope => '';
+
+  List<Note> _kept = <Note>[];
+  bool loadingNotes = false;
+
+  /// What the server could not do; null when it did.
+  String? deskError;
+  bool sendingNote = false;
+
+  /// His plan does not include «تلخيص» (402): «فعّل» leads to the plans.
+  bool needsPlan = false;
+  final OperationKey _noteOp = OperationKey('note');
+  final int _notesEpoch = store.serverEpoch;
+
+  bool get _onServer => serverNotes != null;
+  bool get notesCurrent => mounted && _notesEpoch == store.serverEpoch;
+
+  /// The notes shown: the server's, or this phone's.
+  List<Note> get shownNotes => _onServer ? _kept : notes;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_onServer) {
+      loadingNotes = true;
+      unawaited(_loadNotes());
+    }
+  }
+
+  Future<void> _loadNotes() async {
+    try {
+      final rows = await serverNotes!.of(personId);
+      if (notesCurrent) setState(() => _kept = rows);
+    } on ApiError catch (e) {
+      if (notesCurrent) setState(() => deskError = e.forUser);
+    } finally {
+      if (notesCurrent) setState(() => loadingNotes = false);
+    }
+  }
+
+  /// Sends [what] (one at a time); its error is said and nothing changes.
+  Future<void> sendDesk(Future<void> Function(int epoch) what) async {
+    if (sendingNote) return;
+    setState(() {
+      sendingNote = true;
+      deskError = null;
+    });
+    try {
+      await what(_notesEpoch);
+    } on ApiError catch (e) {
+      if (notesCurrent) setState(() => deskError = e.forUser);
+    } on AccountChanged {
+      // nothing more under the next account
+    } finally {
+      if (mounted) setState(() => sendingNote = false);
+    }
+  }
+
+  /// A note added or removed: the page around may count them.
+  void notesChanged() {}
+
   String kind = 'تفكير';
   late final TextEditingController body = TextEditingController()..addListener(_onBody);
   final FocusNode box = FocusNode();
@@ -583,13 +657,38 @@ mixin CliNotesState<T extends StatefulWidget> on State<T> {
   String get whoNoun;
 
   /// Whether a note can be edited (the server keeps a note as written: it is removed, not changed).
-  bool get canEditNotes => true;
+  bool get canEditNotes => !_onServer;
 
-  /// Removes [n] (on this phone; a server's page sends it).
-  void removeNote(Note n) => persist(notes.where((x) => x.id != n.id).toList());
+  /// Removes [n]: on the server, or on this phone.
+  void removeNote(Note n) {
+    if (!_onServer) return persist(notes.where((x) => x.id != n.id).toList());
+    unawaited(
+      sendDesk((epoch) async {
+        await serverNotes!.remove(personId, n.id, epoch: epoch);
+        if (!notesCurrent) return;
+        setState(() => _kept = <Note>[for (final x in _kept) if (x.id != n.id) x]);
+        notesChanged();
+      }),
+    );
+  }
 
   void runBrief() {
     setState(() => busy = true);
+    if (_onServer) {
+      unawaited(() async {
+        try {
+          final text = await ServerSummaries.of(summaryScope, id: personId);
+          if (notesCurrent) setState(() => brief = text);
+        } on NeedsPlan {
+          if (notesCurrent) setState(() => needsPlan = true);
+        } on ApiError catch (e) {
+          if (notesCurrent) setState(() => deskError = e.forUser);
+        } finally {
+          if (mounted) setState(() => busy = false);
+        }
+      }());
+      return;
+    }
     // the design computes from the notes at click time
     final rec = computeBrief();
     Future<void>.delayed(const Duration(milliseconds: 900), () {
@@ -604,6 +703,20 @@ mixin CliNotesState<T extends StatefulWidget> on State<T> {
   void submitNote() {
     final text = body.text.trim();
     if (text.isEmpty) return;
+    if (_onServer) {
+      final k = kind;
+      unawaited(
+        sendDesk((epoch) async {
+          final note = await serverNotes!.add(personId, k, text, operation: _noteOp.forBody(<String, Object?>{'k': k, 't': text}), epoch: epoch);
+          _noteOp.done();
+          if (!notesCurrent) return;
+          body.text = '';
+          setState(() => _kept = <Note>[note, ..._kept]);
+          notesChanged();
+        }),
+      );
+      return;
+    }
     final id = editingId;
     final next = id != null
         ? <Note>[for (final n in notes) n.id == id ? Note(id: n.id, kind: kind, text: text) : n]
@@ -724,7 +837,7 @@ mixin CliNotesState<T extends StatefulWidget> on State<T> {
         ),
       ),
     ];
-    if (notes.isEmpty) {
+    if (shownNotes.isEmpty) {
       log.add(
         Padding(
           padding: const EdgeInsets.only(top: 8),
@@ -736,14 +849,16 @@ mixin CliNotesState<T extends StatefulWidget> on State<T> {
         ),
       );
     } else {
-      for (final n in notes) {
+      for (final n in shownNotes) {
         log.add(_article(n));
       }
     }
 
+    if (loadingNotes) return const LoadingBox();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
+        if (deskError case final String e) Padding(padding: const EdgeInsets.only(bottom: 12), child: FormError(e)),
         composer,
         const SizedBox(height: 12),
         for (var i = 0; i < log.length; i++) ...<Widget>[if (i > 0) const SizedBox(height: 8), log[i]],

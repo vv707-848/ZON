@@ -1,0 +1,9 @@
+{
+    "success": false,
+    "error": {
+        "code": "ALREADY_ACTIVE",
+        "message": "مفعّل بالفعل.",
+        "details": [],
+        "trace_id": "01M7BEZ9B1FW4MESVB97Y1FTDP"
+    }
+}

@@ -6,6 +6,7 @@ use App\Models\ClientNote;
 use App\Models\Customer;
 use App\Models\InventoryItem;
 use App\Models\Task;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -64,6 +65,30 @@ class DeskTest extends TestCase
             'remind_at' => now()->addDay()->startOfHour()->toIso8601String()], ['Idempotency-Key' => 'task-0001-abcdef'])->assertCreated()->assertJsonPath('data.done', false));
         $this->postJson('/api/v1/tasks', ['title' => 'تجديد رخصة عرض', 'priority' => 'low'])->assertCreated();
         $this->apiContract('tasks', $this->getJson('/api/v1/tasks')->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('data.0.priority', 'high'));
+    }
+
+    public function test_the_apps_owners_and_stock_and_its_publishing(): void
+    {
+        Http::fake(['agents.test/agents/*' => Http::response(['detail' => 'down'], 503)]);
+        $this->signIn(Customer::factory()->broker()->create());
+        $owner = $this->postJson('/api/v1/property-owners', ['name' => 'عبدالله الدوسري', 'phone' => '0558889990', 'listing_title' => 'فيلا الملقا'])->assertCreated()->json('data.id');
+        $this->apiContract('owner_note_added', $this->postJson("/api/v1/property-owners/{$owner}/notes", ['category' => 'rejected', 'body' => 'لا يقبل أقل من مليونين'],
+            ['Idempotency-Key' => 'onote-0001-abcdef'])->assertCreated()->assertJsonPath('data.category', 'rejected'));
+        $this->apiContract('property_owners', $this->getJson('/api/v1/property-owners')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.notes_count', 1));
+        $this->apiContract('owner_notes', $this->getJson("/api/v1/property-owners/{$owner}/notes")->assertOk()->assertJsonCount(1, 'data'));
+        $this->apiContract('owner_removed', $this->deleteJson("/api/v1/property-owners/{$owner}")->assertOk());
+
+        $this->apiContract('inventory_created', $this->postJson('/api/v1/inventory', ['purpose' => 'sale', 'property_type' => 'villa', 'title' => 'فيلا في الملقا',
+            'city' => 'الرياض', 'neighborhood' => 'الملقا', 'price' => 2400000, 'area_land' => 450, 'area_built' => 520, 'bedrooms' => 6,
+            'description' => 'فيلا زاوية بمسبح'], ['Idempotency-Key' => 'stock-0001-abcdef'])->assertCreated()->assertJsonPath('data.published_listing_id', null));
+        $item = InventoryItem::query()->sole()->id;
+        $this->postJson("/api/v1/inventory/{$item}/publish", ['licence_number' => '7200111222', 'description' => 'قصير'])->assertStatus(422)
+            ->assertJsonStructure(['error' => ['details' => ['fields' => ['description']]]]);                    // what he adds is checked as a listing
+        $this->apiContract('inventory_publish_needs', $this->postJson("/api/v1/inventory/{$item}/publish")->assertStatus(422)
+            ->assertJsonStructure(['error' => ['details' => ['fields' => ['licence_number']]]]));
+        $this->apiContract('inventory_published', $this->postJson("/api/v1/inventory/{$item}/publish", ['licence_number' => '7200111222'])->assertCreated());
+        $this->apiContract('inventory_publish_again', $this->postJson("/api/v1/inventory/{$item}/publish", ['licence_number' => '7200111222'])->assertStatus(409));
+        $this->getJson("/api/v1/inventory/{$item}")->assertJsonPath('data.published_listing_id', InventoryItem::query()->sole()->published_listing_id);
     }
 
     public function test_an_owners_note_removed(): void
