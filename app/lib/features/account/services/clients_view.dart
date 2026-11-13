@@ -403,7 +403,7 @@ class _ClientFormState extends State<ClientForm> {
         _newOp.done();
         final text = note.text.trim();
         if (text.isNotEmpty) {
-          await ServerClients.addNote(
+          await ServerClients.notes.add(
             made.id,
             kind,
             text,
@@ -648,118 +648,27 @@ class ClientProfile extends StatefulWidget {
 class _ClientProfileState extends State<ClientProfile> with CliNotesState<ClientProfile> {
   bool edit = false;
 
-  /// With a server: his notes as it keeps them, asking it, what it could not do, and whether «تلخيص» needs a plan.
-  List<Note> _notes = <Note>[];
-  bool _loadingNotes = Api.on;
-  String? _error;
-  bool _sending = false;
-  bool _needsPlan = false;
-  final OperationKey _noteOp = OperationKey('note');
-  final int _epoch = store.serverEpoch;
-
   Client get client => widget.client;
 
   @override
-  void initState() {
-    super.initState();
-    if (Api.on) unawaited(_loadNotes());
-  }
-
-  bool get _current => mounted && _epoch == store.serverEpoch;
-
-  Future<void> _loadNotes() async {
-    try {
-      final rows = await ServerClients.notes(client.id);
-      if (_current) setState(() => _notes = rows);
-    } on ApiError catch (e) {
-      if (_current) setState(() => _error = e.forUser);
-    } finally {
-      if (_current) setState(() => _loadingNotes = false);
-    }
-  }
-
-  /// Sends [what] (one at a time); its error is said and nothing changes.
-  Future<void> _send(Future<void> Function() what) async {
-    if (_sending) return;
-    setState(() {
-      _sending = true;
-      _error = null;
-    });
-    try {
-      await what();
-    } on ApiError catch (e) {
-      if (_current) setState(() => _error = e.forUser);
-    } on AccountChanged {
-      // nothing more under the next account
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
-  }
+  DeskNotes? get serverNotes => Api.on ? ServerClients.notes : null;
 
   @override
-  List<Note> get notes => Api.on ? _notes : client.notes;
+  String get personId => client.id;
 
   @override
-  bool get canEditNotes => !Api.on;
+  String get summaryScope => 'client';
+
+  @override
+  void notesChanged() => widget.onChange();
+
+  @override
+  List<Note> get notes => client.notes;
 
   @override
   void persist(List<Note> next) {
     store.saveClient(client.withNotes(next));
     widget.onChange();
-  }
-
-  @override
-  void submitNote() {
-    if (!Api.on) return super.submitNote();
-    final text = body.text.trim();
-    if (text.isEmpty) return;
-    final k = kind;
-    unawaited(
-      _send(() async {
-        final note = await ServerClients.addNote(client.id, k, text, operation: _noteOp.forBody(<String, Object?>{'k': k, 't': text}), epoch: _epoch);
-        _noteOp.done();
-        if (!_current) return;
-        body.text = '';
-        setState(() => _notes = <Note>[note, ..._notes]);
-        widget.onChange();
-      }),
-    );
-  }
-
-  @override
-  void removeNote(Note n) {
-    if (!Api.on) return super.removeNote(n);
-    unawaited(
-      _send(() async {
-        await ServerClients.removeNote(client.id, n.id, epoch: _epoch);
-        if (!_current) return;
-        setState(
-          () => _notes = <Note>[
-            for (final x in _notes)
-              if (x.id != n.id) x,
-          ],
-        );
-        widget.onChange();
-      }),
-    );
-  }
-
-  @override
-  void runBrief() {
-    if (!Api.on) return super.runBrief();
-    setState(() => busy = true);
-    unawaited(() async {
-      try {
-        final text = await ServerSummaries.of('client', id: client.id);
-        if (_current) setState(() => brief = text);
-      } on NeedsPlan {
-        if (_current) setState(() => _needsPlan = true);
-      } on ApiError catch (e) {
-        if (_current) setState(() => _error = e.forUser);
-      } finally {
-        if (mounted) setState(() => busy = false);
-      }
-    }());
   }
 
   Future<void> _remove() async {
@@ -772,9 +681,9 @@ class _ClientProfileState extends State<ClientProfile> with CliNotesState<Client
       destructive: true,
     );
     if (!ok || !mounted) return;
-    await _send(() async {
-      await ServerClients.remove(client.id, epoch: _epoch);
-      if (_current) widget.onRemoved?.call();
+    await sendDesk((epoch) async {
+      await ServerClients.remove(client.id, epoch: epoch);
+      if (notesCurrent) widget.onRemoved?.call();
     });
   }
 
@@ -787,7 +696,7 @@ class _ClientProfileState extends State<ClientProfile> with CliNotesState<Client
   @override
   Widget build(BuildContext context) {
     // with a server the server says whether his plan includes it (402)
-    final aiOn = Api.on ? !_needsPlan : billing.isSubscribed();
+    final aiOn = Api.on ? !needsPlan : billing.isSubscribed();
     final extra = (client.description ?? '').trim();
     final children = <Widget>[
       Padding(
@@ -815,7 +724,7 @@ class _ClientProfileState extends State<ClientProfile> with CliNotesState<Client
         CliHero(
           name: client.name,
           roleLabel: 'عميل',
-          notes: notes,
+          notes: shownNotes,
           phone: client.phone,
           // a client of his desk is not an account: with a server there is no conversation with him to open
           second: Api.on
@@ -848,12 +757,11 @@ class _ClientProfileState extends State<ClientProfile> with CliNotesState<Client
           onMore: () => setState(() => more = !more),
           onEdit: more ? () => setState(() => edit = true) : null,
         ),
-        CliBrief(aiOn: aiOn, hasNotes: notes.isNotEmpty, busy: busy, rec: brief, onRun: runBrief),
-        if (_error case final String e) Padding(padding: const EdgeInsets.only(bottom: 12), child: FormError(e)),
-        if (_loadingNotes) const LoadingBox() else buildNotes(),
+        CliBrief(aiOn: aiOn, hasNotes: shownNotes.isNotEmpty, busy: busy, rec: brief, onRun: runBrief),
+        buildNotes(),
         if (Api.on && widget.onRemoved != null) ...<Widget>[
           const SizedBox(height: 18),
-          AppButton(label: 'حذف العميل', tone: ButtonTone.ghost, icon: Lu.trash2, onTap: _sending ? null : () => unawaited(_remove())),
+          AppButton(label: 'حذف العميل', tone: ButtonTone.ghost, icon: Lu.trash2, onTap: sendingNote ? null : () => unawaited(_remove())),
         ],
       ]);
     }

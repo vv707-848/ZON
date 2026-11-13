@@ -12,6 +12,8 @@
 //
 // Nothing goes out once another account is signed in (Store.stillAccount).
 
+import 'dart:io';
+
 import 'package:zon/core/net/api.dart';
 import 'package:zon/core/net/api_error.dart';
 import 'package:zon/data/catalog/catalog.dart';
@@ -47,6 +49,13 @@ String? _serverTime(String? local) {
 }
 
 int _raw(String appId) => int.parse(appId.replaceFirst(RegExp('^[A-Z]+'), ''));
+
+/// A note of a client or an owner as the app shows it.
+Note deskNote(Map<String, Object?> j) =>
+    Note(id: '${j['id'] ?? ''}', kind: _kindIn['${j['category']}'] ?? '${j['category'] ?? ''}', text: '${j['body'] ?? ''}');
+
+/// A note's kind as the server names it.
+String deskNoteCategory(String kind) => _kindOut[kind] ?? 'followup';
 
 abstract final class ServerTasks {
   static String appId(int id) => 'T$id';
@@ -152,23 +161,28 @@ abstract final class ServerClients {
     await Api.client!.delete('clients/${_raw(id)}');
   }
 
-  static Note _note(Map<String, Object?> j) =>
-      Note(id: '${j['id'] ?? ''}', kind: _kindIn['${j['category']}'] ?? '${j['category'] ?? ''}', text: '${j['body'] ?? ''}');
+  /// His notes on [id] (`K12`).
+  static const DeskNotes notes = DeskNotes('clients');
+}
 
-  static Future<List<Note>> notes(String id) async => <Note>[for (final row in (await Api.client!.get('clients/${_raw(id)}/notes')).list) _note(row)];
+/// The notes of a client (`clients`) or an owner (`property-owners`): read, added once however often tried,
+/// removed. The server keeps a note as written: it is not edited.
+class DeskNotes {
+  const DeskNotes(this.base);
 
-  static Future<Note> addNote(String id, String kind, String text, {required String operation, required int epoch}) async {
+  final String base;
+
+  Future<List<Note>> of(String id) async => <Note>[for (final row in (await Api.client!.get('$base/${_raw(id)}/notes')).list) deskNote(row)];
+
+  Future<Note> add(String id, String kind, String text, {required String operation, required int epoch}) async {
     store.stillAccount(epoch);
-    final r = await Api.client!.post('clients/${_raw(id)}/notes', <String, Object?>{
-      'category': _kindOut[kind] ?? 'followup',
-      'body': text,
-    }, operation);
-    return _note(r.map);
+    final r = await Api.client!.post('$base/${_raw(id)}/notes', <String, Object?>{'category': deskNoteCategory(kind), 'body': text}, operation);
+    return deskNote(r.map);
   }
 
-  static Future<void> removeNote(String id, String note, {required int epoch}) async {
+  Future<void> remove(String id, String note, {required int epoch}) async {
     store.stillAccount(epoch);
-    await Api.client!.delete('clients/${_raw(id)}/notes/$note');
+    await Api.client!.delete('$base/${_raw(id)}/notes/$note');
   }
 }
 
@@ -190,4 +204,100 @@ abstract final class ServerSummaries {
 /// The service is in the plans: «فعّل» leads to them.
 class NeedsPlan implements Exception {
   const NeedsPlan();
+}
+
+/// A property in his private stock (GET /inventory): never public until he publishes it.
+class StockItem {
+  const StockItem({
+    required this.id,
+    required this.purpose,
+    required this.type,
+    required this.title,
+    required this.city,
+    required this.neighborhood,
+    this.price,
+    this.areaLand,
+    this.areaBuilt,
+    this.bedrooms,
+    this.description,
+    this.cover,
+    this.listingId,
+  });
+
+  factory StockItem.fromJson(Map<String, Object?> j) {
+    num? n(Object? v) => v is num ? v : null;
+    return StockItem(
+      id: 'S${j['id'] ?? 0}',
+      purpose: '${j['purpose'] ?? 'sale'}',
+      type: '${j['property_type'] ?? 'villa'}',
+      title: '${j['title'] ?? ''}',
+      city: '${j['city'] ?? ''}',
+      neighborhood: '${j['neighborhood'] ?? ''}',
+      price: n(j['price']),
+      areaLand: n(j['area_land']),
+      areaBuilt: n(j['area_built']),
+      bedrooms: j['bedrooms'] is int ? j['bedrooms']! as int : null,
+      description: j['description'] is String ? j['description']! as String : null,
+      cover: j['cover_url'] is String ? j['cover_url']! as String : null,
+      listingId: j['published_listing_id'] is int ? 'L${j['published_listing_id']}' : null,
+    );
+  }
+
+  final String id;
+  final Purpose purpose;
+  final PType type;
+  final String title;
+  final String city;
+  final String neighborhood;
+  final num? price;
+  final num? areaLand;
+  final num? areaBuilt;
+  final int? bedrooms;
+  final String? description;
+  final String? cover;
+
+  /// The listing it became (`L12`), once published.
+  final String? listingId;
+
+  num? get area => type == 'land' ? areaLand : (areaBuilt ?? areaLand);
+}
+
+/// «المخزون» on the server: his alone, never indexed; «نشر كإعلان» goes through the listings' own path (the
+/// same checks, REGA's licence and the wording), once: published again it answers 409.
+abstract final class ServerStock {
+  static Future<List<StockItem>> list() async => <StockItem>[for (final row in (await Api.client!.get('inventory')).list) StockItem.fromJson(row)];
+
+  /// Uploads the photo at [path] (taken on this phone); its id on the server.
+  static Future<int?> upload(String path, {required int epoch}) async {
+    final file = File(path);
+    if (!file.existsSync()) return null;
+    final bytes = await file.readAsBytes();
+    store.stillAccount(epoch);
+    final r = await Api.client!.upload('media', field: 'photo', bytes: bytes, filename: file.uri.pathSegments.last);
+    final id = r.map['id'];
+    return id is int ? id : null;
+  }
+
+  static Future<StockItem> create(Map<String, Object?> body, {required String operation, required int epoch}) async {
+    store.stillAccount(epoch);
+    return StockItem.fromJson((await Api.client!.post('inventory', body, operation)).map);
+  }
+
+  static Future<StockItem> update(String id, Map<String, Object?> body, {required int epoch}) async {
+    store.stillAccount(epoch);
+    return StockItem.fromJson((await Api.client!.patch('inventory/${_raw(id)}', body)).map);
+  }
+
+  static Future<void> remove(String id, {required int epoch}) async {
+    store.stillAccount(epoch);
+    await Api.client!.delete('inventory/${_raw(id)}');
+  }
+
+  /// Publishes [id] with what a listing needs that the stock lacks ([more]: licence_number, price, description…):
+  /// the listing (`L12`) and its status.
+  static Future<(String, String)> publish(String id, Map<String, Object?> more, {required int epoch}) async {
+    store.stillAccount(epoch);
+    final r = (await Api.client!.post('inventory/${_raw(id)}/publish', more)).map;
+    return ('L${r['listing_id']}', '${r['status'] ?? ''}');
+  }
 }

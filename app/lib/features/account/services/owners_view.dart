@@ -1,14 +1,25 @@
 // إدارة الملاك — owners whose properties the broker markets, with notes.
+//
+// With a server (ServerOwners) the book is the server's: each owner with the listing he named (from «عروضي»),
+// his notes added and removed there, «تلخيص» from the server's model (402 → the plans), and an owner removed.
+// The server says what his plan allows: no local gate. Another account signed in: its own book.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/external_links.dart';
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_desk.dart';
+import 'package:zon/data/server/server_my_listings.dart';
+import 'package:zon/data/server/server_owners.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/plans_view.dart' show PayGate;
 import 'package:zon/features/account/services/widgets/client_kit.dart';
@@ -58,23 +69,66 @@ class _OwnersViewState extends State<OwnersView> {
   String type = 'all';
   final TextEditingController _q = TextEditingController();
 
+  /// With a server: his owners and his listings as it said, asking it, and what it could not answer.
+  List<Owner> _owners = <Owner>[];
+  List<Listing> _listings = <Listing>[];
+  bool _loading = Api.on;
+  String? _error;
+  int _epoch = store.serverEpoch;
+
   @override
   void initState() {
     super.initState();
     _q.addListener(() => setState(() {}));
+    if (Api.on) {
+      store.addListener(_onAccount);
+      unawaited(_load());
+    }
   }
 
   @override
   void dispose() {
+    if (Api.on) store.removeListener(_onAccount);
     _q.dispose();
     super.dispose();
   }
 
+  void _onAccount() {
+    if (!mounted || _epoch == store.serverEpoch) return;
+    _epoch = store.serverEpoch;
+    setState(() {
+      _owners = <Owner>[];
+      _listings = <Listing>[];
+      _loading = true;
+      _error = null;
+      openId = null;
+    });
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final epoch = _epoch;
+    try {
+      final owners = await ServerOwners.list();
+      final listings = await ServerMyListings.mine();
+      if (mounted && epoch == store.serverEpoch) {
+        setState(() {
+          _owners = owners;
+          _listings = listings;
+        });
+      }
+    } on ApiError catch (e) {
+      if (mounted && epoch == store.serverEpoch) setState(() => _error = e.forUser);
+    } finally {
+      if (mounted && epoch == store.serverEpoch) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final rows = store.owners();
-    final listings = store.allListings();
-    if (!billing.isSubscribed()) {
+    final rows = Api.on ? _owners : store.owners();
+    final listings = Api.on ? _listings : store.allListings();
+    if (!Api.on && !billing.isSubscribed()) {
       return const PayGate(
         title: 'إدارة الملاك',
         text: 'متاحة ضمن خدمة الوسيط. المالك يُسجَّل عند نشر عرضك، والملاحظات تُلخَّص لتسهيل المتابعة. البيع يتم خارج التطبيق.',
@@ -88,8 +142,13 @@ class _OwnersViewState extends State<OwnersView> {
       return OwnerProfile(
         key: ValueKey<String>('op-${selected.id}'),
         owner: selected,
+        listing: listingOfOwner(selected, listings),
         onBack: () => setState(() => openId = null),
         onChange: () => setState(() {}),
+        onRemoved: () {
+          setState(() => openId = null);
+          unawaited(_load());
+        },
       );
     }
     final q = _q.text.trim();
@@ -146,7 +205,10 @@ class _OwnersViewState extends State<OwnersView> {
         ],
       ),
       FindBox(controller: _q),
-      if (shown.isEmpty)
+      if (_error case final String e) FormError(e),
+      if (_loading)
+        const LoadingBox()
+      else if (shown.isEmpty)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 18),
           child: Tx(
@@ -309,11 +371,17 @@ class _OwnersViewState extends State<OwnersView> {
 
 /// An owner's page: the listing, AI advice and notes.
 class OwnerProfile extends StatefulWidget {
-  const OwnerProfile({super.key, required this.owner, required this.onBack, required this.onChange});
+  const OwnerProfile({super.key, required this.owner, required this.onBack, required this.onChange, this.listing, this.onRemoved});
 
   final Owner owner;
+
+  /// His listing, when it is one of the broker's.
+  final Listing? listing;
   final VoidCallback onBack;
   final VoidCallback onChange;
+
+  /// He was removed (a server's book).
+  final VoidCallback? onRemoved;
 
   @override
   State<OwnerProfile> createState() => _OwnerProfileState();
@@ -321,6 +389,31 @@ class OwnerProfile extends StatefulWidget {
 
 class _OwnerProfileState extends State<OwnerProfile> with CliNotesState<OwnerProfile> {
   Owner get owner => widget.owner;
+
+  @override
+  DeskNotes? get serverNotes => Api.on ? ServerOwners.notes : null;
+
+  @override
+  String get personId => owner.id;
+
+  @override
+  String get summaryScope => 'owner';
+
+  Future<void> _remove() async {
+    final ok = await showAppDialog(
+      context,
+      icon: Lu.trash2,
+      title: 'حذف المالك؟',
+      message: '«${owner.name}» وملاحظاته تُحذف من دفترك نهائياً. عرضه لا يتأثر.',
+      confirmLabel: 'حذف',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    await sendDesk((epoch) async {
+      await ServerOwners.remove(owner.id, epoch: epoch);
+      if (notesCurrent) widget.onRemoved?.call();
+    });
+  }
 
   @override
   List<Note> get notes => owner.notes;
@@ -339,7 +432,7 @@ class _OwnerProfileState extends State<OwnerProfile> with CliNotesState<OwnerPro
 
   @override
   Widget build(BuildContext context) {
-    final listing = listingOfOwner(owner, store.allListings());
+    final listing = Api.on ? widget.listing : listingOfOwner(owner, store.allListings());
     String or(String? v) => (v ?? '').isNotEmpty ? v! : '—';
     final children = <Widget>[
       Padding(
@@ -349,7 +442,7 @@ class _OwnerProfileState extends State<OwnerProfile> with CliNotesState<OwnerPro
       CliHero(
         name: owner.name,
         roleLabel: 'مالك',
-        notes: owner.notes,
+        notes: shownNotes,
         phone: owner.phone,
         second: listing != null
             ? CliHeroAct(
@@ -375,8 +468,12 @@ class _OwnerProfileState extends State<OwnerProfile> with CliNotesState<OwnerPro
         more: more,
         onMore: () => setState(() => more = !more),
       ),
-      CliBrief(aiOn: true, hasNotes: owner.notes.isNotEmpty, busy: busy, rec: brief, onRun: runBrief),
+      CliBrief(aiOn: !needsPlan, hasNotes: shownNotes.isNotEmpty, busy: busy, rec: brief, onRun: runBrief),
       buildNotes(),
+      if (Api.on && widget.onRemoved != null) ...<Widget>[
+        const SizedBox(height: 18),
+        AppButton(label: 'حذف المالك', tone: ButtonTone.ghost, icon: Lu.trash2, onTap: sendingNote ? null : () => unawaited(_remove())),
+      ],
     ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),

@@ -1,0 +1,15 @@
+{
+    "success": false,
+    "error": {
+        "code": "VALIDATION_FAILED",
+        "message": "تحقق من الحقول المطلوبة.",
+        "details": {
+            "fields": {
+                "licence_number": [
+                    "رقم الترخيص الإعلاني مطلوب."
+                ]
+            }
+        },
+        "trace_id": "01M7BEZ97RRYTH2K2S5WX81WRN"
+    }
+}

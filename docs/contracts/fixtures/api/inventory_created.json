@@ -1,0 +1,20 @@
+{
+    "success": true,
+    "data": {
+        "id": 1,
+        "purpose": "sale",
+        "property_type": "villa",
+        "title": "فيلا في الملقا",
+        "city": "الرياض",
+        "neighborhood": "الملقا",
+        "price": 2400000,
+        "area_land": 450,
+        "area_built": 520,
+        "bedrooms": 6,
+        "bathrooms": null,
+        "description": "فيلا زاوية بمسبح",
+        "cover_url": null,
+        "published_listing_id": null,
+        "updated_at": "2026-11-13T22:03:11+00:00"
+    }
+}

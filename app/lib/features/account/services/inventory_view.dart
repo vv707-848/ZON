@@ -1,14 +1,17 @@
 // المخزون — listings the broker keeps unpublished; publish one in a tap.
+// With a server it is the server's stock (server_stock_view.dart): nothing of this phone's.
 
 import 'package:flutter/material.dart';
 
 import 'package:image_picker/image_picker.dart';
 
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/store.dart';
+import 'package:zon/features/account/services/server_stock_view.dart';
 import 'package:zon/features/account/services/widgets/desk.dart';
 import 'package:zon/features/account/services/widgets/service_form.dart';
 import 'package:zon/shared/widgets/listing_card.dart';
@@ -45,6 +48,7 @@ class _InventoryViewState extends State<InventoryView> {
 
   @override
   Widget build(BuildContext context) {
+    if (Api.on) return const ServerStockView();
     final rows = store.inventory();
     final hoods = city == 'all' ? const <String>[] : (kCities[city] ?? const <String>[]);
     final saleN = rows.where((l) => l.purpose != 'rent').length;
