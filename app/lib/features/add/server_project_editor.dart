@@ -339,8 +339,10 @@ class _ServerProjectEditorState extends State<ServerProjectEditor> {
           : projInput(value: value, onChanged: on, dir: number ? TextDirection.ltr : null, keyboard: number ? TextInputType.number : null),
     );
     final sending = _busy != null;
-    return ListView(
+    return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+      child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         BackLink(label: 'مشاريعي', onTap: () => Nav.go(context, '/account/listings')),
         const SizedBox(height: 12),
@@ -435,6 +437,7 @@ class _ServerProjectEditorState extends State<ServerProjectEditor> {
         else
           AppButton(label: 'إضافة نموذج', icon: Lu.plus, tone: ButtonTone.tonal, onTap: sending ? null : () => setState(() => _adding = true)),
       ],
+      ),
     );
   }
 }
