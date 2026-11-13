@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/app/router.dart';
+import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/models/models.dart';
 import 'package:zon/data/server/server_wishes.dart';
 import 'package:zon/data/store.dart';
@@ -151,5 +152,82 @@ void main() {
     await _settle(tester);
     expect(store.loadWish(), isNull, reason: 'the server has none: none is shown');
     expect(find.text('رغبة قديمة على الجوال'), findsNothing);
+  });
+
+  group('a wish is its account\'s', () {
+    testWidgets('A\'s wish that answers late, after B signed in, never becomes B\'s', (tester) async {
+      await freshDevice();
+      final server = serverDevice();
+      server.onFor('7|token-a', 'GET', 'preferences', 200, ok(<Object?>[_one('preference')]));
+      server.onFor('8|token-b', 'GET', 'preferences', 200, ok(<Object?>[]));
+      final late = server.holdFor('7|token-a', 'GET', 'preferences');
+      await serverSignIn(server, account: me(id: 41, role: 'seeker'), token: '7|token-a');
+      await pumpApp(tester, '/account/matching');
+      await _settle(tester);
+
+      await ServerAuth.signOut();
+      await serverSignIn(server, account: me(id: 52, name: 'سارة القحطاني', role: 'seeker'), token: '8|token-b');
+      await _settle(tester);
+      late.complete();
+      await _settle(tester);
+
+      expect(store.readSession()!.id, 'srv-52');
+      expect(store.loadWish(), isNull, reason: 'B has no wish; A\'s is not kept under B');
+      expect(find.text('فيلا عوائل قرب المدارس'), findsNothing);
+      expect(server.sent('GET', 'preferences').last.headers['Authorization'], 'Bearer 8|token-b', reason: 'B\'s own wish was asked for');
+    });
+
+    testWidgets('A\'s delete that answers late does not delete B\'s wish', (tester) async {
+      await freshDevice();
+      final server = serverDevice();
+      final id = _one('preference')['id'];
+      final wishOfB = <String, Object?>{..._one('preference'), 'id': 900, 'notes': 'شقة لسارة'};
+      server.onFor('7|token-a', 'GET', 'preferences', 200, ok(<Object?>[_one('preference')]));
+      server.onFor('8|token-b', 'GET', 'preferences', 200, ok(<Object?>[wishOfB]));
+      server.on('DELETE', 'preferences/$id', 200, ok());
+      final late = server.holdFor('7|token-a', 'DELETE', 'preferences/$id');
+      await serverSignIn(server, account: me(id: 41, role: 'seeker'), token: '7|token-a');
+      await pumpApp(tester, '/account/matching');
+      await _settle(tester);
+      await tapText(tester, 'حذف');
+      await _settle(tester);
+
+      await ServerAuth.signOut();
+      await serverSignIn(server, account: me(id: 52, name: 'سارة القحطاني', role: 'seeker'), token: '8|token-b');
+      await _settle(tester);
+      late.complete();
+      await _settle(tester);
+
+      expect(store.loadWish()?.id, '900', reason: 'B\'s wish stays');
+      expect(find.text('شقة لسارة'), findsWidgets);
+    });
+
+    testWidgets('a wish made again after it was deleted is a new operation, not the old answer', (tester) async {
+      await freshDevice();
+      final server = serverDevice();
+      await serverSignIn(server, account: me(role: 'seeker'));
+      final id = _one('preference')['id'];
+      server.on('GET', 'preferences', 200, ok(<Object?>[]));
+      server.on('POST', 'preferences', 201, recorded('preference'));
+      server.on('DELETE', 'preferences/$id', 200, ok());
+      await pumpApp(tester, '/account/matching');
+      await _settle(tester);
+
+      for (var i = 0; i < 2; i++) {
+        await tester.enterText(find.byType(EditableText).last, 'فيلا عوائل قرب المدارس');
+        await tester.pump();
+        await tapText(tester, 'حفظ الرغبة');
+        await _settle(tester);
+        await tester.pump(const Duration(seconds: 3)); // the radar's scan ends
+        if (i == 0) {
+          await tapText(tester, 'حذف');
+          await _settle(tester);
+        }
+      }
+
+      final sent = server.sent('POST', 'preferences');
+      expect(sent, hasLength(2));
+      expect(sent.last.headers['Idempotency-Key'], isNot(sent.first.headers['Idempotency-Key']));
+    });
   });
 }

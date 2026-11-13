@@ -70,7 +70,14 @@ class FakeServer {
   void onQuery(String method, String path, Map<String, String> query, int status, Object? body) =>
       _answers['$method $path?${_query(query)}'] = (status, body);
 
+  /// Answers `METHOD path` asked with the session [token] — before the answers for anyone (one account's answer,
+  /// another's for another).
+  void onFor(String token, String method, String path, int status, Object? body) => _answers['$method $path@$token'] = (status, body);
+
   final Map<String, Completer<void>> _held = <String, Completer<void>>{};
+
+  /// Holds the answers of `METHOD path` asked with [token] only, until the returned completer completes.
+  Completer<void> holdFor(String token, String method, String path) => _held['$method $path@$token'] = Completer<void>();
 
   /// Holds the answers of `METHOD path` until the returned completer completes (an answer that comes late).
   Completer<void> hold(String method, String path) => _held['$method $path'] = Completer<void>();
@@ -91,9 +98,10 @@ class FakeServer {
   late final MockClient client = MockClient((request) async {
     requests.add(request);
     final key = '${request.method} ${_path(request.url)}';
-    final held = _held[key];
+    final token = (request.headers['Authorization'] ?? '').replaceFirst('Bearer ', '');
+    final held = _held['$key@$token'] ?? _held[key];
     if (held != null) await held.future;
-    final answer = _answers['$key?${_query(request.url.queryParameters)}'] ?? _answers[key];
+    final answer = _answers['$key@$token'] ?? _answers['$key?${_query(request.url.queryParameters)}'] ?? _answers[key];
     if (answer == null) {
       return _json(404, apiFail('NOT_FOUND', 'العنصر غير موجود.'));
     }
