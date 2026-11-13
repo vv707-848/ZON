@@ -1,15 +1,26 @@
 // إدارة العملاء — the broker's client book: list with filters, add/edit
 // form, and each client's profile with notes and AI advice.
+//
+// With a server (ServerClients) the book is the server's: a client added once however often tried, his notes
+// added and removed there (a note is kept as written: removed, not edited), «تلخيص» is the server's model (402 →
+// the plans), and a client can be removed. The form asks only what the server keeps — the least area and rooms —
+// and starts empty: no neighbourhood, type or rooms chosen for him. Another account signed in: its own book.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
+import 'package:zon/core/net/operation_key.dart';
 import 'package:zon/core/theme/theme.dart';
+import 'package:zon/core/utils/input.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_desk.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/people_view.dart' show CrmMark;
 import 'package:zon/features/account/services/widgets/client_kit.dart';
@@ -60,21 +71,63 @@ class _ClientsViewState extends State<ClientsView> {
   bool adding = false;
   String? openId;
 
+  /// With a server: his book as it said, asking it, and what it could not answer.
+  List<Client> _server = <Client>[];
+  bool _loading = Api.on;
+  String? _error;
+  int _epoch = store.serverEpoch;
+
   @override
   void initState() {
     super.initState();
     _q.addListener(() => setState(() {}));
+    if (Api.on) {
+      store.addListener(_onAccount);
+      unawaited(_load());
+    }
   }
 
   @override
   void dispose() {
+    if (Api.on) store.removeListener(_onAccount);
     _q.dispose();
     super.dispose();
   }
 
+  void _onAccount() {
+    if (!mounted || _epoch == store.serverEpoch) return;
+    _epoch = store.serverEpoch;
+    setState(() {
+      _server = <Client>[];
+      _loading = true;
+      _error = null;
+      adding = false;
+      openId = null;
+    });
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final epoch = _epoch;
+    try {
+      final rows = await ServerClients.list();
+      if (mounted && epoch == store.serverEpoch) setState(() => _server = rows);
+    } on ApiError catch (e) {
+      if (mounted && epoch == store.serverEpoch) setState(() => _error = e.forUser);
+    } finally {
+      if (mounted && epoch == store.serverEpoch) setState(() => _loading = false);
+    }
+  }
+
+  /// After a change: his book asked again with a server.
+  void _changed() {
+    if (Api.on) unawaited(_load());
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
-    final rows = store.clients();
+    final rows = Api.on ? _server : store.clients();
     final hoods = city == 'all' ? const <String>[] : (kCities[city] ?? const <String>[]);
     Client? selected;
     for (final c in rows) {
@@ -85,7 +138,11 @@ class _ClientsViewState extends State<ClientsView> {
         key: ValueKey<String>('cp-${selected.id}'),
         client: selected,
         onBack: () => setState(() => openId = null),
-        onChange: () => setState(() {}),
+        onChange: _changed,
+        onRemoved: () {
+          setState(() => openId = null);
+          _changed();
+        },
       );
     }
     final q = _q.text.trim();
@@ -145,9 +202,18 @@ class _ClientsViewState extends State<ClientsView> {
         Padding(
           // the form keeps 14 px below it
           padding: const EdgeInsets.only(bottom: 14),
-          child: ClientForm(onDone: () => setState(() => adding = false), onCancel: () => setState(() => adding = false)),
+          child: ClientForm(
+            onDone: () {
+              setState(() => adding = false);
+              _changed();
+            },
+            onCancel: () => setState(() => adding = false),
+          ),
         ),
-      if (shown.isEmpty)
+      if (_error case final String e) FormError(e),
+      if (_loading)
+        const LoadingBox()
+      else if (shown.isEmpty)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
           child: Tx(
@@ -230,7 +296,7 @@ class _ClientsViewState extends State<ClientsView> {
                     softWrap: false,
                   ),
                   const SizedBox(height: 4),
-                  Tx('${c.notes.length} سجلات', style: ts(13, w: 600, lh: 19.5, c: AppColors.muted), maxLines: 1, softWrap: false),
+                  Tx('${c.notesCount ?? c.notes.length} سجلات', style: ts(13, w: 600, lh: 19.5, c: AppColors.muted), maxLines: 1, softWrap: false),
                 ],
               ),
             ),
@@ -262,21 +328,28 @@ class _ClientFormState extends State<ClientForm> {
   late final TextEditingController phone = TextEditingController(text: init?.phone ?? '');
   late String purpose = init?.purpose ?? 'sale';
   late String city = init?.city ?? 'الرياض';
+  // with a server nothing is chosen for him: an empty preference is sent empty
   late List<String> hoods = (init != null && init!.hood.isNotEmpty)
       ? init!.hood.split('·').map((h) => h.trim()).where((h) => h.isNotEmpty).toList()
-      : <String>[kCities['الرياض']![0]];
-  late List<PType> types = parseTypes(init?.types);
+      : (Api.on ? <String>[] : <String>[kCities['الرياض']![0]]);
+  late List<PType> types = Api.on && (init?.types ?? '').isEmpty ? <PType>[] : parseTypes(init?.types);
   bool openHoods = false;
   bool openTypes = false;
   late final TextEditingController pmin = TextEditingController(text: splitRange(init?.budget).$1);
   late final TextEditingController pmax = TextEditingController(text: splitRange(init?.budget).$2);
   late final TextEditingController amin = TextEditingController(text: splitRange(init?.area).$1);
   late final TextEditingController amax = TextEditingController(text: splitRange(init?.area).$2);
-  late final TextEditingController rmin = TextEditingController(text: _or(splitRange(init?.rooms).$1, '2'));
-  late final TextEditingController rmax = TextEditingController(text: _or(splitRange(init?.rooms).$2, '4'));
+  late final TextEditingController rmin = TextEditingController(text: Api.on ? splitRange(init?.rooms).$1 : _or(splitRange(init?.rooms).$1, '2'));
+  late final TextEditingController rmax = TextEditingController(text: Api.on ? '' : _or(splitRange(init?.rooms).$2, '4'));
   late final TextEditingController desc = TextEditingController(text: init?.description ?? '');
   String kind = 'تفكير';
   final TextEditingController note = TextEditingController();
+
+  /// With a server: being sent, what it refused, and the key of the new client and his first note.
+  bool _busy = false;
+  String? _error;
+  final OperationKey _newOp = OperationKey('client');
+  final OperationKey _noteOp = OperationKey('note');
 
   static String _or(String a, String b) => a.isNotEmpty ? a : b;
 
@@ -296,7 +369,59 @@ class _ClientFormState extends State<ClientForm> {
 
   List<T> _toggle<T>(List<T> arr, T v) => arr.contains(v) ? arr.where((x) => x != v).toList() : <T>[...arr, v];
 
+  /// What the server keeps of him: numbers as numbers, nothing for what is not written.
+  Map<String, Object?> _body() {
+    num? n(TextEditingController c) => num.tryParse(toAsciiDigits(c.text).replaceAll(RegExp(r'[^\d.]'), ''));
+    return <String, Object?>{
+      'name': name.text.trim(),
+      'phone': phone.text.trim().isEmpty ? null : toAsciiDigits(phone.text.trim()),
+      'purpose': purpose,
+      'city': city,
+      'neighborhoods': hoods,
+      'property_types': types,
+      'budget_min': n(pmin),
+      'budget_max': n(pmax),
+      'area_min': n(amin),
+      'rooms_min': n(rmin)?.toInt(),
+      'description': desc.text.trim().isEmpty ? null : desc.text.trim(),
+    };
+  }
+
+  /// On the server: the client (once however often tried), then his first note if written.
+  Future<void> _saveOnServer() async {
+    final epoch = store.serverEpoch;
+    final body = _body();
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      if (init != null) {
+        await ServerClients.update(init!.id, body, epoch: epoch);
+      } else {
+        final made = await ServerClients.create(body, operation: _newOp.forBody(body), epoch: epoch);
+        _newOp.done();
+        final text = note.text.trim();
+        if (text.isNotEmpty) {
+          await ServerClients.addNote(made.id, kind, text, operation: _noteOp.forBody(<String, Object?>{'c': made.id, 'k': kind, 't': text}), epoch: epoch);
+          _noteOp.done();
+        }
+      }
+      if (mounted && epoch == store.serverEpoch) widget.onDone();
+    } on ApiError catch (e) {
+      if (mounted) setState(() => _error = e.forUser);
+    } on AccountChanged {
+      // nothing more under the next account
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _save() {
+    if (Api.on) {
+      unawaited(_saveOnServer());
+      return;
+    }
     final now = DateTime.now().millisecondsSinceEpoch;
     store.saveClient(
       Client(
@@ -424,8 +549,14 @@ class _ClientFormState extends State<ClientForm> {
         ink: ink,
       ),
       _pair('الميزانية من', pmin, 'إلى', pmax),
-      _pair('المساحة من م²', amin, 'إلى', amax),
-      _pair('الغرف من', rmin, 'إلى', rmax),
+      // the server keeps the least area and rooms he wants
+      if (Api.on) ...<Widget>[
+        cliLabel('المساحة من م²', cliInput(amin, ltr: true, keyboard: TextInputType.number, digits: true)),
+        cliLabel('الغرف من', cliInput(rmin, ltr: true, keyboard: TextInputType.number, digits: true)),
+      ] else ...<Widget>[
+        _pair('المساحة من م²', amin, 'إلى', amax),
+        _pair('الغرف من', rmin, 'إلى', rmax),
+      ],
       cliLabel('وصف نص حر', _textarea(desc, placeholder: 'اكتب الرغبة بشكل واضح')),
       if (init == null) ...<Widget>[
         Padding(
@@ -453,11 +584,18 @@ class _ClientFormState extends State<ClientForm> {
         ),
         cliLabel('الملاحظة (اختياري)', _textarea(note)),
       ],
+      if (_error case final String e) FormError(e),
       Row(
         children: <Widget>[
           Expanded(child: _btn('إلغاء', false, widget.onCancel)),
           const SizedBox(width: 8),
-          Expanded(child: _btn(init != null ? 'حفظ التعديل' : 'حفظ العميل', true, name.text.isEmpty ? null : _save)),
+          Expanded(
+            child: _btn(
+              _busy ? 'جارٍ الحفظ…' : (init != null ? 'حفظ التعديل' : 'حفظ العميل'),
+              true,
+              name.text.trim().isEmpty || _busy ? null : _save,
+            ),
+          ),
         ],
       ),
     ];
@@ -491,11 +629,14 @@ class _ClientFormState extends State<ClientForm> {
 
 /// A client's page: summary, preferences, AI advice and notes.
 class ClientProfile extends StatefulWidget {
-  const ClientProfile({super.key, required this.client, required this.onBack, required this.onChange});
+  const ClientProfile({super.key, required this.client, required this.onBack, required this.onChange, this.onRemoved});
 
   final Client client;
   final VoidCallback onBack;
   final VoidCallback onChange;
+
+  /// He was removed (a server's book).
+  final VoidCallback? onRemoved;
 
   @override
   State<ClientProfile> createState() => _ClientProfileState();
@@ -504,15 +645,125 @@ class ClientProfile extends StatefulWidget {
 class _ClientProfileState extends State<ClientProfile> with CliNotesState<ClientProfile> {
   bool edit = false;
 
+  /// With a server: his notes as it keeps them, asking it, what it could not do, and whether «تلخيص» needs a plan.
+  List<Note> _notes = <Note>[];
+  bool _loadingNotes = Api.on;
+  String? _error;
+  bool _sending = false;
+  bool _needsPlan = false;
+  final OperationKey _noteOp = OperationKey('note');
+  final int _epoch = store.serverEpoch;
+
   Client get client => widget.client;
 
   @override
-  List<Note> get notes => client.notes;
+  void initState() {
+    super.initState();
+    if (Api.on) unawaited(_loadNotes());
+  }
+
+  bool get _current => mounted && _epoch == store.serverEpoch;
+
+  Future<void> _loadNotes() async {
+    try {
+      final rows = await ServerClients.notes(client.id);
+      if (_current) setState(() => _notes = rows);
+    } on ApiError catch (e) {
+      if (_current) setState(() => _error = e.forUser);
+    } finally {
+      if (_current) setState(() => _loadingNotes = false);
+    }
+  }
+
+  /// Sends [what] (one at a time); its error is said and nothing changes.
+  Future<void> _send(Future<void> Function() what) async {
+    if (_sending) return;
+    setState(() {
+      _sending = true;
+      _error = null;
+    });
+    try {
+      await what();
+    } on ApiError catch (e) {
+      if (_current) setState(() => _error = e.forUser);
+    } on AccountChanged {
+      // nothing more under the next account
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  List<Note> get notes => Api.on ? _notes : client.notes;
+
+  @override
+  bool get canEditNotes => !Api.on;
 
   @override
   void persist(List<Note> next) {
     store.saveClient(client.withNotes(next));
     widget.onChange();
+  }
+
+  @override
+  void submitNote() {
+    if (!Api.on) return super.submitNote();
+    final text = body.text.trim();
+    if (text.isEmpty) return;
+    final k = kind;
+    unawaited(_send(() async {
+      final note = await ServerClients.addNote(client.id, k, text, operation: _noteOp.forBody(<String, Object?>{'k': k, 't': text}), epoch: _epoch);
+      _noteOp.done();
+      if (!_current) return;
+      body.text = '';
+      setState(() => _notes = <Note>[note, ..._notes]);
+      widget.onChange();
+    }));
+  }
+
+  @override
+  void removeNote(Note n) {
+    if (!Api.on) return super.removeNote(n);
+    unawaited(_send(() async {
+      await ServerClients.removeNote(client.id, n.id, epoch: _epoch);
+      if (!_current) return;
+      setState(() => _notes = <Note>[for (final x in _notes) if (x.id != n.id) x]);
+      widget.onChange();
+    }));
+  }
+
+  @override
+  void runBrief() {
+    if (!Api.on) return super.runBrief();
+    setState(() => busy = true);
+    unawaited(() async {
+      try {
+        final text = await ServerSummaries.of('client', id: client.id);
+        if (_current) setState(() => brief = text);
+      } on NeedsPlan {
+        if (_current) setState(() => _needsPlan = true);
+      } on ApiError catch (e) {
+        if (_current) setState(() => _error = e.forUser);
+      } finally {
+        if (mounted) setState(() => busy = false);
+      }
+    }());
+  }
+
+  Future<void> _remove() async {
+    final ok = await showAppDialog(
+      context,
+      icon: Lu.trash2,
+      title: 'حذف العميل؟',
+      message: '«${client.name}» وملاحظاته تُحذف من دفترك نهائياً.',
+      confirmLabel: 'حذف',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    await _send(() async {
+      await ServerClients.remove(client.id, epoch: _epoch);
+      if (_current) widget.onRemoved?.call();
+    });
   }
 
   @override
@@ -523,7 +774,8 @@ class _ClientProfileState extends State<ClientProfile> with CliNotesState<Client
 
   @override
   Widget build(BuildContext context) {
-    final aiOn = billing.isSubscribed();
+    // with a server the server says whether his plan includes it (402)
+    final aiOn = Api.on ? !_needsPlan : billing.isSubscribed();
     final extra = (client.description ?? '').trim();
     final children = <Widget>[
       Padding(
@@ -551,7 +803,7 @@ class _ClientProfileState extends State<ClientProfile> with CliNotesState<Client
         CliHero(
           name: client.name,
           roleLabel: 'عميل',
-          notes: client.notes,
+          notes: notes,
           phone: client.phone,
           // a client of his desk is not an account: with a server there is no conversation with him to open
           second: Api.on
@@ -584,8 +836,13 @@ class _ClientProfileState extends State<ClientProfile> with CliNotesState<Client
           onMore: () => setState(() => more = !more),
           onEdit: more ? () => setState(() => edit = true) : null,
         ),
-        CliBrief(aiOn: aiOn, hasNotes: client.notes.isNotEmpty, busy: busy, rec: brief, onRun: runBrief),
-        buildNotes(),
+        CliBrief(aiOn: aiOn, hasNotes: notes.isNotEmpty, busy: busy, rec: brief, onRun: runBrief),
+        if (_error case final String e) Padding(padding: const EdgeInsets.only(bottom: 12), child: FormError(e)),
+        if (_loadingNotes) const LoadingBox() else buildNotes(),
+        if (Api.on && widget.onRemoved != null) ...<Widget>[
+          const SizedBox(height: 18),
+          AppButton(label: 'حذف العميل', tone: ButtonTone.ghost, icon: Lu.trash2, onTap: _sending ? null : () => unawaited(_remove())),
+        ],
       ]);
     }
     return Padding(

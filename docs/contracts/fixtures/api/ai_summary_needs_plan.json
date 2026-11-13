@@ -1,0 +1,11 @@
+{
+    "success": false,
+    "error": {
+        "code": "PAYMENT_REQUIRED",
+        "message": "هذه الخدمة ضمن الباقات.",
+        "details": {
+            "upgrade": []
+        },
+        "trace_id": "01M7BCZWSMKMXD5YFKMK1E0FV3"
+    }
+}

@@ -155,7 +155,7 @@ class AiTest extends TestCase
         $this->postJson('/api/v1/ai/search', $form(7), ['X-Device-Id' => 'shared-phone'])->assertStatus(429);
 
         $this->signIn(Customer::factory()->owner()->create());
-        $this->postJson('/api/v1/ai/summaries', ['scope' => 'tasks'])->assertStatus(402)->assertJsonPath('error.code', 'PAYMENT_REQUIRED');
+        $this->apiContract('ai_summary_needs_plan', $this->postJson('/api/v1/ai/summaries', ['scope' => 'tasks'])->assertStatus(402)->assertJsonPath('error.code', 'PAYMENT_REQUIRED'));
     }
 
     public function test_matching_reads_the_wish_and_groups_unit_models_into_projects(): void
@@ -200,7 +200,8 @@ class AiTest extends TestCase
         ClientNote::query()->create(['client_id' => $client->id, 'category' => 'cash', 'body' => 'خالد المطيري جاهز كاش ويريد النرجس']);
         $this->agent(['summary' => 'العميل جاهز للشراء نقداً.', 'signals' => ['كاش'], 'recommended_action' => 'اعرض عليه النرجس', 'confidence' => 'high']);
 
-        $this->postJson('/api/v1/ai/summaries', ['scope' => 'client', 'id' => $client->id])->assertOk()->assertJsonPath('data.signals.0', 'كاش')->assertJsonPath('meta.ai.status', 'ok');
+        $this->apiContract('ai_summary', $this->postJson('/api/v1/ai/summaries', ['scope' => 'client', 'id' => $client->id])->assertOk()
+            ->assertJsonPath('data.signals.0', 'كاش')->assertJsonPath('meta.ai.status', 'ok'));
         $this->postJson('/api/v1/ai/summaries', ['scope' => 'client', 'id' => $client->id])->assertOk()->assertJsonPath('meta.ai.status', 'cached');
         Http::assertSentCount(1);
         Http::assertSent(fn (Sent $r) => ! str_contains(json_encode($r->data(), JSON_UNESCAPED_UNICODE), 'خالد') && str_contains($r['notes'][0]['text'], 'العميل'));

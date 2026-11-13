@@ -1,0 +1,23 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": 1,
+            "title": "اتصال بسلمان",
+            "body": "عن فيلا النرجس",
+            "priority": "high",
+            "remind_at": "2026-11-14T21:00:00+00:00",
+            "done": false,
+            "done_at": null
+        },
+        {
+            "id": 2,
+            "title": "تجديد رخصة عرض",
+            "body": null,
+            "priority": "low",
+            "remind_at": null,
+            "done": false,
+            "done_at": null
+        }
+    ]
+}

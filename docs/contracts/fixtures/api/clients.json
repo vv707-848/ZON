@@ -1,0 +1,36 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": 5,
+            "name": "سلمان العتيبي",
+            "phone": "0557776665",
+            "status": "active",
+            "purpose": "sale",
+            "city": "الرياض",
+            "neighborhoods": [
+                "النرجس",
+                "الياسمين"
+            ],
+            "property_types": [
+                "villa",
+                "apartment"
+            ],
+            "budget_min": 1200000,
+            "budget_max": 1800000,
+            "area_min": 300,
+            "rooms_min": 4,
+            "description": "يبحث عن فيلا قريبة من المدارس",
+            "from_request_id": null,
+            "notes_count": 1,
+            "updated_at": "2026-11-13T21:28:35+00:00"
+        }
+    ],
+    "meta": {
+        "page": {
+            "current": 1,
+            "last": 1,
+            "total": 1
+        }
+    }
+}

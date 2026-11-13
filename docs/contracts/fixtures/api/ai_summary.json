@@ -1,0 +1,17 @@
+{
+    "success": true,
+    "data": {
+        "summary": "العميل جاهز للشراء نقداً.",
+        "signals": [
+            "كاش"
+        ],
+        "recommended_action": "اعرض عليه النرجس",
+        "confidence": "high",
+        "updated_at": "2026-11-13T21:28:35+00:00"
+    },
+    "meta": {
+        "ai": {
+            "status": "ok"
+        }
+    }
+}
