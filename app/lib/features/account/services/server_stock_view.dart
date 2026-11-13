@@ -104,13 +104,14 @@ class _ServerStockViewState extends State<ServerStockView> {
     });
     try {
       await ServerStock.remove(item.id, epoch: epoch);
-      if (_current(epoch))
+      if (_current(epoch)) {
         setState(
           () => _items = <StockItem>[
             for (final x in _items)
               if (x.id != item.id) x,
           ],
         );
+      }
     } on ApiError catch (e) {
       if (_current(epoch)) setState(() => _error = e.forUser);
     } on AccountChanged {
@@ -270,7 +271,7 @@ class _StockCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          if (item.listingId case final String listing)
+          if (item.listingId != null)
             AppButton(label: 'منشور — إعلاناتي', tone: ButtonTone.tonal, icon: Lu.check, onTap: () => Nav.go(context, '/account/listings'))
           else
             Row(
