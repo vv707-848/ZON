@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Enums\ContractStatus;
 use App\Integrations\Rega\FakeRegaGateway;
 use App\Integrations\Rega\RegaGateway;
+use App\Models\CommissionDue;
 use App\Models\Customer;
 use App\Models\Listing;
 use App\Models\OwnerCase;
@@ -85,6 +86,17 @@ class OwnerListingTest extends TestCase
         $this->assertSame(1, Listing::query()->count(), 'one listing per licence');
         $this->apiContract('owner_listing_created', $created);
         $this->getJson("/api/v1/owner-cases/{$case}")->assertJsonPath('data.stage', 'active')->assertJsonPath('data.listing_id', $created->json('data.id'));
+
+        // sold at the price he says it sold for (asked when he marks it): the commission is reckoned on it
+        $listing = $created->json('data.id');
+        $this->postJson("/api/v1/listings/{$listing}/review", ['decision' => 'reject'])->assertOk();
+        $this->postJson("/api/v1/listings/{$listing}/sold")->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['fields' => ['sale_price']]]]);
+        $this->postJson("/api/v1/listings/{$listing}/sold", ['sale_price' => '1850000.505'])->assertStatus(422);   // not rounded away
+        $this->assertSame(0, CommissionDue::query()->count(), 'nothing due before his price');
+        $this->apiContract('owner_listing_sold', $this->postJson("/api/v1/listings/{$listing}/sold", ['sale_price' => 1850000])->assertOk()->assertJsonPath('data.status', 'sold'));
+        $due = CommissionDue::query()->sole();
+        $this->assertSame('1850000.00', (string) $due->sale_price);
+        $this->assertSame((int) round(1850000 * 100 * (float) $ready->json('data.commission_percent') / 100), (int) $due->amount_halalas, 'the case\'s percent of his sale price');
     }
 
     public function test_a_refused_contract_says_so_and_another_owner_cannot_see_his_case(): void

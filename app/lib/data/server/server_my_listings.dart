@@ -128,7 +128,10 @@ abstract final class ServerMyListings {
 
   static Future<Listing> pause(String appId) => _act(appId, 'pause');
   static Future<Listing> resume(String appId) => _act(appId, 'resume');
-  static Future<Listing> sold(String appId) => _act(appId, 'sold');
+  /// «مباع»: an owner's at [salePrice], the price it sold for (his contract's commission is reckoned on it).
+  static Future<Listing> sold(String appId, {String? salePrice}) async => ServerListings.fromListing(
+    (await Api.client!.post('listings/${ServerListings.rawId(appId)}/sold', <String, Object?>{'sale_price': ?salePrice})).map,
+  );
 
   /// «تمييز» (`featured`) or «عاجل» (`urgent_listing`) from the plan's balance; without balance an ApiError 402
   /// whose `details.price` is its price.
