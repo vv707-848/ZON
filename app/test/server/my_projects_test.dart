@@ -232,11 +232,18 @@ void main() {
   });
 
   testWidgets("«تمييز» of his published project: free while his free ones last; then its price, paid here", (tester) async {
-    final published = <String, Object?>{...recorded('projects_mine'), 'data': <Object?>[_one('project_published')]};
+    final published = <String, Object?>{
+      ...recorded('projects_mine'),
+      'data': <Object?>[_one('project_published')],
+    };
     final featured = <String, Object?>{
       ...recorded('projects_mine'),
       'data': <Object?>[
-        <String, Object?>{..._one('project_published'), 'featured': true, 'featured_until': DateTime.now().toUtc().add(const Duration(days: 7)).toIso8601String()},
+        <String, Object?>{
+          ..._one('project_published'),
+          'featured': true,
+          'featured_until': DateTime.now().toUtc().add(const Duration(days: 7)).toIso8601String(),
+        },
       ],
     };
     final server = await asDeveloper(tester, '/account/listings', (s) {
@@ -326,8 +333,11 @@ void main() {
       await tester.enterText(find.byType(EditableText).last, '2');
       await tapText(tester, 'متابعة');
       await _settle(tester);
-      expect(tester.widget<EditableText>(find.byType(EditableText).last).controller.text, isEmpty,
-          reason: 'not the listed price: a price not said is not sent as if it were');
+      expect(
+        tester.widget<EditableText>(find.byType(EditableText).last).controller.text,
+        isEmpty,
+        reason: 'not the listed price: a price not said is not sent as if it were',
+      );
       expect(find.text('يساعدنا على فهم السوق.'), findsOneWidget);
       await tester.enterText(find.byType(EditableText).last, '1900000');
       await tapText(tester, 'تم البيع');

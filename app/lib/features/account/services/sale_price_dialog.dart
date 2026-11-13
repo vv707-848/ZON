@@ -64,8 +64,7 @@ class _SalePriceCardState extends State<_SalePriceCard> {
   Widget build(BuildContext context) => AppDialogCard(
     icon: Lu.circleAlert,
     title: 'تأكيد البيع',
-    message:
-        widget.message ?? 'يُسجَّل العرض مباعاً ويخرج من البحث نهائياً. اكتب سعر البيع الفعلي: عليه يُحسب سعي زون المتفق عليه في عقد الوساطة.',
+    message: widget.message ?? 'يُسجَّل العرض مباعاً ويخرج من البحث نهائياً. اكتب سعر البيع الفعلي: عليه يُحسب سعي زون المتفق عليه في عقد الوساطة.',
     extra: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -79,10 +78,7 @@ class _SalePriceCardState extends State<_SalePriceCard> {
             _error = null;
           }),
         ),
-        if (widget.optional) ...<Widget>[
-          const SizedBox(height: 6),
-          Tx('يساعدنا على فهم السوق.', style: ts(13, w: 500, lh: 19.5, c: AppColors.sage)),
-        ],
+        if (widget.optional) ...<Widget>[const SizedBox(height: 6), Tx('يساعدنا على فهم السوق.', style: ts(13, w: 500, lh: 19.5, c: AppColors.sage))],
         if (_error case final String e) ...<Widget>[const SizedBox(height: 8), FormError(e)],
       ],
     ),

@@ -204,10 +204,7 @@ abstract final class ServerMyProjects {
 
   /// [count] units of model [unit] sold, at [salePrice] each (the contract's commission is reckoned on it).
   static Future<MyUnit> sell(int project, int unit, {required int count, String? salePrice}) async => MyUnit.fromJson(
-    (await Api.client!.post('projects/$project/units/$unit/sold', <String, Object?>{
-      'count': count,
-      'sale_price': ?salePrice,
-    })).map,
+    (await Api.client!.post('projects/$project/units/$unit/sold', <String, Object?>{'count': count, 'sale_price': ?salePrice})).map,
   );
 
   /// «تمييز» of his published project: free while his free ones last, otherwise 402 with the price.

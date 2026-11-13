@@ -326,7 +326,13 @@ class _MyListingsViewState extends State<MyListingsView> {
     final published = !projectOnServer || l.status == 'published'; // only a published project is featured
     final buttons = <Widget>[
       if (featured)
-        _barBox('مميّز', icon: Lu.crown, bg: const Color(0xFFF6E7B4), fg: const Color(0xFF6B5310), onTap: projectOnServer ? null : () => _boost(l, BoostKind.featured))
+        _barBox(
+          'مميّز',
+          icon: Lu.crown,
+          bg: const Color(0xFFF6E7B4),
+          fg: const Color(0xFF6B5310),
+          onTap: projectOnServer ? null : () => _boost(l, BoostKind.featured),
+        )
       else
         _barBox('تمييز', icon: Lu.crown, onTap: live && published ? () => _boost(l, BoostKind.featured) : null),
       if (!projectOnServer)
