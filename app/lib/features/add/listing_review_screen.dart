@@ -85,7 +85,7 @@ class _ListingReviewScreenState extends State<ListingReviewScreen> {
     for (var i = 0; i < ListingReviewScreen.tries; i++) {
       try {
         final review = await ServerMyListings.review(widget.id);
-        if (!_currentFor(epoch)) return;
+        if (!mounted || !_currentFor(epoch)) return;
         if (!review.preparing) {
           if (!review.waiting) {
             // published as he wrote it (or decided already): the listing itself
@@ -117,7 +117,7 @@ class _ListingReviewScreenState extends State<ListingReviewScreen> {
     try {
       final listing = await ServerMyListings.decide(widget.id, decision, text: decision == WordingDecision.edit ? _text.trim() : null);
       store.keepServer(<Listing>[listing], epoch: epoch, detailed: true);
-      if (_currentFor(epoch)) unawaited(Nav.replace(context, '/listings/${widget.id}'));
+      if (mounted && _currentFor(epoch)) unawaited(Nav.replace(context, '/listings/${widget.id}'));
     } on ApiError catch (e) {
       if (_currentFor(epoch)) {
         setState(() {
