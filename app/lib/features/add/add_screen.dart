@@ -40,38 +40,12 @@ class AddScreen extends StatefulWidget {
 
 class _AddScreenState extends State<AddScreen> {
   /// Null until the user picks (then the default depends on the role).
-  late _Choice? choice = _start;
-
-  _Choice? get _start => switch (widget.start) {
+  late _Choice? choice = switch (widget.start) {
     'listing' => _Choice.listing,
     'project' => _Choice.project,
     'request' => _Choice.request,
     _ => null,
   };
-
-  /// The account the open form belongs to: what one account typed (an owner's name and phone, his photos) is
-  /// never shown to the next, so another account (or none) gets a new, empty form.
-  int _epoch = store.serverEpoch;
-
-  @override
-  void initState() {
-    super.initState();
-    store.addListener(_onAccount);
-  }
-
-  @override
-  void dispose() {
-    store.removeListener(_onAccount);
-    super.dispose();
-  }
-
-  void _onAccount() {
-    if (!mounted || _epoch == store.serverEpoch) return;
-    setState(() {
-      _epoch = store.serverEpoch;
-      choice = _start;
-    });
-  }
 
   void _pick(_Choice c) => setState(() => choice = c);
 
@@ -94,7 +68,7 @@ class _AddScreenState extends State<AddScreen> {
     };
     return AppShell(
       background: c == _Choice.pick ? AppColors.white : null,
-      child: KeyedSubtree(key: ValueKey<(_Choice, int)>((c, _epoch)), child: body),
+      child: KeyedSubtree(key: ValueKey<_Choice>(c), child: body),
     );
   }
 }
