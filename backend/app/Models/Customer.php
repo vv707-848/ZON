@@ -24,7 +24,18 @@ use Laravel\Sanctum\HasApiTokens;
 class Customer extends Authenticatable
 {
     /** @use HasFactory<CustomerFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable {
+        notify as private deliver;
+    }
+
+    /**
+     * A notice to him (the bell, and a push): what sent it is already done and saved, so a queue that cannot take
+     * the notice never fails it nor undoes it (a REGA licence issued, a project published). It is reported.
+     */
+    public function notify(mixed $instance): void
+    {
+        rescue(fn () => $this->deliver($instance), report: true);
+    }
 
     protected $guarded = ['id'];
 

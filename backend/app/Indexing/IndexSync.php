@@ -13,12 +13,13 @@ use App\Models\ProjectUnit;
 use App\Models\SearchRequest;
 use App\Support\Trace;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 
 /**
  * The index outbox (backend doc §10). Called inside the transaction of every change that affects search:
  * it decides create / update / delete, writes the signal with version = index_version + 1, and queues
- * PushIndexEvent after the commit. Same payload as the last signal → nothing (unless forcing(): zon:reindex).
+ * PushIndexEvent after the commit (a queue that cannot take it fails nothing: the signal is sent again). Same payload as the last signal → nothing (unless forcing(): zon:reindex).
  * Whatever is not public is sent as `delete`.
  */
 final class IndexSync
@@ -89,7 +90,9 @@ final class IndexSync
                 'trace_id' => Trace::id(),
                 'created_at' => now(),
             ]);
-            PushIndexEvent::dispatch($event->id)->afterCommit();
+            // after the commit; a queue that cannot take it fails nothing saved: RetryPendingIndexEvents sends
+            // every signal not taken within five minutes
+            DB::afterCommit(fn () => rescue(fn () => Bus::dispatch(new PushIndexEvent($event->id)), report: true));
 
             return $event;
         });

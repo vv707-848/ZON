@@ -13,7 +13,7 @@ class ConversationParticipant extends Model
 
     protected function casts(): array
     {
-        return ['last_read_at' => 'datetime', 'hidden_at' => 'datetime'];
+        return ['last_read_at' => 'datetime', 'last_read_message_id' => 'integer', 'hidden_at' => 'datetime'];
     }
 
     /** @return BelongsTo<Conversation, $this> */
