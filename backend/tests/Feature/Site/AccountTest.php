@@ -76,6 +76,19 @@ class AccountTest extends TestCase
         $this->assertSame(ListingStatus::Published, $listing->fresh()->status, 'what the request hid is back');
     }
 
+    public function test_the_sign_in_and_forgotten_password_forms_and_signing_out(): void
+    {
+        $this->broker();
+        $this->get($this->site('login'))->assertOk()->assertSee('name="login"', false)->assertSee('name="password"', false);
+        $this->get($this->site('password/forgot'))->assertOk()->assertSee('name="phone"', false);
+        $this->get($this->site('complaints/track'))->assertOk()->assertSee('name="reference"', false)->assertSee('name="phone"', false);
+
+        $this->post($this->site('login'), ['login' => 'fahad', 'password' => 'a-good-secret'])->assertRedirect('https://zon.sa/account');
+        $this->get($this->site('account'))->assertOk();
+        $this->post($this->site('logout'))->assertRedirect();
+        $this->get($this->site('account'))->assertRedirect('https://zon.sa/login');
+    }
+
     public function test_signed_in_the_password_alone_confirms_and_the_session_ends(): void
     {
         $this->broker();

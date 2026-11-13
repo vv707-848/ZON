@@ -110,6 +110,14 @@ class PublicPagesTest extends TestCase
         $this->get($this->site("projects/{$project->id}/units/{$licensed->id}"))->assertOk()->assertSee('7200000001');
         $this->get($this->site("projects/{$project->id}/units/{$unlicensed->id}"))->assertNotFound();
         $this->get($this->site('projects/'.Project::factory()->create()->id))->assertNotFound();          // a draft
+
+        $this->get($this->site("projects/{$project->id}/image"))->assertNotFound();                    // no photo: no image
+        $this->photo($project);
+        $image = $this->get($this->site("projects/{$project->id}/image"))->assertRedirect();
+        $this->assertStringContainsString('01JTEST-large.jpg', (string) $image->headers->get('Location'));
+        $draft = Project::factory()->create();
+        $this->photo($draft);
+        $this->get($this->site("projects/{$draft->id}/image"))->assertNotFound();                        // nor a draft's
     }
 
     public function test_an_advertisers_page_and_a_request_page(): void

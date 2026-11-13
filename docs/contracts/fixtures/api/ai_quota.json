@@ -1,0 +1,28 @@
+{
+    "success": true,
+    "data": {
+        "uses": {
+            "search": {
+                "limit": 5,
+                "used": 0,
+                "remaining": 5
+            },
+            "matching": {
+                "limit": 0,
+                "used": 0,
+                "remaining": 0
+            },
+            "summary": {
+                "limit": 2,
+                "used": 0,
+                "remaining": 2
+            },
+            "chat": {
+                "limit": 10,
+                "used": 0,
+                "remaining": 10
+            }
+        },
+        "resets_at": "2026-11-14T00:00:00+03:00"
+    }
+}

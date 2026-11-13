@@ -1,0 +1,14 @@
+{
+    "success": true,
+    "data": {
+        "payment_id": "01m7a651sx9srs7dxvp5m7sfjr",
+        "purpose": "featured",
+        "status": "paid",
+        "amount": "100.00",
+        "vat": "0.00",
+        "currency": "SAR",
+        "provider": "fake",
+        "failure_reason": null,
+        "paid_at": "2026-11-13T10:09:49+00:00"
+    }
+}

@@ -89,6 +89,12 @@ def app_calls(lib: pathlib.Path) -> set[tuple[str, str]]:
     return calls
 
 
+def route_key(method: str, uri: str) -> str:
+    """A route as the test log writes it: `route:list` shows a parameter's binding field (`{customer:username}`),
+    the matched route's uri does not (`{customer}`)."""
+    return method + " " + re.sub(r"\{(\w+):\w+\}", r"{\1}", uri)
+
+
 def main(routes_file: str, hits_file: str, lib: str) -> None:
     routes = json.loads(pathlib.Path(routes_file).read_text(encoding="utf-8"))
     hits = {line.strip() for line in pathlib.Path(hits_file).read_text(encoding="utf-8").splitlines()}
@@ -106,7 +112,7 @@ def main(routes_file: str, hits_file: str, lib: str) -> None:
         groups[part(r["uri"])].append(r)
     for name in ("api", "site", "panel"):
         rows = groups[name]
-        reached = [r for r in rows if r["method"] + " " + r["uri"] in hits]
+        reached = [r for r in rows if route_key(r["method"], r["uri"]) in hits]
         print(f"{name}: routes a test reaches {len(reached)} / {len(rows)}")
     apps = [r for r in groups["api"] if r["uri"] not in NOT_THE_APPS]
     wired, unreached = [], []
@@ -116,7 +122,7 @@ def main(routes_file: str, hits_file: str, lib: str) -> None:
         if any((m, path) in called for m in methods):
             wired.append(r)
     for r in groups["api"]:
-        if r["method"] + " " + r["uri"] not in hits:
+        if route_key(r["method"], r["uri"]) not in hits:
             methods = [m for m in r["method"].split("|") if m != "HEAD"]
             unreached.append(f"{'|'.join(methods)} {r['uri'].removeprefix('api/v1/')}")
     print(f"api: routes the app's code calls {len(wired)} / {len(apps)} (the outside's {len(NOT_THE_APPS)} not counted)")
