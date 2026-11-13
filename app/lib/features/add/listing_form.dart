@@ -303,16 +303,16 @@ class _ListingFormState extends State<ListingForm> {
     });
     final epoch = store.serverEpoch;
     try {
-      final ids = await ServerMyListings.upload(photos, known: _uploaded);
+      final ids = await ServerMyListings.upload(photos, known: _uploaded, epoch: epoch);
       final draft = _draft(desc);
       final operation = _operation.forBody(<String, Object?>{...ServerMyListings.form(draft), 'media_ids': ids, 'licence': lic});
-      final made = await ServerMyListings.create(draft, mediaIds: ids, licence: lic, operation: operation);
+      final made = await ServerMyListings.create(draft, mediaIds: ids, licence: lic, operation: operation, epoch: epoch);
       _operation.done();
       if (!mounted || epoch != store.serverEpoch) return;
       store.keepServer(<Listing>[made], epoch: epoch, detailed: true);
-      final card = await _saveOwnerCard(made);
+      final card = await _saveOwnerCard(made, epoch);
       if (!mounted) return;
-      if (card != null) await showAppNotice(context, icon: Lu.circleAlert, title: 'نُشر العرض، ولم تُحفظ بطاقة المالك', message: card);
+      if (card != null) await showAppNotice(context, icon: Lu.circleAlert, title: card.$1, message: card.$2);
       if (mounted) unawaited(Nav.replace(context, '/account/listings/${made.id}/review'));
     } on ApiError catch (e) {
       if (mounted) {
@@ -321,11 +321,16 @@ class _ListingFormState extends State<ListingForm> {
           error = e.forUser;
         });
       }
+    } on AccountChanged {
+      // signed out, or another account, midway: nothing more went out; what the one before uploaded is his
+      _uploaded.clear();
+      _operation.done();
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  /// The owner's card of [listing], when he wrote one; why it was not saved, or null.
-  Future<String?> _saveOwnerCard(Listing listing) async {
+  /// The owner's card of [listing], when he wrote one: what was not saved and why (a title and a message), or null.
+  Future<(String, String)?> _saveOwnerCard(Listing listing, int epoch) async {
     final phone = normalizeSaudiMobile(ownerPhone);
     if (phone == null) return null;
     final card = <String, Object?>{
@@ -335,11 +340,13 @@ class _ListingFormState extends State<ListingForm> {
       'listing_title': listing.title,
     };
     try {
-      await ServerOwners.create(card, note: ownerNote.trim(), operation: _ownerOperation.forBody(card));
+      final note = await ServerOwners.create(card, note: ownerNote.trim(), operation: _ownerOperation.forBody(card), epoch: epoch);
       _ownerOperation.done();
-      return null;
+      return note == null ? null : ('نُشر العرض وحُفظت بطاقة المالك، ولم تُحفظ ملاحظته', note.forUser);
     } on ApiError catch (e) {
-      return e.forUser;
+      return ('نُشر العرض، ولم تُحفظ بطاقة المالك', e.forUser);
+    } on AccountChanged {
+      return null;
     }
   }
 

@@ -19,6 +19,7 @@ import 'package:zon/core/services/photo_store.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/server/server_pages.dart';
+import 'package:zon/data/store.dart';
 
 /// The wording of a listing waiting for its advertiser (GET /listings/{id}/review).
 class WordingReview {
@@ -61,8 +62,9 @@ abstract final class ServerMyListings {
 
   /// Uploads each photo of [photos] that is still on this phone, and gives every photo's server id in order:
   /// the ones already there keep theirs ([known]: a photo → its id, and each one uploaded is added to it, so a
-  /// second try does not upload it again). A photo that is neither (a sample's) is left out.
-  static Future<List<int>> upload(List<String> photos, {required Map<String, int> known}) async {
+  /// second try does not upload it again). A photo that is neither (a sample's) is left out. [epoch] is the
+  /// account the sequence began under: when it changes none of the rest is uploaded ([AccountChanged]).
+  static Future<List<int>> upload(List<String> photos, {required Map<String, int> known, required int epoch}) async {
     final ids = <int>[];
     for (final photo in photos) {
       final id = known[photo];
@@ -72,7 +74,10 @@ abstract final class ServerMyListings {
       }
       final file = PhotoStore.isRef(photo) ? PhotoStore.fileOf(photo) : null;
       if (file == null || !file.existsSync()) continue;
-      final r = await Api.client!.upload('media', field: 'photo', bytes: await file.readAsBytes(), filename: file.uri.pathSegments.last);
+      final bytes = await file.readAsBytes();
+      store.stillAccount(epoch);
+      final r = await Api.client!.upload('media', field: 'photo', bytes: bytes, filename: file.uri.pathSegments.last);
+      store.stillAccount(epoch); // its id is the account's that uploaded it, not the next one's
       final uploaded = r.map['id'];
       if (uploaded is int) {
         known[photo] = uploaded;
@@ -83,14 +88,16 @@ abstract final class ServerMyListings {
   }
 
   /// A new listing from [l] (a broker's, with his [licence]). [operation] is the same on every try of one publish.
-  static Future<Listing> create(Listing l, {required List<int> mediaIds, required String licence, required String operation}) async {
+  static Future<Listing> create(Listing l, {required List<int> mediaIds, required String licence, required String operation, required int epoch}) async {
+    store.stillAccount(epoch);
     final r = await Api.client!.post('listings', <String, Object?>{...form(l), ...photos(mediaIds), 'licence_number': licence}, operation);
     return ServerListings.fromListing(r.map);
   }
 
-  static Future<Listing> update(String appId, Listing l, {required List<int> mediaIds}) async => ServerListings.fromListing(
-    (await Api.client!.patch('listings/${ServerListings.rawId(appId)}', <String, Object?>{...form(l), ...photos(mediaIds)})).map,
-  );
+  static Future<Listing> update(String appId, Listing l, {required List<int> mediaIds, required int epoch}) async {
+    store.stillAccount(epoch);
+    return ServerListings.fromListing((await Api.client!.patch('listings/${ServerListings.rawId(appId)}', <String, Object?>{...form(l), ...photos(mediaIds)})).map);
+  }
 
   static Future<WordingReview> review(String appId) async {
     final j = (await Api.client!.get('listings/${ServerListings.rawId(appId)}/review')).map;

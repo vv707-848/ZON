@@ -41,21 +41,21 @@ class CleanListingText implements ShouldQueue
             return;                                                   // deleted, or already decided meanwhile
         }
 
-        $specs = array_map(fn ($v) => $v instanceof \BackedEnum ? $v->value : $v,
-            array_filter($listing->only(ListingRequest::SPEC_FIELDS), fn ($v) => $v !== null));
-        $result = $ai->call(AiAgent::CleanListing, [
-            'type' => $listing->property_type->value,
-            'city' => $listing->city,
-            'neighborhood' => $listing->neighborhood,
-            'text' => $listing->desc_raw,
-        ] + ($specs === [] ? [] : ['fields' => $specs]),    // an empty PHP array goes out as a JSON list; the agents expect an object
+        $sent = self::asked($listing);
+        $result = $ai->call(AiAgent::CleanListing, $sent,
             check: function (array $output): ?array {
                 $text = trim((string) ($output['desc_clean'] ?? ''));
 
                 return $text === '' ? null : ['desc_clean' => $text, 'features' => array_values(array_filter((array) ($output['features'] ?? []), 'is_string'))];
             }, customer: $listing->customer, cache: false);
 
-        DB::transaction(function () use ($listing, $result, $publish, $status, $index) {
+        DB::transaction(function () use ($sent, $result, $publish, $status, $index) {
+            // the listing again, held: an edit while the AI answered makes this answer another text's — its own
+            // wording (sent by that edit) answers it
+            $listing = Listing::query()->with('customer')->lockForUpdate()->find($this->listingId);
+            if ($listing === null || $listing->text_review !== TextReview::Pending || self::asked($listing) !== $sent) {
+                return;
+            }
             $suggested = $result->output['desc_clean'] ?? null;
             $same = $suggested !== null && ArabicText::normalize($suggested) === ArabicText::normalize($listing->desc_raw);
 
@@ -76,5 +76,23 @@ class CleanListingText implements ShouldQueue
             }
             $listing->customer->notify(Notices::wordingReady($listing));
         });
+    }
+
+    /**
+     * What the AI is asked about [listing]: its text, type, place and specs.
+     *
+     * @return array<string, mixed>
+     */
+    private static function asked(Listing $listing): array
+    {
+        $specs = array_map(fn ($v) => $v instanceof \BackedEnum ? $v->value : $v,
+            array_filter($listing->only(ListingRequest::SPEC_FIELDS), fn ($v) => $v !== null));
+
+        return [
+            'type' => $listing->property_type->value,
+            'city' => $listing->city,
+            'neighborhood' => $listing->neighborhood,
+            'text' => $listing->desc_raw,
+        ] + ($specs === [] ? [] : ['fields' => $specs]);    // an empty PHP array goes out as a JSON list; the agents expect an object
     }
 }

@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/services/photo_store.dart';
+import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/server/server_my_listings.dart';
 import 'package:zon/data/store.dart';
@@ -111,9 +112,9 @@ void main() {
     final known = <String, int>{'https://cdn.test/old.jpg': 7};
     final photos = <String>['https://cdn.test/old.jpg', '${PhotoStore.scheme}drafts/a.jpg', '/listings/villa-1.jpg'];
 
-    expect(await ServerMyListings.upload(photos, known: known), <int>[7, _one('media')['id']! as int], reason: 'a sample photo is not his to upload');
+    expect(await ServerMyListings.upload(photos, known: known, epoch: store.serverEpoch), <int>[7, _one('media')['id']! as int], reason: 'a sample photo is not his to upload');
     expect(server.sent('POST', 'media').single.headers['Content-Type'], startsWith('multipart/form-data'));
-    await ServerMyListings.upload(photos, known: known);
+    await ServerMyListings.upload(photos, known: known, epoch: store.serverEpoch);
     expect(server.sent('POST', 'media'), hasLength(1), reason: 'tried again: not uploaded again');
   });
 
@@ -370,5 +371,63 @@ void main() {
     await pumpApp(tester, '/account/listings/L16');
     await _settle(tester);
     expect(find.text('لا يمكنك تعديل هذا العرض'), findsOneWidget);
+  });
+  group('another account midway', () {
+    Future<void> switchTo(FakeServer server) async {
+      await ServerAuth.signOut();
+      await serverSignIn(server, account: me(id: 52, name: 'سارة القحطاني'), token: '8|token-b');
+    }
+
+    test('the photos begun under one account are not uploaded, nor the listing created, under the next', () async {
+      await freshDevice();
+      final server = serverDevice();
+      final dir = Directory.systemTemp.createTempSync('zon-account-photos');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      await PhotoStore.init(dir);
+      for (final name in <String>['a.jpg', 'b.jpg']) {
+        File('${dir.path}/photos/drafts/$name').writeAsBytesSync(<int>[0xFF, 0xD8, 0xFF, 0xD9]);
+      }
+      server.on('POST', 'media', 201, recorded('media'));
+      await serverSignIn(server, account: me(id: 41), token: '7|token-a');
+      final late = server.holdFor('7|token-a', 'POST', 'media');
+      final known = <String, int>{};
+      final epoch = store.serverEpoch;
+
+      Object? failed;
+      final upload = ServerMyListings.upload(<String>['${PhotoStore.scheme}drafts/a.jpg', '${PhotoStore.scheme}drafts/b.jpg'], known: known, epoch: epoch)
+          .then<void>((_) {}, onError: (Object e) => failed = e);
+      while (server.sent('POST', 'media').isEmpty) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      await switchTo(server);
+      late.complete();
+      await upload;
+
+      expect(failed, isA<AccountChanged>());
+      expect(server.sent('POST', 'media').map((r) => r.headers['Authorization']), <String>['Bearer 7|token-a'], reason: 'the second photo is not sent as B');
+      expect(known, isEmpty, reason: "A's photo is not offered to B's next try");
+      await expectLater(
+        ServerMyListings.create(ServerListings.fromListing(_one('listing')), mediaIds: const <int>[], licence: '7200123456', operation: 'lst-x', epoch: epoch),
+        throwsA(isA<AccountChanged>()),
+      );
+      expect(server.sent('POST', 'listings'), isEmpty, reason: "A's listing is not created as B");
+    });
+
+    testWidgets("the wording of A's listing is not left on the screen when B signs in", (tester) async {
+      await freshDevice();
+      final server = serverDevice();
+      const private = 'مسودة خاصة بالحساب الأول لم تنشر بعد';
+      server.onFor('7|token-a', 'GET', 'listings/1/review', 200, ok(<String, Object?>{..._one('listing_review'), 'raw': private, 'suggested': 'صياغة خاصة للعرض قبل نشره'}));
+      await serverSignIn(server, account: me(id: 41), token: '7|token-a');
+      await pumpApp(tester, '/account/listings/L1/review');
+      await _settle(tester);
+      expect(find.text(private), findsOneWidget);
+
+      await switchTo(server);
+      await _settle(tester);
+      expect(find.text(private), findsNothing);
+      expect(find.text('صياغة خاصة للعرض قبل نشره'), findsNothing);
+      expect(server.sent('GET', 'listings/1/review').last.headers['Authorization'], 'Bearer 8|token-b', reason: 'asked again as B (who is refused)');
+    });
   });
 }

@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The second review: every unit model still waiting, in ONE call (clean_units). Ids the model invents are dropped;
@@ -44,10 +45,7 @@ class CleanUnitTexts implements ShouldBeUnique, ShouldQueue
 
         $result = $ai->call(AiAgent::CleanUnits, [
             'project_type' => $project->property_type->value,
-            'units' => $units->map(fn (ProjectUnit $u) => array_filter([
-                'id' => $u->id, 'model' => $u->model_name, 'type' => $u->property_type->value, 'area' => $u->area === null ? null : (float) $u->area,
-                'bedrooms' => $u->bedrooms, 'bathrooms' => $u->bathrooms, 'halls' => $u->halls, 'text' => $u->desc_raw,
-            ], fn ($v) => $v !== null))->values()->all(),
+            'units' => $units->map(fn (ProjectUnit $u) => self::asked($u))->values()->all(),
         ], check: function (array $out) use ($units): ?array {
             $texts = [];
             foreach ((array) ($out['units'] ?? []) as $row) {
@@ -61,14 +59,35 @@ class CleanUnitTexts implements ShouldBeUnique, ShouldQueue
         }, customer: $project->developer, cache: false);
 
         $texts = $result->output['texts'] ?? [];
-        foreach ($units as $unit) {
-            $unit->setRelation('project', $project);
-            if (isset($texts[$unit->id])) {
-                $unit->forceFill(['desc_suggested' => $texts[$unit->id], 'text_review' => TextReview::Ready])->save();
-            } else {
-                $unit->forceFill(['text_review' => TextReview::Auto])->save();
-                $index->unit($unit);
+        DB::transaction(function () use ($units, $texts, $project, $index) {
+            // each unit held again: one edited while the AI answered is left to its own wording
+            $fresh = ProjectUnit::query()->whereKey($units->pluck('id')->all())->lockForUpdate()->get()->keyBy('id');
+            foreach ($units as $asked) {
+                $unit = $fresh->get($asked->id);
+                if ($unit === null || $unit->text_review !== TextReview::Pending || self::asked($unit) !== self::asked($asked)) {
+                    continue;
+                }
+                $unit->setRelation('project', $project);
+                if (isset($texts[$unit->id])) {
+                    $unit->forceFill(['desc_suggested' => $texts[$unit->id], 'text_review' => TextReview::Ready])->save();
+                } else {
+                    $unit->forceFill(['text_review' => TextReview::Auto])->save();
+                    $index->unit($unit);
+                }
             }
-        }
+        });
+    }
+
+    /**
+     * What the AI is asked about [unit].
+     *
+     * @return array<string, mixed>
+     */
+    private static function asked(ProjectUnit $u): array
+    {
+        return array_filter([
+            'id' => $u->id, 'model' => $u->model_name, 'type' => $u->property_type->value, 'area' => $u->area === null ? null : (float) $u->area,
+            'bedrooms' => $u->bedrooms, 'bathrooms' => $u->bathrooms, 'halls' => $u->halls, 'text' => $u->desc_raw,
+        ], fn ($v) => $v !== null);
     }
 }
