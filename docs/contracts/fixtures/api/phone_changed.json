@@ -1,0 +1,36 @@
+{
+    "success": true,
+    "data": {
+        "id": 9,
+        "role": "broker",
+        "status": "active",
+        "name": "فريدة ينال الشهيل",
+        "username": "hwfzj3329",
+        "phone": "0558888888",
+        "city": "الرياض",
+        "fal": {
+            "number": "1172557334",
+            "status": "valid",
+            "expires_at": "2027-11-13"
+        },
+        "nafath_status": "verified",
+        "is_tester": false,
+        "notification_prefs": {
+            "messages": true,
+            "followed_posts": true,
+            "area_requests": true,
+            "listing_status": true,
+            "ratings": true,
+            "matching": true,
+            "marketing": false
+        },
+        "plan": {
+            "code": "free-broker",
+            "name": "الوسيط — بلا اشتراك",
+            "subscribed": false,
+            "ends_at": null
+        },
+        "has_preference": false,
+        "created_at": "2026-11-13T10:08:20+00:00"
+    }
+}
