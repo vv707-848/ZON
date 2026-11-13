@@ -68,6 +68,11 @@ final class CreateListing
             $listing->forceFill(['image_hash' => MediaLibrary::sync($listing, $customer, $mediaIds, $coverId)])->save();
 
             if ($case !== null) {
+                // held: two creates at once (two phones) take its licence once
+                $case = OwnerCase::query()->with('licence')->lockForUpdate()->findOrFail($case->id);
+                if ($case->stage !== OwnerCaseStage::Listing || $case->licence === null) {
+                    throw ApiException::of(ErrorCode::LicenceRequired);
+                }
                 $case->licence->forceFill(['listing_id' => $listing->id])->save();
                 $case->forceFill(['listing_id' => $listing->id, 'stage' => OwnerCaseStage::Active])->save();
             } else {

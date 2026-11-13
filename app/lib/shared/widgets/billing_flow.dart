@@ -135,13 +135,23 @@ Future<bool> showPayDialog(
   required int amount,
   required Future<bool> Function() pay,
   String? payLabel,
+  bool? simulated,
 }) async {
   final run = _PayRun();
   final ok = await showAppFrame<bool>(
     context,
     label: title,
     dismissible: false,
-    builder: (ctx) => _PayCard(icon: icon, title: title, message: message, amount: amount, pay: pay, payLabel: payLabel, run: run),
+    builder: (ctx) => _PayCard(
+      icon: icon,
+      title: title,
+      message: message,
+      amount: amount,
+      pay: pay,
+      payLabel: payLabel,
+      simulated: simulated ?? kSimulations,
+      run: run,
+    ),
   );
   if (ok != null) return ok;
   // closed without an answer while the payment was on its way: wait for it
@@ -162,6 +172,7 @@ class _PayCard extends StatefulWidget {
     required this.amount,
     required this.pay,
     required this.run,
+    required this.simulated,
     this.payLabel,
   });
 
@@ -172,6 +183,10 @@ class _PayCard extends StatefulWidget {
   final Future<bool> Function() pay;
   final _PayRun run;
   final String? payLabel;
+
+  /// The payment is a simulation (this build's, or a server's): said plainly. Otherwise it is not available —
+  /// the provider's sheet is not in this build yet.
+  final bool simulated;
 
   @override
   State<_PayCard> createState() => _PayCardState();
@@ -211,7 +226,7 @@ class _PayCardState extends State<_PayCard> {
 
   @override
   Widget build(BuildContext context) {
-    const unavailable = !kSimulations;
+    final unavailable = !widget.simulated;
     // the system back button / gesture cannot close it while paying (F10)
     return PopScope(canPop: !busy, child: _card(unavailable));
   }

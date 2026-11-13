@@ -1,0 +1,14 @@
+{
+    "success": true,
+    "data": {
+        "payment_id": "01m7a2c45d3bg5k23h7w01x25s",
+        "purpose": "ad_licence",
+        "status": "failed",
+        "amount": "50.00",
+        "vat": "0.00",
+        "currency": "SAR",
+        "provider": "fake",
+        "failure_reason": "declined (simulation)",
+        "paid_at": null
+    }
+}

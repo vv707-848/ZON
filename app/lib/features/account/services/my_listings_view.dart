@@ -92,7 +92,9 @@ class _MyListingsViewState extends State<MyListingsView> {
       context,
       icon: Lu.circleAlert,
       title: 'تأكيد البيع',
-      message: 'يُسجَّل العرض مباعاً ويخرج من البحث نهائياً، ولا يُعاد نشره.',
+      message:
+          'يُسجَّل العرض مباعاً ويخرج من البحث نهائياً، ولا يُعاد نشره.'
+          '${widget.role == 'owner' ? ' ويُستحق سعي زون المتفق عليه في عقد الوساطة، محسوباً على سعر العرض.' : ''}',
       confirmLabel: 'تم البيع',
     );
     if (ok && mounted) await _change(l, ServerMyListings.sold, 'لم يُسجَّل البيع');
