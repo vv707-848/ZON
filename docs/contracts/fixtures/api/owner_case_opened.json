@@ -1,0 +1,16 @@
+{
+    "success": true,
+    "data": {
+        "id": 1,
+        "deed_number": "310112233445",
+        "stage": "contract",
+        "contract_status": "submitted",
+        "commission_percent": "0.50",
+        "licence": null,
+        "listing_id": null,
+        "next": {
+            "action": "approve_contract",
+            "hint": "وافق على عقد الوساطة من تطبيق نفاذ"
+        }
+    }
+}

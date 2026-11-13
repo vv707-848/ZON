@@ -2,7 +2,8 @@
 //
 //   POST   /listings/licence-check     «تحقق»: the broker's licence asked of REGA before the form (nothing saved)
 //   POST   /media                      a photo, before the listing (its id goes in `media_ids`)
-//   POST   /listings                   a new listing: the licence checked with REGA, then «قيد الصياغة»
+//   POST   /listings                   a new listing: a broker's licence checked with REGA (an owner's is his
+//                                      case's, `owner_case_id`), then «قيد الصياغة»
 //   GET    /listings/{id}/review       the AI's wording beside his text, once it is ready
 //   POST   /listings/{id}/review       his decision: `approve` · `edit` (his text) · `reject` (his own) ← published
 //   GET    /listings/mine              «عروضي», every state
@@ -87,16 +88,19 @@ abstract final class ServerMyListings {
     return ids;
   }
 
-  /// A new listing from [l] (a broker's, with his [licence]). [operation] is the same on every try of one publish.
+  /// A new listing from [l]: a broker's with his [licence], an owner's on the licence of his [ownerCase].
+  /// [operation] is the same on every try of one publish.
   static Future<Listing> create(
     Listing l, {
     required List<int> mediaIds,
-    required String licence,
+    String? licence,
+    int? ownerCase,
     required String operation,
     required int epoch,
   }) async {
     store.stillAccount(epoch);
-    final r = await Api.client!.post('listings', <String, Object?>{...form(l), ...photos(mediaIds), 'licence_number': licence}, operation);
+    final body = <String, Object?>{...form(l), ...photos(mediaIds), 'licence_number': ?licence, 'owner_case_id': ?ownerCase};
+    final r = await Api.client!.post('listings', body, operation);
     return ServerListings.fromListing(r.map);
   }
 

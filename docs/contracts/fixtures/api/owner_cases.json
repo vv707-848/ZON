@@ -1,0 +1,23 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": 1,
+            "deed_number": "310112233445",
+            "stage": "fee",
+            "contract_status": "approved",
+            "commission_percent": "0.50",
+            "licence": null,
+            "listing_id": null,
+            "next": {
+                "action": "pay_fee",
+                "purpose": "ad_licence",
+                "price": "50.00",
+                "target": {
+                    "type": "owner_case",
+                    "id": 1
+                }
+            }
+        }
+    ]
+}

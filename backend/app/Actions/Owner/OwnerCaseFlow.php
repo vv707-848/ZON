@@ -32,7 +32,9 @@ final class OwnerCaseFlow
     public function open(Customer $owner, string $deedNumber): OwnerCase
     {
         PublishingGate::assert($owner, CustomerRole::Owner);
-        if ($owner->ownerCases()->where('deed_number', $deedNumber)->whereNotIn('stage', [OwnerCaseStage::Closed])->exists()) {
+        // one case per deed on its way; a contract REGA refused (or let expire) is filed again
+        if ($owner->ownerCases()->where('deed_number', $deedNumber)->whereNotIn('stage', [OwnerCaseStage::Closed])
+            ->whereNotIn('contract_status', [ContractStatus::Rejected, ContractStatus::Expired])->exists()) {
             throw ApiException::of(ErrorCode::AlreadyActive);
         }
         $reference = $this->rega->submitBrokerageContract($deedNumber, $owner->phone);

@@ -20,7 +20,10 @@
 // * «متابعة» uploads the photos, then publishes the listing once however often it is sent (Idempotency-Key),
 //   and saves the owner's card (POST /property-owners) when he wrote one; the wording is then the server's AI's,
 //   reviewed on its own page (listing_review_screen.dart) — this phone's simulated wording is not shown.
-// An owner's listing, with its contract and its fee, comes with the plans' slice.
+// With a server, an owner's path is the server's too (ServerOwnerCases): his case still on its way is opened where
+// it stands; the deed files the contract with REGA; «تحديث حالة العقد» asks REGA again; the licence fee is paid
+// in the app (ServerPayments — only a server's simulation for now, said so); his listing is then published on his
+// case's licence, its wording reviewed on its own page like a broker's.
 
 import 'dart:async';
 
@@ -37,7 +40,9 @@ import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/billing/owner_cases.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/server/server_my_listings.dart';
+import 'package:zon/data/server/server_owner_cases.dart';
 import 'package:zon/data/server/server_owners.dart';
+import 'package:zon/data/server/server_payments.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/add/add_helpers.dart';
 import 'package:zon/features/add/widgets/add_kit.dart';
@@ -76,10 +81,20 @@ class _ListingFormState extends State<ListingForm> {
   OwnerCase? ownerCase;
   String error = '';
 
+  /// With a server: his case as the server tells it, and its loading.
+  ServerOwnerCase? _case;
+  bool _caseLoading = false;
+  String? _caseError;
+  final OperationKey _caseOperation = OperationKey('case');
+
   @override
   void initState() {
     super.initState();
-    if (role == 'owner') {
+    if (role == 'owner' && Api.on) {
+      step = _Step.intro;
+      _caseLoading = true;
+      unawaited(_loadCase(first: true));
+    } else if (role == 'owner') {
       // Resume a property that is still on its way.
       ownerCase = ownerCases.current();
       final c = ownerCase;
@@ -132,8 +147,8 @@ class _ListingFormState extends State<ListingForm> {
   String aiText = '';
   bool aiReady = false;
 
-  /// With a server: a broker's listing goes to it (see the file comment).
-  bool get _server => Api.on && isBroker;
+  /// With a server: a broker's and an owner's listing go to it (see the file comment).
+  bool get _server => Api.on && (isBroker || role == 'owner');
   bool _busy = false;
   final OperationKey _operation = OperationKey('lst');
   final OperationKey _ownerOperation = OperationKey('own');
@@ -236,6 +251,10 @@ class _ListingFormState extends State<ListingForm> {
   /// The owner sent the deed and identity: the brokerage contract is
   /// submitted and waits for approval (nothing is active yet).
   void submitContract() {
+    if (_server) {
+      unawaited(_openCase());
+      return;
+    }
     final problem =
         (deedNo.trim().isEmpty ? 'اكتب رقم الصك أو رقم العقار' : null) ??
         (normalizeSaudiMobile(ownerPhone) == null ? 'رقم جوال المالك غير صحيح — مثال: 05XXXXXXXX' : null) ??
@@ -251,6 +270,152 @@ class _ListingFormState extends State<ListingForm> {
       step = _Step.contract;
       error = '';
     });
+  }
+
+  // ------------------------------------------------------------- owner's case (server)
+
+  /// His case still on its way, opened where it stands (none: the path from its start).
+  Future<void> _loadCase({bool first = false}) async {
+    final epoch = store.serverEpoch;
+    if (!first) {
+      setState(() {
+        _caseLoading = true;
+        _caseError = null;
+      });
+    }
+    try {
+      final c = await ServerOwnerCases.current();
+      if (!mounted || epoch != store.serverEpoch) return;
+      setState(() {
+        _caseLoading = false;
+        if (c != null) _showCase(c);
+      });
+    } on ApiError catch (e) {
+      if (mounted && epoch == store.serverEpoch) {
+        setState(() {
+          _caseLoading = false;
+          _caseError = e.forUser;
+        });
+      }
+    }
+  }
+
+  /// [c] on screen: its step, and its licence once issued.
+  void _showCase(ServerOwnerCase c) {
+    _case = c;
+    ownerCase = c.toCase();
+    if (c.licenceNumber != null) lic = c.licenceNumber!;
+    if (c.stage != 'listing') {
+      step = _Step.contract;
+    } else if (step != _Step.form && step != _Step.polish) {
+      step = _Step.contract; // «صدر رقم الترخيص» first, then his details
+    }
+    error = '';
+  }
+
+  /// The deed sent: his contract filed with REGA (once however often sent).
+  Future<void> _openCase() async {
+    final deed = digitsOnly(deedNo);
+    if (deed.length < 6) {
+      setState(() => error = 'اكتب رقم الصك أو رقم العقار (6 أرقام فأكثر)');
+      return;
+    }
+    final epoch = store.serverEpoch;
+    setState(() {
+      _busy = true;
+      error = '';
+    });
+    try {
+      final c = await ServerOwnerCases.open(deed, operation: _caseOperation.forBody(<String, Object?>{'deed_number': deed}), epoch: epoch);
+      _caseOperation.done();
+      if (!mounted || epoch != store.serverEpoch) return;
+      setState(() {
+        _busy = false;
+        _showCase(c);
+      });
+    } on ApiError catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          error = e.forUser;
+        });
+      }
+    } on AccountChanged {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// «تحديث حالة العقد»: the server asks REGA again.
+  Future<void> _refreshCase({bool quiet = false}) async {
+    final c = _case;
+    if (c == null) return;
+    final epoch = store.serverEpoch;
+    setState(() {
+      _busy = true;
+      error = '';
+    });
+    try {
+      final now = await ServerOwnerCases.get(c.id);
+      if (!mounted || epoch != store.serverEpoch) return;
+      setState(() {
+        _busy = false;
+        _showCase(now);
+        if (!quiet && now.stage == 'contract' && !now.refused) error = 'لم تصل موافقتك على العقد بعد. وافق عليه عبر نفاذ ثم حدّث الحالة.';
+      });
+    } on ApiError catch (e) {
+      if (mounted && epoch == store.serverEpoch) {
+        setState(() {
+          _busy = false;
+          error = e.forUser;
+        });
+      }
+    }
+  }
+
+  /// The licence fee of [c], paid in the app: the server prices it and asks the provider for the answer.
+  Future<void> _payFeeOnServer(ServerOwnerCase c) async {
+    final epoch = store.serverEpoch;
+    setState(() {
+      _busy = true;
+      error = '';
+    });
+    final Checkout checkout;
+    try {
+      checkout = await ServerPayments.start('ad_licence', target: <String, Object?>{'type': 'owner_case', 'id': c.id});
+    } on ApiError catch (e) {
+      if (mounted && epoch == store.serverEpoch) {
+        setState(() {
+          _busy = false;
+          error = e.forUser;
+        });
+      }
+      return;
+    }
+    if (!mounted || epoch != store.serverEpoch) return;
+    setState(() => _busy = false);
+    final paid = await showPayDialog(
+      context,
+      icon: Lu.fileCheck,
+      title: 'رسوم الترخيص الإعلاني — ${_riyals(checkout.amount)}',
+      message: 'رسوم الهيئة العامة للعقار لإصدار رقم ترخيص هذا الإعلان. ليست اشتراكًا.',
+      amount: (double.tryParse(checkout.amount) ?? 0).round(),
+      simulated: checkout.payable,
+      pay: () async {
+        if (epoch != store.serverEpoch) return false;
+        try {
+          return await ServerPayments.confirm(checkout, checkout.reference!);
+        } on ApiError {
+          return false;
+        }
+      },
+    );
+    if (paid && mounted && epoch == store.serverEpoch) await _refreshCase(quiet: true);
+  }
+
+  /// "50.00" as the app writes riyals.
+  static String _riyals(String amount) {
+    final n = double.tryParse(amount);
+    return n != null && n == n.roundToDouble() ? riyals(n.toInt()) : '$amount ريال';
   }
 
   /// Required: title, price and description; the price is a number and
@@ -305,8 +470,16 @@ class _ListingFormState extends State<ListingForm> {
     try {
       final ids = await ServerMyListings.upload(photos, known: _uploaded, epoch: epoch);
       final draft = _draft(desc);
-      final operation = _operation.forBody(<String, Object?>{...ServerMyListings.form(draft), 'media_ids': ids, 'licence': lic});
-      final made = await ServerMyListings.create(draft, mediaIds: ids, licence: lic, operation: operation, epoch: epoch);
+      final ownerCase = role == 'owner' ? _case?.id : null;
+      final operation = _operation.forBody(<String, Object?>{...ServerMyListings.form(draft), 'media_ids': ids, 'licence': lic, 'case': ownerCase});
+      final made = await ServerMyListings.create(
+        draft,
+        mediaIds: ids,
+        licence: ownerCase == null ? lic : null,
+        ownerCase: ownerCase,
+        operation: operation,
+        epoch: epoch,
+      );
       _operation.done();
       if (!mounted || epoch != store.serverEpoch) return;
       store.keepServer(<Listing>[made], epoch: epoch, detailed: true);
@@ -372,7 +545,7 @@ class _ListingFormState extends State<ListingForm> {
   @override
   Widget build(BuildContext context) => switch (step) {
     _Step.licence => _licenceStep(context),
-    _Step.intro => OwnerIntro(onContinue: () => go(_Step.deed), onClose: widget.onBack),
+    _Step.intro => _introStep(),
     _Step.deed => _deedStep(),
     _Step.contract => _contractStep(),
     _Step.owner => _ownerStep(),
@@ -467,41 +640,46 @@ class _ListingFormState extends State<ListingForm> {
           ),
           ProjCard(
             child: formGrid(<GCell>[
-              GCell(
-                labeled(
-                  'نوع الصك',
-                  projSelect(
-                    value: deedKind,
-                    options: optsOf(const <String>['إلكتروني', 'ورقي', 'سجل عيني']),
-                    onChanged: (v) => setState(() => deedKind = v),
+              // with a server the contract is filed under his own account (its mobile): the deed alone
+              if (_server)
+                GCell(labeled('رقم الصك أو رقم العقار', input(deedNo, (v) => setState(() => deedNo = v), keyboard: TextInputType.number)), span: true)
+              else ...<GCell>[
+                GCell(
+                  labeled(
+                    'نوع الصك',
+                    projSelect(
+                      value: deedKind,
+                      options: optsOf(const <String>['إلكتروني', 'ورقي', 'سجل عيني']),
+                      onChanged: (v) => setState(() => deedKind = v),
+                    ),
                   ),
                 ),
-              ),
-              GCell(
-                labeled(
-                  'نوع المالك',
-                  projSelect(
-                    value: ownerKind,
-                    options: optsOf(const <String>['فرد', 'شركة', 'ورثة']),
-                    onChanged: (v) => setState(() => ownerKind = v),
+                GCell(
+                  labeled(
+                    'نوع المالك',
+                    projSelect(
+                      value: ownerKind,
+                      options: optsOf(const <String>['فرد', 'شركة', 'ورثة']),
+                      onChanged: (v) => setState(() => ownerKind = v),
+                    ),
                   ),
                 ),
-              ),
-              GCell(labeled('رقم الصك أو رقم العقار أو السجل العيني', input(deedNo, (v) => setState(() => deedNo = v))), span: true),
-              GCell(labeled('رقم جوال المالك', input(ownerPhone, (v) => setState(() => ownerPhone = v), keyboard: TextInputType.phone))),
-              GCell(labeled('رقم هوية المالك', input(ownerNid, (v) => setState(() => ownerNid = v), keyboard: TextInputType.number))),
-              GCell(
-                labeled(
-                  'تاريخ ميلاد المالك',
-                  DateField(value: ownerDob, onChanged: (v) => setState(() => ownerDob = v), decoration: kProjBox, style: kProjText, height: 48),
+                GCell(labeled('رقم الصك أو رقم العقار أو السجل العيني', input(deedNo, (v) => setState(() => deedNo = v))), span: true),
+                GCell(labeled('رقم جوال المالك', input(ownerPhone, (v) => setState(() => ownerPhone = v), keyboard: TextInputType.phone))),
+                GCell(labeled('رقم هوية المالك', input(ownerNid, (v) => setState(() => ownerNid = v), keyboard: TextInputType.number))),
+                GCell(
+                  labeled(
+                    'تاريخ ميلاد المالك',
+                    DateField(value: ownerDob, onChanged: (v) => setState(() => ownerDob = v), decoration: kProjBox, style: kProjText, height: 48),
+                  ),
+                  span: true,
                 ),
-                span: true,
-              ),
+              ],
             ], rowGap: 14),
           ),
           const SizedBox(height: 16),
           if (error.isNotEmpty) ...<Widget>[FormError(error), const SizedBox(height: 12)],
-          AppButton(label: 'إرسال عقد الوساطة', size: ButtonSize.large, onTap: submitContract),
+          AppButton(label: _busy ? 'جارٍ الإرسال…' : 'إرسال عقد الوساطة', size: ButtonSize.large, onTap: _busy ? null : submitContract),
         ],
       ),
     );
@@ -526,8 +704,27 @@ class _ListingFormState extends State<ListingForm> {
     });
   }
 
+  /// The owner path's start; with a server, once his case still on its way (if any) is known.
+  Widget _introStep() {
+    if (_caseLoading) return const Padding(padding: EdgeInsets.only(top: 80), child: LoadingBox());
+    final failed = _caseError;
+    if (failed != null) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 80, 16, 0),
+        child: EmptyBox(
+          title: 'تعذّر التحميل',
+          text: failed,
+          textStyle: emptyTextStyle(),
+          action: 'أعد المحاولة',
+          onAction: () => unawaited(_loadCase()),
+        ),
+      );
+    }
+    return OwnerIntro(onContinue: () => go(_Step.deed), onClose: widget.onBack);
+  }
+
   Widget _contractStep() {
-    final c = ownerCase == null ? null : ownerCases.byId(ownerCase!.id);
+    final c = _server ? ownerCase : (ownerCase == null ? null : ownerCases.byId(ownerCase!.id));
     if (c == null) return OwnerIntro(onContinue: () => go(_Step.deed), onClose: widget.onBack);
     Widget row(String title, String state, bool done) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
@@ -550,46 +747,93 @@ class _ListingFormState extends State<ListingForm> {
     );
     final String lead;
     final List<Widget> actions;
-    switch (c.stage) {
-      case 'contract':
-        lead =
-            'أرسلنا عقد الوساطة. وافق عليه في منصة الهيئة العامة للعقار عبر نفاذ، ثم حدّث الحالة. '
-            'السعي ${Pricing.ownerCommissionPercent}٪ بعد بيع هذا العقار — ثابت في العقد.';
-        actions = <Widget>[
-          AppButton(
-            label: 'تحديث حالة العقد',
-            tone: ButtonTone.tonal,
-            size: ButtonSize.large,
-            onTap: () => showAppNotice(
-              context,
-              icon: Lu.clock,
-              title: 'لم تصل الموافقة بعد',
-              message: 'تظهر الموافقة هنا بعد تأكيدها من الهيئة. الربط مع منصة الهيئة ونفاذ ينتظر الخادم.',
-            ),
-          ),
-          if (kSimulations) ...<Widget>[
-            const SizedBox(height: 10),
+    final serverCase = _server ? _case : null;
+    final percent = '${c.commissionPercent}'.replaceFirst(RegExp(r'\.0$'), '');
+    if (serverCase != null) {
+      switch (c.stage) {
+        case 'contract' when serverCase.refused:
+          lead = 'لم يُعتمد عقد الوساطة لدى الهيئة. راجع رقم الصك ثم أرسل العقد من جديد.';
+          actions = <Widget>[AppButton(label: 'إرسال العقد من جديد', size: ButtonSize.large, onTap: _busy ? null : () => go(_Step.deed))];
+        case 'contract':
+          lead =
+              'أرسلنا عقد الوساطة إلى الهيئة العامة للعقار. وافق عليه عبر نفاذ، ثم حدّث الحالة. '
+              'السعي $percent٪ بعد بيع هذا العقار — ثابت في العقد.';
+          actions = <Widget>[
             AppButton(
-              label: 'محاكاة موافقة العقد (نسخة تجريبية)',
-              tone: ButtonTone.secondary,
+              label: _busy ? 'جارٍ التحديث…' : 'تحديث حالة العقد',
+              tone: ButtonTone.tonal,
               size: ButtonSize.large,
-              onTap: () => setState(() => ownerCase = ownerCases.approveContract(c.id, reference: 'SIM-${DateTime.now().millisecondsSinceEpoch}')),
+              onTap: _busy ? null : () => unawaited(_refreshCase()),
             ),
-            const SizedBox(height: 6),
-            Tx(
-              'للتجربة فقط — في الإصدار الفعلي تصل الموافقة من الهيئة.',
-              style: ts(12, lh: 18, c: AppColors.muted),
-              align: TextAlign.center,
+          ];
+        case 'fee':
+          final price = serverCase.feePrice;
+          lead = 'العقد موثّق. ادفع رسوم الترخيص الإعلاني ليصدر رقم ترخيص الإعلان.';
+          actions = <Widget>[
+            AppButton(
+              label: price == null ? 'ادفع رسوم الترخيص' : 'ادفع رسوم الترخيص — ${_riyals(price)}',
+              size: ButtonSize.large,
+              onTap: _busy ? null : () => unawaited(_payFeeOnServer(serverCase)),
             ),
-          ],
-        ];
-      case 'fee':
-      case 'licence':
-        lead = 'العقد موثّق. ادفع رسوم الترخيص الإعلاني ليصدر رقم ترخيص الإعلان.';
-        actions = <Widget>[AppButton(label: 'ادفع رسوم الترخيص — ${riyals(Pricing.adLicenceFee)}', size: ButtonSize.large, onTap: () => _payFee(c))];
-      default:
-        lead = 'صدر رقم الترخيص. أكمل تفاصيل العرض وانشره — تتفعّل الباقة بعد النشر.';
-        actions = <Widget>[AppButton(label: 'متابعة إلى تفاصيل العرض', size: ButtonSize.large, onTap: () => go(_Step.form))];
+          ];
+        case 'licence':
+          lead = 'دُفعت الرسوم. ينتظر رقم الترخيص من الهيئة، ويظهر هنا حين يصدر.';
+          actions = <Widget>[
+            AppButton(
+              label: _busy ? 'جارٍ التحديث…' : 'تحديث الحالة',
+              tone: ButtonTone.tonal,
+              size: ButtonSize.large,
+              onTap: _busy ? null : () => unawaited(_refreshCase(quiet: true)),
+            ),
+          ];
+        default:
+          lead = 'صدر رقم الترخيص. أكمل تفاصيل العرض وانشره — تتفعّل الباقة بعد النشر.';
+          actions = <Widget>[AppButton(label: 'متابعة إلى تفاصيل العرض', size: ButtonSize.large, onTap: () => go(_Step.form))];
+      }
+    } else {
+      switch (c.stage) {
+        case 'contract':
+          lead =
+              'أرسلنا عقد الوساطة. وافق عليه في منصة الهيئة العامة للعقار عبر نفاذ، ثم حدّث الحالة. '
+              'السعي ${Pricing.ownerCommissionPercent}٪ بعد بيع هذا العقار — ثابت في العقد.';
+          actions = <Widget>[
+            AppButton(
+              label: 'تحديث حالة العقد',
+              tone: ButtonTone.tonal,
+              size: ButtonSize.large,
+              onTap: () => showAppNotice(
+                context,
+                icon: Lu.clock,
+                title: 'لم تصل الموافقة بعد',
+                message: 'تظهر الموافقة هنا بعد تأكيدها من الهيئة. الربط مع منصة الهيئة ونفاذ ينتظر الخادم.',
+              ),
+            ),
+            if (kSimulations) ...<Widget>[
+              const SizedBox(height: 10),
+              AppButton(
+                label: 'محاكاة موافقة العقد (نسخة تجريبية)',
+                tone: ButtonTone.secondary,
+                size: ButtonSize.large,
+                onTap: () => setState(() => ownerCase = ownerCases.approveContract(c.id, reference: 'SIM-${DateTime.now().millisecondsSinceEpoch}')),
+              ),
+              const SizedBox(height: 6),
+              Tx(
+                'للتجربة فقط — في الإصدار الفعلي تصل الموافقة من الهيئة.',
+                style: ts(12, lh: 18, c: AppColors.muted),
+                align: TextAlign.center,
+              ),
+            ],
+          ];
+        case 'fee':
+        case 'licence':
+          lead = 'العقد موثّق. ادفع رسوم الترخيص الإعلاني ليصدر رقم ترخيص الإعلان.';
+          actions = <Widget>[
+            AppButton(label: 'ادفع رسوم الترخيص — ${riyals(Pricing.adLicenceFee)}', size: ButtonSize.large, onTap: () => _payFee(c)),
+          ];
+        default:
+          lead = 'صدر رقم الترخيص. أكمل تفاصيل العرض وانشره — تتفعّل الباقة بعد النشر.';
+          actions = <Widget>[AppButton(label: 'متابعة إلى تفاصيل العرض', size: ButtonSize.large, onTap: () => go(_Step.form))];
+      }
     }
     return Container(
       color: kSheetIos,
@@ -608,7 +852,11 @@ class _ListingFormState extends State<ListingForm> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                row('عقد الوساطة', c.contractApproved ? 'موثّق' : 'بانتظار موافقتك', c.contractApproved),
+                row(
+                  'عقد الوساطة',
+                  c.contractApproved ? 'موثّق' : (serverCase?.refused ?? false ? 'لم يُعتمد' : 'بانتظار موافقتك'),
+                  c.contractApproved,
+                ),
                 row('رسوم الترخيص الإعلاني', c.feePaid ? 'مدفوعة' : 'لم تُدفع', c.feePaid),
                 row('رقم الترخيص', c.licenceNumber ?? '—', c.licenceNumber != null),
                 if (c.licenceSimulated && c.licenceNumber != null)
