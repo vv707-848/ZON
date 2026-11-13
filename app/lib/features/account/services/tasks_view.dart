@@ -232,13 +232,14 @@ class _TasksViewState extends State<TasksView> {
     if (Api.on) {
       return _send(t.id, (epoch) async {
         await ServerTasks.remove(t.id, epoch: epoch);
-        if (_current(epoch))
+        if (_current(epoch)) {
           setState(
             () => items = <Task>[
               for (final x in items)
                 if (x.id != t.id) x,
             ],
           );
+        }
       });
     }
     _persist(<Task>[

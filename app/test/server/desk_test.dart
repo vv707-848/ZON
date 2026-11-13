@@ -169,10 +169,7 @@ void main() {
 
     Future<FakeServer> book(WidgetTester tester, [void Function(FakeServer)? more]) => _open(tester, '/account/clients', (s) {
       s.on('GET', 'clients', 200, recorded('clients'));
-      s.on('GET', 'clients/$cid/notes', 200, <String, Object?>{
-        'success': true,
-        'data': <Object?>[_one('client_note_added')],
-      });
+      s.on('GET', 'clients/$cid/notes', 200, recorded('client_notes'));
       more?.call(s);
     });
 
@@ -198,9 +195,9 @@ void main() {
       await tapText(tester, 'عميل جديد');
       await _settle(tester);
       expect(find.text('إلى'), findsOneWidget, reason: 'only the budget has a range: the server keeps the least area and rooms');
-      final fields = find.byType(EditableText);
-      await tester.enterText(fields.at(0), 'سلمان العتيبي');
-      await tester.enterText(fields.at(1), '0557776665');
+      final fields = find.byType(EditableText); // 0 is the book's search
+      await tester.enterText(fields.at(1), 'سلمان العتيبي');
+      await tester.enterText(fields.at(2), '0557776665');
       await tester.pump();
       await tapText(tester, 'حفظ العميل');
       await _settle(tester);
@@ -231,13 +228,14 @@ void main() {
     testWidgets('his page: a note added and removed on the server — kept as written, not edited', (tester) async {
       final server = await book(tester, (s) {
         s.on('POST', 'clients/$cid/notes', 201, recorded('client_note_added'));
-        s.on('DELETE', 'clients/$cid/notes/${_one('client_note_added')['id']}', 200, recorded('client_note_removed'));
+        s.on('DELETE', 'clients/$cid/notes/${_rows('client_notes').first['id']}', 200, recorded('client_note_removed'));
       });
       await tapText(tester, client['name']! as String);
       await _settle(tester);
-      expect(find.text(_one('client_note_added')['body']! as String), findsOneWidget);
-      expect(find.text('قبول'), findsWidgets);
-      expect(_semantic('تعديل الملاحظة'), findsNothing);
+      final kept = _rows('client_notes').first;
+      expect(find.text(kept['body']! as String), findsOneWidget);
+      expect(find.text('قبول'), findsWidgets, reason: '«${kept['category']}» as the app names it');
+      expect(_semantic('تعديل الملاحظة'), findsNothing, reason: 'the server keeps a note as written');
 
       await tester.enterText(find.byType(EditableText).last, 'يريد زيارة يوم الخميس');
       await tester.pump();
@@ -246,10 +244,12 @@ void main() {
       final added = server.sent('POST', 'clients/$cid/notes').single;
       expect(FakeServer.body(added), <String, Object?>{'category': 'followup', 'body': 'يريد زيارة يوم الخميس'});
       expect(added.headers['Idempotency-Key'], isNotNull);
+      expect(find.text(_one('client_note_added')['body']! as String), findsOneWidget, reason: 'the note as the server kept it');
 
-      await tester.tap(_semantic('حذف الملاحظة').first);
+      await tester.tap(_semantic('حذف الملاحظة').last);
       await _settle(tester);
-      expect(server.sent('DELETE', 'clients/$cid/notes/${_one('client_note_added')['id']}'), hasLength(1));
+      expect(server.sent('DELETE', 'clients/$cid/notes/${kept['id']}'), hasLength(1));
+      expect(find.text(kept['body']! as String), findsNothing);
     });
 
     testWidgets('«تلخيص»: the server\'s model of his notes; without the plan, «فعّل»', (tester) async {
