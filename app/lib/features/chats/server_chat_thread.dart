@@ -4,9 +4,6 @@
 // * Its messages come from the server, the newest first page; «رسائل أقدم» brings the page before. While it is
 //   open it asks again every few seconds (live delivery and push come with their accounts), and what he was
 //   shown is marked read up to its last message.
-// * More came than one page while it was not asked (offline, in the background): the pages before the newest are
-//   asked until they meet what is shown, so none is skipped and then marked read unseen (R-08). Past 20 pages the
-//   thread starts again from the newest, with «رسائل أقدم» for the rest.
 // * A message is sent once however often tried; until the server takes it, it shows as «يُرسل…», and when it
 //   cannot, his text comes back to the bar with why.
 // * Before the first message: if the two already talk about the same subject, that conversation opens instead;
@@ -15,7 +12,6 @@
 // * Another account signed in under it: nothing of this one stays shown.
 
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -60,10 +56,6 @@ class _ServerChatThreadState extends State<ServerChatThread> {
   String? _sending;
   int _readUpTo = 0;
   Timer? _poll;
-  bool _fetching = false;
-
-  /// Pages asked at most to meet what is shown before starting again from the newest.
-  static const int _gapPages = 20;
   int _epoch = store.serverEpoch;
 
   int? get _id => widget.id;
@@ -131,38 +123,17 @@ class _ServerChatThreadState extends State<ServerChatThread> {
     }
   }
 
-  /// The newest page again: new messages join — with the pages between it and what is shown — and what he was
-  /// shown is read.
+  /// The newest page again: new messages join, and what he was shown is read.
   Future<void> _fetch(int epoch) async {
     final id = _id;
-    if (id == null || _fetching) return;
-    _fetching = true;
+    if (id == null) return;
     try {
       final page = await ServerChats.messages(id);
       if (!_current(epoch)) return;
-      final shown = _messages.isEmpty ? null : _messages.keys.reduce((a, b) => a > b ? a : b);
-      final fetched = <ServerMsg>[...page.messages];
-      var hasMore = page.hasMore;
-      var restart = false;
-      // the newest page does not reach what is shown: the pages before it, until they meet
-      int oldest() => fetched.map((m) => m.id).reduce(math.min);
-      for (var pages = 0; shown != null && hasMore && fetched.isNotEmpty && oldest() > shown; pages++) {
-        if (pages == _gapPages) {
-          restart = true;
-          break;
-        }
-        final older = await ServerChats.messages(id, before: oldest());
-        if (!_current(epoch)) return;
-        fetched.insertAll(0, older.messages);
-        hasMore = older.hasMore;
-      }
       setState(() {
         _loading = false;
-        if (_messages.isEmpty || restart) {
-          _messages.clear();
-          _hasMore = hasMore;
-        }
-        for (final m in fetched) {
+        if (_messages.isEmpty) _hasMore = page.hasMore;
+        for (final m in page.messages) {
           _messages[m.id] = m;
         }
       });
@@ -178,8 +149,6 @@ class _ServerChatThreadState extends State<ServerChatThread> {
           _error = e.forUser;
         });
       }
-    } finally {
-      _fetching = false;
     }
   }
 
