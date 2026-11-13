@@ -80,7 +80,10 @@ void main() {
 
     testWidgets('edited sends only what changed; removed after asking', (tester) async {
       final server = await _open(tester, '/account/tasks', (s) {
-        s.on('GET', 'tasks', 200, <String, Object?>{'success': true, 'data': <Object?>[_one('task_updated')]});
+        s.on('GET', 'tasks', 200, <String, Object?>{
+          'success': true,
+          'data': <Object?>[_one('task_updated')],
+        });
         s.on('PATCH', 'tasks/${_one('task_updated')['id']}', 200, recorded('task_updated'));
         s.on('DELETE', 'tasks/${_one('task_updated')['id']}', 200, recorded('task_removed'));
       });
@@ -91,8 +94,9 @@ void main() {
       await tester.pump();
       await tapText(tester, 'حفظ التعديل');
       await _settle(tester);
-      expect(FakeServer.body(server.sent('PATCH', 'tasks/$t').single), <String, Object?>{'title': 'زيارة العقار مع العميل والمالك'},
-          reason: 'only what changed: a reminder not touched is not sent again');
+      expect(FakeServer.body(server.sent('PATCH', 'tasks/$t').single), <String, Object?>{
+        'title': 'زيارة العقار مع العميل والمالك',
+      }, reason: 'only what changed: a reminder not touched is not sent again');
 
       await tapText(tester, 'حذف');
       await tapText(tester, 'حذف', last: true);
@@ -103,7 +107,10 @@ void main() {
 
     testWidgets('«تم» sends which it is: done, then not done', (tester) async {
       final server = await _open(tester, '/account/tasks', (s) {
-        s.on('GET', 'tasks', 200, <String, Object?>{'success': true, 'data': <Object?>[_one('task_updated')]});
+        s.on('GET', 'tasks', 200, <String, Object?>{
+          'success': true,
+          'data': <Object?>[_one('task_updated')],
+        });
         s.on('POST', 'tasks/${_one('task_updated')['id']}/done', 200, recorded('task_done'));
       });
       final t = _one('task_updated')['id'];
@@ -145,7 +152,11 @@ void main() {
       await pumpApp(tester, '/account/tasks');
       await _settle(tester);
       expect(find.text(first['title']! as String), findsOneWidget);
-      await serverSignIn(server, account: me(id: 42, name: 'مكتب آخر'), token: '7|second');
+      await serverSignIn(
+        server,
+        account: me(id: 42, name: 'مكتب آخر'),
+        token: '7|second',
+      );
       await _settle(tester);
       expect(find.text(first['title']! as String), findsNothing);
       expect(server.sent('GET', 'tasks'), hasLength(2), reason: 'asked again for the next account');
@@ -158,7 +169,10 @@ void main() {
 
     Future<FakeServer> book(WidgetTester tester, [void Function(FakeServer)? more]) => _open(tester, '/account/clients', (s) {
       s.on('GET', 'clients', 200, recorded('clients'));
-      s.on('GET', 'clients/$cid/notes', 200, <String, Object?>{'success': true, 'data': <Object?>[_one('client_note_added')]});
+      s.on('GET', 'clients/$cid/notes', 200, <String, Object?>{
+        'success': true,
+        'data': <Object?>[_one('client_note_added')],
+      });
       more?.call(s);
     });
 

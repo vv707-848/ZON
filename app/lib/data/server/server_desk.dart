@@ -159,7 +159,10 @@ abstract final class ServerClients {
 
   static Future<Note> addNote(String id, String kind, String text, {required String operation, required int epoch}) async {
     store.stillAccount(epoch);
-    final r = await Api.client!.post('clients/${_raw(id)}/notes', <String, Object?>{'category': _kindOut[kind] ?? 'followup', 'body': text}, operation);
+    final r = await Api.client!.post('clients/${_raw(id)}/notes', <String, Object?>{
+      'category': _kindOut[kind] ?? 'followup',
+      'body': text,
+    }, operation);
     return _note(r.map);
   }
 

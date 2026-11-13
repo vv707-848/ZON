@@ -139,10 +139,12 @@ class _TasksViewState extends State<TasksView> {
 
   void _toggle(Task t) {
     if (!Api.on) return _persist(<Task>[for (final x in items) x.id == t.id ? x.toggled() : x]);
-    unawaited(_send(t.id, (epoch) async {
-      final row = await ServerTasks.done(t.id, done: t.done != true, epoch: epoch);
-      if (_current(epoch)) _put(row);
-    }));
+    unawaited(
+      _send(t.id, (epoch) async {
+        final row = await ServerTasks.done(t.id, done: t.done != true, epoch: epoch);
+        if (_current(epoch)) _put(row);
+      }),
+    );
   }
 
   /// A task saved from the form: on the server, or on this phone.
@@ -156,22 +158,24 @@ class _TasksViewState extends State<TasksView> {
       });
       return;
     }
-    unawaited(_send(before?.id ?? 'new', (epoch) async {
-      if (before == null) {
-        final made = await ServerTasks.create(row, operation: _newOp.forBody(ServerTasks.body(row)), epoch: epoch);
-        _newOp.done();
-        if (_current(epoch)) setState(() => items = <Task>[made, ...items]);
-      } else {
-        final kept = await ServerTasks.update(row, before: before, epoch: epoch);
-        if (_current(epoch)) _put(kept);
-      }
-      if (_current(epoch)) {
-        setState(() {
-          open = false;
-          edit = null;
-        });
-      }
-    }));
+    unawaited(
+      _send(before?.id ?? 'new', (epoch) async {
+        if (before == null) {
+          final made = await ServerTasks.create(row, operation: _newOp.forBody(ServerTasks.body(row)), epoch: epoch);
+          _newOp.done();
+          if (_current(epoch)) setState(() => items = <Task>[made, ...items]);
+        } else {
+          final kept = await ServerTasks.update(row, before: before, epoch: epoch);
+          if (_current(epoch)) _put(kept);
+        }
+        if (_current(epoch)) {
+          setState(() {
+            open = false;
+            edit = null;
+          });
+        }
+      }),
+    );
   }
 
   /// «لخّص يومي»: the server's model with a server; without one, the order of his tasks.
@@ -228,7 +232,13 @@ class _TasksViewState extends State<TasksView> {
     if (Api.on) {
       return _send(t.id, (epoch) async {
         await ServerTasks.remove(t.id, epoch: epoch);
-        if (_current(epoch)) setState(() => items = <Task>[for (final x in items) if (x.id != t.id) x]);
+        if (_current(epoch))
+          setState(
+            () => items = <Task>[
+              for (final x in items)
+                if (x.id != t.id) x,
+            ],
+          );
       });
     }
     _persist(<Task>[
@@ -321,14 +331,7 @@ class _TasksViewState extends State<TasksView> {
       for (final t in items) {
         if (t.id == edit) task = t;
       }
-      children.add(
-        TaskForm(
-          key: ValueKey<String?>(edit),
-          task: task,
-          busy: _busy != null,
-          onSaved: _saved,
-        ),
-      );
+      children.add(TaskForm(key: ValueKey<String?>(edit), task: task, busy: _busy != null, onSaved: _saved));
     }
     if (_error case final String e) children.add(FormError(e));
     if (_loading) {
@@ -423,20 +426,20 @@ class Ticket extends StatelessWidget {
                 button: true,
                 label: done ? 'إعادة المهمة' : 'إنجاز المهمة',
                 child: Tap(
-                onTap: onToggle,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  margin: const EdgeInsets.only(top: 2),
-                  decoration: BoxDecoration(
-                    color: done ? AppColors.forest : AppColors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.forest),
+                  onTap: onToggle,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    margin: const EdgeInsets.only(top: 2),
+                    decoration: BoxDecoration(
+                      color: done ? AppColors.forest : AppColors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.forest),
+                    ),
+                    alignment: Alignment.center,
+                    child: done ? const LucideIcon(Lu.check, size: 14, color: AppColors.white) : null,
                   ),
-                  alignment: Alignment.center,
-                  child: done ? const LucideIcon(Lu.check, size: 14, color: AppColors.white) : null,
                 ),
-              ),
               ),
             ),
           ),

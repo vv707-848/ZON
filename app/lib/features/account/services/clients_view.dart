@@ -403,7 +403,13 @@ class _ClientFormState extends State<ClientForm> {
         _newOp.done();
         final text = note.text.trim();
         if (text.isNotEmpty) {
-          await ServerClients.addNote(made.id, kind, text, operation: _noteOp.forBody(<String, Object?>{'c': made.id, 'k': kind, 't': text}), epoch: epoch);
+          await ServerClients.addNote(
+            made.id,
+            kind,
+            text,
+            operation: _noteOp.forBody(<String, Object?>{'c': made.id, 'k': kind, 't': text}),
+            epoch: epoch,
+          );
           _noteOp.done();
         }
       }
@@ -553,10 +559,7 @@ class _ClientFormState extends State<ClientForm> {
       if (Api.on) ...<Widget>[
         cliLabel('المساحة من م²', cliInput(amin, ltr: true, keyboard: TextInputType.number, digits: true)),
         cliLabel('الغرف من', cliInput(rmin, ltr: true, keyboard: TextInputType.number, digits: true)),
-      ] else ...<Widget>[
-        _pair('المساحة من م²', amin, 'إلى', amax),
-        _pair('الغرف من', rmin, 'إلى', rmax),
-      ],
+      ] else ...<Widget>[_pair('المساحة من م²', amin, 'إلى', amax), _pair('الغرف من', rmin, 'إلى', rmax)],
       cliLabel('وصف نص حر', _textarea(desc, placeholder: 'اكتب الرغبة بشكل واضح')),
       if (init == null) ...<Widget>[
         Padding(
@@ -711,25 +714,34 @@ class _ClientProfileState extends State<ClientProfile> with CliNotesState<Client
     final text = body.text.trim();
     if (text.isEmpty) return;
     final k = kind;
-    unawaited(_send(() async {
-      final note = await ServerClients.addNote(client.id, k, text, operation: _noteOp.forBody(<String, Object?>{'k': k, 't': text}), epoch: _epoch);
-      _noteOp.done();
-      if (!_current) return;
-      body.text = '';
-      setState(() => _notes = <Note>[note, ..._notes]);
-      widget.onChange();
-    }));
+    unawaited(
+      _send(() async {
+        final note = await ServerClients.addNote(client.id, k, text, operation: _noteOp.forBody(<String, Object?>{'k': k, 't': text}), epoch: _epoch);
+        _noteOp.done();
+        if (!_current) return;
+        body.text = '';
+        setState(() => _notes = <Note>[note, ..._notes]);
+        widget.onChange();
+      }),
+    );
   }
 
   @override
   void removeNote(Note n) {
     if (!Api.on) return super.removeNote(n);
-    unawaited(_send(() async {
-      await ServerClients.removeNote(client.id, n.id, epoch: _epoch);
-      if (!_current) return;
-      setState(() => _notes = <Note>[for (final x in _notes) if (x.id != n.id) x]);
-      widget.onChange();
-    }));
+    unawaited(
+      _send(() async {
+        await ServerClients.removeNote(client.id, n.id, epoch: _epoch);
+        if (!_current) return;
+        setState(
+          () => _notes = <Note>[
+            for (final x in _notes)
+              if (x.id != n.id) x,
+          ],
+        );
+        widget.onChange();
+      }),
+    );
   }
 
   @override
