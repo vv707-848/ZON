@@ -10,6 +10,7 @@ on:
     paths:
       - compose.yaml
       - docker/**
+      - agents/zon_agents/sim/**
       - deploy/php/**
       - deploy/mysql/**
       - backend/composer.lock
@@ -43,6 +44,27 @@ jobs:
             echo "$code $url"
             [[ "$code" == 200 ]]
           done
+
+      # The AI node is the simulation here (compose.yaml `ai-sim`): the agents service reaches it, says it is one,
+      # and answers a search through it — the rule model's order, known before it runs.
+      - name: The AI answers through the simulated node, and says it is a simulation
+        run: |
+          health=$(curl -s http://localhost:8100/agents/health); echo "$health"
+          python3 -I - "$health" <<'PY'
+          import json, sys, urllib.request
+          health = json.loads(sys.argv[1])
+          assert (health["model"], health["simulated"], health["llm"], health["embed"], health["qdrant"]) == ("sim-rules", True, True, True, True), health
+          need = {"city": "الرياض", "neighborhood": "النرجس", "property_type": "apartment", "budget_max": 900000, "free_text": "مدخل خاص"}
+          offers = [{"id": 3, "type": "apartment", "neighborhood": "النرجس", "price": 850000, "desc": "شقة واسعة"},
+                    {"id": 2, "type": "apartment", "neighborhood": "النرجس", "price": 2000000, "desc": "شقة بمدخل خاص"},
+                    {"id": 1, "type": "apartment", "neighborhood": "النرجس", "price": 880000, "desc": "شقة بمدخل خاص"}]
+          request = urllib.request.Request("http://localhost:8100/agents/search_listings", json.dumps({"need": need, "candidates": offers, "limit": 10}).encode(),
+                                           {"Content-Type": "application/json", "X-Internal-Key": "dev-only-internal-key"})
+          answer = json.load(urllib.request.urlopen(request, timeout=20))
+          print(answer)
+          assert answer["simulated"] is True and answer["degraded"] is False, answer
+          assert [(r["id"], r["score"]) for r in answer["output"]["results"]] == [(1, 0.95), (3, 0.45), (2, 0.05)], answer
+          PY
 
       - name: zon:doctor on the stack
         run: |

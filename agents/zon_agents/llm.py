@@ -70,13 +70,15 @@ def load_prompts(directory: Path = PROMPTS_DIR) -> dict[str, Prompt]:
     return prompts
 
 
-def openai_model(base_url: str, api_key: str, name: str, timeout: float) -> OpenAIChatModel:
-    """The engine's OpenAI-compatible endpoint; `name` is the name it serves the model under (zon-ai)."""
+def openai_model(base_url: str, api_key: str, name: str, timeout: float, *, http_client: Any = None) -> OpenAIChatModel:
+    """The engine's OpenAI-compatible endpoint; `name` is the name it serves the model under (zon-ai).
+    `http_client` is for the tests: the same client code against a server in the same process."""
     client = AsyncOpenAI(
         base_url=base_url,
         api_key=api_key,
         max_retries=0,  # no retry after a timeout: under load a retry doubles the load
         timeout=timeout,
+        http_client=http_client,
     )
     # PydanticAI's own «profile» of the endpoint (what it supports), not a Zon model profile.
     capabilities = OpenAIModelProfile(

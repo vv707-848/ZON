@@ -245,6 +245,7 @@ void main() {
       await tapText(tester, row['name']! as String);
       await _settle(tester);
       await tapText(tester, 'المزيد');
+      expect(find.text('حتى 500,000'), findsOneWidget);
       await tapText(tester, 'تعديل البيانات');
       await tapText(tester, 'حفظ التعديل');
       await _settle(tester);

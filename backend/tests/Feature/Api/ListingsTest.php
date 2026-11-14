@@ -50,6 +50,9 @@ class ListingsTest extends TestCase
         $this->assertSame('شقة واسعة قريبة من الخدمات.', $listing->desc_suggested);
         Http::assertSent(fn ($r) => str_contains($r->url(), '/agents/clean_listing') && ! str_contains($r['text'], '0551234567')
             && $r->hasHeader('X-Internal-Key', 'test-internal-key'));
+        // what he stated outside his text reaches the wording too, as the lab's cases give it (price · deed · bank)
+        Http::assertSent(fn ($r) => str_contains($r->url(), '/agents/clean_listing')
+            && [$r['fields']['price'], $r['fields']['deed'], $r['fields']['bedrooms']] === [880000.0, true, 3] && ! isset($r['fields']['has_deed']));
         $this->assertSame(1, AiRequest::query()->where('agent', 'clean_listing')->where('status', 'ok')->count());
         $this->assertFalse(IndexEvent::query()->exists(), 'nothing reaches the index before the decision');
 

@@ -52,7 +52,7 @@ Color kindBar(String k) => switch (k) {
 /// Adds thousands separators to every number inside [s].
 String moneyTxt(String? s) {
   if (s == null || s.isEmpty) return '';
-  return s.replaceAllMapped(RegExp(r'\d+'), (m) => _loc(double.parse(m[0]!)));
+  return s.replaceFirst(RegExp(r'^\s*–\s*'), 'حتى ').replaceAllMapped(RegExp(r'\d+'), (m) => _loc(double.parse(m[0]!)));
 }
 
 String _loc(double n) {

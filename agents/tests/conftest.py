@@ -7,41 +7,35 @@ import asyncio
 import hashlib
 import hmac
 import json
-import math
-import re
 import time
-from collections import Counter
 from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic_ai.messages import ModelMessage, ModelRequest, ModelResponse, TextPart, ToolCallPart, UserPromptPart
+from pydantic_ai.messages import ModelMessage, ModelResponse
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 from qdrant_client import AsyncQdrantClient
 
 from zon_agents.config import Settings
-from zon_agents.embeddings import DENSE_SIZE, Embedding
+from zon_agents.embeddings import Embedding
 from zon_agents.errors import DependencyUnavailable
 from zon_agents.indexing import VersionStore
 from zon_agents.llm import LLM, load_prompts
 from zon_agents.main import create_app
 from zon_agents.profiles import load_profile
 from zon_agents.services import Services
+from zon_agents.sim.embed import bag_embedding
+from zon_agents.sim.model import by_text, decode, encode
 from zon_agents.store import VectorStore
 
 INTERNAL_KEY = "test-internal-key"
 INDEX_SECRET = "test-index-secret"
-_WORD = re.compile(r"\w+")
-
-
-def _slot(token: str) -> int:
-    return int(hashlib.md5(token.encode()).hexdigest(), 16)
 
 
 class FakeEmbedder:
-    """Bag-of-words vectors: texts sharing words are close, so the hybrid order is predictable."""
+    """The simulation's bag-of-words vectors (zon_agents/sim/embed.py), with a switch to be down."""
 
     def __init__(self) -> None:
         self.down = False
@@ -51,22 +45,7 @@ class FakeEmbedder:
         if self.down:
             raise DependencyUnavailable("embed")
         self.calls.append(list(texts))
-        return [self._one(text) for text in texts]
-
-    @staticmethod
-    def _one(text: str) -> Embedding:
-        tokens = _WORD.findall(text.lower()) or ["empty"]
-        dense = [0.0] * DENSE_SIZE
-        for token in tokens:
-            dense[_slot(token) % DENSE_SIZE] += 1.0
-        norm = math.sqrt(sum(v * v for v in dense))
-        counts = Counter(_slot(token) % 250_000 for token in tokens)
-        colbert = []
-        for token in tokens[:24]:
-            vector = [0.0] * DENSE_SIZE
-            vector[_slot(token) % DENSE_SIZE] = 1.0
-            colbert.append(vector)
-        return Embedding([v / norm for v in dense], list(counts), [float(c) for c in counts.values()], colbert)
+        return [bag_embedding(text) for text in texts]
 
     async def healthy(self) -> bool:
         return not self.down
@@ -85,17 +64,14 @@ class ScriptedModel:
 
     def __init__(self) -> None:
         self.prompts = load_prompts()
-        self._agents = {prompt.text: name for name, prompt in self.prompts.items()}
+        self._agents = by_text(self.prompts)
         self.answers: dict[str, Answer | list[Answer]] = {}
         self.calls: list[tuple[str, dict[str, Any], float | None]] = []
         self.settings: list[dict[str, Any]] = []
         self.schemas: dict[str, dict[str, Any]] = {}
 
     def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
-        request = next(m for m in messages if isinstance(m, ModelRequest))
-        agent = self._agents[request.instructions or ""]
-        prompt = next(p for p in request.parts if isinstance(p, UserPromptPart))
-        payload = json.loads(str(prompt.content))
+        agent, payload = decode(messages, self._agents)
         temperature = (info.model_settings or {}).get("temperature")
         self.calls.append((agent, payload, temperature))
         self.settings.append(dict(info.model_settings or {}))
@@ -107,9 +83,7 @@ class ScriptedModel:
         result = scripted(payload) if callable(scripted) and not isinstance(scripted, Exception) else scripted
         if isinstance(result, Exception):
             raise result
-        if info.output_tools:
-            return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, result)])
-        return ModelResponse(parts=[TextPart(json.dumps(result, ensure_ascii=False))])
+        return encode(result, info)
 
     def calls_of(self, agent: str) -> list[tuple[str, dict[str, Any], float | None]]:
         return [call for call in self.calls if call[0] == agent]

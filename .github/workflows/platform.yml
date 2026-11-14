@@ -161,6 +161,33 @@ jobs:
         if: failure() && steps.contract.outcome == 'failure'
         run: ../.github/scripts/annotate.sh error "Contract" "$RUNNER_TEMP/contract.log" 80
 
+      # The AI chain with nothing faked in between: this API → the agents service → the simulated AI node, two real
+      # processes (agents/zon_agents/sim). Each of the eight functions is asked as the app asks it and compared with
+      # the one answer the rules give (backend/tests/Chain). Not a measure of a model.
+      - name: Chain — the AI functions end to end against the simulated node
+        id: chain
+        if: ${{ !cancelled() && steps.contract.outcome == 'success' }}
+        env:
+          ZON_AI_CHAIN: "1"
+        run: |
+          cd ../agents
+          uv run --locked zon-agents sim --port 30000 > "$RUNNER_TEMP/sim.log" 2>&1 &
+          AGENTS_INTERNAL_KEY=test-internal-key INDEX_SHARED_SECRET=test-index-secret QDRANT_URL=:memory: \
+            INDEX_STATE_PATH=:memory: LLM_PROFILE=sim-rules LLM_BASE_URL=http://127.0.0.1:30000/v1 LLM_API_KEY=none \
+            EMBED_URL=http://127.0.0.1:30000 KNOWLEDGE_MIN_SCORE=0.3 PORT=8100 \
+            uv run --locked zon-agents serve > "$RUNNER_TEMP/agents.log" 2>&1 &
+          cd ../backend
+          for _ in $(seq 1 90); do curl -sf http://127.0.0.1:8100/agents/health | grep -q '"llm":true' && break; sleep 1; done
+          curl -s http://127.0.0.1:8100/agents/health; echo
+          vendor/bin/phpunit --colors=never --testsuite Chain 2>&1 | tee "$RUNNER_TEMP/chain.log"
+          if grep -qiE "skipped|incomplete|risky" "$RUNNER_TEMP/chain.log"; then echo "the chain did not run in full"; exit 1; fi
+
+      - name: Explain a chain failure
+        if: failure() && steps.chain.outcome == 'failure'
+        run: |
+          ../.github/scripts/annotate.sh error "AI chain" "$RUNNER_TEMP/chain.log" 80
+          tail -n 40 "$RUNNER_TEMP/agents.log" "$RUNNER_TEMP/sim.log" || true
+
       # The website as a search engine and a tablet see it (docs/website.md «الفحص الآلي للموقع»): the development
       # seed (APP_ENV=local seeds DemoSeeder), served as in «المعاينة محلياً», then Lighthouse and four tablet sizes
       # on each kind of page the sitemap lists. Last in this job: it rebuilds the test database.

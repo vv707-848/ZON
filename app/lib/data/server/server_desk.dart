@@ -124,7 +124,7 @@ abstract final class ServerClients {
       city: '${j['city'] ?? ''}',
       hood: list(j['neighborhoods'], (x) => x),
       types: list(j['property_types'], (x) => kTypeLabel[x] ?? x),
-      budget: <String>[budget.$1, budget.$2].where((x) => x.isNotEmpty).join(' – '),
+      budget: budget.$2.isEmpty ? budget.$1 : '${budget.$1} – ${budget.$2}',
       notes: const <Note>[],
       notesCount: j['notes_count'] is int ? j['notes_count']! as int : null,
       purpose: j['purpose'] is String ? j['purpose']! as String : null,

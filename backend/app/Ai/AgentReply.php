@@ -12,5 +12,6 @@ final readonly class AgentReply
         public int $tokensIn,
         public int $tokensOut,
         public int $latencyMs,
+        public bool $simulated = false,   // answered by the simulation (agents/zon_agents/sim), not by a model
     ) {}
 }

@@ -1,0 +1,24 @@
+{
+    "success": true,
+    "data": {
+        "answer": "الترخيص الإعلاني شرط لنشر أي إعلان عقاري. ينتهي الإعلان حين ينتهي الترخيص الإعلاني.",
+        "covered": true,
+        "sources": [
+            {
+                "doc_id": 7,
+                "title": "الترخيص الإعلاني",
+                "effective_date": "2026-10-14",
+                "quote_ar": "الترخيص الإعلاني شرط لنشر أي إعلان عقاري."
+            }
+        ],
+        "intent": "knowledge",
+        "lang": "ar",
+        "action": null
+    },
+    "meta": {
+        "ai": {
+            "status": "ok",
+            "simulated": true
+        }
+    }
+}
