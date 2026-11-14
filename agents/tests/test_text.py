@@ -19,6 +19,18 @@ def test_a_cleaned_description_never_carries_contact_details(client: TestClient,
     assert output == {"desc_clean": "شقة دور أرضي بمدخلين. للتواصل أو", "features": ["دور أرضي", "مدخلان"]}
 
 
+def test_a_placeholder_of_the_masking_never_comes_back_in_a_written_answer(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """Laravel sends «للتواصل [رقم]» where a number was: a model that copies it back would hand the advertiser
+    «[رقم]» as his description (found by the chain against the simulation, which copies the text as it is)."""
+    model.answers["clean_listing"] = {"desc_clean": "شقة بمدخل خاص. للتواصل [رقم] أو [بريد] [رابط]", "features": []}
+
+    output = call(client, "clean_listing", {"type": "apartment", "text": "شقة بمدخل خاص للتواصل [رقم]"})["output"]
+
+    assert output["desc_clean"] == "شقة بمدخل خاص. للتواصل أو"
+
+
 def test_unit_models_are_cleaned_in_one_call_and_only_those_asked(client: TestClient, model: ScriptedModel) -> None:
     model.answers["clean_units"] = {
         "units": [{"id": 2, "desc_clean": "مدخل خاص وحوش"}, {"id": 9, "desc_clean": "مختلق"}]

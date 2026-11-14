@@ -2,7 +2,9 @@
 #   website + API + panel   http://localhost:8000          (/admin: `docker compose exec web php artisan zon:create-superadmin you@example.com`)
 #   agents service          http://localhost:8100/agents/health
 # Every outside party is the explicit simulation (docs/integrations.md): no SMS, payment or store leaves this
-# machine, and the SMS code is 204815. The model and the embedder run on the AI node (RunPod), not here.
+# machine, and the SMS code is 204815. The AI node (RunPod) too: `ai-sim` answers in its place with rules and
+# bag-of-words vectors, never a model — every AI answer says `simulated`. For a real node, open the tunnel and set
+# LLM_BASE_URL, EMBED_URL, LLM_PROFILE and LLM_API_KEY before `docker compose up`.
 # Development only: production runs on its own nodes (deploy/README.md). Versions as in CI (docs/versions.md).
 name: zon
 
@@ -88,15 +90,30 @@ services:
       INDEX_SHARED_SECRET: dev-only-index-secret
       INDEX_STATE_PATH: /data/index_state.sqlite3
       QDRANT_URL: http://qdrant:6333
-      LLM_BASE_URL: http://host.docker.internal:30000/v1     # an SSH tunnel to the AI node, if you open one
-      LLM_API_KEY: ${LLM_API_KEY:-no-ai-node-here}             # that node's key (deploy/README.md «إعدادات الـ Pod»)
-      EMBED_URL: http://host.docker.internal:18080
+      # The simulated node by default. A real one through an SSH tunnel: LLM_BASE_URL=http://host.docker.internal:30000/v1
+      # EMBED_URL=http://host.docker.internal:18080 LLM_PROFILE=<its profile> LLM_API_KEY=<its key> (deploy/README.md)
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://ai-sim:30000/v1}
+      LLM_API_KEY: ${LLM_API_KEY:-no-ai-node-here}
+      EMBED_URL: ${EMBED_URL:-http://ai-sim:30000}
+      LLM_PROFILE: ${LLM_PROFILE:-sim-rules}
+      KNOWLEDGE_MIN_SCORE: ${KNOWLEDGE_MIN_SCORE:-0.3}       # bag-of-words similarities are lower than bge-m3's (0.45)
       SENTRY_ENVIRONMENT: local
     extra_hosts: ["host.docker.internal:host-gateway"]
     ports: ["8100:8100"]
-    depends_on: [qdrant]
+    depends_on: [qdrant, ai-sim]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/agents/health', timeout=3)"]
+      interval: 5s
+      retries: 60
+
+  # The AI node's two servers, simulated (agents/zon_agents/sim): the rule model and bag-of-words vectors.
+  ai-sim:
+    image: zon-agents-dev
+    volumes: ["./agents:/app/agents"]
+    command: ["sh", "-c", "uv sync --locked --no-dev && exec zon-agents sim --host 0.0.0.0 --port 30000"]
+    ports: ["30000:30000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:30000/health', timeout=3)"]
       interval: 5s
       retries: 60
 

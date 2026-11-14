@@ -130,7 +130,8 @@ def _request(offer: dict[str, Any], features: set[str], request: dict[str, Any])
     price, top = offer.get("budget_max") or offer.get("budget_min"), request.get("budget_max")
     distance = abs(price - top) / top if top and price else 0.0
     rooms = request.get("rooms_min")
-    if (top and price and price > top * OVER) or (rooms and (offer.get("bedrooms") or 0) < rooms):
+    known = offer.get("bedrooms")  # an offer whose rooms were not given is not short of any
+    if (top and price and price > top * OVER) or (rooms and known is not None and known < rooms):
         return 0, distance, request["id"]
     share = _share(concepts(str(request.get("desc", ""))), features)
     return _by_share(share, bool(top and price and price > top)), distance, request["id"]

@@ -111,6 +111,8 @@ def create_app(settings: Settings, services: Services | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         event("startup", version=__version__, phash=services.hasher is not None, colbert=settings.colbert_enabled)
+        if settings.qdrant_url == ":memory:":  # an index that lives with this process has no one else to create it
+            await services.store.bootstrap()
         async with mcp.session_manager.run():
             yield
         await services.aclose()

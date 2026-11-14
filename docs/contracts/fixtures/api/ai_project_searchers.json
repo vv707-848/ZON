@@ -1,0 +1,61 @@
+{
+    "success": true,
+    "data": [
+        {
+            "seeker": {
+                "id": 29,
+                "username": "ndonh8181",
+                "name": "قصي الصقير",
+                "role": "seeker",
+                "fal_verified": false,
+                "fal_number": null
+            },
+            "wish": {
+                "neighborhoods": [
+                    "النرجس"
+                ],
+                "property_types": [
+                    "villa"
+                ],
+                "budget_max": 1450000,
+                "notes": "ودي مسبح وسائق، جوالي [رقم]"
+            },
+            "score": 0.95,
+            "unit": {
+                "id": 3,
+                "model_name": "f4"
+            }
+        },
+        {
+            "seeker": {
+                "id": 30,
+                "username": "wdyme2976",
+                "name": "بلال رافع نبراس الماجد",
+                "role": "seeker",
+                "fal_verified": false,
+                "fal_number": null
+            },
+            "wish": {
+                "neighborhoods": [
+                    "النرجس"
+                ],
+                "property_types": [
+                    "villa"
+                ],
+                "budget_max": 1020000,
+                "notes": "مسبح ومطبخ راكب"
+            },
+            "score": 0.7,
+            "unit": {
+                "id": 2,
+                "model_name": "y2"
+            }
+        }
+    ],
+    "meta": {
+        "ai": {
+            "status": "ok",
+            "simulated": true
+        }
+    }
+}
