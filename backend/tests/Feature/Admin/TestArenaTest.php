@@ -100,7 +100,7 @@ class TestArenaTest extends AdminTestCase
         $sample = Listing::query()->whereIn('customer_id', $batch->accounts()->select('id'))->sole();
         SaleReport::forListing($sample, '870000');
 
-        $this->assertSame(1, DB::table('ai_v_sales')->count());
+        $this->assertCount(1, DB::table('ai_v_sales')->get());
 
         app(TestArena::class)->remove($batch, $this->signInSuperadmin());
 
