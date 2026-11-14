@@ -112,7 +112,14 @@ void main() {
         'broaden': <Object?>[],
         'projects': <Object?>[],
       };
-      server.on('POST', 'ai/matching', 200, ok(one, <String, Object?>{'ai': <String, Object?>{'status': 'degraded'}}));
+      server.on(
+        'POST',
+        'ai/matching',
+        200,
+        ok(one, <String, Object?>{
+          'ai': <String, Object?>{'status': 'degraded'},
+        }),
+      );
       await tapText(tester, 'تعديل الرغبة');
       await tester.enterText(find.byType(EditableText).last, 'فيلا قرب الحديقة');
       await tester.pump();
@@ -127,7 +134,17 @@ void main() {
 
     testWidgets('nothing fits: a request is suggested; today\'s share used up: the server\'s words; no answer: said', (tester) async {
       final none = <String, Object?>{'matched': <Object?>[], 'broaden': <Object?>[], 'projects': <Object?>[], 'suggest_request': true};
-      final server = await open(tester, (s) => s.on('POST', 'ai/matching', 200, ok(none, <String, Object?>{'ai': <String, Object?>{'status': 'skipped'}})));
+      final server = await open(
+        tester,
+        (s) => s.on(
+          'POST',
+          'ai/matching',
+          200,
+          ok(none, <String, Object?>{
+            'ai': <String, Object?>{'status': 'skipped'},
+          }),
+        ),
+      );
       expect(find.text('لا عروض تطابق رغبتك الآن. انشر طلباً ليصل إلى أصحاب العروض.'), findsOneWidget);
       expect(find.byType(FolioMini), findsNothing);
       await tapText(tester, 'طلباتي');
@@ -154,7 +171,11 @@ void main() {
       final server = await open(tester, (s) => s.on('POST', 'ai/matching', 200, recorded('ai_matching')));
       expect(_shown(tester), _ids('matched'));
       server.onFor('7|second', 'GET', 'preferences', 200, ok(<Object?>[]));
-      await serverSignIn(server, account: me(id: 42, role: 'seeker', name: 'حساب آخر'), token: '7|second');
+      await serverSignIn(
+        server,
+        account: me(id: 42, role: 'seeker', name: 'حساب آخر'),
+        token: '7|second',
+      );
       await _settle(tester);
       expect(find.byType(FolioMini), findsNothing);
       expect(find.textContaining('عروض مطابقة'), findsNothing);
@@ -173,7 +194,10 @@ void main() {
       final server = serverDevice();
       await serverSignIn(server, account: me(role: 'developer'));
       server.on('GET', 'preferences', 200, ok(<Object?>[]));
-      server.on('GET', 'projects/mine', 200, <String, Object?>{...recorded('projects_mine'), 'data': <Object?>[published, draft]});
+      server.on('GET', 'projects/mine', 200, <String, Object?>{
+        ...recorded('projects_mine'),
+        'data': <Object?>[published, draft],
+      });
       stubs(server);
       await pumpApp(tester, '/account/matching');
       await _settle(tester);
@@ -187,7 +211,9 @@ void main() {
       await _settle(tester);
     }
 
-    testWidgets('only his published project; its seekers in the server\'s order with the closest model; its brokers by their clients', (tester) async {
+    testWidgets('only his published project; its seekers in the server\'s order with the closest model; its brokers by their clients', (
+      tester,
+    ) async {
       final server = await open(tester, (s) {
         s.on('POST', 'ai/matching/projects/${published['id']}/searchers', 200, recorded('ai_project_searchers'));
         s.on('GET', 'ai/matching/projects/${published['id']}/brokers', 200, recorded('project_brokers'));
@@ -234,7 +260,11 @@ void main() {
       expect(find.text('لا وسيط في مدينة المشروع لديه عملاء مطابقون الآن.'), findsOneWidget);
 
       server.onFor('7|second', 'GET', 'projects/mine', 200, <String, Object?>{...recorded('projects_mine'), 'data': <Object?>[]});
-      await serverSignIn(server, account: me(id: 42, role: 'developer', name: 'حساب آخر'), token: '7|second');
+      await serverSignIn(
+        server,
+        account: me(id: 42, role: 'developer', name: 'حساب آخر'),
+        token: '7|second',
+      );
       await _settle(tester);
       expect(find.text('تسويق المشاريع ضمن الباقات.'), findsNothing);
       expect(find.byType(ListingCard), findsNothing);

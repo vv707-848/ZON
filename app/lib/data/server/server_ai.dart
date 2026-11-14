@@ -202,12 +202,7 @@ abstract final class ServerAi {
 
   /// What a search sends: the three he chose, and what he wrote if anything.
   static Map<String, Object?> need({required String city, required String neighborhood, required String type, String query = ''}) =>
-      <String, Object?>{
-        'city': city,
-        'neighborhood': neighborhood,
-        'property_type': type,
-        if (query.trim().isNotEmpty) 'query': query.trim(),
-      };
+      <String, Object?>{'city': city, 'neighborhood': neighborhood, 'property_type': type, if (query.trim().isNotEmpty) 'query': query.trim()};
 
   static Future<Ranked<Listing>> search(Map<String, Object?> need, {required int epoch}) => _asked(() async {
     store.stillAccount(epoch);
@@ -302,7 +297,11 @@ abstract final class ServerAi {
       intent: '${r.map['intent'] ?? ''}',
       sources: <ChatSource>[
         for (final s in _rows(r.map['sources']))
-          ChatSource(title: '${s['title'] ?? ''}', quote: '${s['quote_ar'] ?? ''}', effective: s['effective_date'] is String ? s['effective_date']! as String : null),
+          ChatSource(
+            title: '${s['title'] ?? ''}',
+            quote: '${s['quote_ar'] ?? ''}',
+            effective: s['effective_date'] is String ? s['effective_date']! as String : null,
+          ),
       ],
       action: r.map['action'] is String ? r.map['action']! as String : null,
       ai: AiMeta.of(r.meta),

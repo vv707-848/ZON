@@ -107,7 +107,11 @@ class _BarqChatScreenState extends State<BarqChatScreen> {
     try {
       final turns = await ServerAi.history();
       if (!_current(epoch) || log.isNotEmpty) return; // he already asked: his turn is not written over
-      setState(() => log = <Msg>[for (final t in turns) ...<Msg>[Msg(me: true, t: t.question), Msg(t: t.answer)]]);
+      setState(
+        () => log = <Msg>[
+          for (final t in turns) ...<Msg>[Msg(me: true, t: t.question), Msg(t: t.answer)],
+        ],
+      );
     } on ApiError catch (e) {
       if (_current(epoch)) setState(() => _error = e.forUser);
     }
@@ -213,12 +217,8 @@ class _BarqChatScreenState extends State<BarqChatScreen> {
           if (think) const TalkBubble(text: 'برق يفكّر…', mine: false),
           if (_last case final ChatReply r when !think) ...<Widget>[
             for (final s in r.sources)
-              Tx(
-                'المصدر: ${s.title}${s.effective == null ? '' : ' · ${s.effective}'}',
-                style: ts(13, lh: 19.5, c: AppColors.muted),
-              ),
-            if (r.action case final String to)
-              AppButton(label: 'افتح', tone: ButtonTone.secondary, onTap: () => Nav.go(context, to)),
+              Tx('المصدر: ${s.title}${s.effective == null ? '' : ' · ${s.effective}'}', style: ts(13, lh: 19.5, c: AppColors.muted)),
+            if (r.action case final String to) AppButton(label: 'افتح', tone: ButtonTone.secondary, onTap: () => Nav.go(context, to)),
             if (r.ai.simulated) Tx('محاكاة: الإجابة بقواعد ثابتة، لا بنموذج ذكاء.', style: ts(13, lh: 19.5, c: AppColors.muted)),
           ],
           if (_error.isNotEmpty) FormError(_error),

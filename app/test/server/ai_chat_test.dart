@@ -90,8 +90,24 @@ void main() {
     });
 
     testWidgets('an answer that leads somewhere opens it; a model\'s answer carries no «محاكاة»', (tester) async {
-      final plans = <String, Object?>{...reply, 'answer': 'باقات زون الحالية: الباحث — شهري بـ199 ريال.', 'sources': <Object?>[], 'intent': 'packages', 'action': '/account/plans'};
-      await _open(tester, (s) => s.on('POST', 'ai/chat', 200, ok(plans, <String, Object?>{'ai': <String, Object?>{'status': 'ok'}})));
+      final plans = <String, Object?>{
+        ...reply,
+        'answer': 'باقات زون الحالية: الباحث — شهري بـ199 ريال.',
+        'sources': <Object?>[],
+        'intent': 'packages',
+        'action': '/account/plans',
+      };
+      await _open(
+        tester,
+        (s) => s.on(
+          'POST',
+          'ai/chat',
+          200,
+          ok(plans, <String, Object?>{
+            'ai': <String, Object?>{'status': 'ok'},
+          }),
+        ),
+      );
       await _say(tester, 'كم سعر الباقة؟');
       expect(find.text('باقات زون الحالية: الباحث — شهري بـ199 ريال.'), findsOneWidget);
       expect(find.text(simulated), findsNothing);
@@ -125,7 +141,11 @@ void main() {
       final server = await _open(tester, (s) => s.on('GET', 'ai/chat', 200, recorded('ai_chat_history')));
       expect(find.text('${turns.first['question']}'), findsOneWidget);
       server.onFor('7|second', 'GET', 'ai/chat', 200, ok(<Object?>[]));
-      await serverSignIn(server, account: me(id: 42, role: 'seeker', name: 'حساب آخر'), token: '7|second');
+      await serverSignIn(
+        server,
+        account: me(id: 42, role: 'seeker', name: 'حساب آخر'),
+        token: '7|second',
+      );
       await _settle(tester);
       expect(find.byType(TalkBubble), findsNothing);
     });

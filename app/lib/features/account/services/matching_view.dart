@@ -336,7 +336,10 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
   Widget build(BuildContext context) {
     final found = _found;
     final hits = Api.on
-        ? (hit: <Listing>[for (final r in found?.matched ?? const <Scored<Listing>>[]) r.item], other: <Listing>[for (final r in found?.broaden ?? const <Scored<Listing>>[]) r.item])
+        ? (
+            hit: <Listing>[for (final r in found?.matched ?? const <Scored<Listing>>[]) r.item],
+            other: <Listing>[for (final r in found?.broaden ?? const <Scored<Listing>>[]) r.item],
+          )
         : _hits(store.allListings());
     final rows = tab == 'match' ? hits.hit : hits.other;
     final projects = found?.projects ?? const <MatchedProject>[];
@@ -661,7 +664,12 @@ class _ProjectMarketState extends State<ProjectMarket> {
     try {
       final all = await ServerMyProjects.mine();
       if (!mounted || epoch != store.serverEpoch) return;
-      setState(() => _mine = <Listing>[for (final p in all) if (p.status == 'published') p]);
+      setState(
+        () => _mine = <Listing>[
+          for (final p in all)
+            if (p.status == 'published') p,
+        ],
+      );
     } on ApiError catch (e) {
       if (mounted && epoch == store.serverEpoch) setState(() => _error = e.forUser);
     }

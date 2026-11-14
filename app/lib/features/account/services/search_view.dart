@@ -117,7 +117,8 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
     });
     bool mine() => mounted && epoch == _epoch && epoch == store.serverEpoch;
     // an answer to what the form no longer asks is not shown under it
-    bool current() => mine() && requests == (target == 'requests') && need['city'] == city && need['neighborhood'] == hood && need['property_type'] == type;
+    bool current() =>
+        mine() && requests == (target == 'requests') && need['city'] == city && need['neighborhood'] == hood && need['property_type'] == type;
     try {
       final List<Object> found;
       final AiMeta ai;

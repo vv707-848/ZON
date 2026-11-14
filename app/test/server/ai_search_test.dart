@@ -96,7 +96,11 @@ void main() {
       expect(_shown(tester), offers, reason: 'the server\'s order (0.4 s after asking: no wait added)');
       expect(find.text(simulated), findsOneWidget, reason: 'the recorded chain is the simulation, and the page says so');
       expect(find.text(notRanked), findsNothing);
-      expect(find.textContaining('البحث الجاي أدق'), findsNothing, reason: 'a server keeps the marks for review; it promises nothing about the next search');
+      expect(
+        find.textContaining('البحث الجاي أدق'),
+        findsNothing,
+        reason: 'a server keeps the marks for review; it promises nothing about the next search',
+      );
     });
 
     testWidgets('nothing written: no query sent; a model\'s order carries no note; the database\'s order is said', (tester) async {
@@ -232,7 +236,11 @@ void main() {
       await _search(tester);
       expect(_shown(tester), offers);
 
-      await serverSignIn(server, account: me(id: 42, role: 'seeker', name: 'حساب آخر'), token: '7|second');
+      await serverSignIn(
+        server,
+        account: me(id: 42, role: 'seeker', name: 'حساب آخر'),
+        token: '7|second',
+      );
       await _settle(tester);
       expect(find.byType(FolioMini), findsNothing);
       expect(find.text('مدخل خاص ومصعد'), findsNothing);
