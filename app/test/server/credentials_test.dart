@@ -135,7 +135,9 @@ void main() {
       expect(find.text('رمز التحقق غير صحيح أو انتهت صلاحيته.'), findsOneWidget);
       expect(store.readSession()!.phone, '0551234567');
 
-      server.on('POST', 'me/phone/verify', 200, recorded('phone_changed'));
+      // the recorded answer, as his own account (the server answers with the account that asked)
+      final changed = (recorded('phone_changed')['data']! as Map).cast<String, Object?>();
+      server.on('POST', 'me/phone/verify', 200, ok(<String, Object?>{...changed, 'id': 41}));
       await tester.enterText(_fields.last, '222222');
       await tapText(tester, 'تأكيد الرقم');
       await _settle(tester);
