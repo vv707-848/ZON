@@ -119,6 +119,39 @@ class ModelLabTest extends AdminTestCase
         }
     }
 
+    /**
+     * The simulation's own runs over the 200 cases (agents: `zon-agents lab sim`, recorded in
+     * docs/contracts/fixtures/lab and kept current by agents/tests/test_sim.py): the right answer meets every
+     * limit, and each answer made to break a limit is named by it.
+     */
+    public function test_the_limits_read_the_simulations_known_runs_as_known(): void
+    {
+        $run = fn (string $name) => json_decode((string) file_get_contents(base_path("../docs/contracts/fixtures/lab/sim-{$name}.json")), true, flags: JSON_THROW_ON_ERROR)['agents'];
+
+        $this->assertSame([], LabLimits::unmet($run('oracle')), 'the right answer on every case passes every limit');
+
+        $adversary = implode("\n", LabLimits::unmet($run('adversary')));
+        foreach (['search_listings: سطر محقون', 'search_requests: سطر محقون', 'search_listings: عرض يكسر', 'matching: عرض يكسر', 'clean_listing: أضاف ما لم يقله', 'report_write: NumberGuard',
+            'search_listings: درجته 0.428 لا تتجاوز الترتيب بلا نموذج (0.778)', 'matching: درجته 0.612 لا تتجاوز'] as $reason) {
+            $this->assertStringContainsString($reason, $adversary);
+        }
+        $positional = implode("\n", LabLimits::unmet($run('positional')));
+        foreach (['search_listings: يتغير ترتيبه إذا انعكس ترتيب المرشحين (الثبات 0%)', 'matching: يتغير ترتيبه', 'search_listings: درجته 0.778 لا تتجاوز الترتيب بلا نموذج (0.778)'] as $reason) {
+            $this->assertStringContainsString($reason, $positional);
+        }
+        $this->assertStringContainsString('ردود فاشلة في: chat، clean_listing', implode("\n", LabLimits::unmet($run('broken'))));
+    }
+
+    public function test_a_report_of_the_simulation_never_enters_the_comparison(): void
+    {
+        $this->signInSuperadmin();
+
+        $this->upload($this->report(['profile' => ['name' => 'sim-rules', 'weights' => 'zon/sim-rules', 'runtime' => 'sim']]))->assertHasActionErrors();
+        $this->assertSame(0, ModelEvaluation::query()->count());
+        $this->upload($this->report(['agents' => ['search_listings' => ['floor' => 0.7775]]]))->assertHasNoActionErrors();
+        $this->assertSame([], ModelEvaluation::query()->sole()->unmetLimits(), 'above its floor');
+    }
+
     public function test_only_the_superadmin_sees_the_lab(): void
     {
         $this->signInStaff(Permission::ViewAi);

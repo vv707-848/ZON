@@ -61,6 +61,33 @@ class AiTest extends TestCase
         $this->assertSame('ok', AiRequest::query()->sole()->status->value);
     }
 
+    /**
+     * The simulation (agents' profile sim-rules) says so on every answer. The app is told; nothing of it is kept
+     * past the simulation; and production takes it only when PRODUCTION_ALLOWS_FAKE names `ai`.
+     */
+    public function test_a_simulated_answer_is_said_so_is_never_cached_and_is_refused_in_production(): void
+    {
+        $near = Listing::factory()->published()->create(['price' => 880000]);
+        $far = Listing::factory()->published()->create(['price' => 800000]);
+        Http::fake(['agents.test/agents/*' => Http::response(['output' => ['results' => [['id' => $far->id, 'score' => 0.95], ['id' => $near->id, 'score' => 0.45]]],
+            'degraded' => false, 'simulated' => true, 'usage' => ['tokens_in' => 300, 'tokens_out' => 30], 'latency_ms' => 4])]);
+        $this->seeker();
+        $search = ['city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 900000, 'query' => 'حوش'];
+        $ids = fn ($response) => array_column(array_column($response->json('data.results'), 'listing'), 'id');
+
+        $first = $this->postJson('/api/v1/ai/search', $search)->assertOk()->assertJsonPath('meta.ai', ['status' => 'ok', 'simulated' => true]);
+        $this->assertSame([$far->id, $near->id], $ids($first));
+        $this->postJson('/api/v1/ai/search', $search)->assertOk()->assertJsonPath('meta.ai', ['status' => 'ok', 'simulated' => true]);
+        Http::assertSentCount(2);                                   // asked again: a model that comes later is not answered for
+
+        $this->app['env'] = 'production';
+        $refused = $this->postJson('/api/v1/ai/search', $search)->assertOk()->assertJsonPath('meta.ai', ['status' => 'rejected'])->assertHeader('X-AI-Remaining', '28');
+        $this->assertSame([$near->id, $far->id], $ids($refused), 'the order of the database, as when no model answers');
+
+        config(['services.production_allows_fake' => 'sms,ai']);
+        $this->postJson('/api/v1/ai/search', $search)->assertOk()->assertJsonPath('meta.ai', ['status' => 'ok', 'simulated' => true])->assertHeader('X-AI-Remaining', '27');
+    }
+
     public function test_the_accounts_own_name_reaches_no_model_no_row_and_no_training_sample(): void
     {
         $seeker = $this->seeker();

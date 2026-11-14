@@ -217,6 +217,14 @@ final class SystemHealth
         if (is_bool($response->json('errors'))) {
             $detail .= ' · Sentry '.($response->json('errors') ? '✓' : '✗');   // the agents service's own SENTRY_DSN
         }
+        if ($response->json('simulated') === true) {                 // the simulation, not a model (agents/zon_agents/sim)
+            $detail .= ' · محاكاة بلا نموذج';
+            if (app()->isProduction()) {
+                return Drivers::fakeAllowedInProduction('ai')
+                    ? [HealthStatus::Warn, $detail.' — مسموحة مؤقتاً (PRODUCTION_ALLOWS_FAKE)']
+                    : [HealthStatus::Fail, $detail.' — مرفوضة في الإنتاج: الطلبات تعمل بالمسار البديل'];
+            }
+        }
         if ($down === []) {
             return [HealthStatus::Ok, $detail];
         }

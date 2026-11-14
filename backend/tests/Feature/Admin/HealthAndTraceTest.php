@@ -28,11 +28,14 @@ class HealthAndTraceTest extends AdminTestCase
 {
     private bool $qdrantUp = true;
 
+    private bool $simulated = false;
+
     protected function setUp(): void
     {
         parent::setUp();
         Http::fake(fn (Request $r) => str_ends_with($r->url(), '/agents/health')
-            ? Http::response(['status' => 'ok', 'llm' => true, 'embed' => true, 'qdrant' => $this->qdrantUp, 'model' => 'qwen3.6-35b-a3b-fp8']) : null);
+            ? Http::response(['status' => 'ok', 'llm' => true, 'embed' => true, 'qdrant' => $this->qdrantUp]
+                + ($this->simulated ? ['model' => 'sim-rules', 'simulated' => true] : ['model' => 'qwen3.6-35b-a3b-fp8'])) : null);
         (new SchedulerHeartbeat)->handle();
     }
 
@@ -74,6 +77,22 @@ class HealthAndTraceTest extends AdminTestCase
 
         $this->assertSame('warn', $checks['agents']['status']);
         $this->assertStringContainsString('Qdrant ✗', $checks['agents']['detail']);
+    }
+
+    public function test_a_simulated_model_is_named_and_fails_the_doctor_in_production_unless_allowed(): void
+    {
+        $this->simulated = true;
+
+        $this->assertStringContainsString('sim-rules · محاكاة بلا نموذج', $this->doctor(0)['agents']['detail']);
+
+        $this->app['env'] = 'production';
+        config(['queue.default' => 'redis', 'app.debug' => false, 'zon.admin_allowed_ips' => ['10.0.0.1'], 'services.production_allows_fake' => implode(',', array_keys(Drivers::SERVICES))]);
+        $refused = $this->doctor(1)['agents'];
+        $this->assertSame('fail', $refused['status']);
+        $this->assertStringContainsString('مرفوضة في الإنتاج', $refused['detail']);
+
+        config(['services.production_allows_fake' => implode(',', [...array_keys(Drivers::SERVICES), 'ai'])]);
+        $this->assertSame('warn', $this->doctor(0)['agents']['status']);
     }
 
     public function test_in_production_the_doctor_fails_on_debug_and_a_refused_simulation_and_warns_on_hidden_errors(): void
