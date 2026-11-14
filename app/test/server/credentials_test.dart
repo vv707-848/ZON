@@ -161,6 +161,29 @@ void main() {
       expect(find.text('تأكيد الرقم الجديد'), findsNothing);
     });
 
+    testWidgets('the name and the city: what he wrote is sent, the account is as the server answers, no code asked for', (tester) async {
+      await freshDevice();
+      final server = serverDevice();
+      await serverSignIn(server);
+      server.offline('PATCH', 'me');
+      await pumpApp(tester, '/account/settings');
+      await tapText(tester, 'اضغط للتعديل');
+      await tester.enterText(_fields.at(0), '  مكتب العتيبي ');
+      await tapText(tester, 'حفظ');
+      await _settle(tester);
+      expect(find.textContaining('الإنترنت'), findsOneWidget);
+      expect(store.readSession()!.name, 'فيصل العتيبي', reason: 'not saved: the account is unchanged');
+      expect(find.text('حفظ'), findsOneWidget, reason: 'the form stays open with what he wrote');
+
+      server.on('PATCH', 'me', 200, ok(me(name: 'مكتب العتيبي')));
+      await tapText(tester, 'حفظ');
+      await _settle(tester);
+      expect(FakeServer.body(server.sent('PATCH', 'me').last), <String, Object?>{'name': 'مكتب العتيبي', 'city': 'الرياض'});
+      expect(store.readSession()!.name, 'مكتب العتيبي');
+      expect(server.sent('POST', 'me/phone'), isEmpty);
+      expect(find.text('حفظ'), findsNothing);
+    });
+
     testWidgets('the same number written another way is not a new one', (tester) async {
       await freshDevice();
       final server = serverDevice();
