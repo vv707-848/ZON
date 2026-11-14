@@ -125,6 +125,7 @@ abstract final class ServerListings {
       favorite: _bool(j['is_favorite']),
       advertiserRole: role,
       license: licence['verified'] == true ? (_str(licence['number']) ?? '') : '',
+      licenceUntil: _str(j['licence_expires_at']) ?? _str(licence['expires_at']),
       negotiable: _bool(j['negotiable']),
       hasDeed: _bool(j['has_deed']),
       bankOk: _bool(j['bank_accepted']),

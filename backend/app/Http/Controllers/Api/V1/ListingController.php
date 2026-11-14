@@ -103,7 +103,7 @@ class ListingController extends Controller
     /** «عروضي»: every status but the deleted ones. */
     public function mine(Request $request): JsonResponse
     {
-        $page = $request->user('api')->listings()->with(['customer', 'media' => fn ($q) => $q->where('is_cover', true)])
+        $page = $request->user('api')->listings()->with(['customer', 'licence', 'media' => fn ($q) => $q->where('is_cover', true)])
             ->when($request->query('status'), fn (Builder $q, $v) => $q->where('status', $v))
             ->latest('updated_at')->paginate(20);
 

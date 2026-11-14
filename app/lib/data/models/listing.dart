@@ -143,6 +143,7 @@ class Listing {
     this.available,
     this.totalUnits,
     this.status,
+    this.licenceUntil,
     this.photoIds,
     this.sold,
     this.isPremium,
@@ -198,6 +199,10 @@ class Listing {
   /// Where a listing of the server is in its life (`indexing` · `pending_review` · `published` · `paused` ·
   /// `inactive` · `sold` · `hidden` · `rejected` · `licence_expired`); null on this phone only.
   final String? status;
+
+  /// The last day of its advertising licence as the server holds it (`2027-03-10`), on his own listings; null on
+  /// this phone only, and where the server did not say.
+  final String? licenceUntil;
 
   /// The server's id of each photo of [images], in the same order (sent back as `media_ids` on an edit).
   final List<int>? photoIds;
@@ -286,6 +291,7 @@ class Listing {
     if (available != null) 'available': available,
     if (totalUnits != null) 'totalUnits': totalUnits,
     if (status != null) 'status': status,
+    if (licenceUntil != null) 'licenceUntil': licenceUntil,
     if (photoIds != null) 'photoIds': photoIds,
     if (sold != null) 'sold': sold,
     if (isPremium != null) 'isPremium': isPremium,
@@ -340,6 +346,7 @@ class Listing {
       available: numOrNull(j['available']),
       totalUnits: numOrNull(j['totalUnits']),
       status: j['status'] is String ? j['status']! as String : null,
+      licenceUntil: j['licenceUntil'] is String ? j['licenceUntil']! as String : null,
       photoIds: j['photoIds'] is List
           ? <int>[
               for (final v in j['photoIds']! as List)
