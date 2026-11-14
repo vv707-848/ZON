@@ -183,10 +183,7 @@ void main() {
     }
 
     Future<void> pick(WidgetTester tester) async {
-      final card = find.byType(ListingCard);
-      await Scrollable.ensureVisible(tester.element(card), alignment: 0.5);
-      await tester.pump();
-      await tester.tap(card, warnIfMissed: false);
+      tester.widget<ListingCard>(find.byType(ListingCard)).onSelect!();
       await _settle(tester);
     }
 

@@ -105,13 +105,13 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
   /// The server's results for the wish it keeps.
   Future<void> _match() async {
     final epoch = store.serverEpoch;
-    final ask = ++_asks;
-    bool mine() => _current(epoch) && ask == _asks;
     setState(() {
       scan = true;
       tab = 'match';
       _forgetFound();
     });
+    final ask = _asks; // after forgetting: this question is the last one
+    bool mine() => _current(epoch) && ask == _asks;
     try {
       final found = await ServerAi.matching(epoch: epoch);
       if (mine()) setState(() => _found = found);
