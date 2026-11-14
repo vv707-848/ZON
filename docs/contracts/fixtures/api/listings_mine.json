@@ -31,26 +31,27 @@
             "featured_until": null,
             "urgent": false,
             "urgent_until": null,
-            "cover_url": "http://localhost/media/2/01M79AV5KZ6SZSR9QMQPRC9JF0-card.jpg?expiration=1794539554",
+            "cover_url": "http://localhost/media/1/01M7E734Y2Q9QT9FPKCJ78E73R-card.jpg?expiration=1794703393",
             "published_at": null,
-            "updated_at": "2026-11-13T02:12:34+00:00",
+            "updated_at": "2026-11-14T23:43:13+00:00",
             "views_count": 0,
             "is_favorite": false,
             "share_url": "https://zon.sa/listings/1",
             "advertiser": {
-                "id": 2,
-                "username": "qprzw7493",
-                "name": "حليمة السهلي",
+                "id": 1,
+                "username": "fdeke4339",
+                "name": "اديب السماعيل",
                 "role": "broker",
                 "fal_verified": true,
-                "fal_number": "1175741006"
+                "fal_number": "1113557031"
             },
+            "licence_expires_at": "2027-11-15",
             "desc_raw": "شقة واسعة قريبة من الخدمات والمدارس",
             "desc_suggested": "شقة واسعة قريبة من الخدمات والمدارس، في دور أرضي.",
             "text_review": "ready",
             "text_reviewed_at": null,
             "paused_until": null,
-            "created_at": "2026-11-13T02:12:34+00:00"
+            "created_at": "2026-11-14T23:43:13+00:00"
         }
     ],
     "meta": {

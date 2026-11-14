@@ -9,6 +9,8 @@
 //   GET    /listings/mine              «عروضي», every state
 //   PATCH  /listings/{id}              an edit (a new text goes back to the wording)
 //   POST   /listings/{id}/pause        «إخفاء» · `/resume` «إظهار» · `/sold` «مباع» (final)
+//   POST   /listings/{id}/licence      «تحديث الرخصة»: REGA asked again (the same number, or a new one); a listing
+//                                      that left because its licence ended comes back
 //   POST   /listings/{id}/boost        «تمييز» · «عاجل» from the plan's balance (402 with the price otherwise)
 //
 // What a type does not use is not sent (the server refuses it); what the advertiser left empty is sent empty
@@ -132,6 +134,12 @@ abstract final class ServerMyListings {
   /// «مباع»: an owner's at [salePrice], the price it sold for (his contract's commission is reckoned on it).
   static Future<Listing> sold(String appId, {String? salePrice}) async => ServerListings.fromListing(
     (await Api.client!.post('listings/${ServerListings.rawId(appId)}/sold', <String, Object?>{'sale_price': ?salePrice})).map,
+  );
+
+  /// «تحديث الرخصة»: REGA is asked about [number], or about the number the listing has when it is empty. The
+  /// listing as it is after — or an ApiError 422 whose field message is REGA's refusal.
+  static Future<Listing> renewLicence(String appId, {required String number}) async => ServerListings.fromListing(
+    (await Api.client!.post('listings/${ServerListings.rawId(appId)}/licence', <String, Object?>{if (number.isNotEmpty) 'licence_number': number})).map,
   );
 
   /// «تمييز» (`featured`) or «عاجل» (`urgent_listing`) from the plan's balance; without balance an ApiError 402

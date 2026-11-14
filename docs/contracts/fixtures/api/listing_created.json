@@ -30,35 +30,35 @@
         "featured_until": null,
         "urgent": false,
         "urgent_until": null,
-        "cover_url": "http://localhost/media/2/01M79AV5KZ6SZSR9QMQPRC9JF0-card.jpg?expiration=1794539554",
+        "cover_url": "http://localhost/media/1/01M7E734Y2Q9QT9FPKCJ78E73R-card.jpg?expiration=1794703393",
         "published_at": null,
-        "updated_at": "2026-11-13T02:12:34+00:00",
+        "updated_at": "2026-11-14T23:43:13+00:00",
         "views_count": null,
         "is_favorite": false,
         "share_url": "https://zon.sa/listings/1",
         "advertiser": {
-            "id": 2,
-            "username": "qprzw7493",
-            "name": "حليمة السهلي",
+            "id": 1,
+            "username": "fdeke4339",
+            "name": "اديب السماعيل",
             "role": "broker",
             "fal_verified": true,
-            "fal_number": "1175741006"
+            "fal_number": "1113557031"
         },
         "photos": [
             {
                 "id": 1,
-                "url": "http://localhost/media/2/01M79AV5KZ6SZSR9QMQPRC9JF0.jpg?expiration=1794539554",
-                "large_url": "http://localhost/media/2/01M79AV5KZ6SZSR9QMQPRC9JF0-large.jpg?expiration=1794539554",
-                "card_url": "http://localhost/media/2/01M79AV5KZ6SZSR9QMQPRC9JF0-card.jpg?expiration=1794539554",
+                "url": "http://localhost/media/1/01M7E734Y2Q9QT9FPKCJ78E73R.jpg?expiration=1794703393",
+                "large_url": "http://localhost/media/1/01M7E734Y2Q9QT9FPKCJ78E73R-large.jpg?expiration=1794703393",
+                "card_url": "http://localhost/media/1/01M7E734Y2Q9QT9FPKCJ78E73R-card.jpg?expiration=1794703393",
                 "is_cover": true,
                 "width": 640,
                 "height": 480
             },
             {
                 "id": 2,
-                "url": "http://localhost/media/2/01M79AV5MF9ZV0J404J8MBDAW9.jpg?expiration=1794539554",
-                "large_url": "http://localhost/media/2/01M79AV5MF9ZV0J404J8MBDAW9-large.jpg?expiration=1794539554",
-                "card_url": "http://localhost/media/2/01M79AV5MF9ZV0J404J8MBDAW9-card.jpg?expiration=1794539554",
+                "url": "http://localhost/media/1/01M7E734YP6BT0CSZ7KZHX3ETH.jpg?expiration=1794703393",
+                "large_url": "http://localhost/media/1/01M7E734YP6BT0CSZ7KZHX3ETH-large.jpg?expiration=1794703393",
+                "card_url": "http://localhost/media/1/01M7E734YP6BT0CSZ7KZHX3ETH-card.jpg?expiration=1794703393",
                 "is_cover": false,
                 "width": 640,
                 "height": 480
@@ -70,17 +70,18 @@
         "licence": {
             "number": "7200123456",
             "qr_url": "https://sim.zon.local/rega/ad/7200123456",
-            "expires_at": "2027-11-13",
+            "expires_at": "2027-11-15",
             "verified": true
         },
         "phones": [
-            "0579234087"
+            "0537124126"
         ],
+        "licence_expires_at": "2027-11-15",
         "desc_raw": "شقة واسعة قريبة من الخدمات والمدارس",
         "desc_suggested": null,
         "text_review": "pending",
         "text_reviewed_at": null,
         "paused_until": null,
-        "created_at": "2026-11-13T02:12:34+00:00"
+        "created_at": "2026-11-14T23:43:13+00:00"
     }
 }

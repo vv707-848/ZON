@@ -116,11 +116,18 @@ class LicenceLifecycleTest extends TestCase
         (new ExpireLicences)->handle();
         $this->signIn($listing->customer);
 
-        $this->postJson("/api/v1/listings/{$listing->id}/licence", ['licence_number' => '7200990000'])->assertStatus(422);
-        $this->postJson("/api/v1/listings/{$listing->id}/licence", ['licence_number' => '7200990011'])->assertOk()
+        // «عروضي» says each listing's last licensed day, so the app can warn before it and offer «تحديث الرخصة» after
+        $this->apiContract('listings_mine_licence_expired', $this->getJson('/api/v1/listings/mine')->assertOk()
+            ->assertJsonPath('data.0.status', 'licence_expired')
+            ->assertJsonPath('data.0.licence_expires_at', '2027-03-10'));
+
+        $this->apiContract('listing_licence_refused', $this->postJson("/api/v1/listings/{$listing->id}/licence", ['licence_number' => '7200990000'])->assertStatus(422));
+        $this->apiContract('listing_licence_renewed', $this->postJson("/api/v1/listings/{$listing->id}/licence", ['licence_number' => '7200990011'])->assertOk()
             ->assertJsonPath('data.status', 'published')
             ->assertJsonPath('data.licence.number', '7200990011')
-            ->assertJsonPath('data.licence.expires_at', '2028-03-11');
+            ->assertJsonPath('data.licence.expires_at', '2028-03-11')
+            ->assertJsonPath('data.licence_expires_at', '2028-03-11'));
+        $this->getJson('/api/v1/listings/mine')->assertOk()->assertJsonPath('data.0.licence_expires_at', '2028-03-11');
 
         $this->assertTrue($listing->fresh()->isLive());
         $this->assertSame(2, AdLicense::query()->where('listing_id', $listing->id)->count());

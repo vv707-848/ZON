@@ -1,0 +1,15 @@
+{
+    "success": false,
+    "error": {
+        "code": "VALIDATION_FAILED",
+        "message": "تحقق من الحقول المطلوبة.",
+        "details": {
+            "fields": {
+                "licence_number": [
+                    "رقم الترخيص الإعلاني غير صالح لدى الهيئة."
+                ]
+            }
+        },
+        "trace_id": "01M7E6Q9TW9PXSR5H4FSAR1T6D"
+    }
+}
