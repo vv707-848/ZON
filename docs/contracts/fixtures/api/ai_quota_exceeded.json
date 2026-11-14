@@ -1,0 +1,19 @@
+{
+    "success": false,
+    "error": {
+        "code": "QUOTA_EXCEEDED",
+        "message": "تجاوزت الحد المسموح، حاول بعد التجديد.",
+        "details": {
+            "upgrade": [
+                {
+                    "package": "seeker",
+                    "name": "الباحث — شهري",
+                    "price": "199.00",
+                    "daily": 30
+                }
+            ],
+            "resets_at": "2026-11-15T00:00:00+03:00"
+        },
+        "trace_id": "01M7DHFTF1TTA2GKA27M6DCPEK"
+    }
+}

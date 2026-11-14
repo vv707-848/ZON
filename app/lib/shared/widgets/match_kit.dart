@@ -5,10 +5,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:zon/app/router.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/simulations.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_ai.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/shared/widgets/ask_card.dart';
 import 'package:zon/shared/widgets/listing_card.dart';
@@ -203,20 +207,124 @@ class _InsetLeftBar extends CustomPainter {
   bool shouldRepaint(_InsetLeftBar old) => old.color != color || old.width != width || old.radius != radius;
 }
 
+/// Under AI results from a server: said only when the order is not a model's — the model did not answer (the
+/// database's order), or the server's AI is the simulation.
+class AiNote extends StatelessWidget {
+  const AiNote({super.key, required this.ai});
+
+  final AiMeta ai;
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = <String>[
+      if (!ai.byModel && !ai.skipped) 'تعذّر ترتيب الذكاء الآن، فهذه النتائج بترتيب قاعدة البيانات.',
+      if (ai.simulated) 'محاكاة: الترتيب بقواعد ثابتة، لا بنموذج ذكاء.',
+    ];
+    if (lines.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: AppColors.mist, borderRadius: BorderRadius.circular(12)),
+      child: Tx(lines.join('\n'), style: ts(13, lh: 19.5, c: AppColors.muted)),
+    );
+  }
+}
+
+/// What a plan does not give, or gave all of for today: the server's words (or the page's, for a service outside
+/// the plan), and the way to the plans.
+class PlanDoor extends StatelessWidget {
+  const PlanDoor(this.said, {super.key});
+
+  final String said;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: <Widget>[
+      FormError(said),
+      const SizedBox(height: 8),
+      AppButton(label: 'الباقات', tone: ButtonTone.secondary, onTap: () => Nav.go(context, '/account/plans')),
+    ],
+  );
+}
+
 // ---------------------------------------------------------------- folio / marks
 
 /// Semantic "match / no match" marks shared by search and matching pages.
+///
+/// With a server the marks are this page's own — never the device's, which another account may have left — and a
+/// saved mark is sent to the server once (POST /ai/feedback, [ServerAi.feedback]); one it did not take opens again
+/// with why.
 mixin SemMarksState<T extends StatefulWidget> on State<T> {
-  late Map<String, SemMark> mark = store.loadSemMarks();
+  late Map<String, SemMark> mark = Api.on ? <String, SemMark>{} : store.loadSemMarks();
   String? openWhy;
 
+  /// Where the results came from, for the server: `search` · `matching` · `requests`.
+  String get markContext => 'search';
+
+  /// What was asked for, kept by the server beside a mark (its own fields only).
+  Map<String, Object?>? get markQuery => null;
+
+  /// The results whose mark the server took, and the one it refused with why.
+  final Set<String> _sent = <String>{};
+  (String, String)? markRefused;
+
+  /// Another account, or another search: nothing rated before stays.
+  void forgetMarks() {
+    mark = Api.on ? <String, SemMark>{} : store.loadSemMarks();
+    openWhy = null;
+    markRefused = null;
+    _sent.clear();
+  }
+
+  Future<void> _sendMark(String id, SemMark m) async {
+    final number = int.tryParse(id.substring(1));
+    if (number == null || _sent.contains(id)) return;
+    final epoch = store.serverEpoch;
+    _sent.add(id);
+    try {
+      await ServerAi.feedback(
+        context: markContext,
+        type: id.startsWith('R') ? 'request' : 'listing',
+        id: number,
+        isMatch: m.v == 'match',
+        reason: m.reason,
+        query: markQuery,
+        epoch: epoch,
+      );
+    } on ApiError catch (e) {
+      _sent.remove(id);
+      if (mounted && epoch == store.serverEpoch) {
+        setState(() {
+          markRefused = (id, e.forUser);
+          openWhy = id;
+        });
+      }
+    } on AccountChanged {
+      // nothing is sent under the next account
+    }
+  }
+
   void pickMark(String id, String v) {
+    if (Api.on) {
+      // The server keeps a mark as it was sent: «مطابق» goes at once (its reason is optional there), «غير مطابق»
+      // with its reason — and a result is rated once.
+      if (_sent.contains(id)) return;
+      final cur = SemMark(v: v, reason: mark[id]?.reason ?? '');
+      setState(() {
+        mark = <String, SemMark>{...mark, id: cur};
+        openWhy = v == 'match' ? null : id;
+        if (markRefused?.$1 == id) markRefused = null;
+      });
+      if (v == 'match') unawaited(_sendMark(id, cur));
+      return;
+    }
     final had = (mark[id]?.reason ?? '').trim().isNotEmpty;
     setState(() {
       final cur = SemMark(v: v, reason: mark[id]?.reason ?? '');
       if (cur.reason.trim().isNotEmpty) store.saveSemMark(id, cur);
       mark = <String, SemMark>{...mark, id: cur};
       openWhy = had ? null : id;
+      if (markRefused?.$1 == id) markRefused = null;
     });
   }
 
@@ -226,8 +334,17 @@ mixin SemMarksState<T extends StatefulWidget> on State<T> {
 
   void saveMark(String id) {
     final m = mark[id];
-    if (m != null && m.reason.trim().isNotEmpty) store.saveSemMark(id, m);
-    setState(() => openWhy = null);
+    if (m != null && m.reason.trim().isNotEmpty) {
+      if (Api.on) {
+        unawaited(_sendMark(id, m));
+      } else {
+        store.saveSemMark(id, m);
+      }
+    }
+    setState(() {
+      openWhy = null;
+      if (markRefused?.$1 == id) markRefused = null;
+    });
   }
 
   /// A compact result with a listing card.
@@ -236,6 +353,7 @@ mixin SemMarksState<T extends StatefulWidget> on State<T> {
     card: ListingCard(listing: l, mini: true),
     mark: mark[l.id],
     open: openWhy == l.id,
+    error: markRefused?.$1 == l.id ? markRefused!.$2 : null,
     onPick: (v) => pickMark(l.id, v),
     onReason: (r) => reasonMark(l.id, r),
     onSave: () => saveMark(l.id),
@@ -247,6 +365,7 @@ mixin SemMarksState<T extends StatefulWidget> on State<T> {
     card: AskCard(item: r),
     mark: mark[r.id],
     open: openWhy == r.id,
+    error: markRefused?.$1 == r.id ? markRefused!.$2 : null,
     label: 'قيّم هذا الطلب',
     onPick: (v) => pickMark(r.id, v),
     onReason: (x) => reasonMark(r.id, x),
@@ -265,11 +384,15 @@ class FolioMini extends StatelessWidget {
     required this.onReason,
     required this.onSave,
     this.label = 'قيّم هذا العرض',
+    this.error,
   });
 
   final Widget card;
   final SemMark? mark;
   final bool open;
+
+  /// Why the server did not take the mark, shown over its reason.
+  final String? error;
   final ValueChanged<String> onPick;
   final ValueChanged<String> onReason;
   final VoidCallback onSave;
@@ -280,7 +403,7 @@ class FolioMini extends StatelessWidget {
     final hidden = (mark?.reason ?? '').trim().isNotEmpty && !open;
     Widget? fm;
     if (!hidden) {
-      fm = FolioMark(mark: mark, open: open, label: label, onPick: onPick, onReason: onReason, onSave: onSave);
+      fm = FolioMark(mark: mark, open: open, label: label, error: error, onPick: onPick, onReason: onReason, onSave: onSave);
     }
     return Container(
       decoration: BoxDecoration(
@@ -306,10 +429,12 @@ class FolioMark extends StatefulWidget {
     required this.onReason,
     required this.onSave,
     this.label = 'قيّم هذا العرض',
+    this.error,
   });
 
   final SemMark? mark;
   final bool open;
+  final String? error;
   final ValueChanged<String> onPick;
   final ValueChanged<String> onReason;
   final VoidCallback onSave;
@@ -386,8 +511,10 @@ class _FolioMarkState extends State<FolioMark> {
             ],
           ),
           if (widget.open) ...<Widget>[
+            if (widget.error case final String e) ...<Widget>[const SizedBox(height: 10), FormError(e)],
             const SizedBox(height: 10),
-            Tx('اكتب السبب عشان تجيك نتائج أدق', style: ts(13, w: 600, lh: 19.5, c: AppColors.muted)),
+            // with a server the reason is kept for review; it does not change his next results
+            Tx(Api.on ? 'اكتب السبب' : 'اكتب السبب عشان تجيك نتائج أدق', style: ts(13, w: 600, lh: 19.5, c: AppColors.muted)),
             const SizedBox(height: 8),
             FieldBox(
               controller: _why,

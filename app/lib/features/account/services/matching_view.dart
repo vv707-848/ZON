@@ -1,5 +1,10 @@
 // مساعد المطابقة — seekers see listings matching their wish; developers see
 // offers and the seekers / brokers who match their projects.
+//
+// With a server (ServerAi) nothing is ranked or made up here: the wish's results are the server's three lists in
+// its order (its own type · other types · projects with the unit models that fit), asked once the wish is known
+// and again when it is saved; a developer's seekers and brokers are the server's, for a published project of his.
+// The page says when the order is not a model's or is the simulation's, and shows the plan's refusals.
 
 import 'dart:async';
 
@@ -16,6 +21,11 @@ import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/notifications/notification_center.dart';
+import 'package:zon/data/server/server_ai.dart';
+import 'package:zon/data/server/server_chats.dart';
+import 'package:zon/data/server/server_desk.dart' show NeedsPlan;
+import 'package:zon/data/server/server_listings.dart';
+import 'package:zon/data/server/server_my_projects.dart';
 import 'package:zon/data/server/server_wishes.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/widgets/desk.dart';
@@ -82,6 +92,50 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
   int _epoch = store.serverEpoch;
   String? _account = store.readSession()?.id;
 
+  /// With a server: what it found for the wish, or why it gave nothing; [_asks] counts the questions, so that only
+  /// the last one's answer is shown.
+  Matching? _found;
+  String _matchError = '';
+  String? _refused;
+  int _asks = 0;
+
+  @override
+  String get markContext => 'matching';
+
+  /// The server's results for the wish it keeps.
+  Future<void> _match() async {
+    final epoch = store.serverEpoch;
+    setState(() {
+      scan = true;
+      tab = 'match';
+      _forgetFound();
+    });
+    final ask = _asks; // after forgetting: this question is the last one
+    bool mine() => _current(epoch) && ask == _asks;
+    try {
+      final found = await ServerAi.matching(epoch: epoch);
+      if (mine()) setState(() => _found = found);
+    } on NeedsPlan {
+      if (mine()) setState(() => _refused = 'مساعد المطابقة ضمن الباقات.');
+    } on QuotaReached catch (e) {
+      if (mine()) setState(() => _refused = e.message);
+    } on ApiError catch (e) {
+      if (mine()) setState(() => _matchError = e.forUser);
+    } on AccountChanged {
+      // nothing is asked under the next account
+    } finally {
+      if (mine()) setState(() => scan = false);
+    }
+  }
+
+  void _forgetFound() {
+    _asks++; // an answer still on its way is for a wish no longer shown
+    _found = null;
+    _matchError = '';
+    _refused = null;
+    forgetMarks();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -120,8 +174,10 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
       saved = null;
       query = null;
       edit = true;
+      scan = false;
       _sending = false;
       _error = '';
+      _forgetFound();
     });
     if (account != null) unawaited(_loadFromServer());
   }
@@ -142,6 +198,8 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
           saved = null;
           query = null;
           edit = true;
+          scan = false;
+          _forgetFound();
         });
         return;
       }
@@ -151,6 +209,7 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
         query = w.text.isNotEmpty ? w : null;
         edit = w.text.isEmpty;
       });
+      if (w.text.isNotEmpty) unawaited(_match());
     } on ApiError catch (e) {
       if (_current(epoch)) setState(() => _error = e.forUser);
     }
@@ -211,6 +270,17 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
   void _persist(Wish w) => Api.on ? unawaited(_saveOnServer(w)) : _persistHere(w);
 
   void _persistHere(Wish w) {
+    if (Api.on) {
+      // saved there: its results are asked for — nothing ranked here, no wait added
+      store.saveWish(w);
+      setState(() {
+        saved = w;
+        edit = false;
+        query = w;
+      });
+      unawaited(_match());
+      return;
+    }
     final list = store.allListings();
     store.saveWish(w);
     store.markHitsSeen(store.matchingIds(w, list));
@@ -227,8 +297,8 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
       setState(() => scan = false);
       if (query != null) store.clearRadarPing();
     });
-    // the radar's notice: simulated on this phone; with a server it is the server's (twice a day)
-    if (!Api.on) Future<void>.delayed(const Duration(milliseconds: 4000), store.pingRadar);
+    // the radar's notice, simulated on this phone
+    Future<void>.delayed(const Duration(milliseconds: 4000), store.pingRadar);
   }
 
   void _stop() => Api.on ? unawaited(_stopOnServer()) : _stopHere();
@@ -240,6 +310,8 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
       saved = null;
       query = null;
       edit = true;
+      scan = false;
+      _forgetFound();
     });
   }
 
@@ -262,9 +334,17 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
 
   @override
   Widget build(BuildContext context) {
-    final list = store.allListings();
-    final hits = _hits(list);
+    final found = _found;
+    final hits = Api.on
+        ? (
+            hit: <Listing>[for (final r in found?.matched ?? const <Scored<Listing>>[]) r.item],
+            other: <Listing>[for (final r in found?.broaden ?? const <Scored<Listing>>[]) r.item],
+          )
+        : _hits(store.allListings());
     final rows = tab == 'match' ? hits.hit : hits.other;
+    final projects = found?.projects ?? const <MatchedProject>[];
+    // with a server the results are an answer: none is shown before it comes, or when it was refused
+    final answered = query != null && (!Api.on || found != null);
     final live = (saved?.text ?? '').isNotEmpty && !edit;
     final hoods = kCities[city] ?? const <String>[];
 
@@ -388,15 +468,36 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
     final children = <Widget>[
       desk,
       if (scan) const Hunt(title: 'الذكاء يفعّل الرادار', hint: 'يحفظ الرغبة ويراقب العروض الجديدة', kind: 'listings'),
-      if (!scan && query != null)
+      if (!scan && _matchError.isNotEmpty) FormError(_matchError),
+      if (!scan && _refused != null) PlanDoor(_refused!),
+      if (!scan && found != null && !found.empty) AiNote(ai: found.ai),
+      if (!scan && found != null && found.empty && found.suggestRequest) ...<Widget>[
+        radarWish('لا عروض تطابق رغبتك الآن. انشر طلباً ليصل إلى أصحاب العروض.'),
+        AppButton(label: 'طلباتي', tone: ButtonTone.secondary, onTap: () => Nav.go(context, '/account/requests')),
+      ],
+      if (!scan && answered)
         MxTabs(
           items: <(String, bool, VoidCallback)>[
             ('عروض مطابقة · ${hits.hit.length}', tab == 'match', () => setState(() => tab = 'match')),
             ('عروض أخرى · ${hits.other.length}', tab == 'other', () => setState(() => tab = 'other')),
+            if (Api.on) ('مشاريع · ${projects.length}', tab == 'projects', () => setState(() => tab = 'projects')),
           ],
         ),
-      if (!scan && tab == 'other' && query != null) radarWish('نفس المدينة فقط — نوع أو حي مختلف. علّم مطابق أو غير مطابق واكتب السبب.'),
-      if (!scan && query != null)
+      if (!scan && tab == 'other' && answered)
+        radarWish(
+          Api.on
+              ? 'أنواع أخرى ضمن ميزانيتك. علّم مطابق أو غير مطابق واكتب السبب.'
+              : 'نفس المدينة فقط — نوع أو حي مختلف. علّم مطابق أو غير مطابق واكتب السبب.',
+        ),
+      if (!scan && answered && tab == 'projects')
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            for (var i = 0; i < projects.length; i++) ...<Widget>[if (i > 0) const SizedBox(height: 10), _MatchedProjectCard(projects[i])],
+            if (projects.isEmpty) radarWish('لا نتائج في هذا التبويب'),
+          ],
+        ),
+      if (!scan && answered && tab != 'projects')
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -413,6 +514,50 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
         children: <Widget>[
           for (var i = 0; i < children.length; i++) ...<Widget>[if (i > 0) const SizedBox(height: 14), children[i]],
         ],
+      ),
+    );
+  }
+}
+
+/// A project the wish suits, with the unit models of it that fit — the server's, the best first.
+class _MatchedProjectCard extends StatelessWidget {
+  const _MatchedProjectCard(this.match);
+
+  final MatchedProject match;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: ValueKey<String>('m-${match.project.id}'),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const <BoxShadow>[BoxShadow(color: AppColors.mistLine, spreadRadius: 1)],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            ListingCard(listing: match.project, mini: true),
+            for (final u in match.units)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: AppColors.mistLine)),
+                ),
+                child: Tx(
+                  <String>[
+                    'نموذج ${u.name}',
+                    if (u.bedrooms != null) '${u.bedrooms} غرف',
+                    if (u.area != null) '${sar(u.area!)} م²',
+                    if (u.price != null) '${sar(u.price!)} ريال',
+                  ].join(' · '),
+                  style: ts(14, w: 600, lh: 21, c: AppColors.deep),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -468,7 +613,109 @@ class _ProjectMarketState extends State<ProjectMarket> {
   bool scan = false;
   bool ready = false;
 
+  /// With a server: his published projects, and for the one picked the seekers and brokers it found — or why not.
+  List<Listing>? _mine;
+  Ranked<ProjectSeeker>? _seekers;
+  List<AreaBroker>? _brokers;
+  String _error = '';
+  String? _refused;
+  int _epoch = store.serverEpoch;
+  int _asks = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Api.on) {
+      store.addListener(_onAccount);
+      unawaited(_load());
+    }
+  }
+
+  @override
+  void dispose() {
+    store.removeListener(_onAccount);
+    super.dispose();
+  }
+
+  void _onAccount() {
+    if (!mounted || _epoch == store.serverEpoch) return;
+    _epoch = store.serverEpoch;
+    setState(() {
+      pid = '';
+      _mine = null;
+      _forget();
+    });
+    if (store.readSession() != null) unawaited(_load());
+  }
+
+  void _forget() {
+    _asks++; // an answer still on its way is for a project no longer shown
+    scan = false;
+    ready = false;
+    _seekers = null;
+    _brokers = null;
+    _error = '';
+    _refused = null;
+  }
+
+  /// Only a published project is marketed (the server refuses any other).
+  Future<void> _load() async {
+    final epoch = _epoch;
+    try {
+      final all = await ServerMyProjects.mine();
+      if (!mounted || epoch != store.serverEpoch) return;
+      setState(
+        () => _mine = <Listing>[
+          for (final p in all)
+            if (p.status == 'published') p,
+        ],
+      );
+    } on ApiError catch (e) {
+      if (mounted && epoch == store.serverEpoch) setState(() => _error = e.forUser);
+    }
+  }
+
+  Future<void> _ask(String id) async {
+    final project = int.tryParse(ServerListings.rawId(id));
+    if (project == null) return;
+    final epoch = _epoch;
+    setState(() {
+      pid = id;
+      tab = 'seekers';
+      _forget();
+      scan = true;
+    });
+    final ask = _asks;
+    bool mine() => mounted && epoch == store.serverEpoch && ask == _asks;
+    try {
+      final brokers = await ServerAi.brokers(project, epoch: epoch);
+      if (!mine()) return;
+      setState(() => _brokers = brokers);
+      final seekers = await ServerAi.searchers(project, epoch: epoch);
+      if (mine()) setState(() => _seekers = seekers);
+    } on NeedsPlan {
+      if (mine()) setState(() => _refused = 'تسويق المشاريع ضمن الباقات.');
+    } on QuotaReached catch (e) {
+      if (mine()) setState(() => _refused = e.message);
+    } on ApiError catch (e) {
+      if (mine()) setState(() => _error = e.forUser);
+    } on AccountChanged {
+      // nothing is asked under the next account
+    } finally {
+      if (mine()) {
+        setState(() {
+          scan = false;
+          ready = true;
+        });
+      }
+    }
+  }
+
   void _pick(String id) {
+    if (Api.on) {
+      unawaited(_ask(id));
+      return;
+    }
     setState(() {
       pid = id;
       tab = 'seekers';
@@ -487,7 +734,7 @@ class _ProjectMarketState extends State<ProjectMarket> {
   @override
   Widget build(BuildContext context) {
     // The developer's own projects (published by this account).
-    final projects = store.myListings().where((l) => l.kind == 'project').toList();
+    final projects = Api.on ? (_mine ?? const <Listing>[]) : store.myListings().where((l) => l.kind == 'project').toList();
     Listing? project;
     for (final p in projects) {
       if (p.id == pid) project = p;
@@ -522,6 +769,10 @@ class _ProjectMarketState extends State<ProjectMarket> {
                 ],
               ),
             )
+          else if (Api.on && _error.isNotEmpty)
+            FormError(_error)
+          else if (Api.on && _mine == null)
+            const LoadingBox()
           else
             Tx('انشر مشروعاً أولاً — بعد النشر يظهر هنا لتسويقه.', style: ts(14, w: 500, lh: 22.5, c: AppColors.muted)),
         ],
@@ -549,8 +800,7 @@ class _ProjectMarketState extends State<ProjectMarket> {
       Tap(
         onTap: () => setState(() {
           pid = '';
-          scan = false;
-          ready = false;
+          _forget();
         }),
         child: Container(
           height: 40,
@@ -567,7 +817,45 @@ class _ProjectMarketState extends State<ProjectMarket> {
           hint: tab == 'seekers' ? 'يقرأ الرغبات ويصنّف المطابق على المشروع' : 'يصنّف عملاء الوسطاء حسب مدينة المشروع',
           kind: 'people',
         ),
-      if (!scan && ready && tab == 'seekers')
+      if (Api.on && !scan && _error.isNotEmpty) FormError(_error),
+      if (Api.on && !scan && _refused != null) PlanDoor(_refused!),
+      if (Api.on && !scan && tab == 'seekers' && _seekers != null) ...<Widget>[
+        if (_seekers!.results.isNotEmpty) AiNote(ai: _seekers!.ai),
+        _hitList(<Widget>[
+          for (final s in _seekers!.results)
+            _HitCard(
+              key: ValueKey<String>('s-${s.item.username}'),
+              name: s.item.name,
+              role: 'باحث',
+              small: <String>[
+                ...s.item.neighborhoods,
+                for (final t in s.item.types) kTypeLabel[t] ?? t,
+                if (s.item.budgetMax != null) 'حتى ${sar(s.item.budgetMax!)} ريال',
+                if (s.item.unitName != null) 'الأقرب: نموذج ${s.item.unitName}',
+              ].join(' · '),
+              quote: s.item.notes.isEmpty ? null : s.item.notes,
+              acts: <(String, VoidCallback)>[
+                (Lu.messageCircle, () => Nav.go(context, ServerChats.startPath(s.item.username, about: pid, name: s.item.name, role: 'seeker'))),
+              ],
+            ),
+          if (_seekers!.results.isEmpty) radarWish('لا باحث تطابق رغبته هذا المشروع الآن.'),
+        ]),
+      ],
+      if (Api.on && !scan && tab == 'brokers' && _brokers != null)
+        _hitList(<Widget>[
+          for (final b in _brokers!)
+            _HitCard(
+              key: ValueKey<String>('b-${b.username}'),
+              name: b.name,
+              role: 'وسيط',
+              small: 'لديه ${b.clients} عملاء مطابقون — تواصل مع الوسيط',
+              acts: <(String, VoidCallback)>[
+                (Lu.messageCircle, () => Nav.go(context, ServerChats.startPath(b.username, about: pid, name: b.name, role: 'broker'))),
+              ],
+            ),
+          if (_brokers!.isEmpty) radarWish('لا وسيط في مدينة المشروع لديه عملاء مطابقون الآن.'),
+        ]),
+      if (!Api.on && !scan && ready && tab == 'seekers')
         _hitList(<Widget>[
           Tap(
             onTap: () => Nav.go(context, '/chats/barq'),
@@ -588,7 +876,7 @@ class _ProjectMarketState extends State<ProjectMarket> {
               acts: <(String, VoidCallback)>[(Lu.messageCircle, () => Nav.go(context, '/chats/barq'))],
             ),
         ]),
-      if (!scan && ready && tab == 'brokers')
+      if (!Api.on && !scan && ready && tab == 'brokers')
         _hitList(<Widget>[
           for (final b in brokers)
             _HitCard(

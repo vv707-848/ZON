@@ -170,8 +170,8 @@ class AiTest extends TestCase
         foreach (range(1, 3) as $i) {
             $this->postJson('/api/v1/ai/search', $form($i), ['X-Device-Id' => 'shared-phone'])->assertOk();
         }
-        $this->postJson('/api/v1/ai/search', $form(4), ['X-Device-Id' => 'shared-phone'])->assertStatus(429)
-            ->assertJsonPath('error.code', 'QUOTA_EXCEEDED')->assertJsonPath('error.details.upgrade.0.package', 'seeker');
+        $this->apiContract('ai_quota_exceeded', $this->postJson('/api/v1/ai/search', $form(4), ['X-Device-Id' => 'shared-phone'])->assertStatus(429)
+            ->assertJsonPath('error.code', 'QUOTA_EXCEEDED')->assertJsonPath('error.details.upgrade.0.package', 'seeker'));
 
         // A second free account on the same phone: the device layer allows 3 × 1.5 = 5 in total.
         $second = Customer::factory()->seeker()->create();
