@@ -1,5 +1,7 @@
 // الإعدادات — profile fields, notification switches, «أجهزتي», policies, «الدعم», sign out. With a server (ZON_API_URL)
 // the profile, the switches and the sign-out are the server's (ServerAuth); without one they stay on the device.
+// With a server too: a new number takes effect only with the code sent to it (the old one stays until then);
+// «كلمة السر» changes with the current one and signs the other phones out; the policies are the published ones.
 
 import 'dart:async';
 
@@ -8,12 +10,15 @@ import 'package:flutter/material.dart';
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
+import 'package:zon/core/utils/input.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/auth/auth.dart';
 import 'package:zon/data/auth/local_auth.dart';
 import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_legal.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/server_support_view.dart';
 import 'package:zon/features/account/services/widgets/service_form.dart';
@@ -170,13 +175,71 @@ class _SettingsViewState extends State<SettingsView> {
   final TextEditingController _tBody = TextEditingController();
   String sent = '';
 
+  /// The new number its code went to; the account keeps its own until the code is right.
+  String _phoneTo = '';
+  final TextEditingController _phoneCode = TextEditingController();
+  String _phoneError = '';
+  String _phoneNote = '';
+  bool _phoneBusy = false;
+
+  /// «كلمة السر» (server): open, its two fields, and what came of it.
+  bool _pwOpen = false;
+  final TextEditingController _pwCurrent = TextEditingController();
+  final TextEditingController _pwNext = TextEditingController();
+  String _pwError = '';
+  String _pwDone = '';
+  bool _pwBusy = false;
+
+  /// The published policies (server), asked for when their tab first opens.
+  List<LegalPage>? _legal;
+  String _legalError = '';
+  bool _legalAsked = false;
+
+  int _epoch = store.serverEpoch;
+
+  @override
+  void initState() {
+    super.initState();
+    store.addListener(_onAccount);
+  }
+
   @override
   void dispose() {
-    for (final c in <TextEditingController>[_name, _phone, _tName, _tPhone, _tBody]) {
+    store.removeListener(_onAccount);
+    for (final c in <TextEditingController>[_name, _phone, _tName, _tPhone, _tBody, _phoneCode, _pwCurrent, _pwNext]) {
       c.dispose();
     }
     super.dispose();
   }
+
+  /// Another account signed in under the page: nothing of the previous one stays — not its new number waiting
+  /// for a code, nor a password being typed.
+  void _onAccount() {
+    if (!mounted || _epoch == store.serverEpoch) return;
+    _epoch = store.serverEpoch;
+    final u = user;
+    for (final c in <TextEditingController>[_phoneCode, _pwCurrent, _pwNext, _tBody]) {
+      c.clear();
+    }
+    _name.text = u?.name ?? '';
+    _phone.text = u?.phone ?? '';
+    _tName.text = u?.name ?? '';
+    _tPhone.text = u?.phone ?? '';
+    setState(() {
+      city = u?.city ?? '';
+      edit = false;
+      profileError = '';
+      _phoneTo = '';
+      _phoneError = '';
+      _phoneNote = '';
+      _pwOpen = false;
+      _pwError = '';
+      _pwDone = '';
+      sent = '';
+    });
+  }
+
+  bool _same(int epoch) => mounted && epoch == _epoch && epoch == store.serverEpoch;
 
   void _setDark(String next) {
     setState(() => theme = next);
@@ -197,19 +260,103 @@ class _SettingsViewState extends State<SettingsView> {
       setState(() => edit = false);
       return;
     }
-    if (_phone.text.trim() != u.phone) {
-      // The server changes a number only with a code sent to the new one (POST /me/phone): not wired yet.
-      setState(() => profileError = 'تغيير رقم الجوال يحتاج رمز تحقق إلى الرقم الجديد، ولم يُربط بعد في هذه النسخة.');
-      return;
-    }
+    final epoch = _epoch;
+    final phone = _phone.text.trim();
+    final newPhone = normalizeSaudiMobile(phone) != normalizeSaudiMobile(u.phone);
     setState(() => _saving = true);
     final failed = await ServerAuth.updateProfile(name: _name.text, city: city);
-    if (!mounted) return;
+    // a new number: a code to it, and the account keeps the old one until the code is right
+    final codeFailed = failed == null && newPhone ? await ServerAuth.changePhone(phone) : null;
+    if (!_same(epoch)) return;
     setState(() {
       _saving = false;
-      profileError = failed ?? '';
-      if (failed == null) edit = false;
+      profileError = failed ?? codeFailed ?? '';
+      if (failed != null || codeFailed != null) return;
+      edit = false;
+      _phone.text = user?.phone ?? '';
+      if (newPhone) {
+        _phoneTo = phone;
+        _phoneCode.clear();
+        _phoneError = '';
+        _phoneNote = '';
+      }
     });
+  }
+
+  Future<void> _verifyPhone() async {
+    final code = _phoneCode.text.trim();
+    if (_phoneBusy) return;
+    if (code.length != 6 || int.tryParse(code) == null) {
+      setState(() => _phoneError = 'اكتب الرمز من 6 أرقام');
+      return;
+    }
+    final epoch = _epoch;
+    setState(() {
+      _phoneBusy = true;
+      _phoneError = '';
+      _phoneNote = '';
+    });
+    final failed = await ServerAuth.verifyPhone(_phoneTo, code);
+    if (!_same(epoch)) return;
+    setState(() {
+      _phoneBusy = false;
+      _phoneError = failed ?? '';
+      if (failed == null) {
+        _phoneTo = '';
+        _phoneCode.clear();
+        _phone.text = user?.phone ?? '';
+        _phoneNote = 'تغيّر رقم جوالك.';
+      }
+    });
+  }
+
+  Future<void> _resendPhone() async {
+    if (_phoneBusy) return;
+    final epoch = _epoch;
+    setState(() => _phoneBusy = true);
+    final failed = await ServerAuth.changePhone(_phoneTo);
+    if (!_same(epoch)) return;
+    setState(() {
+      _phoneBusy = false;
+      _phoneError = failed ?? '';
+      _phoneNote = failed == null ? 'أرسلنا رمزاً جديداً.' : '';
+    });
+  }
+
+  Future<void> _changePassword() async {
+    if (_pwBusy) return;
+    final bad = _pwCurrent.text.isEmpty ? 'اكتب كلمة السر الحالية' : LocalAuth.passwordError(_pwNext.text);
+    if (bad != null) {
+      setState(() => _pwError = bad);
+      return;
+    }
+    final epoch = _epoch;
+    setState(() {
+      _pwBusy = true;
+      _pwError = '';
+    });
+    final failed = await ServerAuth.changePassword(current: _pwCurrent.text, next: _pwNext.text);
+    if (!_same(epoch)) return;
+    setState(() {
+      _pwBusy = false;
+      _pwError = failed ?? '';
+      if (failed == null) {
+        _pwCurrent.clear();
+        _pwNext.clear();
+        _pwOpen = false;
+        _pwDone = 'تغيّرت كلمة السر، وخرج حسابك من أجهزتك الأخرى.';
+      }
+    });
+  }
+
+  Future<void> _loadLegal() async {
+    _legalAsked = true;
+    try {
+      final pages = await ServerLegal.list();
+      if (mounted) setState(() => _legal = pages);
+    } on ApiError catch (e) {
+      if (mounted) setState(() => _legalError = e.forUser);
+    }
   }
 
   /// One switch: saved on the server when the app has one (the old value comes back if it could not be saved).
@@ -431,7 +578,121 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             );
       final account = <Widget>[
-        _block('معلوماتي الشخصية', _panel(profile)),
+        _block(
+          'معلوماتي الشخصية',
+          _panel(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                profile,
+                if (_phoneNote.isNotEmpty && _phoneTo.isEmpty) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Tx(_phoneNote, style: ts(13, w: 600, lh: 19.5, c: AppColors.forest), align: TextAlign.center),
+                ],
+                if (_phoneTo.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 16),
+                  Tx('تأكيد الرقم الجديد', style: ts(14, w: 700, lh: 21, c: AppColors.ink)),
+                  const SizedBox(height: 4),
+                  Tx(
+                    'أرسلنا رمزاً إلى $_phoneTo. يبقى رقم حسابك ${u?.phone ?? ''} حتى تكتب الرمز.',
+                    style: ts(13, lh: 19.5, c: AppColors.muted),
+                  ),
+                  const SizedBox(height: 8),
+                  SvcField(
+                    label: 'رمز التحقق',
+                    child: selInput(controller: _phoneCode, dir: TextDirection.ltr, keyboard: TextInputType.number),
+                  ),
+                  if (_phoneError.isNotEmpty) ...<Widget>[const SizedBox(height: 8), FormError(_phoneError)],
+                  if (_phoneNote.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 8),
+                    Tx(_phoneNote, style: ts(13, w: 600, lh: 19.5, c: AppColors.forest)),
+                  ],
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: AppButton(label: _phoneBusy ? 'جارٍ التحقق…' : 'تأكيد الرقم', onTap: _phoneBusy ? null : _verifyPhone),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppButton(label: 'أعد الإرسال', tone: ButtonTone.ghost, onTap: _phoneBusy ? null : _resendPhone),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  AppButton(
+                    label: 'إبقاء رقمي الحالي',
+                    tone: ButtonTone.ghost,
+                    onTap: () => setState(() {
+                      _phoneTo = '';
+                      _phoneCode.clear();
+                      _phoneError = '';
+                      _phoneNote = '';
+                    }),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (Api.on)
+          _block(
+            'كلمة السر',
+            _panel(
+              _pwOpen
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: _gap(<Widget>[
+                        SvcField(
+                          label: 'كلمة السر الحالية',
+                          child: selInput(controller: _pwCurrent, dir: TextDirection.ltr, obscure: true),
+                        ),
+                        SvcField(
+                          label: 'كلمة السر الجديدة (8 أحرف على الأقل)',
+                          child: selInput(controller: _pwNext, dir: TextDirection.ltr, obscure: true),
+                        ),
+                        if (_pwError.isNotEmpty) FormError(_pwError),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: AppButton(label: _pwBusy ? 'جارٍ الحفظ…' : 'تغيير', onTap: _pwBusy ? null : _changePassword),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: AppButton(
+                                label: 'إلغاء',
+                                tone: ButtonTone.ghost,
+                                onTap: () => setState(() {
+                                  _pwCurrent.clear();
+                                  _pwNext.clear();
+                                  _pwError = '';
+                                  _pwOpen = false;
+                                }),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ], 12),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        if (_pwDone.isNotEmpty) ...<Widget>[
+                          Tx(_pwDone, style: ts(13, w: 600, lh: 19.5, c: AppColors.forest)),
+                          const SizedBox(height: 8),
+                        ],
+                        AppButton(
+                          label: 'تغيير كلمة السر',
+                          tone: ButtonTone.secondary,
+                          onTap: () => setState(() {
+                            _pwOpen = true;
+                            _pwDone = '';
+                          }),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
         _block(
           'المظهر واللغة',
           _panel(
@@ -523,13 +784,34 @@ class _SettingsViewState extends State<SettingsView> {
       ];
       body.add(Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _gap(account, 20)));
     } else if (tab == 'legal') {
+      if (Api.on && !_legalAsked) unawaited(_loadLegal());
+      final icons = <String, String>{for (final p in kPolicies) p[0]: p[2]};
+      final legal = _legal;
       body.add(
         _block(
           'السياسات والأحكام لمنصة زون',
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: _gap(<Widget>[
-              for (final p in kPolicies) PolicyRow(icon: p[2], title: p[1], iconStroke: 1.7, onTap: () => Nav.go(context, '/legal/${p[0]}')),
+              if (!Api.on)
+                for (final p in kPolicies) PolicyRow(icon: p[2], title: p[1], iconStroke: 1.7, onTap: () => Nav.go(context, '/legal/${p[0]}'))
+              else if (legal != null) ...<Widget>[
+                // the published ones only: a draft has no row until it is published
+                for (final p in legal)
+                  PolicyRow(icon: icons[p.slug] ?? Lu.fileText, title: p.title, iconStroke: 1.7, onTap: () => Nav.go(context, '/legal/${p.slug}')),
+                if (legal.isEmpty) Tx('لا سياسات منشورة بعد.', style: ts(15, lh: 22.5, c: AppColors.muted), align: TextAlign.center),
+              ] else if (_legalError.isNotEmpty) ...<Widget>[
+                FormError(_legalError),
+                AppButton(
+                  label: 'إعادة المحاولة',
+                  tone: ButtonTone.ghost,
+                  onTap: () => setState(() {
+                    _legalError = '';
+                    _legalAsked = false;
+                  }),
+                ),
+              ] else
+                const LoadingBox(),
             ], 10),
           ),
         ),

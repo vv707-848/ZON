@@ -99,11 +99,13 @@ class AuthTest extends TestCase
         $customer = Customer::factory()->create(['phone' => '+966554444444']);
         $customer->createToken('old-phone');
 
-        $this->postJson('/api/v1/auth/password/forgot', ['phone' => '0554444444'])->assertOk();
+        $this->apiContract('password_code_sent', $this->postJson('/api/v1/auth/password/forgot', ['phone' => '0554444444'])->assertOk());
         $this->postJson('/api/v1/auth/password/forgot', ['phone' => '0559999999'])->assertOk();   // same answer, no code sent
         $this->assertCount(1, $this->sms()->sent());
 
-        $this->postJson('/api/v1/auth/password/reset', ['phone' => '0554444444', 'code' => $this->lastCode('+966554444444'), 'password' => 'brand-new-1'])->assertOk();
+        $this->postJson('/api/v1/auth/password/reset', ['phone' => '0554444444', 'code' => '000000', 'password' => 'brand-new-1'])
+            ->assertStatus(422)->assertJsonPath('error.code', 'OTP_INVALID');
+        $this->apiContract('password_reset', $this->postJson('/api/v1/auth/password/reset', ['phone' => '0554444444', 'code' => $this->lastCode('+966554444444'), 'password' => 'brand-new-1'])->assertOk());
         $this->assertSame(0, $customer->tokens()->count());
         $this->postJson('/api/v1/auth/login', ['login' => '0554444444', 'password' => 'brand-new-1'])->assertOk();
     }

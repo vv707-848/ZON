@@ -58,6 +58,9 @@ class AccountReadsTest extends TestCase
         LegalPage::query()->where('slug', 'privacy')->update(['version' => '2', 'published_at' => now()]);
         $this->apiContract('legal_page', $this->getJson('/api/v1/legal/privacy')->assertOk()->assertJsonPath('data.version', '2')->assertJsonPath('data.title', 'سياسة الخصوصية'));
         $this->getJson('/api/v1/legal/no-such-page')->assertNotFound();
+
+        LegalPage::query()->updateOrCreate(['slug' => 'terms'], ['title' => 'أحكام الاستخدام', 'body' => 'نص', 'version' => '1', 'published_at' => null]);
+        $this->apiContract('legal_pages', $this->getJson('/api/v1/legal')->assertOk()->assertJsonMissing(['slug' => 'terms'])->assertJsonFragment(['slug' => 'privacy']));
     }
 
     public function test_the_live_channels_are_their_accounts_alone(): void
