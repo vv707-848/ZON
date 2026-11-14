@@ -18,6 +18,7 @@ use App\Models\BuyerPreference;
 use App\Models\City;
 use App\Models\Customer;
 use App\Models\Listing;
+use App\Models\SaleReport;
 use App\Models\SearchRequest;
 use App\Models\User;
 use App\Support\Sandbox;
@@ -121,6 +122,7 @@ final class TestArena
                 $requests++;
             }
             $wishes = BuyerPreference::query()->whereIn('customer_id', $accounts)->delete();
+            SaleReport::query()->whereIn('customer_id', $accounts)->delete();
             Customer::query()->whereKey($accounts)->delete();          // licences, tokens and the rest go with them (cascade)
             $batch->delete();
 
