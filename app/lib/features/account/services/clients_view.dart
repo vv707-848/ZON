@@ -350,6 +350,7 @@ class _ClientFormState extends State<ClientForm> {
   String? _error;
   final OperationKey _newOp = OperationKey('client');
   final OperationKey _noteOp = OperationKey('note');
+  String? _createdId;
 
   static String _or(String a, String b) => a.isNotEmpty ? a : b;
 
@@ -396,18 +397,22 @@ class _ClientFormState extends State<ClientForm> {
       _error = null;
     });
     try {
-      if (init != null) {
-        await ServerClients.update(init!.id, body, epoch: epoch);
+      final id = init?.id ?? _createdId;
+      if (id != null) {
+        await ServerClients.update(id, body, epoch: epoch);
       } else {
         final made = await ServerClients.create(body, operation: _newOp.forBody(body), epoch: epoch);
+        _createdId = made.id;
         _newOp.done();
+      }
+      if (init == null) {
         final text = note.text.trim();
         if (text.isNotEmpty) {
           await ServerClients.notes.add(
-            made.id,
+            _createdId!,
             kind,
             text,
-            operation: _noteOp.forBody(<String, Object?>{'c': made.id, 'k': kind, 't': text}),
+            operation: _noteOp.forBody(<String, Object?>{'c': _createdId, 'k': kind, 't': text}),
             epoch: epoch,
           );
           _noteOp.done();
