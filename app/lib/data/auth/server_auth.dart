@@ -220,9 +220,34 @@ abstract final class ServerAuth {
   static Future<AuthResult> signIn(String login, String password) async {
     try {
       final r = await _api.post('auth/login', <String, Object?>{'login': login.trim(), 'password': password, ...device()});
-      return AuthResult.ok(await ServerSession.open(r.map));
+      return AuthResult.ok(await ServerSession.open(r.map), restored: r.map['deletion_cancelled'] == true);
     } on ApiError catch (e) {
       return AuthResult.fail(e.forUser);
+    }
+  }
+
+  /// «حذف حسابي» (POST /account/delete): the server asks for the password, hides what the account published,
+  /// signs it out of every phone and deletes it for good at the day it answers — unless he signs in before it.
+  /// [operation] is the same on every try of one request. The day, or the error.
+  static Future<(DateTime?, String?)> deleteAccount(String password, {required String operation}) async {
+    try {
+      final r = await _api.post('account/delete', <String, Object?>{'password': password}, operation);
+      final at = DateTime.tryParse('${r.map['purge_at'] ?? ''}');
+      return at == null ? (null, 'حدث خطأ غير متوقع. حاول مرة أخرى.') : (at.toLocal(), null);
+    } on ApiError catch (e) {
+      return (null, e.forUser);
+    }
+  }
+
+  /// Asks for the records app 1.1 left on this phone without an owner (POST /account/legacy-claims): staff check
+  /// who wrote them; nothing is given by this call. The claim's number, or the error.
+  static Future<(int?, String?)> claimLegacy({required List<String> listings, required List<String> requests, required String operation}) async {
+    try {
+      final r = await _api.post('account/legacy-claims', <String, Object?>{'listings': listings, 'requests': requests}, operation);
+      final id = r.map['id'];
+      return id is int ? (id, null) : (null, 'حدث خطأ غير متوقع. حاول مرة أخرى.');
+    } on ApiError catch (e) {
+      return (null, e.forUser);
     }
   }
 

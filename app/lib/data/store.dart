@@ -397,7 +397,8 @@ class Store extends ChangeNotifier {
   /// [_migrateOwnership]). They are public and unchanged; nobody owns them.
   ({List<Listing> listings, List<RequestItem> requests}) unclaimedLegacy() => (
     listings: allListings().where((l) => l.unclaimed == true && l.ownerId == null).toList(),
-    requests: allRequests().where((r) => r.unclaimed == true && r.ownerId == null).toList(),
+    // this phone's own records: with a server [allRequests] is the server's board, which never holds them
+    requests: _extraRequests().where((r) => r.unclaimed == true && r.ownerId == null).toList(),
   );
 
   /// The signed-in account asks for the unclaimed 1.1 data. NOTHING is

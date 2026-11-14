@@ -51,9 +51,11 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request, SignIn $signIn, IssueToken $issue): JsonResponse
     {
-        $customer = $signIn($request->string('login')->value(), $request->string('password')->value());
+        $customer = $signIn->check($request->string('login')->value(), $request->string('password')->value());
+        $cancels = $customer->pendingDeletion()->exists();   // signing in during the grace period cancels the deletion: the app tells him
+        $signIn->complete($customer);
 
-        return Api::ok(['token' => $issue($customer, $request->device()), 'me' => new MeResource($customer)]);
+        return Api::ok(['token' => $issue($customer, $request->device()), 'me' => new MeResource($customer), 'deletion_cancelled' => $cancels]);
     }
 
     public function forgot(PhoneRequest $request, ResetPassword $reset): JsonResponse
