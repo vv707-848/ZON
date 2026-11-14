@@ -587,16 +587,17 @@ class _SettingsViewState extends State<SettingsView> {
                 profile,
                 if (_phoneNote.isNotEmpty && _phoneTo.isEmpty) ...<Widget>[
                   const SizedBox(height: 8),
-                  Tx(_phoneNote, style: ts(13, w: 600, lh: 19.5, c: AppColors.forest), align: TextAlign.center),
+                  Tx(
+                    _phoneNote,
+                    style: ts(13, w: 600, lh: 19.5, c: AppColors.forest),
+                    align: TextAlign.center,
+                  ),
                 ],
                 if (_phoneTo.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 16),
                   Tx('تأكيد الرقم الجديد', style: ts(14, w: 700, lh: 21, c: AppColors.ink)),
                   const SizedBox(height: 4),
-                  Tx(
-                    'أرسلنا رمزاً إلى $_phoneTo. يبقى رقم حسابك ${u?.phone ?? ''} حتى تكتب الرمز.',
-                    style: ts(13, lh: 19.5, c: AppColors.muted),
-                  ),
+                  Tx('أرسلنا رمزاً إلى $_phoneTo. يبقى رقم حسابك ${u?.phone ?? ''} حتى تكتب الرمز.', style: ts(13, lh: 19.5, c: AppColors.muted)),
                   const SizedBox(height: 8),
                   SvcField(
                     label: 'رمز التحقق',
@@ -799,7 +800,12 @@ class _SettingsViewState extends State<SettingsView> {
                 // the published ones only: a draft has no row until it is published
                 for (final p in legal)
                   PolicyRow(icon: icons[p.slug] ?? Lu.fileText, title: p.title, iconStroke: 1.7, onTap: () => Nav.go(context, '/legal/${p.slug}')),
-                if (legal.isEmpty) Tx('لا سياسات منشورة بعد.', style: ts(15, lh: 22.5, c: AppColors.muted), align: TextAlign.center),
+                if (legal.isEmpty)
+                  Tx(
+                    'لا سياسات منشورة بعد.',
+                    style: ts(15, lh: 22.5, c: AppColors.muted),
+                    align: TextAlign.center,
+                  ),
               ] else if (_legalError.isNotEmpty) ...<Widget>[
                 FormError(_legalError),
                 AppButton(

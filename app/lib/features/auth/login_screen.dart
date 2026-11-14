@@ -399,7 +399,11 @@ class _SignInState extends State<_SignIn> {
               onTap: widget.onForgot,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Tx('نسيت كلمة السر؟', style: ts(14, w: 600, lh: 21, c: AppColors.teal), align: TextAlign.center),
+                child: Tx(
+                  'نسيت كلمة السر؟',
+                  style: ts(14, w: 600, lh: 21, c: AppColors.teal),
+                  align: TextAlign.center,
+                ),
               ),
             ),
         ],
@@ -524,7 +528,10 @@ class _ForgotState extends State<_Forgot> {
         ),
       ];
     }
-    return GateChrome(back: widget.onBack, child: _GateForm(children: children));
+    return GateChrome(
+      back: widget.onBack,
+      child: _GateForm(children: children),
+    );
   }
 }
 

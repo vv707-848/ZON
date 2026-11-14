@@ -57,7 +57,7 @@ class LegalScreen extends StatelessWidget {
   }
 }
 
-/// A policy page as the server publishes it — the same text as zon.sa/legal/<slug>, with its version and date.
+/// A policy page as the server publishes it — the same text as `zon.sa/legal/<slug>`, with its version and date.
 class ServerLegalScreen extends StatefulWidget {
   const ServerLegalScreen({super.key, required this.slug});
 
@@ -90,10 +90,7 @@ class _ServerLegalScreenState extends State<ServerLegalScreen> {
   Widget build(BuildContext context) {
     final page = _page;
     if (page == null) {
-      return _LegalFrame(
-        title: 'السياسات والأحكام',
-        children: <Widget>[if (_error case final String e) FormError(e) else const LoadingBox()],
-      );
+      return _LegalFrame(title: 'السياسات والأحكام', children: <Widget>[if (_error case final String e) FormError(e) else const LoadingBox()]);
     }
     final at = page.publishedAt;
     return _LegalFrame(

@@ -26,9 +26,7 @@ class LegalPage {
 }
 
 abstract final class ServerLegal {
-  static Future<List<LegalPage>> list() async => <LegalPage>[
-    for (final row in (await Api.client!.get('legal')).list) LegalPage.fromJson(row),
-  ];
+  static Future<List<LegalPage>> list() async => <LegalPage>[for (final row in (await Api.client!.get('legal')).list) LegalPage.fromJson(row)];
 
   static Future<LegalPage> page(String slug) async => LegalPage.fromJson((await Api.client!.get('legal/${Uri.encodeComponent(slug)}')).map);
 }

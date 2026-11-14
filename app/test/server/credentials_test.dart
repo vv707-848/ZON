@@ -176,7 +176,11 @@ void main() {
     testWidgets('another account signed in while the code is awaited: nothing of the previous number stays', (tester) async {
       final server = await editPhone(tester, '0558888888');
       expect(find.text('تأكيد الرقم الجديد'), findsOneWidget);
-      await serverSignIn(server, account: me(id: 42, name: 'مكتب آخر'), token: '7|second');
+      await serverSignIn(
+        server,
+        account: me(id: 42, name: 'مكتب آخر'),
+        token: '7|second',
+      );
       await _settle(tester);
       expect(find.text('تأكيد الرقم الجديد'), findsNothing);
       expect(find.textContaining('0558888888'), findsNothing);
