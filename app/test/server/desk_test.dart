@@ -236,6 +236,24 @@ void main() {
       expect(find.text(client['name']! as String), findsOneWidget, reason: 'his book asked again');
     });
 
+    testWidgets('a maximum-only budget stays the maximum when the client is saved again', (tester) async {
+      final row = <String, Object?>{...client, 'budget_min': null, 'budget_max': 500000};
+      final server = await book(tester, (s) {
+        s.on('GET', 'clients', 200, ok(<Object?>[row]));
+        s.on('PATCH', 'clients/$cid', 200, ok(row));
+      });
+      await tapText(tester, row['name']! as String);
+      await _settle(tester);
+      await tapText(tester, 'المزيد');
+      await tapText(tester, 'تعديل البيانات');
+      await tapText(tester, 'حفظ التعديل');
+      await _settle(tester);
+
+      final body = FakeServer.body(server.sent('PATCH', 'clients/$cid').single);
+      expect(body['budget_min'], isNull);
+      expect(body['budget_max'], 500000);
+    });
+
     testWidgets('his page: a note added and removed on the server — kept as written, not edited', (tester) async {
       final server = await book(tester, (s) {
         s.on('POST', 'clients/$cid/notes', 201, recorded('client_note_added'));
