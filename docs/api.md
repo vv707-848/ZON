@@ -140,7 +140,7 @@
 |---|---|---|---|---|
 | `POST` | `/listings` | 🔒 · رغبة · وسيط · مالك · مطوّر · wording: 60/س | إضافة عرض: البوابات (فال/نفاذ/الحد/الترخيص أو ملف المالك) ← الصياغة في طابور `ai` ← `pending_review` أو النشر | `ListingController@store` |
 | `POST` | `/listings/licence-check` | 🔒 · رغبة · وسيط · مالك · مطوّر · licence: 20/س | «تحقق»: رقم الترخيص الإعلاني يُسأل عنه لدى الهيئة قبل تعبئة العرض — صالح وغير منتهٍ وتاريخ انتهائه، أو رسالة الحقل. لا يُحفظ شيء، ويُفحص ثانيةً عند النشر | `ListingController@checkLicence` |
-| `GET` | `/listings/mine` | 🔒 · رغبة | عروضي بكل حالاتها | `ListingController@mine` |
+| `GET` | `/listings/mine` | 🔒 · رغبة | عروضي بكل حالاتها، ولكلٍّ آخر يوم لترخيصه (`licence_expires_at`) | `ListingController@mine` |
 | `PATCH` | `/listings/{listing}` | 🔒 · رغبة · وسيط · مالك · مطوّر · wording: 60/س | تعديل عرضي؛ تغيير النص يعيده إلى مراجعة الصياغة | `ListingController@update` |
 | `DELETE` | `/listings/{listing}` | 🔒 · رغبة · وسيط · مالك · مطوّر | حذف عرضي (عدا المباع) وإخراجه من الفهرس | `ListingController@destroy` |
 | `POST` | `/listings/{listing}/boost` | 🔒 · رغبة · وسيط · مالك · مطوّر | تمييز أو عاجل: من رصيد الباقة، وإلا عملية دفع | `ListingController@boost` |

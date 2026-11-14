@@ -45,7 +45,8 @@ class _LicenceCardState extends State<_LicenceCard> {
   Widget build(BuildContext context) => AppDialogCard(
     icon: Lu.circleAlert,
     title: 'تحديث الرخصة',
-    message: 'جدّد الترخيص الإعلاني لدى الهيئة أولاً. إن تغيّر رقمه فاكتب الجديد، وإن بقي كما هو فاترك الخانة فارغة. تسأل زون الهيئة عن تاريخ انتهائه.',
+    message:
+        'جدّد الترخيص الإعلاني لدى الهيئة أولاً. إن تغيّر رقمه فاكتب الجديد، وإن بقي كما هو فاترك الخانة فارغة. تسأل زون الهيئة عن تاريخ انتهائه.',
     extra: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[

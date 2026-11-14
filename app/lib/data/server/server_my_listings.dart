@@ -139,7 +139,9 @@ abstract final class ServerMyListings {
   /// «تحديث الرخصة»: REGA is asked about [number], or about the number the listing has when it is empty. The
   /// listing as it is after — or an ApiError 422 whose field message is REGA's refusal.
   static Future<Listing> renewLicence(String appId, {required String number}) async => ServerListings.fromListing(
-    (await Api.client!.post('listings/${ServerListings.rawId(appId)}/licence', <String, Object?>{if (number.isNotEmpty) 'licence_number': number})).map,
+    (await Api.client!.post('listings/${ServerListings.rawId(appId)}/licence', <String, Object?>{
+      if (number.isNotEmpty) 'licence_number': number,
+    })).map,
   );
 
   /// «تمييز» (`featured`) or «عاجل» (`urgent_listing`) from the plan's balance; without balance an ApiError 402
