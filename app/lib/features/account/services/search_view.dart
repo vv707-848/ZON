@@ -1,16 +1,26 @@
 // البحث الدلالي — free-text search over listings and requests with
 // "match / no match" feedback.
+//
+// With a server (ServerAi) the results are the server's, in its order — the app ranks nothing and waits only as long
+// as the answer takes. The page says when the order is not the model's (it did not answer: the database's order),
+// and when the server's AI is the simulation. A service outside the plan shows the plans; a day's share used up
+// shows the server's words. Another account signed in: nothing searched or rated before stays.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import 'package:zon/app/router.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_ai.dart';
+import 'package:zon/data/server/server_desk.dart' show NeedsPlan;
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/widgets/service_form.dart';
 import 'package:zon/shared/widgets/dictation_field.dart';
@@ -38,22 +48,110 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
   /// `List<Listing>` or `List<RequestItem>`; null → no search yet.
   List<Object>? rows;
 
+  /// With a server: how the last answer was obtained, why none came, and the plan's refusals.
+  AiMeta? _ai;
+  String? _error;
+  String? _quota;
+  bool _needsPlan = false;
+  int _epoch = store.serverEpoch;
+
+  /// What the results on the page were asked with.
+  Map<String, Object?>? _asked;
+
+  @override
+  String get markContext => target == 'requests' ? 'requests' : 'search';
+
+  @override
+  Map<String, Object?>? get markQuery => _asked;
+
   @override
   void initState() {
     super.initState();
     q.addListener(() => setState(() {}));
+    store.addListener(_onAccount);
   }
 
   @override
   void dispose() {
+    store.removeListener(_onAccount);
     q.dispose();
     super.dispose();
   }
 
+  void _onAccount() {
+    if (!mounted || _epoch == store.serverEpoch) return;
+    _epoch = store.serverEpoch;
+    q.clear();
+    setState(() {
+      forgetMarks();
+      target = 'listings';
+      city = hood = type = '';
+      rows = null;
+      scan = false;
+      _needsPlan = false; // the next account's plan is its own
+      _asked = null;
+      _clear();
+    });
+  }
+
+  /// A new question: what the last answer said goes with it.
+  void _clear() {
+    _ai = null;
+    _error = null;
+    _quota = null;
+  }
+
   bool get ready => city.isNotEmpty && hood.isNotEmpty && type.isNotEmpty;
+
+  /// The server's answer, in its order.
+  Future<void> _ask() async {
+    final epoch = _epoch;
+    final requests = target == 'requests';
+    final need = ServerAi.need(city: city, neighborhood: hood, type: type, query: q.text);
+    setState(() {
+      scan = true;
+      rows = null;
+      forgetMarks();
+      _clear();
+      _asked = need;
+    });
+    bool mine() => mounted && epoch == _epoch && epoch == store.serverEpoch;
+    // an answer to what the form no longer asks is not shown under it
+    bool current() => mine() && requests == (target == 'requests') && need['city'] == city && need['neighborhood'] == hood && need['property_type'] == type;
+    try {
+      final List<Object> found;
+      final AiMeta ai;
+      if (requests) {
+        final answer = await ServerAi.searchRequests(need, epoch: epoch);
+        (found, ai) = (<Object>[for (final r in answer.results) r.item], answer.ai);
+      } else {
+        final answer = await ServerAi.search(need, epoch: epoch);
+        (found, ai) = (<Object>[for (final r in answer.results) r.item], answer.ai);
+      }
+      if (!current()) return;
+      setState(() {
+        rows = found;
+        _ai = ai;
+      });
+    } on NeedsPlan {
+      if (current()) setState(() => _needsPlan = true);
+    } on QuotaReached catch (e) {
+      if (current()) setState(() => _quota = e.message);
+    } on ApiError catch (e) {
+      if (current()) setState(() => _error = e.forUser);
+    } on AccountChanged {
+      // nothing is asked under the next account
+    } finally {
+      if (mine()) setState(() => scan = false);
+    }
+  }
 
   void run() {
     if (scan || !ready) return;
+    if (Api.on) {
+      unawaited(_ask());
+      return;
+    }
     setState(() => scan = true);
     final t = target;
     final c = city;
@@ -90,7 +188,8 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
   Widget build(BuildContext context) {
     final broker = widget.role == 'broker';
     final hoods = city.isEmpty ? const <String>[] : (kCities[city] ?? const <String>[]);
-    final locked = !billing.isSubscribed() && widget.role != 'developer';
+    // with a server the plan is the server's to say (402); without one, the device's
+    final locked = Api.on ? _needsPlan : !billing.isSubscribed() && widget.role != 'developer';
 
     if (locked) {
       return Padding(
@@ -138,9 +237,10 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
       RadarDesk(
         on: scan,
         title: target == 'requests' ? 'الطلبات' : 'العروض',
+        // «البحث الجاي أدق» is the device's own re-ranking; a server keeps the marks for review only
         note: target == 'requests'
             ? 'اكتب وصف طلب العميل بوضوح — الذكاء يجيب الطلبات المطابقة. بعد النتائج علّم مطابق أو غير مطابق واكتب السبب.'
-            : 'اكتب الوصف بشكل واضح لجلب عروض مطابقة — بعد النتائج علّم مطابق أو غير مطابق واكتب السبب، البحث الجاي أدق',
+            : 'اكتب الوصف بشكل واضح لجلب عروض مطابقة — بعد النتائج علّم مطابق أو غير مطابق واكتب السبب${Api.on ? '' : '، البحث الجاي أدق'}',
       ),
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,6 +316,17 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
           hint: 'يطابق الوصف ثم يصنّف مطابق أو غير مطابق',
           kind: target == 'requests' ? 'requests' : 'listings',
         ),
+      if (_error case final String e) FormError(e),
+      if (_quota case final String said)
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            FormError(said),
+            const SizedBox(height: 8),
+            AppButton(label: 'الباقات', tone: ButtonTone.secondary, onTap: () => Nav.go(context, '/account/plans')),
+          ],
+        ),
+      if (!scan && rows != null && rows!.isNotEmpty && _ai != null) AiNote(ai: _ai!),
       if (!scan && rows != null && rows!.isEmpty) radarWish('لا نتائج في هذه المدينة والحي والنوع.'),
       if (!scan && rows != null)
         Column(

@@ -14,7 +14,7 @@
                     "property_types": [
                         "apartment"
                     ],
-                    "budget_min": 1500000,
+                    "budget_min": null,
                     "budget_max": 950000,
                     "area_min": null,
                     "area_max": null,
@@ -22,12 +22,12 @@
                     "rooms_max": null,
                     "description": "أبي شقة فيها مصعد وموقف",
                     "urgent": false,
-                    "created_at": "2026-11-14T17:20:52+00:00",
+                    "created_at": "2026-11-14T17:31:27+00:00",
                     "author_role": "seeker",
                     "author": {
                         "id": 24,
-                        "username": "sxfvo4697",
-                        "name": "رزق صافي الصامل",
+                        "username": "tjuqb5385",
+                        "name": "ابتهال الحصين",
                         "role": "seeker",
                         "fal_verified": false,
                         "fal_number": null
@@ -48,7 +48,7 @@
                     "property_types": [
                         "apartment"
                     ],
-                    "budget_min": 1500000,
+                    "budget_min": null,
                     "budget_max": 900000,
                     "area_min": null,
                     "area_max": null,
@@ -56,12 +56,12 @@
                     "rooms_max": null,
                     "description": "شقة بمسبح ومصعد",
                     "urgent": false,
-                    "created_at": "2026-11-14T17:20:52+00:00",
+                    "created_at": "2026-11-14T17:31:27+00:00",
                     "author_role": "seeker",
                     "author": {
                         "id": 25,
-                        "username": "gftge9462",
-                        "name": "فاطمة نزار السالم",
+                        "username": "sigcf3778",
+                        "name": "عبد الفتاح نعمة المشيقح",
                         "role": "seeker",
                         "fal_verified": false,
                         "fal_number": null
@@ -82,7 +82,7 @@
                     "property_types": [
                         "apartment"
                     ],
-                    "budget_min": 1500000,
+                    "budget_min": null,
                     "budget_max": 600000,
                     "area_min": null,
                     "area_max": null,
@@ -90,12 +90,12 @@
                     "rooms_max": null,
                     "description": "شقة فيها مصعد",
                     "urgent": false,
-                    "created_at": "2026-11-14T17:20:52+00:00",
+                    "created_at": "2026-11-14T17:31:27+00:00",
                     "author_role": "seeker",
                     "author": {
                         "id": 26,
-                        "username": "jpwov5092",
-                        "name": "المهندسة يارا باشا",
+                        "username": "bzwks7336",
+                        "name": "ايمن باشا",
                         "role": "seeker",
                         "fal_verified": false,
                         "fal_number": null

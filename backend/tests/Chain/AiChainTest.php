@@ -202,7 +202,7 @@ class AiChainTest extends TestCase
 
     public function test_a_broker_finds_the_requests_his_offer_answers(): void
     {
-        $request = fn (string $desc, array $fields = []) => tap(SearchRequest::factory()->create(['neighborhoods' => ['النرجس'], 'property_types' => ['apartment'], 'description' => $desc, ...$fields]),
+        $request = fn (string $desc, array $fields = []) => tap(SearchRequest::factory()->create(['neighborhoods' => ['النرجس'], 'property_types' => ['apartment'], 'description' => $desc, 'budget_min' => null, ...$fields]),
             fn (SearchRequest $r) => app(IndexSync::class)->request($r));
         $all = $request('أبي شقة فيها مصعد وموقف', ['budget_max' => 950000]);
         $half = $request('شقة بمسبح ومصعد', ['budget_max' => 900000]);
