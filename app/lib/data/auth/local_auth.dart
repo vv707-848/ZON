@@ -23,11 +23,14 @@ import 'package:zon/data/store.dart';
 /// Result of [LocalAuth.signUp] / [LocalAuth.signIn]: the opened session,
 /// or an Arabic error message for the form.
 class AuthResult {
-  const AuthResult.ok(Session this.session) : error = null;
-  const AuthResult.fail(String this.error) : session = null;
+  const AuthResult.ok(Session this.session, {this.restored = false}) : error = null;
+  const AuthResult.fail(String this.error) : session = null, restored = false;
 
   final Session? session;
   final String? error;
+
+  /// With a server: this sign-in cancelled the account's deletion (it came within the grace period).
+  final bool restored;
 
   bool get ok => session != null;
 }

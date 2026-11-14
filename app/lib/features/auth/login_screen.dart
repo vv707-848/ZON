@@ -378,6 +378,11 @@ class _SignInState extends State<_SignIn> {
       setState(() => err = result.error!);
       return;
     }
+    if (result.restored) {
+      // the server cancelled the deletion he had asked for: he is told, not left to find out
+      await showAppNotice(context, icon: Lu.check, title: 'أُلغي حذف حسابك', message: 'دخلت قبل موعد الحذف، فبقي حسابك وعاد ما كان منشوراً منه.');
+      if (!mounted) return;
+    }
     unawaited(Nav.replace(context, '/'));
   }
 

@@ -11,7 +11,9 @@ import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/net/api.dart';
 import 'package:zon/core/net/api_error.dart';
+import 'package:zon/core/net/operation_key.dart';
 import 'package:zon/core/theme/theme.dart';
+import 'package:zon/core/utils/dates.dart';
 import 'package:zon/core/utils/input.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/auth/auth.dart';
@@ -197,16 +199,85 @@ class _SettingsViewState extends State<SettingsView> {
 
   int _epoch = store.serverEpoch;
 
+  /// With a server: «حذف حسابي» asks for the password; the claim on the previous version's records.
+  final TextEditingController _delPass = TextEditingController();
+  final OperationKey _delOp = OperationKey('account-delete');
+  bool _delOpen = false;
+  bool _delBusy = false;
+  String _delError = '';
+  final OperationKey _claimOp = OperationKey('legacy-claim');
+  bool _claimBusy = false;
+  String _claimError = '';
+  int? _claimId;
+
   @override
   void initState() {
     super.initState();
     store.addListener(_onAccount);
   }
 
+  /// The server hides what he published and signs him out everywhere; he is told the day, then this phone signs out.
+  Future<void> _deleteAccount() async {
+    if (_delBusy) return;
+    if (_delPass.text.isEmpty) {
+      setState(() => _delError = 'اكتب كلمة السر');
+      return;
+    }
+    final epoch = _epoch;
+    final sent = ServerSession.token;
+    setState(() {
+      _delBusy = true;
+      _delError = '';
+    });
+    final body = <String, Object?>{'password': _delPass.text};
+    final (at, failed) = await ServerAuth.deleteAccount(_delPass.text, operation: _delOp.forBody(body));
+    if (at != null) _delOp.done();
+    if (!_same(epoch) || !mounted) return;
+    if (at == null) {
+      setState(() {
+        _delBusy = false;
+        _delError = failed ?? '';
+      });
+      return;
+    }
+    _delPass.clear();
+    await showAppNotice(
+      context,
+      icon: Lu.check,
+      title: 'سُجّل طلب حذف حسابك',
+      message: 'أُخفي ما نشرته وخرج حسابك من كل الأجهزة. يُحذف نهائياً في ${arDate(at, year: true)}، والدخول قبل ذلك يلغي الحذف.',
+    );
+    if (ServerSession.owns(sent)) await ServerSession.close(); // the server ended this session: the phone does too
+    if (mounted) unawaited(Nav.replace(context, '/login'));
+  }
+
+  /// The unowned 1.1 records' ids go to the server for staff to check; nothing moves here.
+  Future<void> _claimLegacy() async {
+    if (_claimBusy) return;
+    final epoch = _epoch;
+    final u = store.unclaimedLegacy();
+    final listings = <String>[for (final l in u.listings) l.id];
+    final requests = <String>[for (final r in u.requests) r.id];
+    setState(() {
+      _claimBusy = true;
+      _claimError = '';
+    });
+    final body = <String, Object?>{'listings': listings, 'requests': requests};
+    final (id, failed) = await ServerAuth.claimLegacy(listings: listings, requests: requests, operation: _claimOp.forBody(body));
+    if (id != null) _claimOp.done();
+    if (!_same(epoch)) return;
+    if (id != null) store.requestLegacyRecovery(); // this phone remembers the account asked
+    setState(() {
+      _claimBusy = false;
+      _claimError = failed ?? '';
+      _claimId = id;
+    });
+  }
+
   @override
   void dispose() {
     store.removeListener(_onAccount);
-    for (final c in <TextEditingController>[_name, _phone, _tName, _tPhone, _tBody, _phoneCode, _pwCurrent, _pwNext]) {
+    for (final c in <TextEditingController>[_name, _phone, _tName, _tPhone, _tBody, _phoneCode, _pwCurrent, _pwNext, _delPass]) {
       c.dispose();
     }
     super.dispose();
@@ -218,7 +289,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (!mounted || _epoch == store.serverEpoch) return;
     _epoch = store.serverEpoch;
     final u = user;
-    for (final c in <TextEditingController>[_phoneCode, _pwCurrent, _pwNext, _tBody]) {
+    for (final c in <TextEditingController>[_phoneCode, _pwCurrent, _pwNext, _tBody, _delPass]) {
       c.clear();
     }
     _name.text = u?.name ?? '';
@@ -236,6 +307,12 @@ class _SettingsViewState extends State<SettingsView> {
       _pwError = '';
       _pwDone = '';
       sent = '';
+      _delOpen = false;
+      _delBusy = false;
+      _delError = '';
+      _claimBusy = false;
+      _claimError = '';
+      _claimId = null;
     });
   }
 
@@ -405,10 +482,21 @@ class _SettingsViewState extends State<SettingsView> {
           style: ts(13, lh: 19.5, c: AppColors.muted),
         ),
         const SizedBox(height: 4),
-        Tx('إن كانت لك فاطلب استعادتها؛ تُنقل لصاحبها بعد التحقق منه عند ربط الخادم.', style: ts(13, lh: 19.5, c: AppColors.muted)),
+        Tx(
+          Api.on
+              ? 'إن كانت لك فاطلب استعادتها؛ يراجع فريق زون الطلب، ولا يُنقل شيء قبل التحقق من صاحبها.'
+              : 'إن كانت لك فاطلب استعادتها؛ تُنقل لصاحبها بعد التحقق منه عند ربط الخادم.',
+          style: ts(13, lh: 19.5, c: AppColors.muted),
+        ),
         const SizedBox(height: 12),
+        if (_claimError.isNotEmpty) ...<Widget>[FormError(_claimError), const SizedBox(height: 8)],
         if (asked)
-          Tx('سُجّل طلبك — بانتظار التحقق، ولم يُنقل شيء.', style: ts(13, w: 600, lh: 19.5, c: AppColors.forest))
+          Tx(
+            _claimId == null ? 'سُجّل طلبك — بانتظار التحقق، ولم يُنقل شيء.' : 'سُجّل طلبك برقم $_claimId — بانتظار التحقق، ولم يُنقل شيء.',
+            style: ts(13, w: 600, lh: 19.5, c: AppColors.forest),
+          )
+        else if (Api.on)
+          AppButton(label: _claimBusy ? 'جارٍ الإرسال…' : 'طلب استعادة', tone: ButtonTone.secondary, onTap: _claimBusy ? null : _claimLegacy)
         else
           AppButton(label: 'طلب استعادة', tone: ButtonTone.secondary, onTap: () => setState(store.requestLegacyRecovery)),
       ],
@@ -870,16 +958,61 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ),
               ),
-            AppButton(
-              label: 'حذف حسابي',
-              tone: ButtonTone.danger,
-              onTap: () async {
-                if (await showAppDialog(context, icon: Lu.trash2, title: 'تأكيد حذف الحساب؟', confirmLabel: 'حذف', destructive: true)) {
-                  if (!context.mounted) return;
-                  await showAppNotice(context, icon: Lu.check, title: 'طلب الحذف سُجّل — يُنفَّذ من الباك إند');
-                }
-              },
-            ),
+            if (Api.on && _delOpen)
+              _panel(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: _gap(<Widget>[
+                    Tx(
+                      'يُخفى ما نشرته ويخرج حسابك من كل الأجهزة، ثم يُحذف نهائياً بعد مهلة يذكرها الخادم. الدخول خلالها يلغي الحذف.',
+                      style: ts(13, lh: 19.5, c: AppColors.muted),
+                    ),
+                    SvcField(
+                      label: 'كلمة السر لتأكيد الحذف',
+                      child: selInput(controller: _delPass, dir: TextDirection.ltr, obscure: true),
+                    ),
+                    if (_delError.isNotEmpty) FormError(_delError),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: AppButton(
+                            label: _delBusy ? 'جارٍ الحذف…' : 'تأكيد الحذف',
+                            tone: ButtonTone.danger,
+                            onTap: _delBusy ? null : _deleteAccount,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: AppButton(
+                            label: 'إلغاء',
+                            tone: ButtonTone.secondary,
+                            onTap: _delBusy
+                                ? null
+                                : () => setState(() {
+                                    _delOpen = false;
+                                    _delError = '';
+                                    _delPass.clear();
+                                  }),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ], 12),
+                ),
+              )
+            else if (Api.on)
+              AppButton(label: 'حذف حسابي', tone: ButtonTone.danger, onTap: () => setState(() => _delOpen = true))
+            else
+              AppButton(
+                label: 'حذف حسابي',
+                tone: ButtonTone.danger,
+                onTap: () async {
+                  if (await showAppDialog(context, icon: Lu.trash2, title: 'تأكيد حذف الحساب؟', confirmLabel: 'حذف', destructive: true)) {
+                    if (!context.mounted) return;
+                    await showAppNotice(context, icon: Lu.check, title: 'طلب الحذف سُجّل — يُنفَّذ من الباك إند');
+                  }
+                },
+              ),
           ], 20),
         ),
       );

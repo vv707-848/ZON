@@ -115,17 +115,23 @@ class AuthTest extends TestCase
         $broker = Customer::factory()->broker()->create(['password' => 'secret-123']);
         $public = Listing::factory()->published()->for($broker)->create();
         $token = $broker->createToken('iPhone 16')->plainTextToken;
-        $this->withToken($token)->postJson('/api/v1/account/delete', ['password' => 'wrong-secret'])->assertStatus(422)
-            ->assertJsonStructure(['error' => ['details' => ['fields' => ['password']]]]);
-        $this->withToken($token)->postJson('/api/v1/account/delete', ['password' => 'secret-123'])->assertStatus(202);
+        $this->apiContract('account_delete_wrong_password', $this->withToken($token)->postJson('/api/v1/account/delete', ['password' => 'wrong-secret'])->assertStatus(422)
+            ->assertJsonStructure(['error' => ['details' => ['fields' => ['password']]]]));
+        $this->apiContract('account_deleted', $this->withToken($token)->postJson('/api/v1/account/delete', ['password' => 'secret-123'])->assertStatus(202)
+            ->assertJsonStructure(['data' => ['purge_at']]));
         $this->assertSame('hidden', $public->fresh()->status->value);
 
         $this->app['auth']->forgetGuards();
         $this->withToken($token)->getJson('/api/v1/me')->assertUnauthorized();    // no phone stays signed in: signing in again is the way back
-        $this->withoutToken()->postJson('/api/v1/auth/login', ['login' => $broker->username, 'password' => 'secret-123'])->assertOk();
+        // the answer says the deletion was cancelled, so the app can tell him — and only the sign-in that cancelled it
+        $this->apiContract('login_cancels_deletion', $this->withoutToken()->postJson('/api/v1/auth/login', ['login' => $broker->username, 'password' => 'secret-123'])
+            ->assertOk()->assertJsonPath('data.deletion_cancelled', true));
 
         $this->assertSame('published', $public->fresh()->status->value);
         $this->assertNotNull(DeletionRequest::query()->sole()->cancelled_at);
+        $this->app['auth']->forgetGuards();
+        $this->withoutToken()->postJson('/api/v1/auth/login', ['login' => $broker->username, 'password' => 'secret-123'])
+            ->assertOk()->assertJsonPath('data.deletion_cancelled', false);
     }
 
     public function test_every_answer_carries_a_trace_id_and_errors_use_the_envelope(): void

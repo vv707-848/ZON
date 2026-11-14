@@ -84,7 +84,7 @@
 
 | الطريقة | المسار | الصلاحية | ما يفعله | الكود |
 |---|---|---|---|---|
-| `POST` | `/auth/login` | عام · login: 5/د | الدخول بـ `login` = اسم المستخدم أو الجوال + كلمة السر؛ يلغي طلب حذف معلّقاً | `AuthController@login` |
+| `POST` | `/auth/login` | عام · login: 5/د | الدخول بـ `login` = اسم المستخدم أو الجوال + كلمة السر؛ يلغي طلب حذف معلّقاً ويقول ذلك في `deletion_cancelled` | `AuthController@login` |
 | `POST` | `/auth/logout` | 🔒 | إلغاء رمز هذا الجهاز | `AuthController@logout` |
 | `POST` | `/auth/otp/resend` | عام · otp: 3/10د للجوال · 10/س للعنوان | إعادة إرسال الرمز (3 كل 10 دقائق للجوال) | `AuthController@resend` |
 | `POST` | `/auth/otp/verify` | عام | تأكيد رمز التسجيل: ينشئ الحساب ويُرجع الرمز المميِّز وبيانات حسابي (201) | `AuthController@verify` |
