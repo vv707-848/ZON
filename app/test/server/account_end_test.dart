@@ -41,28 +41,26 @@ Future<void> _settle(WidgetTester tester, [int times = 8]) async {
 }
 
 /// A listing and a request as app 1.1 saved them: no owner field.
-Map<String, Object?> _listing11(String id) =>
-    const Listing(
-      id: '',
-      kind: 'unit',
-      title: 'عرض من الإصدار السابق',
-      purpose: 'sale',
-      city: 'الرياض',
-      neighborhood: 'الملقا',
-      propertyType: 'villa',
-      source: 'broker',
-      price: 2500000,
-      rooms: 5,
-      baths: 4,
-      area: 400,
-      images: <String>[],
-      description: 'وصف',
-      advertiser: 'سالم القحطاني',
-      advertiserRole: 'broker',
-      license: '7200000001',
-      active: true,
-    ).toJson()
-      ..['id'] = id;
+Map<String, Object?> _listing11(String id) => const Listing(
+  id: '',
+  kind: 'unit',
+  title: 'عرض من الإصدار السابق',
+  purpose: 'sale',
+  city: 'الرياض',
+  neighborhood: 'الملقا',
+  propertyType: 'villa',
+  source: 'broker',
+  price: 2500000,
+  rooms: 5,
+  baths: 4,
+  area: 400,
+  images: <String>[],
+  description: 'وصف',
+  advertiser: 'سالم القحطاني',
+  advertiserRole: 'broker',
+  license: '7200000001',
+  active: true,
+).toJson()..['id'] = id;
 
 Map<String, Object?> _request11(String id) => const RequestItem(
   id: '',

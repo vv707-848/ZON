@@ -975,7 +975,11 @@ class _SettingsViewState extends State<SettingsView> {
                     Row(
                       children: <Widget>[
                         Expanded(
-                          child: AppButton(label: _delBusy ? 'جارٍ الحذف…' : 'تأكيد الحذف', tone: ButtonTone.danger, onTap: _delBusy ? null : _deleteAccount),
+                          child: AppButton(
+                            label: _delBusy ? 'جارٍ الحذف…' : 'تأكيد الحذف',
+                            tone: ButtonTone.danger,
+                            onTap: _delBusy ? null : _deleteAccount,
+                          ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -999,16 +1003,16 @@ class _SettingsViewState extends State<SettingsView> {
             else if (Api.on)
               AppButton(label: 'حذف حسابي', tone: ButtonTone.danger, onTap: () => setState(() => _delOpen = true))
             else
-            AppButton(
-              label: 'حذف حسابي',
-              tone: ButtonTone.danger,
-              onTap: () async {
-                if (await showAppDialog(context, icon: Lu.trash2, title: 'تأكيد حذف الحساب؟', confirmLabel: 'حذف', destructive: true)) {
-                  if (!context.mounted) return;
-                  await showAppNotice(context, icon: Lu.check, title: 'طلب الحذف سُجّل — يُنفَّذ من الباك إند');
-                }
-              },
-            ),
+              AppButton(
+                label: 'حذف حسابي',
+                tone: ButtonTone.danger,
+                onTap: () async {
+                  if (await showAppDialog(context, icon: Lu.trash2, title: 'تأكيد حذف الحساب؟', confirmLabel: 'حذف', destructive: true)) {
+                    if (!context.mounted) return;
+                    await showAppNotice(context, icon: Lu.check, title: 'طلب الحذف سُجّل — يُنفَّذ من الباك إند');
+                  }
+                },
+              ),
           ], 20),
         ),
       );
