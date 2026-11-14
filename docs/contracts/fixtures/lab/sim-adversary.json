@@ -1,0 +1,212 @@
+{
+ "agents": {
+  "chat": {
+   "cases": 16,
+   "failed": 0,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "covered": 0.0
+   },
+   "score": 0.0,
+   "variants": {}
+  },
+  "clean_listing": {
+   "cases": 44,
+   "failed": 0,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "features": 0.0,
+    "invented": 0.0,
+    "keep": 0.0,
+    "numbers": 0.0
+   },
+   "score": 0.0,
+   "variants": {
+    "digits": {
+     "failed": 0,
+     "score": 0.0
+    }
+   }
+  },
+  "match_searchers": {
+   "cases": 8,
+   "failed": 0,
+   "floor": 0.9029,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "ndcg": 0.1959,
+    "top1": 0.0,
+    "unit": 0.0,
+    "zero_top3": 1.0
+   },
+   "score": 0.098,
+   "variants": {
+    "reversed": {
+     "failed": 0,
+     "score": 0.098,
+     "stability": 1.0
+    }
+   }
+  },
+  "matching": {
+   "cases": 12,
+   "failed": 0,
+   "floor": 0.8272,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "ndcg_broaden": 0.6402,
+    "ndcg_matched": 0.5834,
+    "top1_broaden": 0.0,
+    "top1_matched": 0.0,
+    "zero_top3_broaden": 0.5833,
+    "zero_top3_matched": 1.0
+   },
+   "score": 0.6118,
+   "variants": {
+    "reversed": {
+     "failed": 0,
+     "score": 0.6118,
+     "stability": 1.0
+    }
+   }
+  },
+  "report_explore": {
+   "cases": 8,
+   "failed": 0,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "step": 0.0
+   },
+   "score": 0.0,
+   "variants": {}
+  },
+  "report_select": {
+   "cases": 38,
+   "failed": 0,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "params": 0.0,
+    "reports": 0.0
+   },
+   "score": 0.0,
+   "variants": {}
+  },
+  "report_write": {
+   "cases": 12,
+   "failed": 0,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "guard": 0.0
+   },
+   "score": 0.0,
+   "variants": {}
+  },
+  "search_listings": {
+   "cases": 38,
+   "failed": 0,
+   "floor": 0.7775,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "inject_top3": 1.0,
+    "ndcg": 0.4278,
+    "top1": 0.0,
+    "zero_top3": 0.9737
+   },
+   "score": 0.4278,
+   "variants": {
+    "reversed": {
+     "failed": 0,
+     "score": 0.4278,
+     "stability": 1.0
+    }
+   }
+  },
+  "search_requests": {
+   "cases": 14,
+   "failed": 0,
+   "floor": 0.5351,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "inject_top3": 1.0,
+    "ndcg": 0.3968,
+    "top1": 0.0,
+    "zero_top3": 1.0
+   },
+   "score": 0.3968,
+   "variants": {
+    "reversed": {
+     "failed": 0,
+     "score": 0.3968,
+     "stability": 1.0
+    }
+   }
+  },
+  "summarize": {
+   "cases": 10,
+   "failed": 0,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "confidence": 0.0,
+    "keep": 0.0,
+    "numbers": 0.0,
+    "signals": 0.0
+   },
+   "score": 0.0,
+   "variants": {
+    "digits": {
+     "failed": 0,
+     "score": 0.0
+    }
+   }
+  }
+ },
+ "dataset": {
+  "agents": {
+   "chat": 16,
+   "clean_listing": 44,
+   "match_searchers": 8,
+   "matching": 12,
+   "report_explore": 8,
+   "report_select": 38,
+   "report_write": 12,
+   "search_listings": 38,
+   "search_requests": 14,
+   "summarize": 10
+  },
+  "cases": 200,
+  "digest": "476098c7fd930a97"
+ },
+ "lab": 1,
+ "overall": 0.2359,
+ "simulation": "adversary"
+}

@@ -10,18 +10,22 @@ import asyncio
 import time
 from collections import defaultdict
 from collections.abc import Callable, Sequence
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from typing import Any
+
+from pydantic import BaseModel
 
 from zon_agents.embeddings import Embedding
 from zon_agents.errors import DependencyUnavailable
 from zon_agents.lab.cases import Case, digest
 from zon_agents.lab.scoring import ids, score, stability
 from zon_agents.lab.variants import variants
-from zon_agents.llm import LLM
+from zon_agents.llm import LLM, LlmResult, ModelFailed
 from zon_agents.pipelines import PIPELINES
 from zon_agents.pipelines.base import Ctx, Result
+from zon_agents.profiles import Use
 from zon_agents.store import Hit, KnowledgeChunk
 
 REPORT_VERSION = 1
@@ -40,6 +44,11 @@ WEIGHTS = {
     "report_explore": 1,
     "report_write": 1,
 }
+
+
+# The case a pipeline is running for, readable from inside the model call: the simulation's lab answers
+# (zon_agents/sim/oracle.py) are built from the case's expected answer. A real model never reads it.
+CURRENT: ContextVar[Case | None] = ContextVar("lab_case", default=None)
 
 
 class FixedRetrieval:
@@ -114,6 +123,7 @@ async def _one(llm: LLM, case: Case, variant: str, round_: int, slots: asyncio.S
         )
 
     async with slots:
+        CURRENT.set(case)  # this task's own context: concurrent cases do not see one another's
         start = time.perf_counter()
         try:
             result = await PIPELINES[case.agent](ctx, dict(case.input))
@@ -127,6 +137,33 @@ async def _one(llm: LLM, case: Case, variant: str, round_: int, slots: asyncio.S
     scored = score(case, result.output)
     metrics = {name: round(value, 4) for name, value in scored.metrics.items()}
     return outcome(None, elapsed, result, round(scored.value, 4), metrics)
+
+
+class _NoModel(LLM):
+    """The model that never answers: a ranking pipeline then returns the order the retrieval left — what the user
+    gets with no model at all."""
+
+    def __init__(self, like: LLM) -> None:
+        self.prompts, self.profile = like.prompts, like.profile
+
+    async def run[T: BaseModel](
+        self, agent: str, payload: BaseModel | dict[str, Any], output: type[T], use: Use
+    ) -> LlmResult[T]:
+        raise ModelFailed("unavailable")
+
+
+async def floors(llm: LLM, cases: Sequence[Case]) -> dict[str, float]:
+    """Per ranking agent, the score of the answer with no model. A model's score is read against it: NDCG stays
+    high even for an order nobody chose (every candidate is still in the list), so a model that does not pass its
+    floor adds nothing to what the database already orders."""
+    silent = _NoModel(llm)
+    scores: dict[str, list[float]] = defaultdict(list)
+    for case in cases:
+        if case.agent in RANKING:
+            ctx = Ctx(silent, FixedRetrieval(_passages(case)), today=lambda: TODAY)
+            result = await PIPELINES[case.agent](ctx, dict(case.input))
+            scores[case.agent].append(score(case, result.output).value)
+    return {agent: _mean(values) for agent, values in sorted(scores.items())}
 
 
 def _ms(start: float) -> int:
@@ -211,11 +248,15 @@ def report(
     seconds: float,
     gpu: str | None,
     notes: str | None,
+    floor: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     by_agent: dict[str, list[Outcome]] = defaultdict(list)
     for outcome in outcomes:
         by_agent[outcome.agent].append(outcome)
     agents = {agent: _agent_entry(agent, by_agent[agent]) for agent in sorted(by_agent)}
+    for agent, value in (floor or {}).items():
+        if agent in agents:
+            agents[agent]["floor"] = value  # `floors`: the same cases with no model
     weight = sum(WEIGHTS[a] for a in agents)
     tokens_out = sum(o.tokens_out for o in outcomes)
     counts: dict[str, int] = defaultdict(int)

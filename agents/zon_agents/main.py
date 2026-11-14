@@ -69,6 +69,7 @@ class HealthCheck:
                     "embed": embed,
                     "qdrant": qdrant,
                     "model": model,
+                    "simulated": s.llm.profile.simulated,  # the simulation (zon_agents/sim), not a model
                     "errors": errors,
                 }
                 self._at = time.monotonic()
@@ -184,6 +185,7 @@ def create_app(settings: Settings, services: Services | None = None) -> FastAPI:
             {
                 "output": result.output,
                 "degraded": result.degraded,
+                "simulated": ctx.llm.profile.simulated,  # Laravel refuses it in production (PRODUCTION_ALLOWS_FAKE)
                 "usage": {"tokens_in": result.tokens_in, "tokens_out": result.tokens_out},
                 "latency_ms": round((time.perf_counter() - started) * 1000),
             }

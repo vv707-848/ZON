@@ -40,7 +40,7 @@ class ModelProfile(BaseModel):
 
     name: str = Field(pattern=r"^[a-z0-9][a-z0-9.\-]{2,63}$")
     weights: str = Field(pattern=r"^[\w.\-]+/[\w.\-]+$")  # Hugging Face repository
-    runtime: Literal["sglang", "vllm", "escha"]
+    runtime: Literal["sglang", "vllm", "escha", "sim"]  # "sim": no weights, the simulation (zon_agents/sim)
     licence: str
     sampling: dict[Use, Sampling]
     request: dict[str, Any] = {}
@@ -53,6 +53,12 @@ class ModelProfile(BaseModel):
         if missing:
             raise ValueError(f"sampling is missing {', '.join(missing)}")
         return sampling
+
+    @property
+    def simulated(self) -> bool:
+        """Not a model: the deterministic simulation. Its answers are never a model's (Laravel refuses them in
+        production unless PRODUCTION_ALLOWS_FAKE names `ai`)."""
+        return self.runtime == "sim"
 
     def settings(self, use: Use, *, temperature: float | None = None) -> ModelSettings:
         """The settings of one call: the use's sampling, the request extras, and a temperature for a retry."""
@@ -78,7 +84,20 @@ def load_profiles(directory: Path = PROFILES_DIR) -> dict[str, ModelProfile]:
     return profiles
 
 
+# The simulation's profile is built here, not a file of `models/`: that folder is copied to the AI node, where
+# there is nothing to serve for it.
+SIMULATED = ModelProfile(
+    name="sim-rules",
+    weights="zon/sim-rules",
+    runtime="sim",
+    licence="none (rules, no weights)",
+    sampling={use: Sampling(temperature=0.1, top_p=1.0, max_tokens=4096) for use in USES},
+)
+
+
 def load_profile(name: str, directory: Path = PROFILES_DIR) -> ModelProfile:
+    if name == SIMULATED.name:
+        return SIMULATED
     profiles = load_profiles(directory)
     if name not in profiles:
         raise RuntimeError(f"unknown model profile {name!r}: one of {', '.join(profiles)}")

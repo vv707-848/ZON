@@ -48,6 +48,7 @@ def test_health_reports_each_dependency(client: TestClient, embedder: FakeEmbedd
         "embed": True,
         "qdrant": True,
         "model": model,
+        "simulated": False,  # a model's profile, not the simulation (zon_agents/sim)
         "errors": False,  # no SENTRY_DSN in the tests
     }
 
@@ -59,6 +60,7 @@ def test_health_reports_each_dependency(client: TestClient, embedder: FakeEmbedd
         "embed": False,
         "qdrant": True,
         "model": model,
+        "simulated": False,  # a model's profile, not the simulation (zon_agents/sim)
         "errors": False,
     }
 
