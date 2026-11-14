@@ -43,10 +43,12 @@ Widget selInput({
   TextDirection? dir,
   TextInputType? keyboard,
   ValueChanged<String>? onChanged,
+  bool obscure = false,
 }) {
   return FieldBox(
     controller: controller,
     placeholder: placeholder,
+    obscure: obscure,
     style: kSelText,
     height: 48,
     padding: const EdgeInsets.symmetric(horizontal: 16),

@@ -298,6 +298,59 @@ abstract final class ServerAuth {
     }
   }
 
+  /// «نسيت كلمة السر»: a code to the phone. The server answers the same for a number without an account, so this
+  /// says nothing about whether one exists. Null when asked, else the error.
+  static Future<String?> forgotPassword(String phone) async {
+    try {
+      await _api.post('auth/password/forgot', <String, Object?>{'phone': phone.trim()});
+      return null;
+    } on ApiError catch (e) {
+      return e.forUser;
+    }
+  }
+
+  /// The code and the new password; every phone signed in to the account signs in again. Null when changed.
+  static Future<String?> resetPassword({required String phone, required String code, required String password}) async {
+    try {
+      await _api.post('auth/password/reset', <String, Object?>{'phone': phone.trim(), 'code': code.trim(), 'password': password});
+      return null;
+    } on ApiError catch (e) {
+      return e.forUser;
+    }
+  }
+
+  /// A new number: a code to it; the account keeps the old one until [verifyPhone]. Null when sent.
+  static Future<String?> changePhone(String phone) async {
+    try {
+      await _api.post('me/phone', <String, Object?>{'phone': phone.trim()});
+      return null;
+    } on ApiError catch (e) {
+      return e.forUser;
+    }
+  }
+
+  /// The new number's code: the account's number is now it. Null when changed, else the error.
+  static Future<String?> verifyPhone(String phone, String code) async {
+    final sent = ServerSession.token;
+    try {
+      final me = (await _api.post('me/phone/verify', <String, Object?>{'phone': phone.trim(), 'code': code.trim()})).map;
+      if (ServerSession.owns(sent)) ServerSession.account(me);
+      return null;
+    } on ApiError catch (e) {
+      return e.forUser;
+    }
+  }
+
+  /// «كلمة السر» in «الإعدادات»: the current one, then the new; the other phones sign in again. Null when changed.
+  static Future<String?> changePassword({required String current, required String next}) async {
+    try {
+      await _api.put('me/password', <String, Object?>{'current_password': current, 'password': next});
+      return null;
+    } on ApiError catch (e) {
+      return e.forUser;
+    }
+  }
+
   /// One notification switch. Null when saved, else the error.
   static Future<String?> setPref(String key, bool on) async {
     final sent = ServerSession.token;

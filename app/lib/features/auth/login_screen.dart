@@ -1,5 +1,6 @@
 // `/login` — sign in, or sign up: role → details → phone code (OTP) →
-// wish (for seekers).
+// wish (for seekers). With a server, «نسيت كلمة السر»: the phone → its code
+// and a new password → sign in with it.
 //
 // Accounts and passwords: on the server when the app is built with one
 // (ZON_API_URL — `ServerAuth`: the code arrives by SMS and creates the
@@ -50,7 +51,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final user = store.readSession();
     if (user != null && view == 'gate') return const RedirectTo('/');
-    if (view == 'in') return _SignIn(onBack: () => setState(() => view = 'gate'));
+    if (view == 'in') return _SignIn(onBack: () => setState(() => view = 'gate'), onForgot: () => setState(() => view = 'forgot'));
+    if (view == 'forgot') return _Forgot(onBack: () => setState(() => view = 'in'));
     if (view == 'up') return _SignUp(onBack: () => setState(() => view = 'gate'));
     return GateChrome(
       child: Column(
@@ -325,9 +327,12 @@ Widget _select({required String value, required List<Opt> options, required Valu
 }
 
 class _SignIn extends StatefulWidget {
-  const _SignIn({required this.onBack});
+  const _SignIn({required this.onBack, required this.onForgot});
 
   final VoidCallback onBack;
+
+  /// «نسيت كلمة السر» — with a server only: the device's test accounts have no phone to send a code to.
+  final VoidCallback onForgot;
 
   @override
   State<_SignIn> createState() => _SignInState();
@@ -389,8 +394,143 @@ class _SignInState extends State<_SignIn> {
           _input(controller: _pass, focusNode: _passFocus, dir: TextDirection.ltr, obscure: true, onSubmitted: (_) => _submit()),
           if (err.isNotEmpty) FormError(err),
           GateCta(label: _busy ? 'جارٍ الدخول…' : 'دخول', disabled: _busy, onTap: _submit),
+          if (Auth.server)
+            Tap(
+              onTap: widget.onForgot,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Tx(
+                  'نسيت كلمة السر؟',
+                  style: ts(14, w: 600, lh: 21, c: AppColors.teal),
+                  align: TextAlign.center,
+                ),
+              ),
+            ),
         ],
       ),
+    );
+  }
+}
+
+/// «نسيت كلمة السر» (server): the phone → the code sent to it and a new password. The server answers the same
+/// whether the number has an account or not, and so does this page.
+class _Forgot extends StatefulWidget {
+  const _Forgot({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  State<_Forgot> createState() => _ForgotState();
+}
+
+class _ForgotState extends State<_Forgot> {
+  final TextEditingController _phone = TextEditingController();
+  final TextEditingController _code = TextEditingController();
+  final TextEditingController _pass = TextEditingController();
+
+  /// The number the code went to (empty until sent).
+  String _sentTo = '';
+  bool _busy = false;
+  bool _done = false;
+  String _err = '';
+  String _note = '';
+
+  @override
+  void dispose() {
+    _phone.dispose();
+    _code.dispose();
+    _pass.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send({bool again = false}) async {
+    if (_busy) return;
+    final phone = again ? _sentTo : _phone.text.trim();
+    final bad = LocalAuth.phoneError(phone);
+    if (bad != null) {
+      setState(() => _err = bad);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _err = '';
+      _note = '';
+    });
+    final failed = await ServerAuth.forgotPassword(phone);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _err = failed ?? '';
+      if (failed == null) {
+        _sentTo = phone;
+        _note = again ? 'أرسلنا رمزاً جديداً.' : '';
+      }
+    });
+  }
+
+  Future<void> _reset() async {
+    if (_busy) return;
+    final code = _code.text.trim();
+    final bad = code.length != 6 || int.tryParse(code) == null ? 'اكتب الرمز من 6 أرقام' : LocalAuth.passwordError(_pass.text);
+    if (bad != null) {
+      setState(() => _err = bad);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _err = '';
+      _note = '';
+    });
+    final failed = await ServerAuth.resetPassword(phone: _sentTo, code: code, password: _pass.text);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _err = failed ?? '';
+      _done = failed == null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> children;
+    if (_done) {
+      children = <Widget>[
+        const GateHero(title: 'تغيّرت كلمة السر', sub: 'ادخل بها الآن. خرج حسابك من الأجهزة الأخرى.', tight: true),
+        GateCta(label: 'تسجيل الدخول', onTap: widget.onBack),
+      ];
+    } else if (_sentTo.isEmpty) {
+      children = <Widget>[
+        const GateHero(title: 'نسيت كلمة السر', sub: 'اكتب جوال حسابك ونرسل إليه رمزاً', tight: true),
+        _label('الجوال'),
+        _input(controller: _phone, dir: TextDirection.ltr, keyboard: TextInputType.phone, placeholder: '05XXXXXXXX', onSubmitted: (_) => _send()),
+        if (_err.isNotEmpty) FormError(_err),
+        GateCta(label: _busy ? 'جارٍ الإرسال…' : 'أرسل الرمز', disabled: _busy, onTap: _send),
+      ];
+    } else {
+      children = <Widget>[
+        GateHero(title: 'كلمة سر جديدة', sub: 'إن كان $_sentTo لحساب في زون فقد أرسلنا إليه رمزاً', tight: true),
+        _label('رمز التحقق'),
+        _input(controller: _code, dir: TextDirection.ltr, keyboard: TextInputType.number),
+        _label('كلمة السر الجديدة'),
+        _input(controller: _pass, dir: TextDirection.ltr, obscure: true, onSubmitted: (_) => _reset()),
+        if (_err.isNotEmpty) FormError(_err),
+        GateCta(label: _busy ? 'جارٍ الحفظ…' : 'تغيير كلمة السر', disabled: _busy, onTap: _reset),
+        Tap(
+          onTap: _busy ? null : () => _send(again: true),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Tx(
+              _note.isEmpty ? 'لم يصلك الرمز؟ أعد الإرسال' : _note,
+              style: ts(14, w: 600, lh: 21, c: AppColors.teal),
+              align: TextAlign.center,
+            ),
+          ),
+        ),
+      ];
+    }
+    return GateChrome(
+      back: widget.onBack,
+      child: _GateForm(children: children),
     );
   }
 }
