@@ -317,15 +317,7 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
           kind: target == 'requests' ? 'requests' : 'listings',
         ),
       if (_error case final String e) FormError(e),
-      if (_quota case final String said)
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            FormError(said),
-            const SizedBox(height: 8),
-            AppButton(label: 'الباقات', tone: ButtonTone.secondary, onTap: () => Nav.go(context, '/account/plans')),
-          ],
-        ),
+      if (_quota case final String said) PlanDoor(said),
       if (!scan && rows != null && rows!.isNotEmpty && _ai != null) AiNote(ai: _ai!),
       if (!scan && rows != null && rows!.isEmpty) radarWish('لا نتائج في هذه المدينة والحي والنوع.'),
       if (!scan && rows != null)

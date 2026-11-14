@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:zon/app/router.dart';
 import 'package:zon/core/net/api.dart';
 import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/simulations.dart';
@@ -226,6 +227,24 @@ class AiNote extends StatelessWidget {
       child: Tx(lines.join('\n'), style: ts(13, lh: 19.5, c: AppColors.muted)),
     );
   }
+}
+
+/// What a plan does not give, or gave all of for today: the server's words (or the page's, for a service outside
+/// the plan), and the way to the plans.
+class PlanDoor extends StatelessWidget {
+  const PlanDoor(this.said, {super.key});
+
+  final String said;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: <Widget>[
+      FormError(said),
+      const SizedBox(height: 8),
+      AppButton(label: 'الباقات', tone: ButtonTone.secondary, onTap: () => Nav.go(context, '/account/plans')),
+    ],
+  );
 }
 
 // ---------------------------------------------------------------- folio / marks

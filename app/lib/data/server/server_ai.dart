@@ -16,6 +16,7 @@
 
 import 'package:zon/core/net/api.dart';
 import 'package:zon/core/net/api_error.dart';
+import 'package:zon/data/models/models.dart';
 import 'package:zon/data/server/server_desk.dart' show NeedsPlan;
 import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/server/server_requests.dart';
