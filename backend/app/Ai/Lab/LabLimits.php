@@ -43,6 +43,12 @@ final class LabLimits
                 $unmet[] = "{$agent}: يتغير ترتيبه إذا انعكس ترتيب المرشحين (الثبات ".round((float) $stability * 100).'%)';
             }
         }
+        foreach ($agents as $agent => $entry) {
+            // `floor`: the same cases with no model (the order the database left). A model at or under it adds nothing.
+            if (is_numeric($entry['floor'] ?? null) && (float) ($entry['score'] ?? 0) <= (float) $entry['floor']) {
+                $unmet[] = "{$agent}: درجته ".round((float) ($entry['score'] ?? 0), 3).' لا تتجاوز الترتيب بلا نموذج ('.round((float) $entry['floor'], 3).')';
+            }
+        }
         if (($metric('clean_listing', 'invented') ?? 1.0) < 0.95) {
             $unmet[] = 'clean_listing: أضاف ما لم يقله المعلن في أكثر من 5% من الإعلانات';
         }

@@ -1,0 +1,218 @@
+{
+ "agents": {
+  "chat": {
+   "cases": 16,
+   "failed": 0,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "cite": 1.0,
+    "covered": 0.875,
+    "lang": 0.5,
+    "mention": 0.9545,
+    "numbers": 1.0
+   },
+   "score": 0.849,
+   "variants": {}
+  },
+  "clean_listing": {
+   "cases": 44,
+   "failed": 0,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "features": 0.3737,
+    "invented": 0.8864,
+    "keep": 1.0,
+    "numbers": 1.0
+   },
+   "score": 0.7889,
+   "variants": {
+    "digits": {
+     "failed": 0,
+     "score": 0.7889
+    }
+   }
+  },
+  "match_searchers": {
+   "cases": 8,
+   "failed": 0,
+   "floor": 0.9029,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "ndcg": 1.0,
+    "top1": 1.0,
+    "unit": 1.0,
+    "zero_top3": 0.0
+   },
+   "score": 1.0,
+   "variants": {
+    "reversed": {
+     "failed": 0,
+     "score": 1.0,
+     "stability": 1.0
+    }
+   }
+  },
+  "matching": {
+   "cases": 12,
+   "failed": 0,
+   "floor": 0.8272,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "ndcg_broaden": 1.0,
+    "ndcg_matched": 1.0,
+    "top1_broaden": 1.0,
+    "top1_matched": 1.0,
+    "zero_top3_broaden": 0.1667,
+    "zero_top3_matched": 0.0
+   },
+   "score": 1.0,
+   "variants": {
+    "reversed": {
+     "failed": 0,
+     "score": 1.0,
+     "stability": 1.0
+    }
+   }
+  },
+  "report_explore": {
+   "cases": 8,
+   "failed": 0,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "step": 0.25
+   },
+   "score": 0.25,
+   "variants": {}
+  },
+  "report_select": {
+   "cases": 38,
+   "failed": 0,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "params": 0.3565,
+    "reports": 0.5482
+   },
+   "score": 0.4561,
+   "variants": {}
+  },
+  "report_write": {
+   "cases": 12,
+   "failed": 0,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "action": 0.0,
+    "guard": 0.8333,
+    "mention": 0.9
+   },
+   "score": 0.5417,
+   "variants": {}
+  },
+  "search_listings": {
+   "cases": 38,
+   "failed": 0,
+   "floor": 0.7775,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "inject_top3": 0.0,
+    "ndcg": 0.9644,
+    "top1": 0.8947,
+    "zero_top3": 0.1316
+   },
+   "score": 0.9644,
+   "variants": {
+    "reversed": {
+     "failed": 0,
+     "score": 0.9644,
+     "stability": 1.0
+    }
+   }
+  },
+  "search_requests": {
+   "cases": 14,
+   "failed": 0,
+   "floor": 0.5351,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "inject_top3": 0.0,
+    "ndcg": 0.9866,
+    "top1": 1.0,
+    "zero_top3": 0.0714
+   },
+   "score": 0.9866,
+   "variants": {
+    "reversed": {
+     "failed": 0,
+     "score": 0.9866,
+     "stability": 1.0
+    }
+   }
+  },
+  "summarize": {
+   "cases": 10,
+   "failed": 0,
+   "latency_ms": {
+    "p50": 0,
+    "p95": 0
+   },
+   "metrics": {
+    "confidence": 1.0,
+    "keep": 1.0,
+    "numbers": 1.0,
+    "signals": 0.8333
+   },
+   "score": 0.9542,
+   "variants": {
+    "digits": {
+     "failed": 0,
+     "score": 0.9542
+    }
+   }
+  }
+ },
+ "dataset": {
+  "agents": {
+   "chat": 16,
+   "clean_listing": 44,
+   "match_searchers": 8,
+   "matching": 12,
+   "report_explore": 8,
+   "report_select": 38,
+   "report_write": 12,
+   "search_listings": 38,
+   "search_requests": 14,
+   "summarize": 10
+  },
+  "cases": 200,
+  "digest": "476098c7fd930a97"
+ },
+ "lab": 1,
+ "overall": 0.8438,
+ "simulation": "rules"
+}

@@ -66,13 +66,13 @@ final class AiGateway
         $status = $reply->degraded ? AiCallStatus::Degraded : AiCallStatus::Ok;
         if ($status === AiCallStatus::Ok) {
             AiQuota::consume();
-            if ($cache) {
+            if ($cache && ! $reply->simulated) {              // a simulated answer never outlives the simulation
                 Cache::put($key, $output, now()->addMinutes((int) config('zon.ai.cache_minutes')));
             }
         }
         $this->record($agent, $status, $hash, $customer, $staff, $reply);
 
-        return new AiResult($status, $output);
+        return new AiResult($status, $output, $reply->simulated);
     }
 
     /**

@@ -1,5 +1,6 @@
 """`zon-agents serve` — the HTTP service · `zon-agents bootstrap [--recreate]` — the Qdrant collections ·
-`zon-agents lab check|run` — the model lab (zon_agents/lab)."""
+`zon-agents lab check|run|sim` — the model lab (zon_agents/lab) · `zon-agents sim` — the simulated AI node
+(zon_agents/sim)."""
 
 import argparse
 import asyncio
@@ -16,11 +17,13 @@ import uvicorn
 from zon_agents import logs, monitoring
 from zon_agents.config import Settings
 from zon_agents.lab.cases import check, load_cases
-from zon_agents.lab.runner import Outcome, report, run_cases
+from zon_agents.lab.runner import Outcome, floors, report, run_cases
 from zon_agents.llm import LLM, load_prompts, openai_model
 from zon_agents.main import create_app
 from zon_agents.profiles import load_profile
 from zon_agents.services import build_store
+from zon_agents.sim import labsim
+from zon_agents.sim.server import create_sim_app
 
 DEFAULTS = Settings.model_fields
 
@@ -77,14 +80,43 @@ def _lab_run(args: argparse.Namespace) -> int:
             progress=progress,
         )
     )
-    result = report(
-        outcomes, cases, llm, started=started, seconds=time.monotonic() - clock, gpu=args.gpu, notes=args.notes
-    )
+    seconds = time.monotonic() - clock
+    floor = asyncio.run(floors(llm, cases))  # the same cases with no model: no call to the engine
+    result = report(outcomes, cases, llm, started=started, seconds=seconds, gpu=args.gpu, notes=args.notes, floor=floor)
     out = args.out or Path(f"lab-{args.profile}-{started:%Y%m%d-%H%M}.json")
     out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
     print(file=sys.stderr)
     _print_summary(result, out)
     return 0
+
+
+def _lab_sim(args: argparse.Namespace) -> int:
+    """Every known result of the simulation, checked (zon_agents/sim/labsim.py)."""
+    cases = load_cases()
+    problems = check(cases)
+    if problems:
+        print("\n".join(problems), file=sys.stderr)
+        return 1
+    names = args.runs.split(",") if args.runs else list(labsim.RUNS)
+    results = labsim.run_all(cases, names)
+    floor = asyncio.run(floors(labsim.simulated_llm("rules"), cases))
+    wrong = 0
+    print(f"{len(cases)} cases · the floor (no model): " + " · ".join(f"{a} {v}" for a, v in floor.items()))
+    for name, (outcomes, unknown) in results.items():
+        summary = labsim.summary(name, outcomes, cases, floor)
+        wrong += len(unknown)
+        print(f"\n{name}: overall {summary['overall']:.4f} · {len(outcomes)} answers · {len(unknown)} not as known")
+        for agent, entry in summary["agents"].items():
+            metrics = " · ".join(f"{k} {v}" for k, v in entry["metrics"].items())
+            print(f"  {agent:<16}{entry['cases']:>4}{entry['score']:>8.4f}  failed {entry['failed']:<3} {metrics}")
+        for problem in unknown:
+            print(f"  ! {problem}", file=sys.stderr)
+        if args.out:
+            args.out.mkdir(parents=True, exist_ok=True)
+            text = json.dumps(summary, ensure_ascii=False, indent=1, sort_keys=True) + "\n"
+            (args.out / f"sim-{name}.json").write_text(text, encoding="utf-8")
+    print(f"\n{'every result as known' if wrong == 0 else f'{wrong} results not as known'}")
+    return 1 if wrong else 0
 
 
 def _print_summary(result: dict[str, Any], out: Path) -> None:
@@ -98,6 +130,8 @@ def _print_summary(result: dict[str, Any], out: Path) -> None:
         stable = entry["variants"].get("reversed", {}).get("stability")
         if stable is not None:
             metrics += f" · stability {stable}"
+        if "floor" in entry:
+            metrics += f" · floor {entry['floor']}"
         print(
             f"{agent:<16}{entry['cases']:>6}{entry['score']:>8.3f}{entry['failed']:>8}"
             f"{entry['latency_ms']['p50']:>8}{entry['latency_ms']['p95']:>8}  {metrics}"
@@ -109,6 +143,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="zon-agents")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("serve", help="run the HTTP service (one worker) on HOST:PORT")
+    sim = commands.add_parser("sim", help="run the simulated AI node (the rule model and bag-of-words vectors)")
+    sim.add_argument("--host", default="127.0.0.1")
+    sim.add_argument("--port", type=int, default=30000)
     bootstrap = commands.add_parser(
         "bootstrap", help="create the Qdrant collections and payload indexes (safe to repeat)"
     )
@@ -129,10 +166,18 @@ def main() -> None:
     run.add_argument("--gpu", help="the card it ran on, for the report (A40, L40S, RTX PRO 6000…)")
     run.add_argument("--notes", help="anything a reader of the report should know")
     run.add_argument("--out", type=Path, help="the report file (default lab-<profile>-<time>.json)")
+    known = lab_commands.add_parser("sim", help="the cases against the simulation: every known result checked")
+    known.add_argument("--runs", help=f"only these, comma-separated (default {','.join(labsim.RUNS)})")
+    known.add_argument("--out", type=Path, help="a folder for each run's summary (sim-<run>.json)")
     args = parser.parse_args()
 
     if args.command == "lab":
-        sys.exit(_lab_check() if args.lab == "check" else _lab_run(args))
+        if args.lab == "check":
+            sys.exit(_lab_check())
+        sys.exit(_lab_run(args) if args.lab == "run" else _lab_sim(args))
+    if args.command == "sim":
+        uvicorn.run(create_sim_app(), host=args.host, port=args.port, log_level="warning")
+        return
 
     settings = Settings()  # values come from the environment / .env
     logs.configure(settings.log_level)

@@ -8,7 +8,7 @@ use App\Enums\AiCallStatus;
 final readonly class AiResult
 {
     /** @param ?array<string, mixed> $output */
-    public function __construct(public AiCallStatus $status, public ?array $output) {}
+    public function __construct(public AiCallStatus $status, public ?array $output, public bool $simulated = false) {}
 
     public function usable(): bool
     {
@@ -16,13 +16,14 @@ final readonly class AiResult
     }
 
     /**
-     * `meta.ai` of the API answer: {status} — how the answer was obtained.
+     * `meta.ai` of the API answer: {status} — how the answer was obtained; and `simulated: true` when the
+     * simulation answered, not a model (never in production unless allowed): the app says so under the results.
      *
-     * @return array{status: string}
+     * @return array{status: string, simulated?: true}
      */
     public function meta(): array
     {
-        return ['status' => $this->status->value];
+        return ['status' => $this->status->value] + ($this->simulated ? ['simulated' => true] : []);
     }
 
     /**

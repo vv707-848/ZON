@@ -85,8 +85,14 @@ class CleanListingText implements ShouldQueue
      */
     private static function asked(Listing $listing): array
     {
-        $specs = array_map(fn ($v) => $v instanceof \BackedEnum ? $v->value : $v,
-            array_filter($listing->only(ListingRequest::SPEC_FIELDS), fn ($v) => $v !== null));
+        // The specs, and what the advertiser stated outside his text — the price, the deed and the bank: the text
+        // is written around them, and «الأرقام الواردة في الخانات هي المعتمدة» (the agent's prompt; the lab's cases).
+        $specs = array_map(fn ($v) => $v instanceof \BackedEnum ? $v->value : $v, array_filter([
+            'price' => $listing->price !== null ? (float) $listing->price : null,
+            ...$listing->only(ListingRequest::SPEC_FIELDS),
+            'deed' => $listing->has_deed,
+            'bank' => $listing->bank_accepted,
+        ], fn ($v) => $v !== null));
 
         return [
             'type' => $listing->property_type->value,

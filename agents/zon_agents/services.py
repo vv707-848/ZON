@@ -29,7 +29,10 @@ class Services:
 
 def build_store(settings: Settings) -> VectorStore:
     key = settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None
-    client = AsyncQdrantClient(url=settings.qdrant_url, api_key=key, timeout=settings.qdrant_timeout_seconds)
+    if settings.qdrant_url == ":memory:":  # no server: the index lives and dies with the process (rehearsals, CI)
+        client = AsyncQdrantClient(location=":memory:")
+    else:
+        client = AsyncQdrantClient(url=settings.qdrant_url, api_key=key, timeout=settings.qdrant_timeout_seconds)
     return VectorStore(
         client,
         colbert=settings.colbert_enabled,

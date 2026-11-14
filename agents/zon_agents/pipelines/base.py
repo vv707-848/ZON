@@ -53,11 +53,14 @@ _PHONE = re.compile(
     rf"|(?<!\d)(?:9200|800)(?:{_SEP}\d){{5,6}}(?!\d)"
     r"|\d{9,}"
 )
+# What Laravel's masking puts where a number, an e-mail, a link or an account was (App\Ai\Masking\AiMasking): a
+# model that copies the placeholder back must not hand «[رقم]» to the advertiser as part of his description.
+_MASK = re.compile(r"\[(?:رقم|بريد|رابط|حساب)\]")
 _SPACES = re.compile(r"\s{2,}")
 
 
 def scrub(text: str) -> str:
-    """Removes links, e-mails and phone numbers; tidies the spaces left behind."""
-    for pattern in (_URL, _EMAIL, _PHONE):
+    """Removes links, e-mails, phone numbers and the placeholders masking left for them; tidies the spaces."""
+    for pattern in (_URL, _EMAIL, _PHONE, _MASK):
         text = pattern.sub("", text)
     return _SPACES.sub(" ", text).strip()

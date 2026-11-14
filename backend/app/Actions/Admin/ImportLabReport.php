@@ -44,13 +44,17 @@ final class ImportLabReport
             'agents.*.cases' => ['required', 'integer', 'min:1'],
             'agents.*.score' => ['required', 'numeric', 'between:0,1'],
             'agents.*.failed' => ['required', 'integer', 'min:0'],
+            'agents.*.floor' => ['sometimes', 'numeric', 'between:0,1'],     // ranking agents: the same cases with no model
             'agents.*.metrics' => ['present', 'array'],
             'agents.*.latency_ms.p50' => ['required', 'integer', 'min:0'],
             'agents.*.latency_ms.p95' => ['required', 'integer', 'min:0'],
             'agents.*.variants' => ['present', 'array'],
             'throughput' => ['required', 'array'],
             'outcomes' => ['required', 'array', 'max:20000'],
-        ], ['lab.in' => 'إصدار التقرير غير معروف (المعروف 1).'])->validate();
+        ], [
+            'lab.in' => 'إصدار التقرير غير معروف (المعروف 1).',
+            'profile.runtime.in' => 'هذا ليس تقرير نموذج: المحاكاة (sim) لا تدخل المقارنة.',
+        ])->validate();
 
         $started = Carbon::parse($data['started_at']);
         $taken = ModelEvaluation::query()->where('profile', $data['profile']['name'])->where('started_at', $started)

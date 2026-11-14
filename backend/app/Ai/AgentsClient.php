@@ -3,6 +3,7 @@
 namespace App\Ai;
 
 use App\Enums\AiAgent;
+use App\Integrations\Drivers;
 use App\Support\Trace;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -11,6 +12,9 @@ use Illuminate\Support\Facades\Http;
  * HTTP to the agents service (127.0.0.1:8100). Used by AiGateway ONLY (tests/Unit/ArchitectureTest): calling it
  * from anywhere else would skip masking, quotas, the cut-off, the fallback and the ai_requests record.
  * 20 s then give up (no retry after a timeout); a connection refused at once is retried a single time.
+ *
+ * An answer of the simulation (`simulated: true`, the agents' profile sim-rules) is refused in production unless
+ * PRODUCTION_ALLOWS_FAKE names `ai`, like every other simulated party: the caller then takes its fallback.
  */
 final class AgentsClient
 {
@@ -44,12 +48,18 @@ final class AgentsClient
             throw new AiUnavailable(AiUnavailable::DOWN, "HTTP {$response->status()}");
         }
 
+        $simulated = (bool) $response->json('simulated', false);
+        if ($simulated && app()->isProduction() && ! Drivers::fakeAllowedInProduction('ai')) {
+            throw new AiUnavailable(AiUnavailable::REJECTED, 'a simulated model in production (PRODUCTION_ALLOWS_FAKE)');
+        }
+
         return new AgentReply(
             $response->json('output'),
             (bool) $response->json('degraded', false),
             (int) $response->json('usage.tokens_in', 0),
             (int) $response->json('usage.tokens_out', 0),
             (int) $response->json('latency_ms', (int) ((microtime(true) - $started) * 1000)),
+            $simulated,
         );
     }
 }
