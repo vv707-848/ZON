@@ -87,7 +87,14 @@ void main() {
       await freshDevice();
       final server = serverDevice();
       await serverSignIn(server);
-      await pumpApp(tester, '/account/settings');
+      server.on('GET', 'support-tickets', 200, <String, Object?>{
+        'success': true,
+        'data': <Object?>[],
+        'meta': <String, Object?>{
+          'page': <String, Object?>{'current': 1, 'per_page': 20, 'total': 0, 'last': 1},
+        },
+      });
+      await pumpApp(tester, '/account/settings?tab=support');
       await _settle(tester);
       await tapText(tester, 'حذف حسابي');
       return server;
