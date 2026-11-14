@@ -228,6 +228,9 @@ class _SettingsViewState extends State<SettingsView> {
     setState(() {
       city = u?.city ?? '';
       edit = false;
+      _saving = false;
+      _phoneBusy = false;
+      _pwBusy = false;
       profileError = '';
       _phoneTo = '';
       _phoneError = '';
@@ -265,6 +268,7 @@ class _SettingsViewState extends State<SettingsView> {
     final newPhone = normalizeSaudiMobile(phone) != normalizeSaudiMobile(u.phone);
     setState(() => _saving = true);
     final failed = await ServerAuth.updateProfile(name: _name.text, city: city);
+    if (!_same(epoch)) return;
     // a new number: a code to it, and the account keeps the old one until the code is right
     final codeFailed = failed == null && newPhone ? await ServerAuth.changePhone(phone) : null;
     if (!_same(epoch)) return;
