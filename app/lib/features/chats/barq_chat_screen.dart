@@ -184,8 +184,8 @@ class _BarqChatScreenState extends State<BarqChatScreen> {
       scrollable: false,
       child: TalkPage(
         count: log.length * 2 + (think ? 1 : 0),
-        head: const TalkHead(
-          avatar: LucideIcon(Lu.zap, size: 16, color: AppColors.white, fill: AppColors.white),
+        head: TalkHead(
+          avatar: const LucideIcon(Lu.zap, size: 16, color: AppColors.white, fill: AppColors.white),
           name: 'برق',
           sub: Api.on ? 'مساعد زون' : 'متصل · يفهم التملك',
         ),

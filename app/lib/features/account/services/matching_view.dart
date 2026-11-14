@@ -18,7 +18,6 @@ import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/net/operation_key.dart';
 import 'package:zon/core/simulations.dart';
 import 'package:zon/core/theme/theme.dart';
-import 'package:zon/core/utils/format.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/notifications/notification_center.dart';
