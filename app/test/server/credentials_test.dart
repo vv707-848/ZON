@@ -198,6 +198,34 @@ void main() {
       expect(server.sent('PATCH', 'me'), hasLength(1));
     });
 
+    testWidgets('a profile reply from the previous account cannot start a phone change for the next', (tester) async {
+      await freshDevice();
+      final server = serverDevice();
+      await serverSignIn(server);
+      server.on('PATCH', 'me', 200, ok(me()));
+      server.on('POST', 'me/phone', 202, recorded('phone_code_sent'));
+      final pending = server.holdFor('7|server-token', 'PATCH', 'me');
+      await pumpApp(tester, '/account/settings');
+      await tapText(tester, 'اضغط للتعديل');
+      await tester.enterText(_fields.at(1), '0558888888');
+      await tapText(tester, 'حفظ');
+      expect(server.sent('PATCH', 'me'), hasLength(1));
+
+      final next = me(id: 42, name: 'مكتب آخر');
+      await serverSignIn(server, account: next, token: '7|second');
+      server.onFor('7|second', 'PATCH', 'me', 200, ok(next));
+      await _settle(tester);
+      pending.complete();
+      await _settle(tester);
+      expect(server.sent('POST', 'me/phone'), isEmpty);
+
+      await tapText(tester, 'اضغط للتعديل');
+      await tapText(tester, 'حفظ');
+      await _settle(tester);
+      expect(server.sent('PATCH', 'me'), hasLength(2), reason: 'the new account can save its own profile');
+      expect(server.sent('PATCH', 'me').last.headers['Authorization'], 'Bearer 7|second');
+    });
+
     testWidgets('another account signed in while the code is awaited: nothing of the previous number stays', (tester) async {
       final server = await editPhone(tester, '0558888888');
       expect(find.text('تأكيد الرقم الجديد'), findsOneWidget);
