@@ -124,7 +124,13 @@ abstract final class ServerClients {
       city: '${j['city'] ?? ''}',
       hood: list(j['neighborhoods'], (x) => x),
       types: list(j['property_types'], (x) => kTypeLabel[x] ?? x),
-      budget: budget.$2.isEmpty ? budget.$1 : '${budget.$1} – ${budget.$2}',
+      // the same text the form writes (joinRange): «حتى» for a ceiling alone, so it is read back as the ceiling
+      budget: switch (budget) {
+        ('', '') => '',
+        (final low, '') => low,
+        ('', final high) => 'حتى $high',
+        (final low, final high) => '$low – $high',
+      },
       notes: const <Note>[],
       notesCount: j['notes_count'] is int ? j['notes_count']! as int : null,
       purpose: j['purpose'] is String ? j['purpose']! as String : null,

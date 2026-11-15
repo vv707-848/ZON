@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/app/router.dart';
+import 'package:zon/features/account/services/widgets/client_kit.dart';
 
 import '../support/server_env.dart';
 import '../support/test_env.dart';
@@ -282,6 +283,14 @@ void main() {
       final body = FakeServer.body(server.sent('PATCH', 'clients/$cid').single);
       expect(body['budget_min'], isNull);
       expect(body['budget_max'], 500000);
+    });
+
+    test('a range is read back as it was written: a ceiling alone stays the ceiling', () {
+      for (final (low, high) in <(String, String)>[('400000', '900000'), ('400000', ''), ('', '900000'), ('', '')]) {
+        expect(splitRange(joinRange(low, high)), (low, high), reason: '«$low» – «$high»');
+      }
+      expect(joinRange('', '900000'), 'حتى 900,000');
+      expect(moneyTxt('حتى 900000'), 'حتى 900,000');
     });
 
     testWidgets('his page: a note added and removed on the server — kept as written, not edited', (tester) async {
