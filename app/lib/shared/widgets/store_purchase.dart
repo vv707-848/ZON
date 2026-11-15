@@ -38,8 +38,9 @@ Future<bool> buyFromStore(
   } on AccountChanged {
     return false;
   } on ApiError catch (e) {
-    if (context.mounted && epoch == store.serverEpoch)
+    if (context.mounted && epoch == store.serverEpoch) {
       await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يبدأ الشراء', message: e.forUser);
+    }
     return false;
   }
   if (!context.mounted || epoch != store.serverEpoch) return false;
