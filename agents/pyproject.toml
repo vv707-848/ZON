@@ -65,5 +65,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 filterwarnings = [
     "ignore:Payload indexes have no effect in the local Qdrant:UserWarning",
-    "error::ResourceWarning",  # a connection or file left open fails the run, not a line in its summary
+    # a connection or file left open fails the run, not a line in its summary (reported from __del__ as unraisable)
+    "error::ResourceWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
 ]
