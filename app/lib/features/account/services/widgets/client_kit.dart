@@ -67,22 +67,25 @@ String _loc(double n) {
   return '${neg ? '-' : ''}$b';
 }
 
-/// `splitRange` — "1,000 – 2,000" → ["1000", "2000"].
+/// `splitRange` — "1,000 – 2,000" → ["1000", "2000"]; "حتى 2,000" → ["", "2000"] (a ceiling alone).
 (String, String) splitRange(String? s) {
   if (s == null || s.isEmpty) return ('', '');
+  if (s.trimLeft().startsWith(_upTo)) return ('', s.replaceAll(RegExp(r'\D'), ''));
   final p = s.split(RegExp(r'\s*[–-]\s*'));
   String d(int i) => i < p.length ? p[i].replaceAll(RegExp(r'\D'), '') : '';
   return (d(0), d(1));
 }
 
-/// "a – b" range text (or the single value).
+/// "a – b" range text; a floor alone is its value, a ceiling alone «حتى b» — so [splitRange] gives back the same two.
 String joinRange(String a, String b) {
   String f(String x) => _loc(double.parse(x));
   if (a.isNotEmpty && b.isNotEmpty) return '${f(a)} – ${f(b)}';
   if (a.isNotEmpty) return f(a);
-  if (b.isNotEmpty) return f(b);
+  if (b.isNotEmpty) return '$_upTo ${f(b)}';
   return '';
 }
+
+const String _upTo = 'حتى';
 
 /// First character of a name.
 String firstChar(String s) => s.isEmpty ? '' : s[0];

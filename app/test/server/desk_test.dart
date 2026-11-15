@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/app/router.dart';
+import 'package:zon/features/account/services/widgets/client_kit.dart';
 
 import '../support/server_env.dart';
 import '../support/test_env.dart';
@@ -234,6 +235,62 @@ void main() {
         'description': null,
       });
       expect(find.text(client['name']! as String), findsOneWidget, reason: 'his book asked again');
+    });
+
+    testWidgets('a saved client is reused when his first note fails and is retried', (tester) async {
+      final row = <String, Object?>{..._one('client_created'), 'phone': null};
+      final id = row['id'];
+      final server = await _open(tester, '/account/clients', (s) {
+        s.on('GET', 'clients', 200, ok(<Object?>[]));
+        s.on('POST', 'clients', 201, ok(row));
+        s.on('PATCH', 'clients/$id', 200, ok(row));
+        s.offline('POST', 'clients/$id/notes');
+      });
+      await tapText(tester, 'عميل جديد');
+      await _settle(tester);
+      await tester.enterText(find.byType(EditableText).at(1), 'عميل اختبار');
+      await tester.enterText(find.byType(EditableText).last, 'متابعة أولى');
+      await tapText(tester, 'حفظ العميل');
+      await _settle(tester);
+      expect(server.sent('POST', 'clients/$id/notes'), hasLength(1));
+      expect(FakeServer.body(server.sent('POST', 'clients').single)['phone'], isNull);
+
+      server.on('POST', 'clients/$id/notes', 201, recorded('client_note_added'));
+      await tester.enterText(find.byType(EditableText).at(1), 'عميل بعد التعديل');
+      await tapText(tester, 'حفظ العميل');
+      await _settle(tester);
+      expect(server.sent('POST', 'clients'), hasLength(1));
+      expect(FakeServer.body(server.sent('PATCH', 'clients/$id').single)['name'], 'عميل بعد التعديل');
+      final notes = server.sent('POST', 'clients/$id/notes');
+      expect(notes, hasLength(2));
+      expect(notes.last.headers['Idempotency-Key'], notes.first.headers['Idempotency-Key']);
+    });
+
+    testWidgets('a maximum-only budget stays the maximum when the client is saved again', (tester) async {
+      final row = <String, Object?>{...client, 'budget_min': null, 'budget_max': 500000};
+      final server = await book(tester, (s) {
+        s.on('GET', 'clients', 200, ok(<Object?>[row]));
+        s.on('PATCH', 'clients/$cid', 200, ok(row));
+      });
+      await tapText(tester, row['name']! as String);
+      await _settle(tester);
+      await tapText(tester, 'المزيد');
+      expect(find.text('حتى 500,000'), findsOneWidget);
+      await tapText(tester, 'تعديل البيانات');
+      await tapText(tester, 'حفظ التعديل');
+      await _settle(tester);
+
+      final body = FakeServer.body(server.sent('PATCH', 'clients/$cid').single);
+      expect(body['budget_min'], isNull);
+      expect(body['budget_max'], 500000);
+    });
+
+    test('a range is read back as it was written: a ceiling alone stays the ceiling', () {
+      for (final (low, high) in <(String, String)>[('400000', '900000'), ('400000', ''), ('', '900000'), ('', '')]) {
+        expect(splitRange(joinRange(low, high)), (low, high), reason: '«$low» – «$high»');
+      }
+      expect(joinRange('', '900000'), 'حتى 900,000');
+      expect(moneyTxt('حتى 900000'), 'حتى 900,000');
     });
 
     testWidgets('his page: a note added and removed on the server — kept as written, not edited', (tester) async {

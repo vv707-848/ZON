@@ -12,9 +12,11 @@ use App\Models\BuyerPreference;
 use App\Models\Customer;
 use App\Models\IndexEvent;
 use App\Models\Listing;
+use App\Models\SaleReport;
 use App\Models\SearchRequest;
 use App\Support\Permissions\Permission;
 use Database\Seeders\ReferenceSeeder;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Livewire\Livewire;
 
@@ -88,6 +90,23 @@ class TestArenaTest extends AdminTestCase
             $this->assertNull(IndexEvent::query()->where('entity', IndexEntity::Listing)->where('entity_id', $id)->latest('version')->firstOrFail()->payload, 'out of the index');
         }
         $this->assertTrue($real->fresh()->isLive(), 'real data untouched');
+    }
+
+    public function test_removing_a_batch_removes_its_sales_and_keeps_real_sales(): void
+    {
+        $real = Listing::factory()->published()->create();
+        $kept = SaleReport::forListing($real, '1200000');
+        $batch = $this->batch(listings: 1, requests: 0, wishes: 0);
+        $sample = Listing::query()->whereIn('customer_id', $batch->accounts()->select('id'))->sole();
+        SaleReport::forListing($sample, '870000');
+
+        $this->assertCount(1, DB::table('ai_v_sales')->get());
+
+        app(TestArena::class)->remove($batch, $this->signInSuperadmin());
+
+        $this->assertSame(1, DB::table('ai_v_sales')->count());
+        $this->assertDatabaseCount('sale_reports', 1);
+        $this->assertDatabaseHas('sale_reports', ['id' => $kept->id, 'customer_id' => $real->customer_id]);
     }
 
     public function test_the_same_batch_draws_the_same_samples(): void

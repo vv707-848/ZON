@@ -16,6 +16,47 @@ use Tests\TestCase;
 /** «الدعم»: a complaint, a suggestion or a question becomes a thread with «فريق زون» — numbered, answered, closed with what was done. */
 class SupportThreadsTest extends TestCase
 {
+    public function test_a_guest_ticket_is_created_once_when_its_answer_is_lost(): void
+    {
+        $body = ['name' => 'زائر اختبار', 'phone' => '0551234567', 'body' => 'كيف أضيف عقاري؟'];
+        $headers = ['Idempotency-Key' => 'guest-support-0001'];
+        $first = $this->postJson('/api/v1/support-tickets', $body, $headers)->assertCreated();
+        $this->postJson('/api/v1/support-tickets', $body, $headers)
+            ->assertCreated()->assertJsonPath('data.reference', $first->json('data.reference'));
+        $this->assertDatabaseCount('support_tickets', 1);
+        $this->assertDatabaseCount('support_messages', 1);
+    }
+
+    public function test_a_guest_cannot_reuse_an_operation_key_with_another_body(): void
+    {
+        $body = ['name' => 'زائر اختبار', 'phone' => '0551234567', 'body' => 'كيف أضيف عقاري؟'];
+        $headers = ['Idempotency-Key' => 'guest-support-0001'];
+        $this->postJson('/api/v1/support-tickets', $body, $headers)->assertCreated();
+        $body['body'] = 'هذا سؤال آخر بمفتاح العملية السابقة';
+        $this->postJson('/api/v1/support-tickets', $body, $headers)
+            ->assertStatus(422)->assertJsonPath('error.code', 'IDEMPOTENCY_MISMATCH');
+        $this->assertDatabaseCount('support_tickets', 1);
+        $this->assertDatabaseCount('support_messages', 1);
+    }
+
+    public function test_different_guest_operations_still_create_different_tickets(): void
+    {
+        $body = ['name' => 'زائر اختبار', 'phone' => '0551234567', 'body' => 'كيف أضيف عقاري؟'];
+        $first = $this->postJson('/api/v1/support-tickets', $body, ['Idempotency-Key' => 'guest-support-0001'])->assertCreated();
+        $next = $this->postJson('/api/v1/support-tickets', $body, ['Idempotency-Key' => 'guest-support-0002'])->assertCreated();
+
+        $this->assertNotSame($first->json('data.reference'), $next->json('data.reference'));
+        $this->assertDatabaseCount('support_tickets', 2);
+    }
+
+    public function test_a_guest_operation_key_has_the_same_format_rules_as_an_accounts(): void
+    {
+        $this->postJson('/api/v1/support-tickets', [
+            'name' => 'زائر اختبار', 'phone' => '0551234567', 'body' => 'كيف أضيف عقاري؟',
+        ], ['Idempotency-Key' => 'bad key'])->assertStatus(422)->assertJsonPath('error.code', 'VALIDATION_FAILED');
+        $this->assertDatabaseCount('support_tickets', 0);
+    }
+
     public function test_a_complaint_gets_a_number_the_promised_time_and_a_thread_with_zon(): void
     {
         $listing = Listing::factory()->published()->create();
