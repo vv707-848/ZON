@@ -7,6 +7,7 @@ use App\Enums\ErrorCode;
 use App\Enums\TicketType;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\Idempotent;
 use App\Http\Resources\SupportTicketResource;
 use App\Models\Customer;
 use App\Models\Listing;
@@ -38,6 +39,10 @@ class SupportController extends Controller
     {
         $me = $request->user('api');
         $me = $me instanceof Customer ? $me : null;
+        $operation = $me === null ? $request->header(Idempotent::HEADER) : null;
+        if ($operation !== null && (! is_string($operation) || preg_match('/^[A-Za-z0-9_-]{8,100}$/', $operation) !== 1)) {
+            throw ApiException::of(ErrorCode::ValidationFailed, details: ['fields' => [Idempotent::HEADER => ['مفتاح العملية غير صالح.']]]);
+        }
         $request->merge(['phone' => is_string($request->input('phone')) ? (Phone::normalize($request->input('phone')) ?? $request->input('phone')) : null]);
         $data = $request->validate([
             'type' => ['nullable', Rule::in(TicketType::forCustomers())],
@@ -56,7 +61,7 @@ class SupportController extends Controller
         }
 
         $ticket = $desk->open($me, TicketType::from($data['type'] ?? TicketType::Question->value), $data['body'], $data['subject'] ?? null,
-            $about, $data['name'] ?? null, $data['phone'] ?? null);
+            $about, $data['name'] ?? null, $data['phone'] ?? null, $operation);
 
         return Api::created(['reference' => $ticket->reference, 'status' => $ticket->status->value,
             'response_hours' => Settings::int(Setting::SupportResponseHours)]);

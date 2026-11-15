@@ -2,8 +2,10 @@
 
 namespace App\Actions\Support;
 
+use App\Enums\ErrorCode;
 use App\Enums\TicketStatus;
 use App\Enums\TicketType;
+use App\Exceptions\ApiException;
 use App\Filament\Support\Audit;
 use App\Models\Customer;
 use App\Models\SupportMessage;
@@ -11,6 +13,7 @@ use App\Models\SupportTicket;
 use App\Models\User;
 use App\Notifications\Notices;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -19,27 +22,44 @@ use Illuminate\Support\Facades\DB;
  */
 final class SupportDesk
 {
-    /** A user (or a visitor, without an account) writes first. */
+    /** A user (or a visitor, without an account) writes first. A guest's operation key survives a lost answer. */
     public function open(?Customer $customer, TicketType $type, string $body, ?string $subject = null, ?Model $about = null,
-        ?string $name = null, ?string $phone = null): SupportTicket
+        ?string $name = null, ?string $phone = null, ?string $operationKey = null): SupportTicket
     {
-        return DB::transaction(function () use ($customer, $type, $body, $subject, $about, $name, $phone) {
-            $ticket = SupportTicket::query()->create([
-                'reference' => SupportTicket::newReference(),
-                'type' => $type,
-                'customer_id' => $customer?->id,
-                'name' => $customer->name ?? (string) $name,
-                'phone' => $customer->phone ?? $phone,
-                'subject' => $subject,
-                'opened_by' => 'customer',
-                'about_type' => $about?->getMorphClass(),
-                'about_id' => $about?->getKey(),
-                'status' => TicketStatus::Open,
-            ]);
-            $this->write($ticket, 'customer', null, $body);
+        $guestKey = $customer === null && $operationKey !== null ? hash('sha256', $operationKey) : null;
+        $fingerprint = hash('sha256', json_encode([$type->value, $body, $subject, $about?->getMorphClass(), $about?->getKey(), $name, $phone], JSON_THROW_ON_ERROR));
+
+        try {
+            return DB::transaction(function () use ($customer, $type, $body, $subject, $about, $name, $phone, $guestKey, $fingerprint) {
+                $ticket = SupportTicket::query()->create([
+                    'reference' => SupportTicket::newReference(),
+                    'type' => $type,
+                    'customer_id' => $customer?->id,
+                    'name' => $customer->name ?? (string) $name,
+                    'phone' => $customer->phone ?? $phone,
+                    'subject' => $subject,
+                    'opened_by' => 'customer',
+                    'about_type' => $about?->getMorphClass(),
+                    'about_id' => $about?->getKey(),
+                    'status' => TicketStatus::Open,
+                    'guest_operation_key' => $guestKey,
+                    'guest_request_hash' => $guestKey === null ? null : $fingerprint,
+                ]);
+                $this->write($ticket, 'customer', null, $body);
+
+                return $ticket;
+            });
+        } catch (UniqueConstraintViolationException $e) {
+            $ticket = $guestKey === null ? null : SupportTicket::query()->where('guest_operation_key', $guestKey)->first();
+            if ($ticket === null) {
+                throw $e;
+            }
+            if (! hash_equals((string) $ticket->guest_request_hash, $fingerprint)) {
+                throw ApiException::of(ErrorCode::IdempotencyMismatch);
+            }
 
             return $ticket;
-        });
+        }
     }
 
     /** Staff write first («رسالة من فريق زون»): the user is told, and answers in the same thread. */
