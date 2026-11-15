@@ -7,15 +7,25 @@
 //   POST /store/check        before the store's sheet: can this be bought now, for this listing or request?
 //   POST /store/purchases    after the sheet: the store's reference — applied once, on the store's own word
 //
-// In the apps a plan or a boost is bought through the store (App Store · Google Play), never by card. The store's
-// real sheet is not in this build yet: only a store the server says it simulates can be bought from here, with
-// the reference its simulation reads (`sim:{account token}:{id}`), and the page says the payment is a trial.
-// The reference of one purchase stays the same on every try, so a purchase sent again is the same payment.
+// In the apps a plan or a boost is bought through the store (App Store · Google Play), never by card:
+// - a store the server says it simulates: the reference its simulation reads (`sim:{account token}:{id}`), and the
+//   page says the payment is a trial;
+// - otherwise the store's own sheet (store_sheet.dart): what the store gave goes to the server, which reads it back
+//   from the store. A store's sandbox purchase (a sandbox Apple account, a Play licence tester) is applied by the
+//   server only to an account marked for testing.
+// The reference of one purchase stays the same on every try, so a purchase sent again is the same payment. A
+// purchase from the store's sheet is kept on the phone (what it was for) until the server has it, and sent again
+// from there when the store delivers it after a lost answer, a restart or an approval.
+
+import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
 import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/net/app_identity.dart';
+import 'package:zon/data/server/store_sheet.dart';
 import 'package:zon/data/store.dart';
 
 /// A plan as the server sells it.
@@ -163,6 +173,12 @@ class StoreOrder {
 }
 
 abstract final class ServerStore {
+  /// The store's own sheet on this phone (set at start on an iPhone or an Android phone; a fake in the tests).
+  static StoreSheet? sheet;
+
+  /// What each purchase from the sheet was for, until the server has it: product id → {account, target}.
+  static const String _pendingKey = 'zon.store.pending';
+
   /// The store of this phone.
   static String get platformStore => defaultTargetPlatform == TargetPlatform.iOS ? 'apple' : 'google';
 
@@ -203,7 +219,7 @@ abstract final class ServerStore {
   }
 
   /// A purchase of [productId] from this phone's store when the server simulates it; null when it does not —
-  /// the store's real sheet is not in this build.
+  /// the store's own sheet is opened then.
   static StoreOrder? simulatedOrder(StoreShelf shelf, String productId, {Map<String, Object?>? target}) => shelf.simulated.contains(platformStore)
       ? StoreOrder(store: platformStore, productId: productId, reference: 'sim:${shelf.accountToken}:${newId(8)}', target: target)
       : null;
@@ -220,5 +236,67 @@ abstract final class ServerStore {
       'target': ?order.target,
     });
     return '${r.map['status'] ?? ''}';
+  }
+
+  /// A purchase from the store's sheet is about to start: what it is for is kept until the server has it.
+  static void remember(String productId, {required String account, Map<String, Object?>? target}) {
+    final all = _pending();
+    all[productId] = <String, Object?>{'account': account, 'target': ?target};
+    store.setItem(_pendingKey, jsonEncode(all));
+  }
+
+  static void _forget(String productId) {
+    final all = _pending()..remove(productId);
+    store.setItem(_pendingKey, jsonEncode(all));
+  }
+
+  static Map<String, Object?> _pending() {
+    try {
+      final j = jsonDecode(store.getItem(_pendingKey) ?? '{}');
+      return j is Map ? j.cast<String, Object?>() : <String, Object?>{};
+    } on FormatException {
+      return <String, Object?>{};
+    }
+  }
+
+  /// [receipt] to the server, for what it was kept for; finished on the phone once the server has it. The
+  /// payment's status (`paid` · `unapplied`), or null when it is not for this account or not known here (it stays
+  /// with the store, unfinished). An ApiError when the server did not take it (sent again on the next delivery).
+  static Future<String?> deliver(StoreReceipt receipt, {required int epoch}) async {
+    final kept = _pending()[receipt.productId];
+    final account = store.readSession()?.id;
+    if (kept is! Map || account == null || kept['account'] != account) return null;
+    final target = kept['target'] is Map ? (kept['target']! as Map).cast<String, Object?>() : null;
+    final status = await purchase(
+      StoreOrder(store: platformStore, productId: receipt.productId, reference: receipt.reference, target: target),
+      epoch: epoch,
+    );
+    _forget(receipt.productId);
+    await sheet?.finish(receipt);
+    return status;
+  }
+
+  static StreamSubscription<StoreReceipt>? _queue;
+
+  /// From the start: what the store delivers outside a sheet goes to the server.
+  static void listen() {
+    final s = sheet;
+    if (s == null || _queue != null) return;
+    _queue = s.delivered.listen((receipt) async {
+      try {
+        await deliver(receipt, epoch: store.serverEpoch);
+      } on ApiError {
+        // the store delivers it again on the next start
+      } on AccountChanged {
+        // not for the account now signed in
+      }
+    });
+  }
+
+  @visibleForTesting
+  static Future<void> reset() async {
+    await _queue?.cancel();
+    _queue = null;
+    sheet = null;
   }
 }
