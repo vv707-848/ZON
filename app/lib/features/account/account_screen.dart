@@ -13,6 +13,7 @@ import 'package:zon/core/net/api.dart';
 import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/widgets/widgets.dart';
+import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/catalog/catalog.dart';
 import 'package:zon/data/server/server_people.dart';
@@ -76,10 +77,12 @@ class _Me extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = store.readSession()!;
-    final sub = billing.isSubscribed();
+    final sub = Api.on ? ServerSession.subscribed : billing.isSubscribed();
     final alerts = store.matchBadge();
     final c = user.role;
-    final t = sub || c == 'developer';
+    // With a server no service is locked here: what a plan gives is the server's to say when the service is
+    // asked (a free account has its daily share of the AI services), and each page shows its refusal.
+    final t = Api.on || sub || c == 'developer';
     final verified = c == 'broker' || c == 'developer';
     final services = <_Svc>[
       _Svc('matching', 'مساعد المطابقة', Lu.sparkles, locked: !t),

@@ -1,0 +1,30 @@
+{
+    "success": true,
+    "data": {
+        "plan": {
+            "code": "seeker",
+            "name": "الباحث — شهري",
+            "subscribed": true
+        },
+        "starts_at": "2026-11-15T00:00:14+00:00",
+        "ends_at": "2026-12-15T00:00:14+00:00",
+        "balances": {
+            "featured": 0,
+            "urgent_listing": 0,
+            "urgent_request": 0
+        },
+        "limits": {
+            "listings": 0,
+            "inventory": null,
+            "preferences": 5,
+            "area_requests": "none",
+            "search_requests": false,
+            "ai_daily": {
+                "search": 30,
+                "matching": 30,
+                "summary": 0,
+                "chat": 50
+            }
+        }
+    }
+}

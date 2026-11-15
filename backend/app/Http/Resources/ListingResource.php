@@ -75,6 +75,8 @@ class ListingResource extends JsonResource
                 'phones' => $viewer instanceof Customer ? array_map([Phone::class, 'local'], $this->phones ?: [$this->customer->phone]) : null,
             ]),
             $this->mergeWhen($mine, fn () => [
+                // his own cards too («عروضي»): the day to renew by, without opening each listing
+                'licence_expires_at' => $this->licence?->expires_at?->toDateString(),
                 'desc_raw' => $this->desc_raw,
                 'desc_suggested' => $this->desc_suggested,
                 'text_review' => $this->text_review?->value,

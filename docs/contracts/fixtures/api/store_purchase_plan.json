@@ -1,0 +1,14 @@
+{
+    "success": true,
+    "data": {
+        "payment_id": "01m7e829p0cdv1qxm84px2cay1",
+        "purpose": "subscription",
+        "status": "paid",
+        "amount": "199.00",
+        "vat": "0.00",
+        "currency": "SAR",
+        "provider": "apple",
+        "failure_reason": null,
+        "paid_at": "2026-11-15T00:00:14+00:00"
+    }
+}

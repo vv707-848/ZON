@@ -84,7 +84,7 @@
 
 | الطريقة | المسار | الصلاحية | ما يفعله | الكود |
 |---|---|---|---|---|
-| `POST` | `/auth/login` | عام · login: 5/د | الدخول بـ `login` = اسم المستخدم أو الجوال + كلمة السر؛ يلغي طلب حذف معلّقاً | `AuthController@login` |
+| `POST` | `/auth/login` | عام · login: 5/د | الدخول بـ `login` = اسم المستخدم أو الجوال + كلمة السر؛ يلغي طلب حذف معلّقاً ويقول ذلك في `deletion_cancelled` | `AuthController@login` |
 | `POST` | `/auth/logout` | 🔒 | إلغاء رمز هذا الجهاز | `AuthController@logout` |
 | `POST` | `/auth/otp/resend` | عام · otp: 3/10د للجوال · 10/س للعنوان | إعادة إرسال الرمز (3 كل 10 دقائق للجوال) | `AuthController@resend` |
 | `POST` | `/auth/otp/verify` | عام | تأكيد رمز التسجيل: ينشئ الحساب ويُرجع الرمز المميِّز وبيانات حسابي (201) | `AuthController@verify` |
@@ -140,7 +140,7 @@
 |---|---|---|---|---|
 | `POST` | `/listings` | 🔒 · رغبة · وسيط · مالك · مطوّر · wording: 60/س | إضافة عرض: البوابات (فال/نفاذ/الحد/الترخيص أو ملف المالك) ← الصياغة في طابور `ai` ← `pending_review` أو النشر | `ListingController@store` |
 | `POST` | `/listings/licence-check` | 🔒 · رغبة · وسيط · مالك · مطوّر · licence: 20/س | «تحقق»: رقم الترخيص الإعلاني يُسأل عنه لدى الهيئة قبل تعبئة العرض — صالح وغير منتهٍ وتاريخ انتهائه، أو رسالة الحقل. لا يُحفظ شيء، ويُفحص ثانيةً عند النشر | `ListingController@checkLicence` |
-| `GET` | `/listings/mine` | 🔒 · رغبة | عروضي بكل حالاتها | `ListingController@mine` |
+| `GET` | `/listings/mine` | 🔒 · رغبة | عروضي بكل حالاتها، ولكلٍّ آخر يوم لترخيصه (`licence_expires_at`) | `ListingController@mine` |
 | `PATCH` | `/listings/{listing}` | 🔒 · رغبة · وسيط · مالك · مطوّر · wording: 60/س | تعديل عرضي؛ تغيير النص يعيده إلى مراجعة الصياغة | `ListingController@update` |
 | `DELETE` | `/listings/{listing}` | 🔒 · رغبة · وسيط · مالك · مطوّر | حذف عرضي (عدا المباع) وإخراجه من الفهرس | `ListingController@destroy` |
 | `POST` | `/listings/{listing}/boost` | 🔒 · رغبة · وسيط · مالك · مطوّر | تمييز أو عاجل: من رصيد الباقة، وإلا عملية دفع | `ListingController@boost` |
@@ -260,7 +260,7 @@
 | `POST` | `/payments/{payment}/confirm` | 🔒 · رغبة | تأكيد بعد الدفع في التطبيق: قراءة المزوّد ثم التطبيق مرة واحدة والفاتورة | `BillingController@confirm` |
 | `POST` | `/store/check` | 🔒 · رغبة | قبل نافذة المتجر: هل يُشترى هذا الآن، لهذا العرض أو الطلب؟ (ردود الدفع نفسها) | `StoreController@check` |
 | `POST` | `/store/notices/{store}` | عام | إشعار المتجر (آبل V2 · Google RTDN) بمفتاح في الرابط؛ لا يُصدَّق محتواه — يُقرأ الشراء من المتجر: تجديد أو استرداد | `StoreNoticeController@handle` |
-| `GET` | `/store/products` | 🔒 · رغبة | منتجات المتجر لدوري، ورمز حسابي الذي يُرفق بكل شراء | `StoreController@products` |
+| `GET` | `/store/products` | 🔒 · رغبة | منتجات المتجر لدوري، ورمز حسابي الذي يُرفق بكل شراء، وأيّ المتجرين محاكاة على هذا الخادم (`simulated`) | `StoreController@products` |
 | `POST` | `/store/purchases` | 🔒 · رغبة | بعد نافذة المتجر: معرّف عملية آبل أو رمز شراء Google؛ يُطبَّق مرة واحدة بكلمة المتجر | `StoreController@purchase` |
 | `GET` | `/subscription` | 🔒 · رغبة | باقتي ومدتها وأرصدتها وحدودها | `BillingController@subscription` |
 

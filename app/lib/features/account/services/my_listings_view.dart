@@ -26,6 +26,7 @@ import 'package:zon/core/net/api.dart';
 import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/utils/clock.dart';
+import 'package:zon/core/utils/dates.dart';
 import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/models/models.dart';
@@ -34,11 +35,13 @@ import 'package:zon/data/server/server_my_listings.dart';
 import 'package:zon/data/server/server_my_projects.dart';
 import 'package:zon/data/server/server_payments.dart';
 import 'package:zon/data/store.dart';
+import 'package:zon/features/account/services/licence_dialog.dart';
 import 'package:zon/features/account/services/sale_price_dialog.dart';
 import 'package:zon/features/account/services/widgets/desk.dart';
 import 'package:zon/shared/widgets/billing_flow.dart';
 import 'package:zon/shared/widgets/boost.dart';
 import 'package:zon/shared/widgets/listing_card.dart';
+import 'package:zon/shared/widgets/store_purchase.dart';
 
 /// عروضي / مشاريعي — the user's own listings and projects.
 class MyListingsView extends StatefulWidget {
@@ -172,7 +175,7 @@ class _MyListingsViewState extends State<MyListingsView> {
     }
   }
 
-  /// «تمييز» or «عاجل» from the plan's balance; without it, its price and the plans.
+  /// «تمييز» or «عاجل» from the plan's balance; without it, its price, paid here for this listing.
   Future<void> _boostOnServer(Listing l, BoostKind kind) async {
     if (l.kind == 'project') return _featureProject(l);
     final epoch = store.serverEpoch;
@@ -182,15 +185,17 @@ class _MyListingsViewState extends State<MyListingsView> {
     } on ApiError catch (e) {
       if (!mounted || epoch != store.serverEpoch) return;
       if (e.status == 402) {
-        final price = ServerMyListings.priceOf(e);
-        final plans = await showAppDialog(
+        final featured = kind == BoostKind.featured;
+        final paid = await buyFromStore(
           context,
-          icon: kind == BoostKind.featured ? Lu.crown : Lu.zap,
-          title: kind == BoostKind.featured ? 'لا رصيد للتمييز' : 'لا رصيد للعروض العاجلة',
-          message: 'لم يتغير العرض ولم يُخصم شيء.${price == null ? '' : ' السعر $price ريال.'} الرصيد يأتي مع الباقة.',
-          confirmLabel: 'الباقات',
+          purpose: featured ? 'featured' : 'urgent_listing',
+          target: <String, Object?>{'type': 'listing', 'id': int.parse(ServerListings.rawId(l.id))},
+          icon: featured ? Lu.crown : Lu.zap,
+          title: featured ? 'تمييز العرض' : 'عرض عاجل',
+          message: 'لا رصيد في باقتك لهذه الخدمة. ${featured ? 'يُميَّز' : 'يصير عاجلاً'} «${l.title}» بعد الدفع، ولم يتغير شيء قبله.',
+          price: '${e.details['price'] ?? ''}',
         );
-        if (plans && mounted) unawaited(Nav.go(context, '/account/plans'));
+        if (paid && mounted) unawaited(_load());
       } else {
         await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يتم التمييز', message: e.forUser);
       }
@@ -410,6 +415,7 @@ class _MyListingsViewState extends State<MyListingsView> {
           children: <Widget>[
             ListingCard(listing: l),
             if (_server && l.status != 'published') _statusLine(l),
+            ?_licenceLine(l),
             bar,
           ],
         ),
@@ -457,6 +463,55 @@ class _MyListingsViewState extends State<MyListingsView> {
     );
     final to = l.kind == 'project' ? '/account/projects/${ServerListings.rawId(l.id)}/review' : '/account/listings/${l.id}/review';
     return review ? Tap(onTap: () => Nav.go(context, to), child: line) : line;
+  }
+
+  /// «تحديث الرخصة»: after he renewed at REGA. The listing comes back as the server answers.
+  Future<void> _renewLicence(Listing l) async {
+    final number = await askLicenceNumber(context);
+    if (number != null && mounted) await _change(l, (id) => ServerMyListings.renewLicence(id, number: number), 'لم تُحدَّث الرخصة');
+  }
+
+  /// The licence's last day on his listing, as the server holds it: said plainly while it is far, as a warning
+  /// with «تحديث الرخصة» in its last week (the server warns then too), and with it once the licence ended. Nothing
+  /// for a listing that cannot be renewed (sold, hidden or rejected by Zon) or whose day the server did not say.
+  Widget? _licenceLine(Listing l) {
+    final until = DateTime.tryParse(l.licenceUntil ?? '');
+    if (!_server || l.kind == 'project' || until == null || const <String>{'sold', 'hidden', 'rejected'}.contains(l.status)) return null;
+    final now = appNow();
+    final left = DateTime(until.year, until.month, until.day).difference(DateTime(now.year, now.month, now.day)).inDays;
+    final ended = l.status == 'licence_expired' || left < 0;
+    final soon = !ended && left <= 7;
+    final text = ended
+        ? 'انتهى الترخيص في ${arDate(until, year: true)}'
+        : soon
+        ? 'ينتهي الترخيص ${left == 0
+              ? 'اليوم'
+              : left == 1
+              ? 'غداً'
+              : left == 2
+              ? 'بعد يومين'
+              : 'بعد $left أيام'} (${arDate(until, year: true)})'
+        : 'الترخيص الإعلاني حتى ${arDate(until, year: true)}';
+    return Container(
+      key: ValueKey<String>('licence-${l.id}'),
+      color: ended || soon ? const Color(0xFFF6E7B4) : AppColors.mist,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Tx(text, style: ts(13, w: 600, lh: 19.5, c: ended || soon ? const Color(0xFF6B5310) : AppColors.muted)),
+          ),
+          if (ended || soon)
+            Tap(
+              onTap: () => _renewLicence(l),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Tx('تحديث الرخصة', style: ts(13, w: 700, lh: 19.5, c: AppColors.forest)),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _barBox(String label, {VoidCallback? onTap, String? icon, Color bg = AppColors.mist, Color fg = AppColors.forest}) {

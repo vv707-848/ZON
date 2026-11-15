@@ -28,6 +28,7 @@ abstract final class ServerSession {
 
   static const String _tokenKey = 'zon.api.token';
   static const String _prefsKey = 'zon.notice_prefs';
+  static const String _subscribedKey = 'zon.plan.subscribed';
 
   /// The keychain (set by the app; the tests keep the memory one).
   static SecretStore secrets = MemorySecretStore();
@@ -37,6 +38,10 @@ abstract final class ServerSession {
 
   /// The account's notification switches as the server keeps them (key → on).
   static Map<String, bool> prefs = <String, bool>{};
+
+  /// Whether a paid period of a plan is running, as the server last said (`me.plan.subscribed`). What the plan
+  /// gives is the server's to say, service by service: this only decides whether the plans are offered.
+  static bool subscribed = false;
 
   static String? _token;
 
@@ -56,6 +61,7 @@ abstract final class ServerSession {
       return;
     }
     prefs = _savedPrefs();
+    subscribed = store.getItem(_subscribedKey) == 'true';
     Monitoring.account(_tag(session.id));
   }
 
@@ -84,7 +90,10 @@ abstract final class ServerSession {
       role: me['role'] is String ? me['role']! as String : 'seeker',
       city: _text(me['city']),
     );
-    store.writeSession(session);
+    final plan = me['plan'];
+    subscribed = plan is Map && plan['subscribed'] == true;
+    store.setItem(_subscribedKey, '$subscribed');
+    store.writeSession(session); // last: the screens are rebuilt on it, and read the plan above
     final switches = me['notification_prefs'];
     if (switches is Map) savePrefs(switches.cast<String, Object?>());
     Monitoring.account(_tag(session.id));
@@ -119,8 +128,10 @@ abstract final class ServerSession {
   static Future<void> close() async {
     _token = null;
     prefs = <String, bool>{};
+    subscribed = false;
     await secrets.write(_tokenKey, null);
     store.removeItem(_prefsKey);
+    store.removeItem(_subscribedKey);
     store.clearSession();
     Push.stop();
     Monitoring.account(null);
@@ -151,6 +162,7 @@ abstract final class ServerSession {
   static void reset() {
     _token = null;
     prefs = <String, bool>{};
+    subscribed = false;
     onEnded = null;
     secrets = MemorySecretStore();
   }
@@ -220,9 +232,34 @@ abstract final class ServerAuth {
   static Future<AuthResult> signIn(String login, String password) async {
     try {
       final r = await _api.post('auth/login', <String, Object?>{'login': login.trim(), 'password': password, ...device()});
-      return AuthResult.ok(await ServerSession.open(r.map));
+      return AuthResult.ok(await ServerSession.open(r.map), restored: r.map['deletion_cancelled'] == true);
     } on ApiError catch (e) {
       return AuthResult.fail(e.forUser);
+    }
+  }
+
+  /// «حذف حسابي» (POST /account/delete): the server asks for the password, hides what the account published,
+  /// signs it out of every phone and deletes it for good at the day it answers — unless he signs in before it.
+  /// [operation] is the same on every try of one request. The day, or the error.
+  static Future<(DateTime?, String?)> deleteAccount(String password, {required String operation}) async {
+    try {
+      final r = await _api.post('account/delete', <String, Object?>{'password': password}, operation);
+      final at = DateTime.tryParse('${r.map['purge_at'] ?? ''}');
+      return at == null ? (null, 'حدث خطأ غير متوقع. حاول مرة أخرى.') : (at.toLocal(), null);
+    } on ApiError catch (e) {
+      return (null, e.forUser);
+    }
+  }
+
+  /// Asks for the records app 1.1 left on this phone without an owner (POST /account/legacy-claims): staff check
+  /// who wrote them; nothing is given by this call. The claim's number, or the error.
+  static Future<(int?, String?)> claimLegacy({required List<String> listings, required List<String> requests, required String operation}) async {
+    try {
+      final r = await _api.post('account/legacy-claims', <String, Object?>{'listings': listings, 'requests': requests}, operation);
+      final id = r.map['id'];
+      return id is int ? (id, null) : (null, 'حدث خطأ غير متوقع. حاول مرة أخرى.');
+    } on ApiError catch (e) {
+      return (null, e.forUser);
     }
   }
 

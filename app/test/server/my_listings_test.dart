@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/services/photo_store.dart';
+import 'package:zon/core/utils/clock.dart';
 import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/server/server_my_listings.dart';
@@ -261,8 +262,9 @@ void main() {
   });
 
   group('«عروضي» with a server', () {
-    Future<FakeServer> open(WidgetTester tester, List<Map<String, Object?>> rows) async {
+    Future<FakeServer> open(WidgetTester tester, List<Map<String, Object?>> rows, {DateTime? today}) async {
       await freshDevice();
+      if (today != null) appClock = () => today;
       final server = serverDevice();
       await serverSignIn(server, account: me(id: 41));
       server.on('GET', 'listings/mine', 200, ok(rows));
@@ -307,7 +309,7 @@ void main() {
       expect(find.text('تم البيع'), findsWidgets);
     });
 
-    testWidgets('«تمييز» without balance: nothing changes, and its price is said', (tester) async {
+    testWidgets('«تمييز» without balance: its price, paid through the store for this listing, once', (tester) async {
       final server = await open(tester, <Map<String, Object?>>[_as(_rows('listings_mine').single, status: 'published')]);
       server.on(
         'POST',
@@ -324,11 +326,142 @@ void main() {
         ),
       );
 
+      server.on('GET', 'store/products', 200, recorded('store_products'));
+      server.on('POST', 'store/check', 200, recorded('store_check_plan'));
+      server.offline('POST', 'store/purchases');
+
       await tapText(tester, 'تمييز');
       await _settle(tester);
       expect(FakeServer.body(server.sent('POST', 'listings/1/boost').single), <String, Object?>{'kind': 'featured'});
-      expect(find.text('لا رصيد للتمييز'), findsOneWidget);
-      expect(find.textContaining('السعر 99 ريال'), findsOneWidget);
+      final target = <String, Object?>{'type': 'listing', 'id': 1};
+      expect(FakeServer.body(server.sent('POST', 'store/check').single), <String, Object?>{'product_id': 'com.zon.app.featured', 'target': target});
+      expect(find.text('تمييز العرض — 99 ريالًا'), findsOneWidget, reason: "the server's price");
+      expect(find.text('دفع تجريبي — لا يُخصم مبلغ فعلي'), findsOneWidget, reason: 'the server says its store is simulated');
+      expect(server.sent('POST', 'store/purchases'), isEmpty, reason: 'nothing is paid before he taps pay');
+
+      await tapText(tester, 'ادفع 99 ريالًا');
+      await _settle(tester);
+      expect(find.text('تعذّر إتمام الدفع — لم يُخصم شيء ولم يتغير شيء.'), findsOneWidget);
+
+      server.on('POST', 'store/purchases', 200, recorded('store_purchase_boost'));
+      server.on(
+        'GET',
+        'listings/mine',
+        200,
+        ok(<Object?>[
+          _as(<String, Object?>{..._rows('listings_mine').single, 'featured': true}, status: 'published'),
+        ]),
+      );
+      await tapText(tester, 'أعد المحاولة');
+      await _settle(tester);
+      final sent = server.sent('POST', 'store/purchases');
+      expect(sent, hasLength(2));
+      final body = FakeServer.body(sent.last);
+      expect(body, FakeServer.body(sent.first), reason: 'one purchase, however often sent');
+      final token = ((recorded('store_products')['data']! as Map)['account_token']).toString();
+      expect(body['store'], 'google');
+      expect(body['product_id'], 'com.zon.app.featured');
+      expect(body['target'], target);
+      expect('${body['reference']}', startsWith('sim:$token:'), reason: "the reference the server's simulated store reads");
+      expect(find.text('ادفع 99 ريالًا'), findsNothing);
+      expect(find.text('مميز'), findsWidgets, reason: 'the listing as the server has it after');
+    });
+
+    testWidgets('a store this server does not simulate: said plainly, and nothing is bought', (tester) async {
+      final server = await open(tester, <Map<String, Object?>>[_as(_rows('listings_mine').single, status: 'published')]);
+      server.on(
+        'POST',
+        'listings/1/boost',
+        402,
+        apiFail('PAYMENT_REQUIRED', 'يتطلب دفعًا.', details: <String, Object?>{'purpose': 'featured', 'price': '99.00'}),
+      );
+      server.on(
+        'GET',
+        'store/products',
+        200,
+        ok(<String, Object?>{...(recorded('store_products')['data']! as Map).cast<String, Object?>(), 'simulated': <Object?>[]}),
+      );
+      server.on('POST', 'store/check', 200, recorded('store_check_plan'));
+      await tapText(tester, 'تمييز');
+      await _settle(tester);
+      expect(find.text('الشراء من المتجر غير متاح في هذه النسخة بعد. لم يُخصم شيء ولم يتغير شيء.'), findsOneWidget);
+      expect(find.text('دفع تجريبي — لا يُخصم مبلغ فعلي'), findsNothing);
+      await tapText(tester, 'ادفع 99 ريالًا');
+      await _settle(tester);
+      expect(server.sent('POST', 'store/purchases'), isEmpty);
+
+      await tapText(tester, 'إلغاء');
+      await _settle(tester);
+      server.on('POST', 'store/check', 409, recorded('store_check_already_active'));
+      server.on('GET', 'store/products', 200, recorded('store_products'));
+      await tapText(tester, 'تمييز');
+      await _settle(tester);
+      expect(find.text('لم يبدأ الشراء'), findsOneWidget);
+      expect(find.text('مفعّل بالفعل.'), findsOneWidget, reason: "the server's word");
+      expect(find.textContaining('ادفع'), findsNothing);
+    });
+
+    testWidgets('a licence that ended: «تحديث الرخصة» asks REGA through the server, and the listing comes back', (tester) async {
+      final ended = _as(_rows('listings_mine_licence_expired').single, status: 'licence_expired');
+      final server = await open(tester, <Map<String, Object?>>[ended], today: DateTime(2027, 3, 11, 9));
+      await tapText(tester, 'غير النشط 1');
+      await _settle(tester);
+      expect(find.text('انتهى الترخيص الإعلاني'), findsOneWidget);
+      expect(find.text('انتهى الترخيص في 10 مارس 2027'), findsOneWidget, reason: 'the day the server holds');
+
+      await tapText(tester, 'تحديث الرخصة');
+      await _settle(tester);
+      await tester.enterText(_field('رقم الترخيص الجديد — اختياري'), '12');
+      await tapText(tester, 'تحديث');
+      expect(find.text('رقم الترخيص من 6 إلى 12 رقماً'), findsOneWidget);
+      expect(server.sent('POST', 'listings/1/licence'), isEmpty, reason: 'not a number: not sent');
+
+      server.on('POST', 'listings/1/licence', 422, recorded('listing_licence_refused'));
+      await tester.enterText(_field('رقم الترخيص الجديد — اختياري'), '٧٢٠٠٩٩٠٠٠٠');
+      await tapText(tester, 'تحديث');
+      await _settle(tester);
+      expect(FakeServer.body(server.sent('POST', 'listings/1/licence').single), <String, Object?>{'licence_number': '7200990000'});
+      expect(find.text('لم تُحدَّث الرخصة'), findsOneWidget);
+      expect(find.text('رقم الترخيص الإعلاني غير صالح لدى الهيئة.'), findsOneWidget, reason: "REGA's refusal, as the server says it");
+      await tapText(tester, 'حسناً');
+      await _settle(tester);
+      expect(find.text('انتهى الترخيص الإعلاني'), findsOneWidget, reason: 'nothing changed');
+
+      server.on('POST', 'listings/1/licence', 200, ok(_as(_one('listing_licence_renewed'), status: 'published')));
+      await tapText(tester, 'تحديث الرخصة');
+      await _settle(tester);
+      await tester.enterText(_field('رقم الترخيص الجديد — اختياري'), '7200990011');
+      await tapText(tester, 'تحديث');
+      await _settle(tester);
+      expect(FakeServer.body(server.sent('POST', 'listings/1/licence').last), <String, Object?>{'licence_number': '7200990011'});
+      expect(find.text('انتهى الترخيص الإعلاني'), findsNothing);
+      await tapText(tester, 'النشط 1');
+      await _settle(tester);
+      expect(find.text('الترخيص الإعلاني حتى 11 مارس 2028'), findsOneWidget, reason: 'back among the published, to the day REGA gave');
+      expect(find.text('تحديث الرخصة'), findsNothing);
+    });
+
+    testWidgets('the licence\'s last day is said; in its last week it warns, and the same number is renewed with nothing typed', (tester) async {
+      final row = _as(_rows('listings_mine_licence_expired').single, status: 'published');
+      final server = await open(tester, <Map<String, Object?>>[row], today: DateTime(2027, 1, 20, 9));
+      expect(find.text('الترخيص الإعلاني حتى 10 مارس 2027'), findsOneWidget);
+      expect(find.text('تحديث الرخصة'), findsNothing, reason: 'far from its last day');
+
+      await open(tester, <Map<String, Object?>>[_as(row, status: 'sold')], today: DateTime(2027, 3, 5, 9));
+      await tapText(tester, 'غير النشط 1');
+      await _settle(tester);
+      expect(find.byKey(const ValueKey<String>('licence-L1')), findsNothing, reason: 'a sold listing is not renewed');
+
+      final soon = await open(tester, <Map<String, Object?>>[row], today: DateTime(2027, 3, 5, 9));
+      expect(find.text('ينتهي الترخيص بعد 5 أيام (10 مارس 2027)'), findsOneWidget);
+      soon.on('POST', 'listings/1/licence', 200, ok(_as(_one('listing_licence_renewed'), status: 'published')));
+      await tapText(tester, 'تحديث الرخصة');
+      await _settle(tester);
+      await tapText(tester, 'تحديث');
+      await _settle(tester);
+      expect(FakeServer.body(soon.sent('POST', 'listings/1/licence').single), <String, Object?>{}, reason: 'the number the listing has');
+      expect(find.text('الترخيص الإعلاني حتى 11 مارس 2028'), findsOneWidget);
+      expect(server.sent('POST', 'listings/1/licence'), isEmpty);
     });
 
     testWidgets('without a connection it says so', (tester) async {
