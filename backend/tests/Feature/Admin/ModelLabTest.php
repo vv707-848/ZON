@@ -152,6 +152,20 @@ class ModelLabTest extends AdminTestCase
         $this->assertSame([], ModelEvaluation::query()->sole()->unmetLimits(), 'above its floor');
     }
 
+    public function test_a_run_through_a_host_enters_the_comparison_named_as_hosted(): void
+    {
+        $this->signInSuperadmin();
+
+        // the same weights as someone else serves them (`zon-agents lab run --hosted`): a model's answers, read
+        // beside the others — and the row says it was not our node
+        $this->upload($this->report(['profile' => ['name' => 'qwen3.8-27b-fp8.openrouter', 'weights' => 'Qwen/Qwen3.8-27B', 'runtime' => 'hosted'],
+            'gpu' => 'hosted: OpenRouter']))->assertHasNoActionErrors();
+
+        $run = ModelEvaluation::query()->sole();
+        $this->assertSame(['qwen3.8-27b-fp8.openrouter', 'hosted', 'hosted: OpenRouter'], [$run->profile, $run->runtime, $run->gpu]);
+        Livewire::test(ListModelEvaluations::class)->assertSee('hosted · hosted: OpenRouter');
+    }
+
     public function test_only_the_superadmin_sees_the_lab(): void
     {
         $this->signInStaff(Permission::ViewAi);

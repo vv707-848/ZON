@@ -32,7 +32,7 @@ final class ImportLabReport
             'lab' => ['required', 'integer', 'in:1'],
             'profile.name' => ['required', 'string', 'regex:/^[a-z0-9][a-z0-9.\-]{2,63}$/'],
             'profile.weights' => ['required', 'string', 'max:200'],
-            'profile.runtime' => ['required', 'string', 'in:vllm,sglang,escha'],
+            'profile.runtime' => ['required', 'string', 'in:vllm,sglang,escha,hosted'],   // hosted: the weights as someone else serves them
             'gpu' => ['nullable', 'string', 'max:40'],
             'notes' => ['nullable', 'string', 'max:500'],
             'dataset.digest' => ['required', 'string', 'regex:/^[0-9a-f]{16}$/'],
