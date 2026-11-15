@@ -265,6 +265,22 @@ def test_a_sample_is_the_same_few_cases_of_every_agent_spread_over_its_file() ->
     assert sample(cases, 1000) == cases
 
 
+def test_a_shifted_sample_asks_what_the_first_did_not_wherever_the_file_has_enough() -> None:
+    cases = load_cases()
+    first, second = sample(cases, 6), sample(cases, 6, 1)
+
+    for agent in {c.agent for c in cases}:
+        size = sum(c.agent == agent for c in cases)
+        one, two = ({c.id for c in few if c.agent == agent} for few in (first, second))
+        assert len(two) == 6
+        if size >= 12:
+            assert not one & two, f"{agent}: a file of {size} gives six others"
+        else:
+            assert len(one | two) == size, f"{agent}: the two days together ask its whole file"
+    assert [c.id for c in second] == [c.id for c in sample(cases, 6, 1)], "the same every time"
+    assert sample(cases, 1000, 1) == cases, "nothing to move when all are asked"
+
+
 def test_a_profile_as_a_host_serves_it_keeps_the_sampling_and_takes_the_hosts_extras() -> None:
     ours = load_profile("qwen3.8-27b-fp8")
     hosted = ours.hosted_by("OpenRouter", {"reasoning": {"effort": "none"}})

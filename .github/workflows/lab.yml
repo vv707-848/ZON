@@ -22,6 +22,9 @@ on:
       sample:
         description: Cases of each agent (0 = all · empty = what the host's daily limit allows)
         default: ''
+      shift:
+        description: Another day's sample — every pick moved this many cases on (empty = the first sample)
+        default: ''
   push:
     branches: ['lab-run/**']
 
@@ -38,6 +41,7 @@ env:
   MODEL: ${{ inputs.model }}
   AGENTS: ${{ inputs.agents }}
   SAMPLE: ${{ inputs.sample }}
+  SHIFT: ${{ inputs.shift }}
 
 jobs:
   lab:
@@ -61,7 +65,7 @@ jobs:
             echo "::error::Add the repository secret LAB_API_KEY (Settings → Secrets and variables → Actions)."
             exit 1
           fi
-          uv run zon-agents lab plan --model "$MODEL" --agents "$AGENTS" ${SAMPLE:+--sample "$SAMPLE"} > "$RUNNER_TEMP/plan.txt"
+          uv run zon-agents lab plan --model "$MODEL" --agents "$AGENTS" ${SAMPLE:+--sample "$SAMPLE"} ${SHIFT:+--sample-shift "$SHIFT"} > "$RUNNER_TEMP/plan.txt"
 
       - name: The cases against the model
         run: |

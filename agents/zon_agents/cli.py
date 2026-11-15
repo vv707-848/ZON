@@ -62,7 +62,7 @@ def _lab_run(args: argparse.Namespace) -> int:
         wanted = set(args.agents.split(","))
         cases = [c for c in cases if c.agent in wanted]
     if args.sample:
-        cases = sample(cases, args.sample)
+        cases = sample(cases, args.sample, args.sample_shift)
     key = os.environ.get("LLM_API_KEY", "")  # never an argument: it would stay in the shell's history
     model = openai_model(args.base_url, key, args.model, args.budget, strict_schemas=bool(args.hosted))
     profile = load_profile(args.profile)
@@ -120,7 +120,13 @@ def _lab_plan(args: argparse.Namespace) -> int:
     try:
         with httpx.Client(timeout=60) as client:
             made = hosted.plan(
-                key, load_cases(), client=client, model=args.model, agents=args.agents, per_agent=args.sample
+                key,
+                load_cases(),
+                client=client,
+                model=args.model,
+                agents=args.agents,
+                per_agent=args.sample,
+                shift=args.sample_shift,
             )
     except hosted.Refused as exc:
         print(f"refused: {exc}", file=sys.stderr)
@@ -213,6 +219,7 @@ def main() -> None:
     run.add_argument("--rpm", type=int, help="at most this many cases a minute, one at a time (a host's rate limit)")
     run.add_argument("--tpm", type=int, help="at most this many tokens a minute (a host's token limit)")
     run.add_argument("--sample", type=int, help="at most this many cases of each agent, spread over its file")
+    run.add_argument("--sample-shift", type=int, default=0, help="with --sample: every pick moved this many cases on")
     run.add_argument("--gpu", help="the card it ran on, for the report (A40, L40S, RTX PRO 6000…)")
     run.add_argument("--notes", help="anything a reader of the report should know")
     run.add_argument("--out", type=Path, help="the report file (default lab-<profile>-<time>.json)")
@@ -220,6 +227,7 @@ def main() -> None:
     plan.add_argument("--model", default="", help="another model id at the host (default: its Qwen3.8-27B)")
     plan.add_argument("--agents", default="", help="only these agents, comma-separated")
     plan.add_argument("--sample", type=int, help="cases of each agent (0: all; default: what the daily limit allows)")
+    plan.add_argument("--sample-shift", type=int, default=0, help="another day's sample: every pick moved this many on")
     known = lab_commands.add_parser("sim", help="the cases against the simulation: every known result checked")
     known.add_argument("--runs", help=f"only these, comma-separated (default {','.join(labsim.RUNS)})")
     known.add_argument("--out", type=Path, help="a folder for each run's summary (sim-<run>.json)")
