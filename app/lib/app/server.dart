@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:zon/app/external_links.dart';
@@ -18,6 +19,8 @@ import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/push/firebase_push.dart';
 import 'package:zon/data/push/push.dart';
+import 'package:zon/data/server/server_store.dart';
+import 'package:zon/data/server/store_sheet.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/shared/widgets/push_banner.dart';
 
@@ -39,6 +42,13 @@ Future<void> startApp() async {
   ServerSession.secrets = secrets;
   ServerSession.onEnded = _sessionEnded;
   await ServerSession.restore();
+
+  // The store's sheet listens from the start: a purchase the store delivers again (after a lost answer, a restart,
+  // an approval) goes to the server before anything else is bought.
+  if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.android)) {
+    ServerStore.sheet = InAppStoreSheet();
+    ServerStore.listen();
+  }
 
   Push.provider = await FirebasePush.start();
   Push.onOpen = openPushTarget;
