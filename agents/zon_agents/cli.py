@@ -64,7 +64,7 @@ def _lab_run(args: argparse.Namespace) -> int:
     if args.sample:
         cases = sample(cases, args.sample)
     key = os.environ.get("LLM_API_KEY", "")  # never an argument: it would stay in the shell's history
-    model = openai_model(args.base_url, key, args.model, args.budget)
+    model = openai_model(args.base_url, key, args.model, args.budget, strict_schemas=bool(args.hosted))
     profile = load_profile(args.profile)
     if args.hosted:
         try:
