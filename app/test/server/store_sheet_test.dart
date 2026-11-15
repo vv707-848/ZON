@@ -177,7 +177,11 @@ void main() {
       await tapText(tester, 'اشترك: الباحث — شهري');
       await _settle(tester);
       await tapText(tester, 'حسناً');
-      await serverSignIn(server, account: me(id: 42, role: 'seeker', name: 'حساب آخر'), token: '7|second');
+      await serverSignIn(
+        server,
+        account: me(id: 42, role: 'seeker', name: 'حساب آخر'),
+        token: '7|second',
+      );
       await _settle(tester);
 
       sheet.deliver(_bought);
@@ -191,7 +195,10 @@ void main() {
       final target = <String, Object?>{'type': 'listing', 'id': 1};
       ServerStore.remember('com.zon.app.featured', account: store.readSession()!.id, target: target);
       server.on('POST', 'store/purchases', 200, recorded('store_purchase_boost'));
-      final status = await ServerStore.deliver(const StoreReceipt(productId: 'com.zon.app.featured', reference: 'play-token-0002'), epoch: store.serverEpoch);
+      final status = await ServerStore.deliver(
+        const StoreReceipt(productId: 'com.zon.app.featured', reference: 'play-token-0002'),
+        epoch: store.serverEpoch,
+      );
       expect(status, 'paid');
       expect(FakeServer.body(server.sent('POST', 'store/purchases').single), <String, Object?>{
         'store': 'google',

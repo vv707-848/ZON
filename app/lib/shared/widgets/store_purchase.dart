@@ -116,9 +116,7 @@ Future<bool> _fromSheet(
         if (status == 'paid') return true;
         await say(
           'لم يُطبَّق الشراء',
-          status == 'unapplied'
-              ? 'دُفع في المتجر ولم يمكن تطبيقه الآن، ويُسترد المبلغ من المتجر.'
-              : 'لم يُطبَّق الشراء على هذا الحساب.',
+          status == 'unapplied' ? 'دُفع في المتجر ولم يمكن تطبيقه الآن، ويُسترد المبلغ من المتجر.' : 'لم يُطبَّق الشراء على هذا الحساب.',
         );
         return false;
       } on AccountChanged {
@@ -131,4 +129,3 @@ Future<bool> _fromSheet(
       }
   }
 }
-
