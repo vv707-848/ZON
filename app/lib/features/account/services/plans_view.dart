@@ -240,13 +240,13 @@ class _PlansViewState extends State<PlansView> {
       for (final offer in offers.onSaleFor(role)) ...<Widget>[
         _card(
           tag: plan.subscribed && plan.code == offer.code ? 'مفعّلة' : null,
-          head: <Widget>[_name(offer.name), _price(_whole(offer.price), small: _periodWords[offer.period], onDark: true)],
+          head: <Widget>[
+            _name(offer.name),
+            _price(_whole(offer.price), small: _periodWords[offer.period], onDark: true),
+          ],
           body: <Widget>[if (offer.features.isNotEmpty) _list('تشمل الباقة', offer.features), const SizedBox(height: 8)],
         ),
-        if (plan.subscribed && plan.code == offer.code)
-          _cta('الباقة مفعّلة', null)
-        else
-          _cta('اشترك: ${offer.name}', () => _buy(offer)),
+        if (plan.subscribed && plan.code == offer.code) _cta('الباقة مفعّلة', null) else _cta('اشترك: ${offer.name}', () => _buy(offer)),
         const SizedBox(height: 16),
       ],
       if (role == 'owner') ...<Widget>[
@@ -589,11 +589,9 @@ class _PlansViewState extends State<PlansView> {
         padding: const EdgeInsets.only(top: 4, bottom: 10),
         child: BackLink(label: 'الإعدادات', onTap: () => Nav.go(context, '/account/settings')),
       ),
-      if (Api.on) ..._serverBody(role) else ...<Widget>[
-        if (role == 'broker') ..._broker(),
-        if (role == 'seeker') ..._seeker(),
-        if (role == 'owner') ..._owner(),
-      ],
+      if (Api.on)
+        ..._serverBody(role)
+      else ...<Widget>[if (role == 'broker') ..._broker(), if (role == 'seeker') ..._seeker(), if (role == 'owner') ..._owner()],
     ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),

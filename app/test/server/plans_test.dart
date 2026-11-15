@@ -10,7 +10,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/app/router.dart';
@@ -113,7 +112,12 @@ void main() {
 
       server.on('POST', 'store/purchases', 200, recorded('store_purchase_plan'));
       server.on('GET', 'subscription', 200, recorded('subscription'));
-      server.on('GET', 'me', 200, ok(<String, Object?>{...me(role: 'seeker'), 'plan': (_one('subscription')['plan']! as Map).cast<String, Object?>()}));
+      server.on(
+        'GET',
+        'me',
+        200,
+        ok(<String, Object?>{...me(role: 'seeker'), 'plan': (_one('subscription')['plan']! as Map).cast<String, Object?>()}),
+      );
       await tapText(tester, 'أعد المحاولة');
       await _settle(tester);
       final sent = server.sent('POST', 'store/purchases');
@@ -149,7 +153,11 @@ void main() {
       final server = await _open(tester, plan: 'subscription');
       expect(find.text('الباقة مفعّلة'), findsOneWidget);
       server.onFor('7|second', 'GET', 'subscription', 200, recorded('subscription_free'));
-      await serverSignIn(server, account: me(id: 42, role: 'seeker', name: 'حساب آخر'), token: '7|second');
+      await serverSignIn(
+        server,
+        account: me(id: 42, role: 'seeker', name: 'حساب آخر'),
+        token: '7|second',
+      );
       await _settle(tester);
       expect(find.text('الباقة مفعّلة'), findsNothing);
       expect(find.text('الباحث — مجاني'), findsOneWidget);
@@ -166,7 +174,13 @@ void main() {
       await _settle(tester);
       expect(_path(), '/account/search', reason: 'the server says what his plan gives, on the page');
 
-      await serverSignIn(server, account: <String, Object?>{...me(role: 'seeker'), 'plan': (_one('subscription')['plan']! as Map).cast<String, Object?>()});
+      await serverSignIn(
+        server,
+        account: <String, Object?>{
+          ...me(role: 'seeker'),
+          'plan': (_one('subscription')['plan']! as Map).cast<String, Object?>(),
+        },
+      );
       await pumpApp(tester, '/account');
       await _settle(tester);
       expect(find.text('شاهد الباقات'), findsNothing);

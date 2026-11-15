@@ -491,7 +491,16 @@ void main() {
 
       server.on('GET', 'store/products', 200, recorded('store_products'));
       server.on('POST', 'store/check', 200, recorded('store_check_plan'));
-      server.on('POST', 'store/purchases', 200, ok(<String, Object?>{...(recorded('store_purchase_boost')['data']! as Map).cast<String, Object?>(), 'purpose': 'urgent_request', 'amount': '50.00'}));
+      server.on(
+        'POST',
+        'store/purchases',
+        200,
+        ok(<String, Object?>{
+          ...(recorded('store_purchase_boost')['data']! as Map).cast<String, Object?>(),
+          'purpose': 'urgent_request',
+          'amount': '50.00',
+        }),
+      );
 
       await pumpApp(tester, '/account/requests');
       await _settle(tester);
@@ -502,7 +511,10 @@ void main() {
       expect(find.text('طلب عاجل — 50 ريالًا'), findsOneWidget);
       expect(store.requestById('R$id')!.urgent, isFalse, reason: 'nothing changes before it is paid');
       final target = <String, Object?>{'type': 'request', 'id': id};
-      expect(FakeServer.body(server.sent('POST', 'store/check').single), <String, Object?>{'product_id': 'com.zon.app.urgent.request', 'target': target});
+      expect(FakeServer.body(server.sent('POST', 'store/check').single), <String, Object?>{
+        'product_id': 'com.zon.app.urgent.request',
+        'target': target,
+      });
 
       server.on('GET', 'requests/mine', 200, _each(mineAnswer, (r) => <String, Object?>{...r, 'urgent': true}));
       await tapText(tester, 'ادفع 50 ريالًا');

@@ -20,7 +20,15 @@ import 'package:zon/data/store.dart';
 
 /// A plan as the server sells it.
 class PlanOffer {
-  const PlanOffer({required this.code, required this.audience, required this.name, required this.period, required this.price, required this.purchasable, required this.features});
+  const PlanOffer({
+    required this.code,
+    required this.audience,
+    required this.name,
+    required this.period,
+    required this.price,
+    required this.purchasable,
+    required this.features,
+  });
 
   factory PlanOffer.fromJson(Map<String, Object?> j) => PlanOffer(
     code: '${j['code'] ?? ''}',
@@ -62,7 +70,9 @@ class Offers {
         for (final p in j['plans']! as List)
           if (p is Map) PlanOffer.fromJson(p.cast<String, Object?>()),
     ],
-    oneOff: j['one_off'] is Map ? <String, String>{for (final e in (j['one_off']! as Map).entries) '${e.key}': '${e.value}'} : const <String, String>{},
+    oneOff: j['one_off'] is Map
+        ? <String, String>{for (final e in (j['one_off']! as Map).entries) '${e.key}': '${e.value}'}
+        : const <String, String>{},
     ownerCommissionPercent: '${j['owner_commission_percent'] ?? ''}',
   );
 
@@ -163,7 +173,11 @@ abstract final class ServerStore {
   /// His invoices, newest first (the first page: the last twenty).
   static Future<List<InvoiceRow>> invoices() async => <InvoiceRow>[
     for (final row in (await Api.client!.get('invoices')).list)
-      InvoiceRow(number: '${row['number'] ?? ''}', total: '${row['total'] ?? ''}', issuedAt: DateTime.tryParse('${row['issued_at'] ?? ''}')?.toLocal()),
+      InvoiceRow(
+        number: '${row['number'] ?? ''}',
+        total: '${row['total'] ?? ''}',
+        issuedAt: DateTime.tryParse('${row['issued_at'] ?? ''}')?.toLocal(),
+      ),
   ];
 
   static Future<StoreShelf> shelf() async {

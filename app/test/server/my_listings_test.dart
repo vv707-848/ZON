@@ -344,7 +344,14 @@ void main() {
       expect(find.text('تعذّر إتمام الدفع — لم يُخصم شيء ولم يتغير شيء.'), findsOneWidget);
 
       server.on('POST', 'store/purchases', 200, recorded('store_purchase_boost'));
-      server.on('GET', 'listings/mine', 200, ok(<Object?>[_as(<String, Object?>{..._rows('listings_mine').single, 'featured': true}, status: 'published')]));
+      server.on(
+        'GET',
+        'listings/mine',
+        200,
+        ok(<Object?>[
+          _as(<String, Object?>{..._rows('listings_mine').single, 'featured': true}, status: 'published'),
+        ]),
+      );
       await tapText(tester, 'أعد المحاولة');
       await _settle(tester);
       final sent = server.sent('POST', 'store/purchases');
@@ -362,8 +369,18 @@ void main() {
 
     testWidgets('a store this server does not simulate: said plainly, and nothing is bought', (tester) async {
       final server = await open(tester, <Map<String, Object?>>[_as(_rows('listings_mine').single, status: 'published')]);
-      server.on('POST', 'listings/1/boost', 402, apiFail('PAYMENT_REQUIRED', 'يتطلب دفعًا.', details: <String, Object?>{'purpose': 'featured', 'price': '99.00'}));
-      server.on('GET', 'store/products', 200, ok(<String, Object?>{...(recorded('store_products')['data']! as Map).cast<String, Object?>(), 'simulated': <Object?>[]}));
+      server.on(
+        'POST',
+        'listings/1/boost',
+        402,
+        apiFail('PAYMENT_REQUIRED', 'يتطلب دفعًا.', details: <String, Object?>{'purpose': 'featured', 'price': '99.00'}),
+      );
+      server.on(
+        'GET',
+        'store/products',
+        200,
+        ok(<String, Object?>{...(recorded('store_products')['data']! as Map).cast<String, Object?>(), 'simulated': <Object?>[]}),
+      );
       server.on('POST', 'store/check', 200, recorded('store_check_plan'));
       await tapText(tester, 'تمييز');
       await _settle(tester);
