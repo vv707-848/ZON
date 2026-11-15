@@ -9,7 +9,7 @@ once, as many as the engine takes (MAXREQ), so each latency is one request's, no
 import asyncio
 import time
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
@@ -102,7 +102,14 @@ class Outcome:
     output: dict[str, Any] | None
 
 
-async def _one(llm: LLM, case: Case, variant: str, round_: int, slots: asyncio.Semaphore) -> Outcome:
+async def _one(
+    llm: LLM,
+    case: Case,
+    variant: str,
+    round_: int,
+    slots: asyncio.Semaphore,
+    before: Callable[[], Awaitable[None]] | None = None,
+) -> Outcome:
     ctx = Ctx(llm, FixedRetrieval(_passages(case)), today=lambda: TODAY)
 
     def outcome(
@@ -123,6 +130,8 @@ async def _one(llm: LLM, case: Case, variant: str, round_: int, slots: asyncio.S
         )
 
     async with slots:
+        if before is not None:
+            await before()
         CURRENT.set(case)  # this task's own context: concurrent cases do not see one another's
         start = time.perf_counter()
         try:
@@ -178,8 +187,13 @@ async def run_cases(
     repeat: int = 1,
     with_variants: bool = True,
     progress: Callable[[Outcome], None] | None = None,
+    per_minute: int | None = None,
 ) -> list[Outcome]:
-    slots = asyncio.Semaphore(concurrency)
+    """[per_minute]: at most that many cases started in a minute, one at a time — for an endpoint that limits
+    requests (a hosted one). A refused request would be scored as the model's failure, so the run stays under it."""
+    slots = asyncio.Semaphore(1 if per_minute else concurrency)
+    gap = 60 / per_minute if per_minute else 0.0
+    last_start = 0.0
     jobs: list[tuple[Case, str, int]] = []
     for round_ in range(1, repeat + 1):
         for case in cases:
@@ -187,8 +201,15 @@ async def run_cases(
             if with_variants:
                 jobs += [(changed, name, round_) for name, changed in variants(case)]
 
+    async def paced() -> None:
+        nonlocal last_start
+        wait = last_start + gap - time.monotonic()
+        if wait > 0:
+            await asyncio.sleep(wait)
+        last_start = time.monotonic()
+
     async def tracked(case: Case, variant: str, round_: int) -> Outcome:
-        result = await _one(llm, case, variant, round_, slots)
+        result = await _one(llm, case, variant, round_, slots, paced if gap else None)
         if progress is not None:
             progress(result)
         return result

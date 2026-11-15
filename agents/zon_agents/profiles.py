@@ -40,7 +40,9 @@ class ModelProfile(BaseModel):
 
     name: str = Field(pattern=r"^[a-z0-9][a-z0-9.\-]{2,63}$")
     weights: str = Field(pattern=r"^[\w.\-]+/[\w.\-]+$")  # Hugging Face repository
-    runtime: Literal["sglang", "vllm", "escha", "sim"]  # "sim": no weights, the simulation (zon_agents/sim)
+    # "sim": no weights, the simulation (zon_agents/sim) · "hosted": the same weights served by someone else
+    # (`hosted_by`), for the lab only — never a file of `models/`, never what production calls.
+    runtime: Literal["sglang", "vllm", "escha", "sim", "hosted"]
     licence: str
     sampling: dict[Use, Sampling]
     request: dict[str, Any] = {}
@@ -72,6 +74,20 @@ class ModelProfile(BaseModel):
         if sampling.presence_penalty is not None:
             settings["presence_penalty"] = sampling.presence_penalty
         return settings
+
+    def hosted_by(self, host: str, request: dict[str, Any]) -> "ModelProfile":
+        """This model as [host] serves it, for a lab run: the same sampling, the host's own request extras (ours
+        are the engine's: a chat template switch means nothing to a host), nothing to serve. What it measures is
+        the model as that host runs it — its quantisation and engine are the host's, not this profile's."""
+        slug = "".join(ch for ch in host.lower() if ch.isalnum())
+        return ModelProfile(
+            name=f"{self.name}.{slug}"[:64],
+            weights=self.weights,
+            runtime="hosted",
+            licence=self.licence,
+            sampling=self.sampling,
+            request=request,
+        )
 
 
 def load_profiles(directory: Path = PROFILES_DIR) -> dict[str, ModelProfile]:

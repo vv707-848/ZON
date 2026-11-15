@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import time
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -60,6 +61,16 @@ def _lab_run(args: argparse.Namespace) -> int:
     key = os.environ.get("LLM_API_KEY", "")  # never an argument: it would stay in the shell's history
     model = openai_model(args.base_url, key, args.model, args.budget)
     profile = load_profile(args.profile)
+    if args.hosted:
+        try:
+            extras = json.loads(args.request or "{}")
+        except json.JSONDecodeError as exc:
+            print(f"--request is not JSON: {exc}", file=sys.stderr)
+            return 1
+        profile = profile.hosted_by(args.hosted, extras)
+    elif args.request:
+        print("--request goes with --hosted: a profile's own extras are its file's", file=sys.stderr)
+        return 1
     llm = LLM(model, load_prompts(), profile=profile, max_concurrency=args.concurrency, budget_seconds=args.budget)
     done = 0
 
@@ -78,11 +89,13 @@ def _lab_run(args: argparse.Namespace) -> int:
             repeat=args.repeat,
             with_variants=not args.no_variants,
             progress=progress,
+            per_minute=args.rpm,
         )
     )
     seconds = time.monotonic() - clock
     floor = asyncio.run(floors(llm, cases))  # the same cases with no model: no call to the engine
-    result = report(outcomes, cases, llm, started=started, seconds=seconds, gpu=args.gpu, notes=args.notes, floor=floor)
+    gpu = f"hosted: {args.hosted}" if args.hosted else args.gpu
+    result = report(outcomes, cases, llm, started=started, seconds=seconds, gpu=gpu, notes=args.notes, floor=floor)
     out = args.out or Path(f"lab-{args.profile}-{started:%Y%m%d-%H%M}.json")
     out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
     print(file=sys.stderr)
@@ -136,6 +149,10 @@ def _print_summary(result: dict[str, Any], out: Path) -> None:
             f"{agent:<16}{entry['cases']:>6}{entry['score']:>8.3f}{entry['failed']:>8}"
             f"{entry['latency_ms']['p50']:>8}{entry['latency_ms']['p95']:>8}  {metrics}"
         )
+    # why cases failed: «unavailable» is the endpoint (refused, unreachable, rate-limited), not the model's answer
+    errors = Counter(o["error"] for o in result["outcomes"] if o.get("error"))
+    if errors:
+        print("errors: " + " · ".join(f"{kind} ×{count}" for kind, count in errors.most_common()))
     print(f"overall {result['overall']:.3f} → {out}")
 
 
@@ -163,6 +180,9 @@ def main() -> None:
     run.add_argument("--repeat", type=int, default=1, help="rounds of every case (variance of a sampled model)")
     run.add_argument("--agents", help="only these agents, comma-separated")
     run.add_argument("--no-variants", action="store_true", help="skip the reversed-order and digits variants")
+    run.add_argument("--hosted", help="who serves the model when it is not our node (OpenRouter…): said in the report")
+    run.add_argument("--request", help="with --hosted: the host's request extras, as JSON (they replace the profile's)")
+    run.add_argument("--rpm", type=int, help="at most this many cases a minute, one at a time (a host's rate limit)")
     run.add_argument("--gpu", help="the card it ran on, for the report (A40, L40S, RTX PRO 6000…)")
     run.add_argument("--notes", help="anything a reader of the report should know")
     run.add_argument("--out", type=Path, help="the report file (default lab-<profile>-<time>.json)")

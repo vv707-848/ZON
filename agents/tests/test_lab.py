@@ -2,17 +2,20 @@
 
 import asyncio
 import json
+import time
 from datetime import UTC, datetime
+from itertools import pairwise
 from typing import Any
 
 from pydantic_ai.models.function import FunctionModel
 
 from tests.conftest import ScriptedModel
 from zon_agents.lab.cases import EXPECTS, Case, check, load_cases
-from zon_agents.lab.runner import RANKING, report, run_cases
+from zon_agents.lab.runner import RANKING, Outcome, report, run_cases
 from zon_agents.lab.scoring import ndcg, number_guard, score
 from zon_agents.llm import LLM
-from zon_agents.profiles import load_profile
+from zon_agents.profiles import load_profile, load_profiles
+from zon_agents.sim import labsim
 
 
 def _first(agent: str, tag: str | None = None) -> Case:
@@ -191,3 +194,31 @@ def test_a_model_that_fails_is_recorded_and_the_run_goes_on(model: ScriptedModel
     failed = [o for o in outcomes if o.agent == "summarize"]
     assert len(failed) == 3 and all(o.error == "model: llm (timeout) unavailable" and o.score == 0.0 for o in failed)
     assert all(o.error is None for o in outcomes if o.agent == "report_select")
+
+
+def test_a_hosted_run_is_paced_one_case_at_a_time_and_scores_as_any_other() -> None:
+    cases = [c for c in load_cases() if c.agent == "search_listings"][:4]
+    started: list[float] = []
+
+    def seen(outcome: Outcome) -> None:
+        started.append(time.monotonic())
+
+    paced = asyncio.run(
+        run_cases(labsim.simulated_llm("oracle"), cases, with_variants=False, progress=seen, per_minute=600)
+    )
+    free = asyncio.run(run_cases(labsim.simulated_llm("oracle"), cases, with_variants=False))
+
+    gaps = [later - earlier for earlier, later in pairwise(started)]
+    assert min(gaps) >= 0.09, "600 a minute: a tenth of a second between cases"
+    assert [(o.case, o.score, o.error) for o in paced] == [(o.case, o.score, o.error) for o in free]
+
+
+def test_a_profile_as_a_host_serves_it_keeps_the_sampling_and_takes_the_hosts_extras() -> None:
+    ours = load_profile("qwen3.8-27b-fp8")
+    hosted = ours.hosted_by("OpenRouter", {"reasoning": {"effort": "none"}})
+
+    assert (hosted.name, hosted.runtime, hosted.weights) == ("qwen3.8-27b-fp8.openrouter", "hosted", ours.weights)
+    assert hosted.sampling == ours.sampling
+    assert hosted.settings("json")["extra_body"] == {"reasoning": {"effort": "none"}}, "not our engine's switches"
+    assert hosted.serve.args == [] and not hosted.simulated
+    assert "hosted" not in {p.runtime for p in load_profiles().values()}, "never a file the AI node would serve"
