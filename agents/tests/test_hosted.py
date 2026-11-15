@@ -94,6 +94,13 @@ def test_a_host_that_cannot_be_measured_says_why_before_a_case_is_spent() -> Non
         "This model does not support response format `json_schema`."
     )
 
+    half = httpx.Response(
+        400, json={"error": {"message": "Failed to generate JSON.", "failed_generation": '{"city": "الر'}}
+    )
+    assert _refusal(GROQ_KEY, _host([], probe=half)).endswith(
+        'Failed to generate JSON. — the model wrote: \'{"city": "الر\''
+    )
+
     prose = httpx.Response(200, json={"choices": [{"message": {"content": "المدينة الرياض وفيها ثلاث غرف"}}]})
     assert "did not answer in the schema" in _refusal(GROQ_KEY, _host([], probe=prose))
 

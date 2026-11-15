@@ -87,7 +87,11 @@ def _message(response: httpx.Response) -> str:
         error = response.json().get("error")
     except ValueError:
         return response.text[:300]
-    return str(error.get("message") if isinstance(error, dict) else error)[:300]
+    if not isinstance(error, dict):
+        return str(error)[:300]
+    # Groq says what the model wrote when it was not the schema (`failed_generation`): the reason is in it
+    wrote = error.get("failed_generation")
+    return str(error.get("message"))[:300] + (f" — the model wrote: {str(wrote)[:400]!r}" if wrote is not None else "")
 
 
 def plan(
@@ -120,7 +124,7 @@ def plan(
             "model": model,
             "messages": [{"role": "user", "content": "شقة في الرياض بثلاث غرف. أعد المدينة وعدد الغرف."}],
             "response_format": _PROBE,
-            "max_completion_tokens": 64,
+            "max_completion_tokens": 256,
             "temperature": 0.3,
             **host.request,
         },
