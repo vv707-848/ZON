@@ -271,8 +271,12 @@ abstract final class ServerStore {
       StoreOrder(store: platformStore, productId: receipt.productId, reference: receipt.reference, target: target),
       epoch: epoch,
     );
-    _forget(receipt.productId);
-    await sheet?.finish(receipt);
+    try {
+      await sheet?.finish(receipt);
+      _forget(receipt.productId); // after the store was told: a purchase it delivers again is still known here
+    } catch (_) {
+      // the store delivers it again; the server has it already and applies it once
+    }
     return status;
   }
 

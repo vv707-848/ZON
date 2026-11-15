@@ -120,7 +120,7 @@ class InAppStoreSheet implements StoreSheet {
         case PurchaseStatus.canceled:
           _settle(p.productID, const SheetCancelled());
         case PurchaseStatus.error:
-          _settle(p.productID, SheetFailed(p.error?.message.isNotEmpty == true ? 'رفض المتجر الشراء.' : 'تعذّر الشراء من المتجر.'));
+          _settle(p.productID, const SheetFailed('تعذّر الشراء من المتجر.'));
         case PurchaseStatus.purchased || PurchaseStatus.restored:
           final reference = _apple ? (p.purchaseID ?? '') : p.verificationData.serverVerificationData;
           if (reference.isEmpty) {

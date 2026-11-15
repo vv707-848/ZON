@@ -29,6 +29,7 @@ Map<String, Object?> _one(String name) => (recorded(name)['data']! as Map).cast<
 /// The store's sheet as a test drives it.
 class FakeSheet implements StoreSheet {
   bool sells = true;
+  bool finishFails = false;
   SheetOutcome next = const SheetCancelled();
   final List<(String, String, bool)> opened = <(String, String, bool)>[];
   final List<String> finished = <String>[];
@@ -46,7 +47,10 @@ class FakeSheet implements StoreSheet {
   }
 
   @override
-  Future<void> finish(StoreReceipt receipt) async => finished.add(receipt.reference);
+  Future<void> finish(StoreReceipt receipt) async {
+    if (finishFails) throw StateError('the store did not take it');
+    finished.add(receipt.reference);
+  }
 
   @override
   Stream<StoreReceipt> get delivered => _delivered.stream;
@@ -157,6 +161,26 @@ void main() {
       final sent = server.sent('POST', 'store/purchases');
       expect(sent, hasLength(2));
       expect(FakeServer.body(sent.last), FakeServer.body(sent.first), reason: 'the same purchase');
+      expect(sheet.finished, <String>['play-token-0001']);
+    });
+
+    testWidgets('the store not told it was delivered: still known; its next delivery tells it', (tester) async {
+      final (server, sheet) = await _plans(tester);
+      ServerStore.listen();
+      sheet
+        ..next = const SheetBought(_bought)
+        ..finishFails = true;
+      server.on('POST', 'store/purchases', 200, recorded('store_purchase_plan'));
+      server.on('GET', 'subscription', 200, recorded('subscription'));
+      await tapText(tester, 'اشترك: الباحث — شهري');
+      await _settle(tester);
+      expect(find.text('الباقة مفعّلة'), findsOneWidget, reason: 'the server applied it');
+      expect(sheet.finished, isEmpty);
+
+      sheet.finishFails = false;
+      sheet.deliver(_bought);
+      await _settle(tester);
+      expect(server.sent('POST', 'store/purchases'), hasLength(2), reason: 'the same purchase, which the server applies once');
       expect(sheet.finished, <String>['play-token-0001']);
     });
 
