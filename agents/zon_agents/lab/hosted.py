@@ -102,8 +102,10 @@ def plan(
     model: str = "",
     agents: str = "",
     per_agent: int | None = None,
+    shift: int = 0,
 ) -> Plan:
-    """[model]: another id at the host · [agents]: only these · [per_agent]: that many cases of each (0: all)."""
+    """[model]: another id at the host · [agents]: only these · [per_agent]: that many cases of each (0: all) ·
+    [shift]: another day's sample (each pick moved that many cases on)."""
     host = host_of(key)
     model = model or host.model
     auth = {"Authorization": f"Bearer {key}"}
@@ -161,11 +163,15 @@ def plan(
     chosen = [c for c in cases if not agents or c.agent in set(agents.split(","))]
     if agents:
         arguments += ["--agents", agents]
+    why = "as asked"
     if per_agent is None and host.daily_cases is not None and len(chosen) > host.daily_cases:
         per_agent = max(1, host.daily_cases // len({c.agent for c in chosen}))
+        why = f"what {host.name}'s daily limit allows"
     if per_agent:
         arguments += ["--sample", str(per_agent), "--no-variants"]
-        note = f"{per_agent} cases of each agent, no variants: what {host.name}'s daily limit allows"
+        if shift:
+            arguments += ["--sample-shift", str(shift)]
+        note = f"{per_agent} cases of each agent{f', shifted by {shift}' if shift else ''}, no variants: {why}"
     else:
         note = "every case and its variants"
     seen.append(f"plan: {note}")

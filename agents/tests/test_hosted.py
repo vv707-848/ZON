@@ -63,6 +63,8 @@ def test_asked_agents_that_fit_the_day_run_whole_and_a_sample_can_be_asked() -> 
 
     asked = hosted.plan(GROQ_KEY, load_cases(), client=_host([]), per_agent=2)
     assert asked.arguments[-3:] == ["--sample", "2", "--no-variants"]
+    other = hosted.plan(GROQ_KEY, load_cases(), client=_host([]), shift=1)
+    assert other.arguments[-5:] == ["--sample", "6", "--no-variants", "--sample-shift", "1"], "another day's cases"
     everything = hosted.plan(GROQ_KEY, load_cases(), client=_host([]), per_agent=0)
     assert "--sample" not in everything.arguments, "0: all of them, the owner's choice"
 

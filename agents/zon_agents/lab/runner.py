@@ -108,14 +108,15 @@ def refused(error: str | None) -> bool:
     return error is not None and (error == "model: unavailable" or "(unavailable)" in error)
 
 
-def sample(cases: Sequence[Case], per_agent: int) -> list[Case]:
+def sample(cases: Sequence[Case], per_agent: int, shift: int = 0) -> list[Case]:
     """At most [per_agent] cases of each agent, spread evenly over its file (its cases are grouped by what they
-    test): what fits an endpoint's daily limit, the same cases every time."""
+    test): what fits an endpoint's daily limit, the same cases every time. [shift] moves every pick that many
+    cases on (around the file's end): another day's sample, of cases the first did not ask."""
     by_agent: dict[str, list[Case]] = {}
     for case in cases:
         by_agent.setdefault(case.agent, []).append(case)
     kept = {
-        id(group[index * len(group) // min(per_agent, len(group))])
+        id(group[(index * len(group) // min(per_agent, len(group)) + shift) % len(group)])
         for group in by_agent.values()
         for index in range(min(per_agent, len(group)))
     }
