@@ -78,6 +78,7 @@ jobs:
           for o in json.load(open(sys.argv[1]))["outcomes"]:
               if o["error"] or o["score"] < 1:
                   print(o["agent"], o["case"], o["variant"], o["score"], o["error"] or "", json.dumps(o["metrics"], ensure_ascii=False))
+                  print("   wrote:", json.dumps(o["output"], ensure_ascii=False)[:700])  # synthetic cases: nothing of a user
           PY
 
       - uses: actions/upload-artifact@v7
