@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from zon_agents.llm import LLM, ModelFailed, load_prompts, openai_model
 from zon_agents.profiles import SIMULATED
+from zon_agents.schemas.agents import SearchersAnswer
 
 
 class _Ranked(BaseModel):
@@ -64,3 +65,76 @@ def test_a_whole_answer_after_a_cut_one_is_used() -> None:
 
     assert result.output.results == [{"id": 3, "score": 0.9}]
     assert len(seen) == 2
+
+
+def test_an_endpoint_that_refuses_is_unavailable_and_its_reason_is_kept() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, json={"error": {"message": "Rate limit reached for tokens per minute."}})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(refuse), base_url="http://engine")
+    model = openai_model("http://engine/v1", "unused", "zon-ai", 5, http_client=client)
+    llm = LLM(model, load_prompts(), profile=SIMULATED, max_concurrency=1, budget_seconds=5)
+
+    with pytest.raises(ModelFailed) as failed:
+        asyncio.run(llm.run("search_listings", {"need": {}, "candidates": []}, _Ranked, "json"))
+
+    assert failed.value.reason == "unavailable", "the endpoint's refusal, not the model's answer"
+    ((reason, count),) = llm.refusals.items()
+    assert count == 1 and "Rate limit reached for tokens per minute." in reason
+
+
+class _Open(BaseModel):
+    report: str
+    params: dict[str, Any] = {}
+
+
+def _asked(output: type[BaseModel], *, hosted: bool) -> dict[str, Any]:
+    """The `response_format` one call sends."""
+    seen: list[dict[str, Any]] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(503, json={"error": {"message": "not now"}})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(answer), base_url="http://engine")
+    model = openai_model("http://engine/v1", "unused", "zon-ai", 5, http_client=client, strict_schemas=hosted)
+    profile = SIMULATED.hosted_by("Groq", {}) if hosted else SIMULATED
+    llm = LLM(model, load_prompts(), profile=profile, max_concurrency=1, budget_seconds=5)
+    with pytest.raises(ModelFailed):
+        asyncio.run(llm.run("search_listings", {}, output, "json"))
+    return dict(seen[0]["response_format"]["json_schema"])
+
+
+def test_a_host_gets_the_schema_in_its_strict_form_and_our_engines_get_it_as_it_was() -> None:
+    ours = _asked(SearchersAnswer, hosted=False)
+    row = ours["schema"]["properties"]["results"]["items"]
+    assert "additionalProperties" not in row and row["required"] == ["id", "score"], "the node's request did not change"
+
+    theirs = _asked(SearchersAnswer, hosted=True)
+    row = theirs["schema"]["$defs"]["RankedSearcher"]
+    assert theirs["strict"] is True
+    assert theirs["schema"]["additionalProperties"] is False and row["additionalProperties"] is False
+    assert row["required"] == ["id", "score", "unit_id"], "every key required: an absent one is written as null"
+
+    free = _asked(_Open, hosted=True)
+    assert free["strict"] is False, "a free map cannot be said strictly: asked for without it"
+    assert "params" in free["schema"]["properties"]
+
+
+def test_a_host_that_says_the_model_wrote_no_schema_is_the_models_failure_not_the_endpoints() -> None:
+    seen: list[dict[str, Any]] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        error = {"message": "Failed to generate JSON.", "code": "json_validate_failed", "failed_generation": "{"}
+        return httpx.Response(400, json={"error": error})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(answer), base_url="http://engine")
+    model = openai_model("http://engine/v1", "unused", "zon-ai", 5, http_client=client)
+    llm = LLM(model, load_prompts(), profile=SIMULATED, max_concurrency=1, budget_seconds=5)
+
+    with pytest.raises(ModelFailed) as failed:
+        asyncio.run(llm.run("search_listings", {"need": {}, "candidates": []}, _Ranked, "json"))
+
+    assert failed.value.reason == "invalid" and len(seen) == 2, "tried once more, as any answer off the schema"
+    assert not llm.refusals

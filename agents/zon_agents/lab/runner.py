@@ -9,7 +9,7 @@ once, as many as the engine takes (MAXREQ), so each latency is one request's, no
 import asyncio
 import time
 from collections import defaultdict
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Callable, Sequence
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
@@ -102,13 +102,48 @@ class Outcome:
     output: dict[str, Any] | None
 
 
+def refused(error: str | None) -> bool:
+    """The endpoint did not answer (refused, unreachable, over its limit) — not an answer of the model. A ranking
+    agent says «model: unavailable»; one with no degraded answer «model: llm (unavailable) unavailable»."""
+    return error is not None and (error == "model: unavailable" or "(unavailable)" in error)
+
+
+def sample(cases: Sequence[Case], per_agent: int) -> list[Case]:
+    """At most [per_agent] cases of each agent, spread evenly over its file (its cases are grouped by what they
+    test): what fits an endpoint's daily limit, the same cases every time."""
+    by_agent: dict[str, list[Case]] = {}
+    for case in cases:
+        by_agent.setdefault(case.agent, []).append(case)
+    kept = {
+        id(group[index * len(group) // min(per_agent, len(group))])
+        for group in by_agent.values()
+        for index in range(min(per_agent, len(group)))
+    }
+    return [case for case in cases if id(case) in kept]
+
+
+class Pace:
+    """A hosted endpoint's limits, kept: so many requests and so many tokens a minute. The next case starts when
+    the last one's start is a request's share of a minute old, and its tokens' share of a minute has passed."""
+
+    def __init__(self, per_minute: int | None, tokens_per_minute: int | None) -> None:
+        self._gap = 60 / per_minute if per_minute else 0.0
+        self._tokens_per_minute = tokens_per_minute
+        self._next = 0.0
+
+    async def before(self) -> None:
+        wait = self._next - time.monotonic()
+        if wait > 0:
+            await asyncio.sleep(wait)
+        self._next = time.monotonic() + self._gap
+
+    def after(self, tokens: int) -> None:
+        if self._tokens_per_minute:
+            self._next = max(self._next, time.monotonic() + 60 * tokens / self._tokens_per_minute)
+
+
 async def _one(
-    llm: LLM,
-    case: Case,
-    variant: str,
-    round_: int,
-    slots: asyncio.Semaphore,
-    before: Callable[[], Awaitable[None]] | None = None,
+    llm: LLM, case: Case, variant: str, round_: int, slots: asyncio.Semaphore, pace: Pace | None = None
 ) -> Outcome:
     ctx = Ctx(llm, FixedRetrieval(_passages(case)), today=lambda: TODAY)
 
@@ -130,8 +165,8 @@ async def _one(
         )
 
     async with slots:
-        if before is not None:
-            await before()
+        if pace is not None:
+            await pace.before()
         CURRENT.set(case)  # this task's own context: concurrent cases do not see one another's
         start = time.perf_counter()
         try:
@@ -141,6 +176,8 @@ async def _one(
         except Exception as exc:  # one broken case must not end a paid GPU session: recorded, the run goes on
             return outcome(f"{type(exc).__name__}: {exc}", _ms(start))
         elapsed = _ms(start)
+        if pace is not None:
+            pace.after(result.tokens_in + result.tokens_out)
     if result.degraded:
         return outcome(f"model: {result.log.get('llm', 'failed')}", elapsed, result)
     scored = score(case, result.output)
@@ -188,12 +225,14 @@ async def run_cases(
     with_variants: bool = True,
     progress: Callable[[Outcome], None] | None = None,
     per_minute: int | None = None,
+    tokens_per_minute: int | None = None,
+    wait_when_refused: float = 60.0,
 ) -> list[Outcome]:
-    """[per_minute]: at most that many cases started in a minute, one at a time — for an endpoint that limits
-    requests (a hosted one). A refused request would be scored as the model's failure, so the run stays under it."""
-    slots = asyncio.Semaphore(1 if per_minute else concurrency)
-    gap = 60 / per_minute if per_minute else 0.0
-    last_start = 0.0
+    """[per_minute] · [tokens_per_minute]: a hosted endpoint's limits. The cases then run one at a time, each
+    started only when both allow it; and a case the endpoint refused is asked once more after a minute — a
+    refusal would otherwise be scored as the model's failure."""
+    pace = Pace(per_minute, tokens_per_minute) if per_minute or tokens_per_minute else None
+    slots = asyncio.Semaphore(1 if pace else concurrency)
     jobs: list[tuple[Case, str, int]] = []
     for round_ in range(1, repeat + 1):
         for case in cases:
@@ -201,15 +240,11 @@ async def run_cases(
             if with_variants:
                 jobs += [(changed, name, round_) for name, changed in variants(case)]
 
-    async def paced() -> None:
-        nonlocal last_start
-        wait = last_start + gap - time.monotonic()
-        if wait > 0:
-            await asyncio.sleep(wait)
-        last_start = time.monotonic()
-
     async def tracked(case: Case, variant: str, round_: int) -> Outcome:
-        result = await _one(llm, case, variant, round_, slots, paced if gap else None)
+        result = await _one(llm, case, variant, round_, slots, pace)
+        if pace is not None and refused(result.error):
+            await asyncio.sleep(wait_when_refused)
+            result = await _one(llm, case, variant, round_, slots, pace)
         if progress is not None:
             progress(result)
         return result
