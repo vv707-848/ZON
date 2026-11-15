@@ -29,7 +29,6 @@ Future<bool> buyFromStore(
   required String? price,
 }) async {
   final epoch = store.serverEpoch;
-  bool same() => context.mounted && epoch == store.serverEpoch;
   final StoreShelf shelf;
   final String? product;
   try {
@@ -39,10 +38,10 @@ Future<bool> buyFromStore(
   } on AccountChanged {
     return false;
   } on ApiError catch (e) {
-    if (same()) await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يبدأ الشراء', message: e.forUser);
+    if (context.mounted && epoch == store.serverEpoch) await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يبدأ الشراء', message: e.forUser);
     return false;
   }
-  if (!same()) return false;
+  if (!context.mounted || epoch != store.serverEpoch) return false;
   if (product == null) {
     await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يبدأ الشراء', message: 'هذه الخدمة لا تُباع لحسابك الآن.');
     return false;

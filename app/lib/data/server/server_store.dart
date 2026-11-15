@@ -154,7 +154,7 @@ class StoreOrder {
 
 abstract final class ServerStore {
   /// The store of this phone.
-  static String get store => defaultTargetPlatform == TargetPlatform.iOS ? 'apple' : 'google';
+  static String get platformStore => defaultTargetPlatform == TargetPlatform.iOS ? 'apple' : 'google';
 
   static Future<Offers> offers() async => Offers.fromJson((await Api.client!.get('packages')).map);
 
@@ -190,8 +190,8 @@ abstract final class ServerStore {
 
   /// A purchase of [productId] from this phone's store when the server simulates it; null when it does not —
   /// the store's real sheet is not in this build.
-  static StoreOrder? simulatedOrder(StoreShelf shelf, String productId, {Map<String, Object?>? target}) => shelf.simulated.contains(store)
-      ? StoreOrder(store: store, productId: productId, reference: 'sim:${shelf.accountToken}:${newId(8)}', target: target)
+  static StoreOrder? simulatedOrder(StoreShelf shelf, String productId, {Map<String, Object?>? target}) => shelf.simulated.contains(platformStore)
+      ? StoreOrder(store: platformStore, productId: productId, reference: 'sim:${shelf.accountToken}:${newId(8)}', target: target)
       : null;
 
   /// After the sheet: the payment's status as the server applied it — `paid`, or `unapplied` (the store charged,

@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/utils/dates.dart';
+import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/auth/server_auth.dart';
 
 import '../support/server_env.dart';
@@ -163,7 +164,7 @@ void main() {
       expect(find.text('شاهد الباقات'), findsOneWidget);
       await tapText(tester, 'البحث الدلالي');
       await _settle(tester);
-      expect(_path(), '/account/search', reason: "the server says what his plan gives, on the page");
+      expect(_path(), '/account/search', reason: 'the server says what his plan gives, on the page');
 
       await serverSignIn(server, account: <String, Object?>{...me(role: 'seeker'), 'plan': (_one('subscription')['plan']! as Map).cast<String, Object?>()});
       await pumpApp(tester, '/account');
