@@ -50,6 +50,9 @@ class StorePurchasesTest extends TestCase
         $this->assertSame($first->json('data.account_token'), $this->getJson('/api/v1/store/products')->json('data.account_token'), 'one token per account');
         $this->assertContains(self::SEEKER_PLAN, $products);
         $this->assertNotContains('com.zon.app.broker.month', $products, "another role's plan");
+        // the app opens its simulated sheet only for a store the server itself says is simulated
+        $this->assertSame(['apple', 'google'], $first->json('data.simulated'));
+        $this->apiContract('store_products', $first);
     }
 
     public function test_a_store_subscription_becomes_a_plan_period_once_up_to_the_stores_expiry(): void
@@ -57,13 +60,18 @@ class StorePurchasesTest extends TestCase
         $seeker = $this->seeker();
         $reference = "sim:{$seeker->storeToken()}:abc123";
 
-        $payment = $this->buy('apple', self::SEEKER_PLAN, $reference)->assertOk()
-            ->assertJsonPath('data.status', 'paid')->assertJsonPath('data.provider', 'apple')->assertJsonPath('data.amount', '199.00')->json('data.payment_id');
+        $this->apiContract('subscription_free', $this->getJson('/api/v1/subscription')->assertOk()->assertJsonPath('data.plan.subscribed', false));
+        $this->apiContract('store_check_plan', $this->postJson('/api/v1/store/check', ['product_id' => self::SEEKER_PLAN])->assertOk());
+
+        $bought = $this->buy('apple', self::SEEKER_PLAN, $reference)->assertOk()
+            ->assertJsonPath('data.status', 'paid')->assertJsonPath('data.provider', 'apple')->assertJsonPath('data.amount', '199.00');
+        $this->apiContract('store_purchase_plan', $bought);
+        $payment = $bought->json('data.payment_id');
         $this->assertSame($payment, $this->buy('apple', self::SEEKER_PLAN, $reference)->assertOk()->json('data.payment_id'), 'sent twice, the same payment');
 
         $this->assertSame([1, 1], [Payment::query()->count(), Subscription::query()->count()]);
         $this->assertEqualsWithDelta(now()->addDays(30)->timestamp, Subscription::query()->sole()->ends_at->timestamp, 5);
-        $this->getJson('/api/v1/subscription')->assertJsonPath('data.plan.code', 'seeker')->assertJsonPath('data.plan.subscribed', true);
+        $this->apiContract('subscription', $this->getJson('/api/v1/subscription')->assertJsonPath('data.plan.code', 'seeker')->assertJsonPath('data.plan.subscribed', true));
     }
 
     public function test_the_store_must_vouch_for_the_purchase_and_for_the_account(): void
@@ -73,7 +81,7 @@ class StorePurchasesTest extends TestCase
         $refused = fn (string $reference, string $reason) => $this->buy('google', self::SEEKER_PLAN, $reference)
             ->assertStatus(422)->assertJsonPath('error.code', 'PURCHASE_NOT_VERIFIED')->assertJsonPath('error.details.reason', $reason);
 
-        $refused('a-token-google-never-issued', 'unknown');
+        $this->apiContract('store_purchase_refused', $refused('a-token-google-never-issued', 'unknown'));
         $refused('sim:'.Str::uuid().':abc123', 'other_account');
         $refused("sim:{$mine}:abc124:pending", 'pending');
         $refused("sim:{$mine}:abc125:revoked", 'refunded');
@@ -97,12 +105,13 @@ class StorePurchasesTest extends TestCase
         $target = ['type' => 'listing', 'id' => $listing->id];
 
         $this->postJson('/api/v1/store/check', ['product_id' => 'com.zon.app.featured', 'target' => $target])->assertOk()->assertJsonPath('data.account_token', $broker->storeToken());
-        $this->buy('google', 'com.zon.app.featured', "sim:{$broker->storeToken()}:feat01", $target)->assertOk()->assertJsonPath('data.status', 'paid');
+        $this->apiContract('store_purchase_boost', $this->buy('google', 'com.zon.app.featured', "sim:{$broker->storeToken()}:feat01", $target)->assertOk()->assertJsonPath('data.status', 'paid'));
         $this->assertTrue($listing->fresh()->isFeatured());
 
-        $this->postJson('/api/v1/store/check', ['product_id' => 'com.zon.app.featured', 'target' => $target])->assertStatus(409)->assertJsonPath('error.code', 'ALREADY_ACTIVE');
-        $this->buy('google', 'com.zon.app.featured', "sim:{$broker->storeToken()}:feat02", $target)->assertOk()     // the store charged anyway
-            ->assertJsonPath('data.status', 'unapplied')->assertJsonPath('data.failure_reason', 'already_active');
+        $this->apiContract('store_check_already_active', $this->postJson('/api/v1/store/check', ['product_id' => 'com.zon.app.featured', 'target' => $target])
+            ->assertStatus(409)->assertJsonPath('error.code', 'ALREADY_ACTIVE'));
+        $this->apiContract('store_purchase_unapplied', $this->buy('google', 'com.zon.app.featured', "sim:{$broker->storeToken()}:feat02", $target)->assertOk()     // the store charged anyway
+            ->assertJsonPath('data.status', 'unapplied')->assertJsonPath('data.failure_reason', 'already_active'));
 
         $this->expectException(InvalidArgumentException::class);
         app(RefundPayment::class)(Payment::query()->where('status', 'unapplied')->sole(), 'من اللوحة');   // the store refunds its own sales

@@ -28,6 +28,7 @@ abstract final class ServerSession {
 
   static const String _tokenKey = 'zon.api.token';
   static const String _prefsKey = 'zon.notice_prefs';
+  static const String _subscribedKey = 'zon.plan.subscribed';
 
   /// The keychain (set by the app; the tests keep the memory one).
   static SecretStore secrets = MemorySecretStore();
@@ -37,6 +38,10 @@ abstract final class ServerSession {
 
   /// The account's notification switches as the server keeps them (key → on).
   static Map<String, bool> prefs = <String, bool>{};
+
+  /// Whether a paid period of a plan is running, as the server last said (`me.plan.subscribed`). What the plan
+  /// gives is the server's to say, service by service: this only decides whether the plans are offered.
+  static bool subscribed = false;
 
   static String? _token;
 
@@ -56,6 +61,7 @@ abstract final class ServerSession {
       return;
     }
     prefs = _savedPrefs();
+    subscribed = store.getItem(_subscribedKey) == 'true';
     Monitoring.account(_tag(session.id));
   }
 
@@ -84,7 +90,10 @@ abstract final class ServerSession {
       role: me['role'] is String ? me['role']! as String : 'seeker',
       city: _text(me['city']),
     );
-    store.writeSession(session);
+    final plan = me['plan'];
+    subscribed = plan is Map && plan['subscribed'] == true;
+    store.setItem(_subscribedKey, '$subscribed');
+    store.writeSession(session); // last: the screens are rebuilt on it, and read the plan above
     final switches = me['notification_prefs'];
     if (switches is Map) savePrefs(switches.cast<String, Object?>());
     Monitoring.account(_tag(session.id));
@@ -119,8 +128,10 @@ abstract final class ServerSession {
   static Future<void> close() async {
     _token = null;
     prefs = <String, bool>{};
+    subscribed = false;
     await secrets.write(_tokenKey, null);
     store.removeItem(_prefsKey);
+    store.removeItem(_subscribedKey);
     store.clearSession();
     Push.stop();
     Monitoring.account(null);
@@ -151,6 +162,7 @@ abstract final class ServerSession {
   static void reset() {
     _token = null;
     prefs = <String, bool>{};
+    subscribed = false;
     onEnded = null;
     secrets = MemorySecretStore();
   }

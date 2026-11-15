@@ -1,0 +1,11 @@
+{
+    "success": false,
+    "error": {
+        "code": "PURCHASE_NOT_VERIFIED",
+        "message": "لم يؤكد المتجر هذا الشراء.",
+        "details": {
+            "reason": "unknown"
+        },
+        "trace_id": "01M7E82FFTJ08Y1K116YVKRV76"
+    }
+}

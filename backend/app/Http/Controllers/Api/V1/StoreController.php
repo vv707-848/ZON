@@ -8,6 +8,7 @@ use App\Enums\ErrorCode;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentResource;
+use App\Integrations\Stores\FakeStore;
 use App\Integrations\Stores\Stores;
 use App\Support\Api;
 use App\Support\StoreProducts;
@@ -21,12 +22,20 @@ use Illuminate\Validation\Rule;
  */
 class StoreController extends Controller
 {
-    /** The products this account may buy, and the token to attach to each purchase (appAccountToken · obfuscatedAccountId). */
+    /**
+     * The products this account may buy, the token to attach to each purchase (appAccountToken · obfuscatedAccountId),
+     * and which of the two stores are simulated here.
+     */
     public function products(Request $request): JsonResponse
     {
         $me = $request->user('api');
 
-        return Api::ok(['account_token' => $me->storeToken(), 'products' => StoreProducts::for($me)]);
+        return Api::ok([
+            'account_token' => $me->storeToken(),
+            'products' => StoreProducts::for($me),
+            // the stores this server simulates (no store, no money): the app may show its simulated sheet for these only
+            'simulated' => array_values(array_filter(Stores::NAMES, fn (string $store) => Stores::for($store) instanceof FakeStore)),
+        ]);
     }
 
     /** Before the store's sheet: can this product be bought now, for this listing or request? The same answers as checkout. */

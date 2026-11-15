@@ -309,7 +309,7 @@ void main() {
       expect(find.text('تم البيع'), findsWidgets);
     });
 
-    testWidgets('«تمييز» without balance: nothing changes, and its price is said', (tester) async {
+    testWidgets('«تمييز» without balance: its price, paid through the store for this listing, once', (tester) async {
       final server = await open(tester, <Map<String, Object?>>[_as(_rows('listings_mine').single, status: 'published')]);
       server.on(
         'POST',
@@ -326,11 +326,79 @@ void main() {
         ),
       );
 
+      server.on('GET', 'store/products', 200, recorded('store_products'));
+      server.on('POST', 'store/check', 200, recorded('store_check_plan'));
+      server.offline('POST', 'store/purchases');
+
       await tapText(tester, 'تمييز');
       await _settle(tester);
       expect(FakeServer.body(server.sent('POST', 'listings/1/boost').single), <String, Object?>{'kind': 'featured'});
-      expect(find.text('لا رصيد للتمييز'), findsOneWidget);
-      expect(find.textContaining('السعر 99 ريال'), findsOneWidget);
+      final target = <String, Object?>{'type': 'listing', 'id': 1};
+      expect(FakeServer.body(server.sent('POST', 'store/check').single), <String, Object?>{'product_id': 'com.zon.app.featured', 'target': target});
+      expect(find.text('تمييز العرض — 99 ريالًا'), findsOneWidget, reason: "the server's price");
+      expect(find.text('دفع تجريبي — لا يُخصم مبلغ فعلي'), findsOneWidget, reason: 'the server says its store is simulated');
+      expect(server.sent('POST', 'store/purchases'), isEmpty, reason: 'nothing is paid before he taps pay');
+
+      await tapText(tester, 'ادفع 99 ريالًا');
+      await _settle(tester);
+      expect(find.text('تعذّر إتمام الدفع — لم يُخصم شيء ولم يتغير شيء.'), findsOneWidget);
+
+      server.on('POST', 'store/purchases', 200, recorded('store_purchase_boost'));
+      server.on(
+        'GET',
+        'listings/mine',
+        200,
+        ok(<Object?>[
+          _as(<String, Object?>{..._rows('listings_mine').single, 'featured': true}, status: 'published'),
+        ]),
+      );
+      await tapText(tester, 'أعد المحاولة');
+      await _settle(tester);
+      final sent = server.sent('POST', 'store/purchases');
+      expect(sent, hasLength(2));
+      final body = FakeServer.body(sent.last);
+      expect(body, FakeServer.body(sent.first), reason: 'one purchase, however often sent');
+      final token = ((recorded('store_products')['data']! as Map)['account_token']).toString();
+      expect(body['store'], 'google');
+      expect(body['product_id'], 'com.zon.app.featured');
+      expect(body['target'], target);
+      expect('${body['reference']}', startsWith('sim:$token:'), reason: "the reference the server's simulated store reads");
+      expect(find.text('ادفع 99 ريالًا'), findsNothing);
+      expect(find.text('مميز'), findsWidgets, reason: 'the listing as the server has it after');
+    });
+
+    testWidgets('a store this server does not simulate: said plainly, and nothing is bought', (tester) async {
+      final server = await open(tester, <Map<String, Object?>>[_as(_rows('listings_mine').single, status: 'published')]);
+      server.on(
+        'POST',
+        'listings/1/boost',
+        402,
+        apiFail('PAYMENT_REQUIRED', 'يتطلب دفعًا.', details: <String, Object?>{'purpose': 'featured', 'price': '99.00'}),
+      );
+      server.on(
+        'GET',
+        'store/products',
+        200,
+        ok(<String, Object?>{...(recorded('store_products')['data']! as Map).cast<String, Object?>(), 'simulated': <Object?>[]}),
+      );
+      server.on('POST', 'store/check', 200, recorded('store_check_plan'));
+      await tapText(tester, 'تمييز');
+      await _settle(tester);
+      expect(find.text('الشراء من المتجر غير متاح في هذه النسخة بعد. لم يُخصم شيء ولم يتغير شيء.'), findsOneWidget);
+      expect(find.text('دفع تجريبي — لا يُخصم مبلغ فعلي'), findsNothing);
+      await tapText(tester, 'ادفع 99 ريالًا');
+      await _settle(tester);
+      expect(server.sent('POST', 'store/purchases'), isEmpty);
+
+      await tapText(tester, 'إلغاء');
+      await _settle(tester);
+      server.on('POST', 'store/check', 409, recorded('store_check_already_active'));
+      server.on('GET', 'store/products', 200, recorded('store_products'));
+      await tapText(tester, 'تمييز');
+      await _settle(tester);
+      expect(find.text('لم يبدأ الشراء'), findsOneWidget);
+      expect(find.text('مفعّل بالفعل.'), findsOneWidget, reason: "the server's word");
+      expect(find.textContaining('ادفع'), findsNothing);
     });
 
     testWidgets('a licence that ended: «تحديث الرخصة» asks REGA through the server, and the listing comes back', (tester) async {
