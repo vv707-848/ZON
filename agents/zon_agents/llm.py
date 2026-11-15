@@ -14,6 +14,7 @@
 import asyncio
 import json
 import time
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -106,6 +107,9 @@ class LLM:
         self._budget = budget_seconds
         self._health_url = health_url
         self._api_key = api_key
+        # why the endpoint did not answer, counted (the engine's own words, cut short): what the lab prints after
+        # a run, so «unavailable» has a reason
+        self.refusals: Counter[str] = Counter()
 
     async def run[T: BaseModel](
         self, agent: str, payload: BaseModel | dict[str, Any], output: type[T], use: Use
@@ -133,6 +137,9 @@ class LLM:
                 except TimeoutError as exc:
                     raise ModelFailed("timeout") from exc
                 except (ModelAPIError, httpx.HTTPError, ConnectionError) as exc:
+                    reason = f"{type(exc).__name__}: {exc}"[:240]
+                    if reason in self.refusals or len(self.refusals) < 32:  # a long-lived service keeps few
+                        self.refusals[reason] += 1
                     raise ModelFailed("unavailable") from exc
                 usage = result.usage
                 return LlmResult(result.output, usage.input_tokens or 0, usage.output_tokens or 0)

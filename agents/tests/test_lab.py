@@ -11,9 +11,9 @@ from pydantic_ai.models.function import FunctionModel
 
 from tests.conftest import ScriptedModel
 from zon_agents.lab.cases import EXPECTS, Case, check, load_cases
-from zon_agents.lab.runner import RANKING, Outcome, report, run_cases
+from zon_agents.lab.runner import RANKING, Outcome, refused, report, run_cases, sample
 from zon_agents.lab.scoring import ndcg, number_guard, score
-from zon_agents.llm import LLM
+from zon_agents.llm import LLM, ModelFailed
 from zon_agents.profiles import load_profile, load_profiles
 from zon_agents.sim import labsim
 
@@ -211,6 +211,58 @@ def test_a_hosted_run_is_paced_one_case_at_a_time_and_scores_as_any_other() -> N
     gaps = [later - earlier for earlier, later in pairwise(started)]
     assert min(gaps) >= 0.09, "600 a minute: a tenth of a second between cases"
     assert [(o.case, o.score, o.error) for o in paced] == [(o.case, o.score, o.error) for o in free]
+
+
+def test_a_token_limit_spaces_the_cases_and_a_refused_case_is_asked_once_more() -> None:
+    cases = [c for c in load_cases() if c.agent == "summarize"][:3]
+    ends: list[float] = []
+    llm = labsim.simulated_llm("oracle")
+    tokens = asyncio.run(run_cases(llm, cases[:1], with_variants=False))[0]
+    used = tokens.tokens_in + tokens.tokens_out
+    assert used > 0
+
+    # a limit of 20 cases' tokens a minute: three seconds' worth each
+    asyncio.run(
+        run_cases(
+            llm,
+            cases[:2],
+            with_variants=False,
+            progress=lambda o: ends.append(time.monotonic()),
+            tokens_per_minute=used * 600,
+        )
+    )
+    assert ends[1] - ends[0] >= 0.09
+
+    # the endpoint refuses the first call, then answers: the case is asked again and scored on its answer
+    calls = 0
+    real = llm.run
+
+    async def flaky(*args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise ModelFailed("unavailable")
+        return await real(*args, **kwargs)
+
+    llm.run = flaky  # type: ignore[method-assign]
+    again = asyncio.run(run_cases(llm, cases[:1], with_variants=False, per_minute=6000, wait_when_refused=0.01))
+    assert (calls, again[0].error, again[0].score) == (2, None, tokens.score)
+    assert refused("model: unavailable") and refused("model: llm (unavailable) unavailable")
+    assert not refused("model: invalid") and not refused("model: llm (invalid) unavailable") and not refused(None)
+
+
+def test_a_sample_is_the_same_few_cases_of_every_agent_spread_over_its_file() -> None:
+    cases = load_cases()
+    few = sample(cases, 6)
+
+    per_agent = {agent: [c.id for c in few if c.agent == agent] for agent in {c.agent for c in cases}}
+    assert all(len(ids) == 6 for ids in per_agent.values()), "every agent has at least six cases"
+    assert [c.id for c in sample(cases, 6)] == [c.id for c in few], "the same every time"
+    listings = [c.id for c in cases if c.agent == "search_listings"]
+    assert per_agent["search_listings"] == [listings[i * len(listings) // 6] for i in range(6)], (
+        "spread, not the first six"
+    )
+    assert sample(cases, 1000) == cases
 
 
 def test_a_profile_as_a_host_serves_it_keeps_the_sampling_and_takes_the_hosts_extras() -> None:

@@ -64,3 +64,19 @@ def test_a_whole_answer_after_a_cut_one_is_used() -> None:
 
     assert result.output.results == [{"id": 3, "score": 0.9}]
     assert len(seen) == 2
+
+
+def test_an_endpoint_that_refuses_is_unavailable_and_its_reason_is_kept() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, json={"error": {"message": "Rate limit reached for tokens per minute."}})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(refuse), base_url="http://engine")
+    model = openai_model("http://engine/v1", "unused", "zon-ai", 5, http_client=client)
+    llm = LLM(model, load_prompts(), profile=SIMULATED, max_concurrency=1, budget_seconds=5)
+
+    with pytest.raises(ModelFailed) as failed:
+        asyncio.run(llm.run("search_listings", {"need": {}, "candidates": []}, _Ranked, "json"))
+
+    assert failed.value.reason == "unavailable", "the endpoint's refusal, not the model's answer"
+    ((reason, count),) = llm.refusals.items()
+    assert count == 1 and "Rate limit reached for tokens per minute." in reason

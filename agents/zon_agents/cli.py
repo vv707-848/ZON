@@ -1,11 +1,12 @@
 """`zon-agents serve` — the HTTP service · `zon-agents bootstrap [--recreate]` — the Qdrant collections ·
-`zon-agents lab check|run|sim` — the model lab (zon_agents/lab) · `zon-agents sim` — the simulated AI node
+`zon-agents lab check|run|plan|sim` — the model lab (zon_agents/lab) · `zon-agents sim` — the simulated AI node
 (zon_agents/sim)."""
 
 import argparse
 import asyncio
 import json
 import os
+import shlex
 import sys
 import time
 from collections import Counter
@@ -13,12 +14,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import httpx
 import uvicorn
 
 from zon_agents import logs, monitoring
 from zon_agents.config import Settings
+from zon_agents.lab import hosted
 from zon_agents.lab.cases import check, load_cases
-from zon_agents.lab.runner import Outcome, floors, report, run_cases
+from zon_agents.lab.runner import Outcome, floors, refused, report, run_cases, sample
 from zon_agents.llm import LLM, load_prompts, openai_model
 from zon_agents.main import create_app
 from zon_agents.profiles import load_profile
@@ -58,6 +61,8 @@ def _lab_run(args: argparse.Namespace) -> int:
     if args.agents:
         wanted = set(args.agents.split(","))
         cases = [c for c in cases if c.agent in wanted]
+    if args.sample:
+        cases = sample(cases, args.sample)
     key = os.environ.get("LLM_API_KEY", "")  # never an argument: it would stay in the shell's history
     model = openai_model(args.base_url, key, args.model, args.budget)
     profile = load_profile(args.profile)
@@ -90,6 +95,7 @@ def _lab_run(args: argparse.Namespace) -> int:
             with_variants=not args.no_variants,
             progress=progress,
             per_minute=args.rpm,
+            tokens_per_minute=args.tpm,
         )
     )
     seconds = time.monotonic() - clock
@@ -100,6 +106,27 @@ def _lab_run(args: argparse.Namespace) -> int:
     out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
     print(file=sys.stderr)
     _print_summary(result, out)
+    for reason, count in llm.refusals.most_common(5):
+        print(f"the endpoint ×{count}: {reason}", file=sys.stderr)
+    return 0
+
+
+def _lab_plan(args: argparse.Namespace) -> int:
+    """What a hosted run may ask, as the arguments of `lab run` (stdout, one line) — or why not (lab/hosted.py)."""
+    key = os.environ.get("LLM_API_KEY", "")
+    if not key:
+        print("LLM_API_KEY is empty: the host's key goes there", file=sys.stderr)
+        return 1
+    try:
+        with httpx.Client(timeout=60) as client:
+            made = hosted.plan(
+                key, load_cases(), client=client, model=args.model, agents=args.agents, per_agent=args.sample
+            )
+    except hosted.Refused as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return 1
+    print("\n".join(made.seen), file=sys.stderr)
+    print(shlex.join(made.arguments))
     return 0
 
 
@@ -149,10 +176,11 @@ def _print_summary(result: dict[str, Any], out: Path) -> None:
             f"{agent:<16}{entry['cases']:>6}{entry['score']:>8.3f}{entry['failed']:>8}"
             f"{entry['latency_ms']['p50']:>8}{entry['latency_ms']['p95']:>8}  {metrics}"
         )
-    # why cases failed: «unavailable» is the endpoint (refused, unreachable, rate-limited), not the model's answer
+    # why cases failed, and how many of them were the endpoint (refused, unreachable, over its limit), not the model
     errors = Counter(o["error"] for o in result["outcomes"] if o.get("error"))
     if errors:
         print("errors: " + " · ".join(f"{kind} ×{count}" for kind, count in errors.most_common()))
+        print(f"of them the endpoint's, not the model's: {sum(n for kind, n in errors.items() if refused(kind))}")
     print(f"overall {result['overall']:.3f} → {out}")
 
 
@@ -183,9 +211,15 @@ def main() -> None:
     run.add_argument("--hosted", help="who serves the model when it is not our node (OpenRouter…): said in the report")
     run.add_argument("--request", help="with --hosted: the host's request extras, as JSON (they replace the profile's)")
     run.add_argument("--rpm", type=int, help="at most this many cases a minute, one at a time (a host's rate limit)")
+    run.add_argument("--tpm", type=int, help="at most this many tokens a minute (a host's token limit)")
+    run.add_argument("--sample", type=int, help="at most this many cases of each agent, spread over its file")
     run.add_argument("--gpu", help="the card it ran on, for the report (A40, L40S, RTX PRO 6000…)")
     run.add_argument("--notes", help="anything a reader of the report should know")
     run.add_argument("--out", type=Path, help="the report file (default lab-<profile>-<time>.json)")
+    plan = lab_commands.add_parser("plan", help="before a hosted run: the host of the key in LLM_API_KEY, probed")
+    plan.add_argument("--model", default="", help="another model id at the host (default: its Qwen3.8-27B)")
+    plan.add_argument("--agents", default="", help="only these agents, comma-separated")
+    plan.add_argument("--sample", type=int, help="cases of each agent (0: all; default: what the daily limit allows)")
     known = lab_commands.add_parser("sim", help="the cases against the simulation: every known result checked")
     known.add_argument("--runs", help=f"only these, comma-separated (default {','.join(labsim.RUNS)})")
     known.add_argument("--out", type=Path, help="a folder for each run's summary (sim-<run>.json)")
@@ -194,7 +228,7 @@ def main() -> None:
     if args.command == "lab":
         if args.lab == "check":
             sys.exit(_lab_check())
-        sys.exit(_lab_run(args) if args.lab == "run" else _lab_sim(args))
+        sys.exit({"run": _lab_run, "plan": _lab_plan, "sim": _lab_sim}[args.lab](args))
     if args.command == "sim":
         uvicorn.run(create_sim_app(), host=args.host, port=args.port, log_level="warning")
         return

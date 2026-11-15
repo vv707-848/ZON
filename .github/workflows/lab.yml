@@ -1,9 +1,10 @@
-# The model lab against a hosted endpoint (OpenRouter by default): the golden cases answered by a real model that
-# someone else serves, so the model family can be read before a GPU is rented. Not the production node: its engine
-# and quantisation are the host's. The cases are synthetic — nothing of a user is sent.
+# The model lab against a hosted endpoint (Groq or OpenRouter, known from the key): the golden cases answered by a
+# real model that someone else serves, so the model family can be read before a GPU is rented. Not the production
+# node: its engine and quantisation are the host's. The cases are synthetic — nothing of a user is sent.
 #
-# Runs when someone with write access asks for it: «Run workflow», or a push to a `lab-run/**` branch. The key is
-# the repository secret OPENROUTER_API_KEY — never a file, never an input (the repository is public).
+# Runs when someone with write access asks for it: «Run workflow», or a push to a `lab-run/**` branch. The key is a
+# repository secret — LAB_API_KEY, or OPENROUTER_API_KEY as it was first named — never a file, never an input (the
+# repository is public). Before a case is spent the host is probed as the service asks (zon_agents/lab/hosted.py).
 name: Model lab (hosted)
 
 on:
@@ -13,10 +14,13 @@ on:
         description: The profile whose sampling is used (agents/zon_agents/models)
         default: qwen3.8-27b-fp8
       model:
-        description: The model id at the host
-        default: qwen/qwen3.8-27b:free
+        description: Another model id at the host (empty = its Qwen3.8-27B)
+        default: ''
       agents:
-        description: Only these agents, comma-separated (empty = chosen by the key's daily limit)
+        description: Only these agents, comma-separated (empty = all)
+        default: ''
+      sample:
+        description: Cases of each agent (0 = all · empty = what the host's daily limit allows)
         default: ''
   push:
     branches: ['lab-run/**']
@@ -29,18 +33,17 @@ permissions:
   contents: read
 
 env:
-  BASE_URL: https://openrouter.ai/api/v1
+  LLM_API_KEY: ${{ secrets.LAB_API_KEY || secrets.OPENROUTER_API_KEY }}
   PROFILE: ${{ inputs.profile || 'qwen3.8-27b-fp8' }}
-  MODEL: ${{ inputs.model || 'qwen/qwen3.8-27b:free' }}
+  MODEL: ${{ inputs.model }}
   AGENTS: ${{ inputs.agents }}
-  # thinking off (as the profile runs it on our node), and only a provider that honours the JSON schema
-  REQUEST: '{"reasoning":{"effort":"none"},"provider":{"require_parameters":true}}'
+  SAMPLE: ${{ inputs.sample }}
 
 jobs:
   lab:
     name: Lab · hosted model
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     defaults:
       run:
         working-directory: agents
@@ -52,29 +55,19 @@ jobs:
           cache-dependency-glob: agents/uv.lock
       - run: uv sync --locked
 
-      - name: The key and the model, before anything is spent
-        id: plan
-        env:
-          LLM_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      - name: The host, probed before a case is spent
         run: |
           if [ -z "$LLM_API_KEY" ]; then
-            echo "::error::Add the repository secret OPENROUTER_API_KEY (Settings → Secrets and variables → Actions)."
+            echo "::error::Add the repository secret LAB_API_KEY (Settings → Secrets and variables → Actions)."
             exit 1
           fi
-          curl -sS --fail-with-body -H "Authorization: Bearer $LLM_API_KEY" "$BASE_URL/key" -o "$RUNNER_TEMP/key.json"
-          curl -sS --fail-with-body "$BASE_URL/models" -o "$RUNNER_TEMP/models.json"
-          uv run python ../.github/scripts/lab_plan.py "$RUNNER_TEMP/key.json" "$RUNNER_TEMP/models.json" "$MODEL" "$AGENTS" >> "$GITHUB_OUTPUT"
+          uv run zon-agents lab plan --model "$MODEL" --agents "$AGENTS" ${SAMPLE:+--sample "$SAMPLE"} > "$RUNNER_TEMP/plan.txt"
 
       - name: The cases against the model
-        env:
-          LLM_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          PLAN_ARGS: ${{ steps.plan.outputs.args }}
-          PLAN_NOTE: ${{ steps.plan.outputs.note }}
         run: |
-          # 9 cases a minute, one at a time: under the host's 20 requests a minute even when every answer is retried
-          # shellcheck disable=SC2086 — the plan's arguments are words
-          uv run zon-agents lab run --profile "$PROFILE" --base-url "$BASE_URL" --model "$MODEL" \
-            --hosted OpenRouter --request "$REQUEST" --rpm 9 --budget 90 --notes "$PLAN_NOTE" $PLAN_ARGS \
+          # the plan is one shell-quoted line of arguments written by `lab plan` (shlex.join)
+          eval "set -- $(cat "$RUNNER_TEMP/plan.txt")"
+          uv run zon-agents lab run --profile "$PROFILE" "$@" --budget 90 \
             --out "$RUNNER_TEMP/lab-hosted.json" | tee "$RUNNER_TEMP/summary.txt"
           { echo '```'; cat "$RUNNER_TEMP/summary.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
