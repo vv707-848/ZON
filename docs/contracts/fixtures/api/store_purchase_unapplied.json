@@ -1,0 +1,14 @@
+{
+    "success": true,
+    "data": {
+        "payment_id": "01m7e82nc4adgadx6ym66gh602",
+        "purpose": "featured",
+        "status": "unapplied",
+        "amount": "100.00",
+        "vat": "0.00",
+        "currency": "SAR",
+        "provider": "google",
+        "failure_reason": "already_active",
+        "paid_at": "2026-11-15T00:00:25+00:00"
+    }
+}

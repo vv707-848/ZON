@@ -1,0 +1,32 @@
+{
+    "success": true,
+    "data": {
+        "account_token": "d8db9a1e-dacf-4553-80dc-e183149eb74c",
+        "products": [
+            {
+                "product_id": "com.zon.app.seeker.month",
+                "purpose": "subscription",
+                "package": "seeker"
+            },
+            {
+                "product_id": "com.zon.app.featured",
+                "purpose": "featured",
+                "package": null
+            },
+            {
+                "product_id": "com.zon.app.urgent.listing",
+                "purpose": "urgent_listing",
+                "package": null
+            },
+            {
+                "product_id": "com.zon.app.urgent.request",
+                "purpose": "urgent_request",
+                "package": null
+            }
+        ],
+        "simulated": [
+            "apple",
+            "google"
+        ]
+    }
+}

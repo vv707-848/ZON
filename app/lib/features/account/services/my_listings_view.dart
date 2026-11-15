@@ -41,6 +41,7 @@ import 'package:zon/features/account/services/widgets/desk.dart';
 import 'package:zon/shared/widgets/billing_flow.dart';
 import 'package:zon/shared/widgets/boost.dart';
 import 'package:zon/shared/widgets/listing_card.dart';
+import 'package:zon/shared/widgets/store_purchase.dart';
 
 /// عروضي / مشاريعي — the user's own listings and projects.
 class MyListingsView extends StatefulWidget {
@@ -174,7 +175,7 @@ class _MyListingsViewState extends State<MyListingsView> {
     }
   }
 
-  /// «تمييز» or «عاجل» from the plan's balance; without it, its price and the plans.
+  /// «تمييز» or «عاجل» from the plan's balance; without it, its price, paid here for this listing.
   Future<void> _boostOnServer(Listing l, BoostKind kind) async {
     if (l.kind == 'project') return _featureProject(l);
     final epoch = store.serverEpoch;
@@ -184,15 +185,17 @@ class _MyListingsViewState extends State<MyListingsView> {
     } on ApiError catch (e) {
       if (!mounted || epoch != store.serverEpoch) return;
       if (e.status == 402) {
-        final price = ServerMyListings.priceOf(e);
-        final plans = await showAppDialog(
+        final featured = kind == BoostKind.featured;
+        final paid = await buyFromStore(
           context,
-          icon: kind == BoostKind.featured ? Lu.crown : Lu.zap,
-          title: kind == BoostKind.featured ? 'لا رصيد للتمييز' : 'لا رصيد للعروض العاجلة',
-          message: 'لم يتغير العرض ولم يُخصم شيء.${price == null ? '' : ' السعر $price ريال.'} الرصيد يأتي مع الباقة.',
-          confirmLabel: 'الباقات',
+          purpose: featured ? 'featured' : 'urgent_listing',
+          target: <String, Object?>{'type': 'listing', 'id': int.parse(ServerListings.rawId(l.id))},
+          icon: featured ? Lu.crown : Lu.zap,
+          title: featured ? 'تمييز العرض' : 'عرض عاجل',
+          message: 'لا رصيد في باقتك لهذه الخدمة. ${featured ? 'يُميَّز' : 'يصير عاجلاً'} «${l.title}» بعد الدفع، ولم يتغير شيء قبله.',
+          price: '${e.details['price'] ?? ''}',
         );
-        if (plans && mounted) unawaited(Nav.go(context, '/account/plans'));
+        if (paid && mounted) unawaited(_load());
       } else {
         await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يتم التمييز', message: e.forUser);
       }

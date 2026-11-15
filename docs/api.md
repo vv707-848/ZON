@@ -260,7 +260,7 @@
 | `POST` | `/payments/{payment}/confirm` | 🔒 · رغبة | تأكيد بعد الدفع في التطبيق: قراءة المزوّد ثم التطبيق مرة واحدة والفاتورة | `BillingController@confirm` |
 | `POST` | `/store/check` | 🔒 · رغبة | قبل نافذة المتجر: هل يُشترى هذا الآن، لهذا العرض أو الطلب؟ (ردود الدفع نفسها) | `StoreController@check` |
 | `POST` | `/store/notices/{store}` | عام | إشعار المتجر (آبل V2 · Google RTDN) بمفتاح في الرابط؛ لا يُصدَّق محتواه — يُقرأ الشراء من المتجر: تجديد أو استرداد | `StoreNoticeController@handle` |
-| `GET` | `/store/products` | 🔒 · رغبة | منتجات المتجر لدوري، ورمز حسابي الذي يُرفق بكل شراء | `StoreController@products` |
+| `GET` | `/store/products` | 🔒 · رغبة | منتجات المتجر لدوري، ورمز حسابي الذي يُرفق بكل شراء، وأيّ المتجرين محاكاة على هذا الخادم (`simulated`) | `StoreController@products` |
 | `POST` | `/store/purchases` | 🔒 · رغبة | بعد نافذة المتجر: معرّف عملية آبل أو رمز شراء Google؛ يُطبَّق مرة واحدة بكلمة المتجر | `StoreController@purchase` |
 | `GET` | `/subscription` | 🔒 · رغبة | باقتي ومدتها وأرصدتها وحدودها | `BillingController@subscription` |
 

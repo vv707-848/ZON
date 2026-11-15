@@ -9,6 +9,11 @@
 //
 // Every price comes from data/billing/pricing.dart. Usage counters and
 // prices after the quota are shown in the service screens, not here.
+//
+// With a server (lib/data/server/server_store.dart) the page is the server's: the plans on sale for his role with
+// their prices and what each includes as the server lists them, his plan now with its last day and what is left
+// of its balances, and his invoices. A plan is bought through the store (shared/widgets/store_purchase.dart);
+// the page reads his plan again once the server says it is paid. Nothing of the phone's own billing is shown.
 
 import 'dart:async';
 
@@ -16,14 +21,19 @@ import 'package:flutter/material.dart';
 
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
+import 'package:zon/core/net/api.dart';
+import 'package:zon/core/net/api_error.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/utils/dates.dart';
 import 'package:zon/core/widgets/widgets.dart';
+import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/billing/billing.dart';
 import 'package:zon/data/billing/owner_cases.dart';
 import 'package:zon/data/catalog/catalog.dart';
+import 'package:zon/data/server/server_store.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/shared/widgets/billing_flow.dart';
+import 'package:zon/shared/widgets/store_purchase.dart';
 
 const Color _pale = Color(0xFFC8D4CC);
 
@@ -128,6 +138,144 @@ class _PlansViewState extends State<PlansView> {
     if (!mounted) return;
     setState(() {});
     if (paid && plan == Plans.seeker) unawaited(Nav.go(context, '/account/matching'));
+  }
+
+  // ------------------------------------------------------------------ with a server
+
+  /// What the server answered (null until it does), for the account that asked.
+  Offers? _offers;
+  MyPlan? _plan;
+  List<InvoiceRow> _invoices = const <InvoiceRow>[];
+  String _error = '';
+  int _epoch = store.serverEpoch;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Api.on) {
+      store.addListener(_onAccount);
+      unawaited(_load());
+    }
+  }
+
+  @override
+  void dispose() {
+    store.removeListener(_onAccount);
+    super.dispose();
+  }
+
+  /// Another account under the page: the plan and the invoices of the one before do not stay.
+  void _onAccount() {
+    if (!mounted || _epoch == store.serverEpoch) return;
+    _epoch = store.serverEpoch;
+    setState(() {
+      _offers = null;
+      _plan = null;
+      _invoices = const <InvoiceRow>[];
+      _error = '';
+    });
+    if (store.readSession() != null) unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final epoch = _epoch;
+    bool same() => mounted && epoch == _epoch && epoch == store.serverEpoch;
+    setState(() => _error = '');
+    try {
+      final offers = await ServerStore.offers();
+      final plan = await ServerStore.plan();
+      final invoices = await ServerStore.invoices();
+      if (!same()) return;
+      setState(() {
+        _offers = offers;
+        _plan = plan;
+        _invoices = invoices;
+      });
+    } on ApiError catch (e) {
+      if (same()) setState(() => _error = e.forUser);
+    }
+  }
+
+  Future<void> _buy(PlanOffer offer) async {
+    final paid = await buyFromStore(
+      context,
+      purpose: 'subscription',
+      package: offer.code,
+      icon: Lu.crown,
+      title: offer.name,
+      message: 'تبدأ الباقة حين يؤكد الخادم الدفع، ولم يتغير شيء قبله.',
+      price: offer.price,
+    );
+    if (!paid || !mounted) return;
+    unawaited(ServerSession.refresh()); // «حسابي» reads the plan from the account
+    await _load();
+  }
+
+  /// "280.00" → "280"; "0.5" stays.
+  static String _whole(String riyals) => riyals.replaceFirst(RegExp(r'\.0+$'), '');
+
+  static const Map<String, String> _periodWords = <String, String>{'month': 'شهريًا', 'year': 'سنويًا'};
+  static const Map<String, String> _balanceWords = <String, String>{'featured': 'تمييز', 'urgent_listing': 'عرض عاجل', 'urgent_request': 'طلب عاجل'};
+
+  List<Widget> _serverBody(String role) {
+    final offers = _offers;
+    final plan = _plan;
+    if (_error.isNotEmpty) {
+      return <Widget>[FormError(_error), const SizedBox(height: 12), AppButton(label: 'أعد المحاولة', tone: ButtonTone.secondary, onTap: _load)];
+    }
+    if (offers == null || plan == null) return const <Widget>[LoadingBox()];
+    final left = <String>[
+      for (final e in plan.balances.entries)
+        if (e.value > 0 && _balanceWords.containsKey(e.key)) '${_balanceWords[e.key]}: ${e.value}',
+    ];
+    return <Widget>[
+      _plainCard(
+        'باقتك الآن',
+        <String>[
+          plan.name,
+          if (plan.subscribed && plan.endsAt != null) 'تنتهي في ${arDate(plan.endsAt!, year: true)}',
+          if (left.isNotEmpty) 'المتبقي من رصيدها — ${left.join(' · ')}',
+        ].join('\n'),
+      ),
+      for (final offer in offers.onSaleFor(role)) ...<Widget>[
+        _card(
+          tag: plan.subscribed && plan.code == offer.code ? 'مفعّلة' : null,
+          head: <Widget>[_name(offer.name), _price(_whole(offer.price), small: _periodWords[offer.period], onDark: true)],
+          body: <Widget>[if (offer.features.isNotEmpty) _list('تشمل الباقة', offer.features), const SizedBox(height: 8)],
+        ),
+        if (plan.subscribed && plan.code == offer.code)
+          _cta('الباقة مفعّلة', null)
+        else
+          _cta('اشترك: ${offer.name}', () => _buy(offer)),
+        const SizedBox(height: 16),
+      ],
+      if (role == 'owner') ...<Widget>[
+        _card(
+          head: <Widget>[
+            _name('باقة المالك'),
+            _price('${offers.ownerCommissionPercent}٪', riyal: false, onDark: true),
+            _onDarkLine('سعي بعد بيع العقار المعلن'),
+          ],
+          body: <Widget>[
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Tx(
+                '${offers.oneOff['ad_licence'] == null ? '' : 'رسوم الترخيص الإعلاني: ${_whole(offers.oneOff['ad_licence']!)} ريال للهيئة العامة للعقار. '}تتفعّل الباقة بعد إتمام عقد الوساطة ونشر العرض.',
+                style: ts(14, lh: 21, c: AppColors.deep),
+              ),
+            ),
+          ],
+        ),
+        _cta('انشر عقارك', () => Nav.go(context, '/add?type=listing')),
+      ],
+      if (_invoices.isNotEmpty) ...<Widget>[
+        const SizedBox(height: 8),
+        Tx('فواتيري', style: ts(14, w: 700, lh: 21, c: AppColors.forest)),
+        const SizedBox(height: 8),
+        for (final i in _invoices)
+          _plainCard(i.number, '${_whole(i.total)} ريال${i.issuedAt == null ? '' : ' · ${arDate(i.issuedAt!, year: true)}'}'),
+      ],
+    ];
   }
 
   // ------------------------------------------------------------------ pieces
@@ -441,9 +589,11 @@ class _PlansViewState extends State<PlansView> {
         padding: const EdgeInsets.only(top: 4, bottom: 10),
         child: BackLink(label: 'الإعدادات', onTap: () => Nav.go(context, '/account/settings')),
       ),
-      if (role == 'broker') ..._broker(),
-      if (role == 'seeker') ..._seeker(),
-      if (role == 'owner') ..._owner(),
+      if (Api.on) ..._serverBody(role) else ...<Widget>[
+        if (role == 'broker') ..._broker(),
+        if (role == 'seeker') ..._seeker(),
+        if (role == 'owner') ..._owner(),
+      ],
     ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),

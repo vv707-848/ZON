@@ -1,0 +1,30 @@
+{
+    "success": true,
+    "data": {
+        "plan": {
+            "code": "free-seeker",
+            "name": "الباحث — مجاني",
+            "subscribed": false
+        },
+        "starts_at": null,
+        "ends_at": null,
+        "balances": {
+            "featured": 0,
+            "urgent_listing": 0,
+            "urgent_request": 0
+        },
+        "limits": {
+            "listings": 0,
+            "inventory": null,
+            "preferences": 1,
+            "area_requests": "none",
+            "search_requests": false,
+            "ai_daily": {
+                "search": 3,
+                "matching": 3,
+                "summary": 0,
+                "chat": 10
+            }
+        }
+    }
+}

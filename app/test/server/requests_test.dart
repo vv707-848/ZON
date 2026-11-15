@@ -467,7 +467,7 @@ void main() {
       expect(find.text('تعديل الطلب'), findsNothing);
     });
 
-    testWidgets('«عاجل» without balance: nothing changes, and the price is said', (tester) async {
+    testWidgets('«عاجل» without balance: its price, paid through the store for this request', (tester) async {
       await freshDevice();
       final server = serverDevice();
       await serverSignIn(server, account: me(role: 'owner'));
@@ -489,15 +489,28 @@ void main() {
         ),
       );
 
+      server.on('GET', 'store/products', 200, recorded('store_products'));
+      server.on('POST', 'store/check', 200, recorded('store_check_plan'));
+      server.on('POST', 'store/purchases', 200, ok(<String, Object?>{...(recorded('store_purchase_boost')['data']! as Map).cast<String, Object?>(), 'purpose': 'urgent_request', 'amount': '50.00'}));
+
       await pumpApp(tester, '/account/requests');
       await _settle(tester);
       await tapText(tester, 'اجعله طلبًا عاجلًا');
       await _settle(tester);
 
       expect(server.sent('POST', 'requests/$id/urgent'), hasLength(1));
-      expect(find.text('لا رصيد للطلبات العاجلة'), findsOneWidget);
-      expect(find.textContaining('سعر «عاجل» 50 ريال'), findsOneWidget);
-      expect(store.requestById('R$id')!.urgent, isFalse);
+      expect(find.text('طلب عاجل — 50 ريالًا'), findsOneWidget);
+      expect(store.requestById('R$id')!.urgent, isFalse, reason: 'nothing changes before it is paid');
+      final target = <String, Object?>{'type': 'request', 'id': id};
+      expect(FakeServer.body(server.sent('POST', 'store/check').single), <String, Object?>{'product_id': 'com.zon.app.urgent.request', 'target': target});
+
+      server.on('GET', 'requests/mine', 200, _each(mineAnswer, (r) => <String, Object?>{...r, 'urgent': true}));
+      await tapText(tester, 'ادفع 50 ريالًا');
+      await _settle(tester);
+      final body = FakeServer.body(server.sent('POST', 'store/purchases').single);
+      expect(body['product_id'], 'com.zon.app.urgent.request');
+      expect(body['target'], target);
+      expect(store.requestById('R$id')!.urgent, isTrue, reason: 'as the server has it after');
     });
 
     testWidgets('without a connection it says so', (tester) async {

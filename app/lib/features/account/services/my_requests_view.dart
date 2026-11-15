@@ -29,6 +29,7 @@ import 'package:zon/features/add/request_form.dart' show RequestPriceNote;
 import 'package:zon/shared/widgets/ask_card.dart';
 import 'package:zon/shared/widgets/billing_flow.dart';
 import 'package:zon/shared/widgets/boost.dart';
+import 'package:zon/shared/widgets/store_purchase.dart';
 
 /// طلباتي — the user's own search requests.
 class MyRequestsView extends StatefulWidget {
@@ -309,7 +310,7 @@ class _MyRequestsViewState extends State<MyRequestsView> {
     setState(() {});
   }
 
-  /// «عاجل» from the plan's balance; without it the server's price, and the plans to get a balance.
+  /// «عاجل» from the plan's balance; without it the server's price, paid here for this request.
   Future<void> _makeUrgentOnServer(RequestItem r) async {
     try {
       final epoch = store.serverEpoch;
@@ -318,15 +319,16 @@ class _MyRequestsViewState extends State<MyRequestsView> {
     } on ApiError catch (e) {
       if (!mounted) return;
       if (e.status == 402) {
-        final price = ServerRequests.priceOf(e);
-        final plans = await showAppDialog(
+        final paid = await buyFromStore(
           context,
+          purpose: 'urgent_request',
+          target: <String, Object?>{'type': 'request', 'id': int.parse(ServerRequests.rawId(r.id))},
           icon: Lu.zap,
-          title: 'لا رصيد للطلبات العاجلة',
-          message: 'لم يتغير الطلب ولم يُخصم شيء.${price == null ? '' : ' سعر «عاجل» $price ريال.'} الرصيد يأتي مع الباقة.',
-          confirmLabel: 'الباقات',
+          title: 'طلب عاجل',
+          message: 'لا رصيد في باقتك للطلبات العاجلة. يصير الطلب عاجلاً بعد الدفع، ولم يتغير شيء قبله.',
+          price: '${e.details['price'] ?? ''}',
         );
-        if (plans && mounted) unawaited(Nav.go(context, '/account/plans'));
+        if (paid && mounted) unawaited(_load());
       } else {
         await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يتحول الطلب إلى عاجل', message: e.forUser);
       }

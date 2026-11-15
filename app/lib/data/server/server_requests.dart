@@ -148,9 +148,6 @@ abstract final class ServerRequests {
   /// A price the server says (`50.00`) as the app writes it (`50`).
   static String riyals(Object? price) => '${price ?? ''}'.replaceFirst(RegExp(r'\.0+$'), '');
 
-  /// The price of «عاجل» in a 402 (`details.price`), as the app writes it; null when it did not say.
-  static String? priceOf(ApiError e) => e.details['price'] == null ? null : riyals(e.details['price']);
-
   /// The form as the server reads it: an empty number is no number (not zero).
   static Map<String, Object?> form(RequestItem r) {
     num? amount(double v) => v.isNaN || v <= 0 ? null : (v == v.roundToDouble() ? v.toInt() : v);

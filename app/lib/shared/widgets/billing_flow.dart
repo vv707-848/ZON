@@ -136,6 +136,7 @@ Future<bool> showPayDialog(
   required Future<bool> Function() pay,
   String? payLabel,
   bool? simulated,
+  String? unavailable,
 }) async {
   final run = _PayRun();
   final ok = await showAppFrame<bool>(
@@ -150,6 +151,7 @@ Future<bool> showPayDialog(
       pay: pay,
       payLabel: payLabel,
       simulated: simulated ?? kSimulations,
+      unavailable: unavailable,
       run: run,
     ),
   );
@@ -174,6 +176,7 @@ class _PayCard extends StatefulWidget {
     required this.run,
     required this.simulated,
     this.payLabel,
+    this.unavailable,
   });
 
   final String icon;
@@ -187,6 +190,9 @@ class _PayCard extends StatefulWidget {
   /// The payment is a simulation (this build's, or a server's): said plainly. Otherwise it is not available —
   /// the provider's sheet is not in this build yet.
   final bool simulated;
+
+  /// What is said when it is not available (the card provider's sheet by default).
+  final String? unavailable;
 
   @override
   State<_PayCard> createState() => _PayCardState();
@@ -238,7 +244,7 @@ class _PayCardState extends State<_PayCard> {
       title: widget.title,
       message: failed
           ? 'تعذّر إتمام الدفع — لم يُخصم شيء ولم يتغير شيء.'
-          : (unavailable ? 'الدفع غير متاح في هذه النسخة حتى ربط بوابة الدفع.' : widget.message),
+          : (unavailable ? (widget.unavailable ?? 'الدفع غير متاح في هذه النسخة حتى ربط بوابة الدفع.') : widget.message),
       messageColor: failed ? AppColors.danger : null,
       // The payment is simulated in this build — said plainly to the tester.
       extra: unavailable
