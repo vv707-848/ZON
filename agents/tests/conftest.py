@@ -100,12 +100,14 @@ def embedder() -> FakeEmbedder:
 
 
 @pytest.fixture
-def services(model: ScriptedModel, embedder: FakeEmbedder) -> Services:
+def services(model: ScriptedModel, embedder: FakeEmbedder) -> Iterator[Services]:
     store = VectorStore(AsyncQdrantClient(location=":memory:"), colbert=True, turbo_bits="bits4", prefetch_limit=100)
     asyncio.run(store.bootstrap())
     profile = load_profile(Settings.model_fields["llm_profile"].default)
     llm = LLM(FunctionModel(model), model.prompts, profile=profile, max_concurrency=8, budget_seconds=5)
-    return Services(llm, embedder, store, VersionStore(Path(":memory:")), hasher=None)
+    versions = VersionStore(Path(":memory:"))
+    yield Services(llm, embedder, store, versions, hasher=None)
+    versions.close()  # a test that never starts the app (no lifespan) leaves no connection open
 
 
 @pytest.fixture
