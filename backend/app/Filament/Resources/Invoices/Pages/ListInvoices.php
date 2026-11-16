@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Invoices\Pages;
 
 use App\Filament\Resources\Invoices\InvoiceResource;
-use Filament\Actions\CreateAction;
+use App\Filament\Support\AccountingExport;
 use Filament\Resources\Pages\ListRecords;
 
 class ListInvoices extends ListRecords
@@ -12,6 +12,6 @@ class ListInvoices extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return static::getResource()::canCreate() ? [CreateAction::make()] : [];
+        return [AccountingExport::sales()];
     }
 }

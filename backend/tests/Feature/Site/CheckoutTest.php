@@ -70,7 +70,8 @@ class CheckoutTest extends TestCase
         $invoice = Invoice::query()->sole();
         $done->assertSee('الإيصال');
         $this->get($this->site('account/invoices'))->assertOk()->assertSee($invoice->number);
-        $this->get($this->site('account/invoices/'.$invoice->id))->assertOk()->assertSee('إيصال دفع')->assertSee('199 ريال')->assertDontSee('رمز الفاتورة');
+        $this->get($this->site('account/invoices/'.$invoice->id))->assertOk()->assertSee('إيصال دفع')->assertSee('199 ريال')->assertDontSee('رمز الفاتورة')
+            ->assertDontSee('قبل الضريبة');                                            // no tax columns on a receipt without VAT
         $this->get($this->site('pay/'.$payment->public_id))->assertRedirect($this->site("pay/{$payment->public_id}/done"));
     }
 

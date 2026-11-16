@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Payments\Pages;
 
 use App\Filament\Resources\Payments\PaymentResource;
-use Filament\Actions\CreateAction;
+use App\Filament\Support\AccountingExport;
 use Filament\Resources\Pages\ListRecords;
 
 class ListPayments extends ListRecords
@@ -12,6 +12,6 @@ class ListPayments extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return static::getResource()::canCreate() ? [CreateAction::make()] : [];
+        return [AccountingExport::payments()];
     }
 }

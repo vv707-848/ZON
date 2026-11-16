@@ -111,7 +111,8 @@ class BillingController extends Controller
         Ownership::assert($invoice, $request->user('api'));
 
         return Api::ok($this->invoiceRow($invoice) + ['lines' => $invoice->lines, 'qr' => $invoice->qr_tlv,
-            'seller' => ['name' => Settings::string(Setting::SellerName), 'vat_number' => Settings::string(Setting::VatNumber) ?: null]]);
+            'seller' => ['name' => Settings::string(Setting::SellerName),
+                'vat_number' => Settings::bool(Setting::VatRegistered) ? (Settings::string(Setting::VatNumber) ?: null) : null]]);
     }
 
     /** @return array<string, mixed> */
