@@ -140,8 +140,22 @@ def numbers_ok(text: str, permitted: set[str]) -> bool:
     return all(_free(n) or n in permitted for n in numbers(text))
 
 
+_LETTER = r"[^\W\d_]"
+_SHARE = re.compile(
+    rf"(?<!{_LETTER})(?<!\d)(?:و?ب?ال)?(?:ضعف{_LETTER}{{0,2}}|اضعاف|تضاعف{_LETTER}{{0,2}}|مضاعف{_LETTER}{{0,2}}"
+    rf"|(?:نصف|ربع|ثلث)(?:ي|ين)?)(?!{_LETTER})"
+)
+_UNIT = r"(?:الف|الاف|الفين|مليون|ملايين|مليونين|مليار|مليارات|%|٪|بالميه|بالمايه|في الميه|في المايه)"
+_UNIT_AFTER_FIGURE = re.compile(rf"\d[\d,٬.]*\s*{_UNIT}")
+_UNIT_ALONE = re.compile(rf"(?<!{_LETTER}){_UNIT}(?!{_LETTER})")
+
+
 def number_guard(text: str, rows: Sequence[dict[str, Any]], params: dict[str, Any]) -> bool:
-    """App\\SuperAgent\\NumberGuard::passes, line for line: every number, small ones too (no `_free`)."""
+    """App\\SuperAgent\\NumberGuard::passes, line for line: every number, small ones too (no `_free`), and no
+    quantity said without digits (a multiple, a share, an amount or a percentage in words)."""
+    words = norm(text)
+    if _SHARE.search(words) or _UNIT_ALONE.search(_UNIT_AFTER_FIGURE.sub(" ", words)):
+        return False
     permitted: set[str] = set()
     for row in rows:
         for value in row.values():

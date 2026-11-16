@@ -48,6 +48,7 @@ class ListingsTest extends TestCase
         $this->assertSame('880000.00', $listing->price, 'Arabic digits and separators read exactly');
         $this->assertSame('pending_review', $listing->status->value);
         $this->assertSame('شقة واسعة قريبة من الخدمات.', $listing->desc_suggested);
+        $this->assertNull($listing->features, '«دور أرضي» is not in his text: a feature the model added is not kept');
         Http::assertSent(fn ($r) => str_contains($r->url(), '/agents/clean_listing') && ! str_contains($r['text'], '0551234567')
             && $r->hasHeader('X-Internal-Key', 'test-internal-key'));
         // what he stated outside his text reaches the wording too, as the lab's cases give it (price · deed · bank)

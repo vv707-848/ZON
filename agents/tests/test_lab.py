@@ -60,6 +60,11 @@ def test_the_number_guard_is_laravels() -> None:
     trend = [{"month": "2026-05", "avg_price": 905000}, {"month": "2026-10", "avg_price": 952000}]
     assert number_guard("من 905 ألف في مايو 2026 (2026-05) إلى 952,000 في شهر 10.", trend, {}), "a month's parts"
     assert not number_guard("ارتفع السعر منذ 2025.", trend, {}) and not number_guard("الفجوة 13.", gap, {})
+    demand = [{"neighborhood": "النرجس", "requests": 42, "avg_price": 905000}]
+    for made in ("تضاعف الطلب.", "ثلاثة أضعاف العروض.", "نصف الطلبات.", "السعر مليونين.", "أعلى بخمسين بالمئة."):
+        assert not number_guard(made, demand, {}), made
+    for fine in ("الطلبات 42، ومتوسط السعر 905 ألف.", "ثلاثة أحياء أعلاها النرجس.", "الفيلا مربعة الشكل."):
+        assert number_guard(fine, demand, {}), fine
 
 
 def test_text_scorers_reward_the_facts_and_punish_what_was_never_said() -> None:

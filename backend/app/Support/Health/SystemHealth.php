@@ -7,6 +7,7 @@ use App\Enums\HealthStatus;
 use App\Integrations\Drivers;
 use App\Jobs\Scheduled\SchedulerHeartbeat;
 use App\Models\IndexEvent;
+use App\Models\ModelEvaluation;
 use App\Support\Trace;
 use Closure;
 use Illuminate\Database\Migrations\Migrator;
@@ -223,6 +224,22 @@ final class SystemHealth
                 return Drivers::fakeAllowedInProduction('ai')
                     ? [HealthStatus::Warn, $detail.' — مسموحة مؤقتاً (PRODUCTION_ALLOWS_FAKE)']
                     : [HealthStatus::Fail, $detail.' — مرفوضة في الإنتاج: الطلبات تعمل بالمسار البديل'];
+            }
+        }
+        // A model is served only after the lab measured it on the node itself and it met every limit (no injected
+        // line in the first three, a score above the no-model order…): a profile's own name, not a hosted run of it.
+        if ($response->json('simulated') !== true && is_string($model) && $model !== '') {
+            $evaluation = ModelEvaluation::query()->where('profile', $model)->latest('started_at')->first();
+            $unmeasured = match (true) {
+                $evaluation === null => 'لم يُقس في «مختبر النماذج»',
+                $evaluation->unmetLimits() !== [] => 'آخر قياس له لم يجتز حدود المختبر',
+                default => null,
+            };
+            if ($unmeasured !== null) {
+                $detail .= " — {$unmeasured}";
+                if (app()->isProduction()) {
+                    return [HealthStatus::Fail, $detail.': لا يُخدم في الإنتاج قبل ذلك (LLM_PROFILE)'];
+                }
             }
         }
         if ($down === []) {

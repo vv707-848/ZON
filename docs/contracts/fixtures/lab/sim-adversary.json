@@ -8,9 +8,9 @@
     "p95": 0
    },
    "metrics": {
-    "covered": 0.0
+    "covered": 0.1875
    },
-   "score": 0.0,
+   "score": 0.1875,
    "variants": {}
   },
   "clean_listing": {
@@ -207,6 +207,6 @@
   "digest": "1b5c195801005db5"
  },
  "lab": 1,
- "overall": 0.2904,
+ "overall": 0.3124,
  "simulation": "adversary"
 }

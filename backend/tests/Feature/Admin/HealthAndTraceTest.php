@@ -14,6 +14,7 @@ use App\Integrations\Drivers;
 use App\Jobs\Scheduled\SchedulerHeartbeat;
 use App\Models\AiRequest;
 use App\Models\IndexEvent;
+use App\Models\ModelEvaluation;
 use App\Support\Permissions\Permission;
 use App\Support\Trace;
 use Illuminate\Http\Client\Request;
@@ -39,6 +40,17 @@ class HealthAndTraceTest extends AdminTestCase
         (new SchedulerHeartbeat)->handle();
     }
 
+    /** A lab run of [profile] [hoursAgo], with the agents of the recorded simulation [run]. */
+    private function measured(string $run, string $profile, int $hoursAgo): void
+    {
+        $report = json_decode((string) file_get_contents(base_path("../docs/contracts/fixtures/lab/sim-{$run}.json")), true, flags: JSON_THROW_ON_ERROR);
+        ModelEvaluation::query()->create([
+            'profile' => $profile, 'weights' => 'EschaLabs/Qwen3.8-27B-Escha-W2', 'runtime' => 'escha', 'gpu' => 'A40', 'dataset_digest' => str_repeat('a', 16),
+            'dataset_cases' => 326, 'overall' => $report['overall'], 'agents' => $report['agents'], 'throughput' => [], 'failed' => 0,
+            'started_at' => now()->subHours($hoursAgo), 'duration_s' => 60, 'report' => [],
+        ]);
+    }
+
     /** @return array<string, array{status: string, detail: string, hint: ?string}> the doctor's checks by key */
     private function doctor(int $exitCode): array
     {
@@ -56,7 +68,21 @@ class HealthAndTraceTest extends AdminTestCase
             $this->assertSame('ok', $checks[$key]['status'], $key.': '.$checks[$key]['detail']);
             $this->assertNull($checks[$key]['hint']);
         }
-        $this->assertStringEndsWith('· qwen3.8-27b-escha-w2', $checks['agents']['detail'], 'the model the AI node serves');
+        $this->assertStringContainsString('· qwen3.8-27b-escha-w2 — لم يُقس في «مختبر النماذج»', $checks['agents']['detail'], 'the model the AI node serves, and that it is not measured');
+    }
+
+    public function test_in_production_a_model_is_served_only_after_the_lab_measured_it_and_it_met_every_limit(): void
+    {
+        $this->app['env'] = 'production';
+        config(['queue.default' => 'redis', 'app.debug' => false, 'zon.admin_allowed_ips' => ['10.0.0.1'], 'services.production_allows_fake' => implode(',', array_keys(Drivers::SERVICES))]);
+        $this->assertSame('fail', $this->doctor(1)['agents']['status'], 'not measured');
+
+        $this->measured('oracle', 'qwen3.8-27b-escha-w2.groq', 3);           // a hosted run of the same model is not the node
+        $this->assertSame('fail', $this->doctor(1)['agents']['status']);
+        $this->measured('oracle', 'qwen3.8-27b-escha-w2', 2);
+        $this->assertSame('ok', $this->doctor(0)['agents']['status'], 'measured on the node, every limit met');
+        $this->measured('adversary', 'qwen3.8-27b-escha-w2', 1);              // its latest run, under the limits
+        $this->assertStringContainsString('آخر قياس له لم يجتز حدود المختبر', $this->doctor(1)['agents']['detail']);
     }
 
     public function test_a_stopped_scheduler_fails_the_doctor_with_the_fix(): void
@@ -113,6 +139,7 @@ class HealthAndTraceTest extends AdminTestCase
         // Debug off and the panel behind its addresses; every simulation allowed for now; a DSN without a release.
         config(['app.debug' => false, 'zon.admin_allowed_ips' => ['10.0.0.1'], 'services.production_allows_fake' => implode(',', array_keys(Drivers::SERVICES)),
             'sentry.dsn' => 'https://public@o1.ingest.sentry.invalid/1', 'sentry.release' => null]);
+        $this->measured('oracle', 'qwen3.8-27b-escha-w2', 1);
 
         $checks = $this->doctor(0);
 

@@ -11,9 +11,19 @@ use App\Support\ArabicText;
  *
  * A number is read from the text without its sign, so a negative value allows its magnitude («فجوة -12», «نقص 12»);
  * and a month or a date («2026-05») allows its parts («مايو 2026», «شهر 5»): both are what the rows say.
+ *
+ * A quantity said without digits is a number too, and none can be checked against the rows: a multiple or a share
+ * («تضاعف», «ثلاثة أضعاف», «نصف الطلبات»), an amount («مليونين», «آلاف الريالات») or a percentage in words with no
+ * figure before it reject the analysis. A count in words («ثلاثة أحياء») is not a quantity of the data.
  */
 final class NumberGuard
 {
+    /** A multiple or a share, as a word of its own (after «ال» or «و»). */
+    private const SHARE = '/(?<![\p{L}\d])(?:و?ب?ال)?(?:ضعف\p{L}{0,2}|اضعاف|تضاعف\p{L}{0,2}|مضاعف\p{L}{0,2}|(?:نصف|ربع|ثلث)(?:ي|ين)?)(?![\p{L}])/u';
+
+    /** An amount or a percentage unit; one with its figure before it is removed first (that figure is checked). */
+    private const UNIT = '(?:الف|الاف|الفين|مليون|ملايين|مليونين|مليار|مليارات|%|٪|بالميه|بالمايه|في الميه|في المايه)';
+
     /**
      * @param  list<array<string, mixed>>  $rows  of every report the analysis covers
      * @param  array<mixed>  $params  the values of their parameters, and their row counts
@@ -39,6 +49,12 @@ final class NumberGuard
             if (is_numeric($value)) {
                 $allowed[$this->plain((string) $value)] = true;
             }
+        }
+
+        $words = ArabicText::normalize($text);
+        $unitless = (string) preg_replace('/\d[\d,٬.]*\s*'.self::UNIT.'/u', ' ', $words);
+        if (preg_match(self::SHARE, $words) === 1 || preg_match('/(?<![\p{L}])'.self::UNIT.'(?![\p{L}])/u', $unitless) === 1) {
+            return false;
         }
 
         preg_match_all('/\d[\d,٬]*(?:\.\d+)?/u', ArabicText::asciiDigits($text), $matches);

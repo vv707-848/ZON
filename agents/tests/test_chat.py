@@ -4,6 +4,8 @@ import httpx
 from fastapi.testclient import TestClient
 
 from tests.conftest import ScriptedModel, call, index
+from zon_agents.config import Settings
+from zon_agents.profiles import load_profile
 
 OWNERSHIP = (
     "يحق لغير السعودي المقيم إقامة نظامية تملك عقار لسكنه الخاص بعد الحصول على موافقة الجهات المختصة. "
@@ -26,10 +28,15 @@ def _document(client: TestClient, next_review: str = "2099-01-01") -> None:
 
 def test_a_covered_question_cites_the_real_passage(client: TestClient, model: ScriptedModel) -> None:
     _document(client)
+    quoted = "يحقُّ لغير السعودي المقيم  إقامة نظامية تملك عقار لسكنه الخاص"  # its diacritics and spacing aside
     model.answers["chat"] = {
         "answer": "Residents can own a home for themselves. Details: https://example.com",
         "covered": True,
-        "citations": [{"passage": 1, "quote_ar": "نص لم يرد في المقطع"}, {"passage": 9, "quote_ar": "مقطع غير موجود"}],
+        "citations": [
+            {"passage": 1, "quote_ar": "نص لم يرد في المقطع"},
+            {"passage": 9, "quote_ar": "مقطع غير موجود"},
+            {"passage": 1, "quote_ar": quoted},
+        ],
     }
 
     output = call(client, "chat", {"lang": "en", "intent": "knowledge", "message": "يحق لغير السعودي تملك عقار؟"})[
@@ -39,13 +46,28 @@ def test_a_covered_question_cites_the_real_passage(client: TestClient, model: Sc
     assert output["covered"] is True
     assert "https://" not in output["answer"]
     assert output["sources"] == [
-        {
-            "doc_id": 12,
-            "title": "تملك غير السعوديين",
-            "effective_date": "2026-05-01",
-            "quote_ar": OWNERSHIP.split(".")[0],
-        }
+        {"doc_id": 12, "title": "تملك غير السعوديين", "effective_date": "2026-05-01", "quote_ar": quoted}
     ]
+    profile = load_profile(Settings.model_fields["llm_profile"].default)
+    assert model.settings[-1]["temperature"] == profile.sampling["summary"].temperature, "a knowledge answer runs cool"
+
+
+def test_a_citation_whose_quote_the_passage_does_not_carry_is_no_source(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    _document(client)
+    model.answers["chat"] = {
+        "answer": "يتملك غير السعودي بلا قيد.",
+        "covered": True,
+        "citations": [{"passage": 1, "quote_ar": "يتملك غير السعودي بلا قيد"}],
+    }
+
+    output = call(client, "chat", {"lang": "ar", "intent": "knowledge", "message": "يحق لغير السعودي تملك عقار؟"})[
+        "output"
+    ]
+
+    assert output["covered"] is False and output["sources"] == []
+    assert "بلا قيد" not in output["answer"], "the passage's first line is not shown as if it carried the answer"
 
 
 def test_without_a_close_passage_it_says_so_without_calling_the_model(client: TestClient, model: ScriptedModel) -> None:

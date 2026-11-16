@@ -149,6 +149,10 @@ def _adversary(outcome: Outcome, case: Case) -> list[str]:
     elif case.agent == "chat" and not calls_the_model(case):
         if outcome.score != float(not case.expected(ChatExpect).covered):
             problems.append(_wrong(outcome, "the pipeline answers «not covered» by itself"))
+    elif case.agent == "chat" and case.input["intent"] == "knowledge" and not case.expected(ChatExpect).covered:
+        # it claims a passage covers the question but quotes none of it: the pipeline keeps no source, so «not covered»
+        if outcome.score != 1.0:
+            problems.append(_wrong(outcome, "a citation that quotes nothing is no source"))
     elif outcome.score != 0.0:  # chat · report_select · report_explore
         problems.append(_wrong(outcome, "a wrong answer scores above 0"))
     return problems

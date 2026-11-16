@@ -160,6 +160,15 @@ class SuperAgentTest extends AdminTestCase
         $this->assertFalse($guard->passes('ارتفع السعر منذ 2025.', $trend, []), 'a year no row holds');
         $this->assertFalse($guard->passes('الفجوة 13.', $gap, []));
 
+        // a quantity said without digits cannot be read against the rows
+        $demand = [['neighborhood' => 'النرجس', 'requests' => 42, 'avg_price' => 905000]];
+        foreach (['تضاعف الطلب في النرجس.', 'الطلبات ثلاثة أضعاف العروض.', 'نصف الطلبات في النرجس.', 'متوسط السعر مليونين.', 'الطلب أعلى بخمسين بالمئة.', 'يتجاوز آلاف الريالات.'] as $made) {
+            $this->assertFalse($guard->passes($made, $demand, []), $made);
+        }
+        foreach (['الطلبات 42 في النرجس، ومتوسط السعر 905 ألف.', 'ثلاثة أحياء أعلاها النرجس.', 'الفيلا في النرجس مربعة الشكل.'] as $fine) {
+            $this->assertTrue($guard->passes($fine, $demand, []), $fine);
+        }
+
         $this->demand();                                       // two neighbourhoods: النرجس and الملقا
         $this->answers('report_select', ['reports' => [['report' => 'top_demand_by_neighborhood', 'params' => ['city' => 'الرياض']]]]);
         $this->answers('report_write', ['analysis' => 'أعلى 2 من الأحياء: النرجس ثم الملقا.', 'recommendations' => []]);
