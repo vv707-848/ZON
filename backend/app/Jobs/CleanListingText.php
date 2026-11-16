@@ -53,10 +53,11 @@ class CleanListingText implements ShouldBeUniqueUntilProcessing, ShouldQueue
 
         $sent = self::asked($listing);
         $result = $ai->call(AiAgent::CleanListing, $sent,
-            check: function (array $output): ?array {
+            check: function (array $output) use ($listing): ?array {
                 $text = trim((string) ($output['desc_clean'] ?? ''));
+                $features = array_values(array_filter((array) ($output['features'] ?? []), 'is_string'));
 
-                return $text === '' ? null : ['desc_clean' => $text, 'features' => array_values(array_filter((array) ($output['features'] ?? []), 'is_string'))];
+                return $text === '' ? null : ['desc_clean' => $text, 'features' => self::said($features, (string) $listing->desc_raw)];
             }, customer: $listing->customer, cache: false);
 
         DB::transaction(function () use ($sent, $result, $publish, $status, $index) {
@@ -86,6 +87,31 @@ class CleanListingText implements ShouldBeUniqueUntilProcessing, ShouldQueue
             }
             $listing->customer->notify(Notices::wordingReady($listing));
         });
+    }
+
+    /**
+     * The features the advertiser's own text states: each word of the feature is in it (Arabic letters folded, «ال»
+     * aside), and not right after a negation («بدون مصعد» is no «مصعد»). One the model added is never kept: the
+     * advertiser's approval of the wording is not a check of its features.
+     *
+     * @param  list<string>  $features
+     * @return list<string>
+     */
+    public static function said(array $features, string $text): array
+    {
+        $bare = fn (string $word) => (string) preg_replace('/^(?:و?ب?ال|و)(?=\p{L}{2})/u', '', $word);
+        $words = array_map($bare, explode(' ', ArabicText::normalize((string) preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $text))));
+        $negated = '/(?:بدون|بلا|ما ?في(?:ه|ها)?|لا يوجد|ليس فيه|غير) +(?:\p{L}+ +)?$/u';
+
+        return array_values(array_filter($features, function (string $feature) use ($bare, $words, $negated) {
+            $wanted = array_map($bare, array_filter(explode(' ', ArabicText::normalize((string) preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $feature)))));
+            if ($wanted === [] || array_diff($wanted, $words) !== []) {
+                return false;
+            }
+            $at = array_search($wanted[array_key_first($wanted)], $words, true);
+
+            return preg_match($negated, implode(' ', array_slice($words, max(0, (int) $at - 3), min(3, (int) $at))).' ') !== 1;
+        }));
     }
 
     /**

@@ -10,7 +10,8 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 from tests.conftest import FakeEmbedder, index, listing, sign
-from zon_agents.indexing import Indexer
+from zon_agents.embeddings import estimate_tokens
+from zon_agents.indexing import CHUNK_MAX_TOKENS, Indexer, chunk_text
 from zon_agents.schemas.index import IndexSignal
 from zon_agents.services import Services
 from zon_agents.store import KNOWLEDGE
@@ -123,3 +124,15 @@ def test_a_document_is_cut_into_passages_that_carry_its_metadata(client: TestCli
     assert index(client, "kb_document", 12, {**document, "body": sentence}, version=2) == "indexed"
     points, _ = asyncio.run(services.store._client.scroll(KNOWLEDGE, limit=100))
     assert len(points) == 1  # the passages of the longer body are gone
+
+
+def test_a_text_with_no_full_stop_is_cut_between_words_and_nothing_is_left_past_the_embedding_limit() -> None:
+    clause = "ويستثنى من ذلك ما يصدر به قرار من مجلس الوزراء بشرط موافقة الجهة المختصة خلال المهلة النظامية"
+    body = " ".join([clause] * 120) + " وآخر النص الشرط الحاكم"  # one «sentence» of some 3,800 tokens
+
+    passages = chunk_text(body)
+
+    assert len(passages) > 1
+    assert all(estimate_tokens(p) <= CHUNK_MAX_TOKENS for p in passages), "each passage fits what the model embeds"
+    assert passages[-1].endswith("الشرط الحاكم"), "the end of the text is in a passage"
+    assert " ".join(passages).split() == body.split(), "nothing dropped, nothing cut inside a word"

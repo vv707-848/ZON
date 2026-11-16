@@ -6,8 +6,14 @@ here). For `knowledge` this pipeline retrieves the five closest passages across 
 similarity it says the question is not covered — without calling the model. The model answers from the given
 passages (or the package facts Laravel sent) only, and cites the passages it used; the sources come from the
 passages themselves, so a citation can never name a document that was not retrieved.
+
+A citation stands only with its quote: the sentence the model says it relied on must be in that passage word for
+word (diacritics and spacing aside). Otherwise it is dropped — a passage's first line is no evidence of an answer
+it does not carry — and a knowledge answer with no citation left is «not covered». Knowledge answers are asked
+at the profile's `summary` sampling (cooler than the conversation's).
 """
 
+import re
 from typing import Any
 
 from zon_agents.llm import ModelFailed, model_unavailable
@@ -24,13 +30,17 @@ NOT_COVERED = {
 }
 
 
-def _quote(chunk: KnowledgeChunk, quote: str) -> str:
-    """The original Arabic sentence shown under a translated answer: the model's quote when it is really in the
-    passage, otherwise the passage's first sentence."""
+_MARKS = re.compile(r"[\u064B-\u0652\u0640]")  # tashkeel and tatweel
+
+
+def _plain(text: str) -> str:
+    return " ".join(_MARKS.sub("", text).split())
+
+
+def _quote(chunk: KnowledgeChunk, quote: str) -> str | None:
+    """The original Arabic sentence shown under the answer: the model's quote, only when the passage carries it."""
     quote = quote.strip()
-    if quote and quote in chunk.text:
-        return quote
-    return chunk.text.split(".")[0].split("\n")[0][:300]
+    return quote if quote and _plain(quote) in _plain(chunk.text) else None
 
 
 async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
@@ -53,7 +63,7 @@ async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
         "packages": [p.model_dump(exclude_none=True) for p in req.packages],
     }
     try:
-        answer = await ctx.llm.run("chat", payload, ChatAnswer, "chat")
+        answer = await ctx.llm.run("chat", payload, ChatAnswer, "summary" if req.intent == "knowledge" else "chat")
     except ModelFailed as exc:
         raise model_unavailable(exc) from exc
 
@@ -62,15 +72,11 @@ async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
         if not 1 <= citation.passage <= len(chunks):
             continue
         chunk = chunks[citation.passage - 1]
-        if any(s["doc_id"] == chunk.doc_id for s in sources):
+        quote = _quote(chunk, citation.quote_ar)
+        if quote is None or any(s["doc_id"] == chunk.doc_id for s in sources):
             continue
         sources.append(
-            {
-                "doc_id": chunk.doc_id,
-                "title": chunk.title,
-                "effective_date": chunk.effective_date,
-                "quote_ar": _quote(chunk, citation.quote_ar),
-            }
+            {"doc_id": chunk.doc_id, "title": chunk.title, "effective_date": chunk.effective_date, "quote_ar": quote}
         )
     covered = answer.output.covered and (req.intent != "knowledge" or bool(sources))
     text = scrub(answer.output.answer) if covered else NOT_COVERED[req.lang]

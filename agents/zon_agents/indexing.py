@@ -51,8 +51,23 @@ def passage_id(doc_id: int, chunk_no: int) -> str:
     return str(uuid.uuid5(KB_NAMESPACE, f"{doc_id}:{chunk_no}"))
 
 
+def _pieces(sentence: str) -> list[str]:
+    """A «sentence» longer than a passage (a text with no full stops) is cut between words at the target size, so
+    nothing of it is left past the embedding model's 1024 tokens."""
+    if estimate_tokens(sentence) <= CHUNK_MAX_TOKENS:
+        return [sentence]
+    pieces: list[str] = []
+    words: list[str] = []
+    for word in sentence.split():
+        if words and estimate_tokens(" ".join([*words, word])) > CHUNK_TARGET_TOKENS:
+            pieces.append(" ".join(words))
+            words = []
+        words.append(word)
+    return [*pieces, " ".join(words)] if words else pieces
+
+
 def chunk_text(body: str) -> list[str]:
-    sentences = [s.strip() for s in _SENTENCE_END.split(body) if s.strip()]
+    sentences = [p for s in _SENTENCE_END.split(body) if s.strip() for p in _pieces(s.strip())]
     chunks: list[str] = []
     current: list[str] = []
     tokens = 0

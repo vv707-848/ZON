@@ -53,8 +53,9 @@ async def _query(ctx: Ctx, need: Need, terms: Sequence[str]) -> Embedding | None
 async def _shortlist[C: Candidate](
     ctx: Ctx, collection: str, query: Embedding | None, candidates: Sequence[C], size: int = SHORTLIST
 ) -> list[tuple[C, float]]:
-    """The candidates in hybrid order, then — up to `size` — those not indexed yet in Laravel's (budget) order.
-    Without free text there is nothing to embed: Laravel's order is kept."""
+    """The candidates in hybrid order, then — up to `size` — those not indexed yet in Laravel's (budget) order, each
+    scored below every hybrid hit (a score is never above one placed before it). Without free text there is nothing
+    to embed: Laravel's order is kept."""
     if not candidates:
         return []
     by_id = {c.id: c for c in candidates}
@@ -64,8 +65,9 @@ async def _shortlist[C: Candidate](
         ranked = [(by_id[h.id], h.score) for h in hits if h.id in by_id]
     seen = {c.id for c, _ in ranked}
     rest = [c for c in candidates if c.id not in seen]
+    top = min([0.5, *(score for _, score in ranked)])
     for position, candidate in enumerate(rest[: max(0, size - len(ranked))]):
-        ranked.append((candidate, round(max(0.0, 0.5 - position / (2 * size)), 3)))
+        ranked.append((candidate, round(max(0.0, top * (1 - (position + 1) / (2 * size))), 3)))
     return ranked
 
 

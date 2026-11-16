@@ -94,8 +94,12 @@ def perfect(case: Case, payload: dict[str, Any]) -> dict[str, Any]:
             chat = case.expected(ChatExpect)
             if not chat.covered:
                 return {"answer": "لا أملك معلومة موثقة عن هذا.", "covered": False, "citations": []}
-            docs = [p["doc_id"] for p in case.context.get("passages", [])]
-            cited = [{"passage": n, "quote_ar": ""} for n, doc in enumerate(docs, start=1) if doc in chat.cite][:1]
+            passages = case.context.get("passages", [])
+            cited = [  # a right answer quotes the passage it relies on, word for word
+                {"passage": n, "quote_ar": str(p["text"]).split(".")[0].strip()}
+                for n, p in enumerate(passages, start=1)
+                if p["doc_id"] in chat.cite
+            ][:1]
             lead = _LEAD.get(chat.lang or "", "")
             answer = " ".join([lead, " ، ".join(_words(chat.mention, chat.lang))]).strip() or "نعم."
             return {"answer": answer, "covered": True, "citations": cited}
