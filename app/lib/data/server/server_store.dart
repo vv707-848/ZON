@@ -272,7 +272,13 @@ abstract final class ServerStore {
     if (s == null || account == null || !await s.available()) return false;
     final shelf = await ServerStore.shelf();
     if (epoch != store.serverEpoch) throw const AccountChanged();
-    _restoring = (account, <String>{for (final (id, purpose, _) in shelf.products) if (purpose == 'subscription') id});
+    _restoring = (
+      account,
+      <String>{
+        for (final (id, purpose, _) in shelf.products)
+          if (purpose == 'subscription') id,
+      },
+    );
     await s.restore(accountToken: shelf.accountToken);
     return true;
   }

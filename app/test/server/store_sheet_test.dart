@@ -278,7 +278,11 @@ void main() {
       expect(find.textContaining('طلبنا من المتجر مشترياتك السابقة'), findsOneWidget);
 
       await tapText(tester, 'حسناً');
-      await serverSignIn(server, account: me(id: 42, role: 'seeker', name: 'حساب آخر'), token: '7|second');
+      await serverSignIn(
+        server,
+        account: me(id: 42, role: 'seeker', name: 'حساب آخر'),
+        token: '7|second',
+      );
       await _settle(tester);
       sheet.deliver(const StoreReceipt(productId: _plan, reference: 'play-token-0005', restored: true));
       await _settle(tester);

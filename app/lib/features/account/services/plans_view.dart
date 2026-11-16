@@ -242,7 +242,10 @@ class _PlansViewState extends State<PlansView> {
   Widget _terms() {
     Widget link(String label, String slug) => GestureDetector(
       onTap: () => Nav.go(context, '/legal/$slug'),
-      child: Tx(label, style: ts(13, w: 700, lh: 19.5, c: AppColors.forest).copyWith(decoration: TextDecoration.underline)),
+      child: Tx(
+        label,
+        style: ts(13, w: 700, lh: 19.5, c: AppColors.forest).copyWith(decoration: TextDecoration.underline),
+      ),
     );
     return Column(
       children: <Widget>[

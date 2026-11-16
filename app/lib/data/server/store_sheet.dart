@@ -135,12 +135,7 @@ class InAppStoreSheet implements StoreSheet {
             _settle(p.productID, const SheetFailed('لم يعطِ المتجر رقماً للشراء.'));
             continue;
           }
-          final receipt = StoreReceipt(
-            productId: p.productID,
-            reference: reference,
-            native: p,
-            restored: p.status == PurchaseStatus.restored,
-          );
+          final receipt = StoreReceipt(productId: p.productID, reference: reference, native: p, restored: p.status == PurchaseStatus.restored);
           if (_waiting.containsKey(p.productID)) {
             _settle(p.productID, SheetBought(receipt));
           } else {
