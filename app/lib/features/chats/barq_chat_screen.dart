@@ -212,10 +212,7 @@ class _BarqChatScreenState extends State<BarqChatScreen> {
                   ),
                   if (Api.on) ...<Widget>[
                     const SizedBox(height: 6),
-                    Tx(
-                      'أجيب بلغتك. قد يخطئ زون؛ المرجع هو النص الرسمي المذكور تحت كل جواب.',
-                      style: ts(13, lh: 19.5, c: const Color(0xA3FFFFFF)),
-                    ),
+                    Tx('أجيب بلغتك. قد يخطئ زون؛ المرجع هو النص الرسمي المذكور تحت كل جواب.', style: ts(13, lh: 19.5, c: const Color(0xA3FFFFFF))),
                   ],
                 ],
               ),
