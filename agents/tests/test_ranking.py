@@ -185,3 +185,54 @@ def test_brokers_search_requests_in_their_own_collection(client: TestClient, mod
     ]
 
     assert output["results"][0]["id"] == 77
+
+
+def test_what_breaks_a_stated_condition_comes_after_what_does_not_whatever_the_model_said(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    need = {**NEED, "budget_max": 900_000, "bedrooms": 3, "free_text": "مدخل خاص"}
+    flat = {"type": "apartment", "neighborhood": "النرجس", "desc": "شقة بمدخل خاص"}
+    candidates = [
+        {"id": 1, **flat, "price": 1_000_000, "bedrooms": 3},  # 11% over the top
+        {"id": 2, **flat, "price": 880_000, "bedrooms": 2},  # a room short
+        {"id": 3, **flat, "price": 990_000, "bedrooms": 4},  # 10% over: still within the tenth
+        {"id": 4, **flat, "price": 700_000, "bedrooms": None},  # rooms asked for and not stated
+        {"id": 5, **flat, "price": 850_000, "bedrooms": 3},
+    ]
+    answer = [{"id": i, "score": round(1 - i / 10, 1)} for i in (1, 2, 3, 4, 5)]
+    model.answers["search_listings"] = {"results": answer}
+    model.answers["matching"] = {"matched": answer, "broaden": []}
+
+    found = call(client, "search_listings", {"need": need, "candidates": candidates})["output"]["results"]
+    matched = call(client, "matching", {"need": need, "matched": candidates})["output"]["matched"]
+
+    assert [r["id"] for r in found] == [3, 5, 1, 2, 4], "none removed; each group in the model's order"
+    assert [r["score"] for r in found] == [0.7, 0.5, 0.5, 0.5, 0.5], "moved down: not a score above the ones before"
+    assert matched == found
+
+    open_need = {**NEED, "budget_max": None, "free_text": "مدخل خاص"}  # no number stated: nothing to break
+    kept = call(client, "search_listings", {"need": open_need, "candidates": candidates})["output"]["results"]
+    assert [r["id"] for r in kept] == [1, 2, 3, 4, 5]
+    model.answers["search_listings"] = httpx.ConnectError("tunnel down")
+    plain = call(client, "search_listings", {"need": need, "candidates": candidates})
+    assert plain["degraded"] is True and [r["id"] for r in plain["output"]["results"]][:2] == [3, 5], (
+        "with no model too"
+    )
+
+
+def test_a_request_whose_own_budget_or_rooms_the_offer_breaks_comes_last(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    offer = {**NEED, "budget_max": 600_000, "bedrooms": 4, "free_text": "شقة بمطبخ راكب وواجهة شمالية"}
+    wish = {"types": ["apartment"], "neighborhoods": ["النرجس"], "desc": "أبغى شقة مطبخ راكب"}
+    requests = [
+        {"id": 1, **wish, "budget_max": 480_000},  # the offer is a quarter over this budget
+        {"id": 2, **wish, "budget_max": 650_000, "rooms_min": 5},  # wants a room more than the offer has
+        {"id": 3, **wish, "budget_max": 560_000, "rooms_min": 4},  # 7% over: within the tenth
+        {"id": 4, **wish},  # no budget stated
+    ]
+    model.answers["search_requests"] = {"results": [{"id": i, "score": 0.9} for i in (1, 2, 3, 4)]}
+
+    found = call(client, "search_requests", {"need": offer, "candidates": requests})["output"]["results"]
+
+    assert [r["id"] for r in found] == [3, 4, 1, 2]

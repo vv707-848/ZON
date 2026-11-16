@@ -19,6 +19,7 @@ from typing import Any
 
 from zon_agents.lab.scoring import norm
 from zon_agents.pipelines.base import scrub
+from zon_agents.pipelines.ranking import OVER_BUDGET
 
 # ── what people ask for by name ─────────────────────────────────────────────────────────────────
 
@@ -72,7 +73,6 @@ _FIELDS: dict[str, Callable[[dict[str, Any]], bool | None]] = {
     "bank": lambda c: c.get("bank"),
     "new": lambda c: None if c.get("age") is None else c["age"] <= 1,
 }
-OVER = 1.10  # over the budget by more than this breaks the condition
 SCORES = {3: 0.95, 2: 0.7, 1: 0.45, 0: 0.05}
 
 
@@ -114,7 +114,9 @@ def _listing(need: dict[str, Any], wishes: set[str], candidate: dict[str, Any]) 
     top, price = need.get("budget_max"), candidate.get("price")
     distance = abs(price - top) / top if top and price is not None else 0.0
     rooms = need.get("bedrooms")
-    if (top and price is not None and price > top * OVER) or (rooms and (candidate.get("bedrooms") or 0) < rooms):
+    if (top and price is not None and price > top * OVER_BUDGET) or (
+        rooms and (candidate.get("bedrooms") or 0) < rooms
+    ):
         return 0, distance, candidate["id"]
     over = bool(top and price is not None and price > top)
     return _by_share(_share(wishes, _has(candidate)), over), distance, candidate["id"]
@@ -131,7 +133,7 @@ def _request(offer: dict[str, Any], features: set[str], request: dict[str, Any])
     distance = abs(price - top) / top if top and price else 0.0
     rooms = request.get("rooms_min")
     known = offer.get("bedrooms")  # an offer whose rooms were not given is not short of any
-    if (top and price and price > top * OVER) or (rooms and known is not None and known < rooms):
+    if (top and price and price > top * OVER_BUDGET) or (rooms and known is not None and known < rooms):
         return 0, distance, request["id"]
     share = _share(concepts(str(request.get("desc", ""))), features)
     return _by_share(share, bool(top and price and price > top)), distance, request["id"]

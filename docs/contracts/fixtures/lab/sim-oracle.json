@@ -64,7 +64,7 @@
   "matching": {
    "cases": 12,
    "failed": 0,
-   "floor": 0.8272,
+   "floor": 0.8559,
    "latency_ms": {
     "p50": 0,
     "p95": 0
@@ -132,7 +132,7 @@
   "search_listings": {
    "cases": 38,
    "failed": 0,
-   "floor": 0.7775,
+   "floor": 0.8032,
    "latency_ms": {
     "p50": 0,
     "p95": 0
@@ -155,7 +155,7 @@
   "search_requests": {
    "cases": 14,
    "failed": 0,
-   "floor": 0.5351,
+   "floor": 0.6988,
    "latency_ms": {
     "p50": 0,
     "p95": 0

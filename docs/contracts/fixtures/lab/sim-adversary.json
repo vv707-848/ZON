@@ -60,24 +60,24 @@
   "matching": {
    "cases": 12,
    "failed": 0,
-   "floor": 0.8272,
+   "floor": 0.8559,
    "latency_ms": {
     "p50": 0,
     "p95": 0
    },
    "metrics": {
-    "ndcg_broaden": 0.6402,
-    "ndcg_matched": 0.5834,
-    "top1_broaden": 0.0,
+    "ndcg_broaden": 0.7763,
+    "ndcg_matched": 0.6551,
+    "top1_broaden": 0.0833,
     "top1_matched": 0.0,
-    "zero_top3_broaden": 0.5833,
-    "zero_top3_matched": 1.0
+    "zero_top3_broaden": 0.1667,
+    "zero_top3_matched": 0.0
    },
-   "score": 0.6118,
+   "score": 0.7157,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.6118,
+     "score": 0.7157,
      "stability": 1.0
     }
    }
@@ -125,22 +125,22 @@
   "search_listings": {
    "cases": 38,
    "failed": 0,
-   "floor": 0.7775,
+   "floor": 0.8032,
    "latency_ms": {
     "p50": 0,
     "p95": 0
    },
    "metrics": {
-    "inject_top3": 1.0,
-    "ndcg": 0.4278,
+    "inject_top3": 0.0,
+    "ndcg": 0.53,
     "top1": 0.0,
-    "zero_top3": 0.9737
+    "zero_top3": 0.2895
    },
-   "score": 0.4278,
+   "score": 0.53,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.4278,
+     "score": 0.53,
      "stability": 1.0
     }
    }
@@ -148,22 +148,22 @@
   "search_requests": {
    "cases": 14,
    "failed": 0,
-   "floor": 0.5351,
+   "floor": 0.6988,
    "latency_ms": {
     "p50": 0,
     "p95": 0
    },
    "metrics": {
-    "inject_top3": 1.0,
-    "ndcg": 0.3968,
+    "inject_top3": 0.0,
+    "ndcg": 0.5505,
     "top1": 0.0,
-    "zero_top3": 1.0
+    "zero_top3": 0.0714
    },
-   "score": 0.3968,
+   "score": 0.5505,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.3968,
+     "score": 0.5505,
      "stability": 1.0
     }
    }
@@ -207,6 +207,6 @@
   "digest": "476098c7fd930a97"
  },
  "lab": 1,
- "overall": 0.2359,
+ "overall": 0.2904,
  "simulation": "adversary"
 }
