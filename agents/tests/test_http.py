@@ -41,7 +41,7 @@ def test_the_callers_trace_id_comes_back_and_is_on_the_log_line(
 
 
 def test_health_reports_each_dependency(client: TestClient, embedder: FakeEmbedder) -> None:
-    model = "qwen3.6-35b-a3b-escha-w2"
+    model = "qwen3.8-27b-escha-w2"
     assert client.get("/agents/health").json() == {
         "status": "ok",
         "llm": True,

@@ -29,7 +29,7 @@ class ModelLabTest extends AdminTestCase
 
         return array_replace_recursive([
             'lab' => 1,
-            'profile' => ['name' => 'qwen3.6-35b-a3b-fp8', 'weights' => 'RedHatAI/Qwen3.6-35B-A3B-FP8-dynamic', 'runtime' => 'vllm',
+            'profile' => ['name' => 'qwen3.8-27b-escha-w2', 'weights' => 'EschaLabs/Qwen3.8-27B-Escha-W2', 'runtime' => 'escha',
                 'licence' => 'Apache-2.0', 'sampling' => [], 'request' => ['top_k' => 20], 'serve' => ['args' => [], 'env' => []]],
             'prompts' => ['matching' => '2'],
             'gpu' => 'A40',
@@ -77,7 +77,7 @@ class ModelLabTest extends AdminTestCase
         $this->upload($this->report())->assertHasNoActionErrors();
 
         $run = ModelEvaluation::query()->sole();
-        $this->assertSame(['qwen3.6-35b-a3b-fp8', 'vllm', 'A40', 'd458ef560e86569a', 182, 0.874, 0, $owner->id],
+        $this->assertSame(['qwen3.8-27b-escha-w2', 'escha', 'A40', 'd458ef560e86569a', 182, 0.874, 0, $owner->id],
             [$run->profile, $run->runtime, $run->gpu, $run->dataset_digest, $run->dataset_cases, $run->overall, $run->failed, $run->uploaded_by]);
         $this->assertSame([], $run->unmetLimits());
         $this->assertSame([], Storage::disk('local')->allFiles(), 'the uploaded file is not kept: the report is in the row');

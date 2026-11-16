@@ -177,7 +177,7 @@ def test_a_run_measures_every_agent_end_to_end_and_writes_the_report(model: Scri
     llm = LLM(
         FunctionModel(model),
         model.prompts,
-        profile=load_profile("qwen3.6-35b-a3b-fp8"),
+        profile=load_profile("qwen3.8-27b-fp8"),
         max_concurrency=8,
         budget_seconds=5,
     )
@@ -192,7 +192,7 @@ def test_a_run_measures_every_agent_end_to_end_and_writes_the_report(model: Scri
     for agent in RANKING:
         assert "stability" in result["agents"][agent]["variants"]["reversed"], agent
     assert "digits" in result["agents"]["clean_listing"]["variants"]
-    assert result["profile"]["name"] == "qwen3.6-35b-a3b-fp8" and result["gpu"] == "A40"
+    assert result["profile"]["name"] == "qwen3.8-27b-fp8" and result["gpu"] == "A40"
     assert result["dataset"]["cases"] == len(cases) and len(result["dataset"]["digest"]) == 16
     assert len(result["outcomes"]) == len(outcomes) > len(cases), "variants ran too"
     sent = [s for s in model.settings if s.get("extra_body", {}).get("chat_template_kwargs")]
@@ -206,7 +206,7 @@ def test_a_model_that_fails_is_recorded_and_the_run_goes_on(model: ScriptedModel
     llm = LLM(
         FunctionModel(model),
         model.prompts,
-        profile=load_profile("qwen3.6-35b-a3b-escha-w2"),
+        profile=load_profile("qwen3.8-27b-escha-w2"),
         max_concurrency=4,
         budget_seconds=5,
     )

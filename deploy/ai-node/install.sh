@@ -22,7 +22,7 @@ python3.12 -m venv /workspace/venv-embed
 /workspace/venv-tools/bin/hf download BAAI/bge-m3 --local-dir /workspace/models/bge-m3 --exclude "onnx/*"
 
 # ② ملف نموذج واحد: محركه ثم أوزانه — يُكرَّر لكل ملف يُجرَّب، والمحرك يُثبَّت مرة لكل نوع
-PROFILE=qwen3.6-35b-a3b-escha-w2
+PROFILE=qwen3.8-27b-escha-w2
 RUNTIME=$(sed -n 's/^runtime = "\(.*\)"/\1/p' "/workspace/profiles/$PROFILE.toml")
 echo "$PROFILE → $RUNTIME"
 
@@ -44,12 +44,19 @@ case "$RUNTIME" in
     python3.12 -m venv /workspace/venv-escha
     /workspace/venv-escha/bin/pip install -U pip wheel
     /workspace/venv-escha/bin/pip install "torch==2.9.*" --index-url https://download.pytorch.org/whl/cu128
-    /workspace/venv-tools/bin/hf download EschaLabs/escha-runtime-qwen3moe --include "sglang/*" --local-dir /workspace/escha
+    # وقت تشغيل النماذج الكثيفة (Qwen3.8-27B). لا يُثبَّت معه sglang من PyPI: العجلة تحمل نسختها منه
+    /workspace/venv-tools/bin/hf download EschaLabs/escha-runtime-qwen3dense --include "sglang/*" --local-dir /workspace/escha
     /workspace/venv-escha/bin/pip install /workspace/escha/sglang/escha-*.whl
     # أقل من 5.8 يعمل النموذج بإعدادات خاطئة: كلام مرتّب ومعنى فاسد وتحذير واحد في السجل
     /workspace/venv-escha/bin/pip install "transformers>=5.8"
     # تحقق المزوّد — الناتج المقبول الوحيد: True True True
-    /workspace/venv-escha/bin/python -c "import torch, escha, sglang; print(torch.cuda.is_available(), hasattr(torch.ops.escha, 'escham_moe_linear'), bool(sglang.__version__))"
+    /workspace/venv-escha/bin/python -c "import torch, escha, sglang; print(torch.cuda.is_available(), hasattr(torch.ops.escha, 'escham_decode_gemv'), bool(sglang.__version__))"
+    # الإصدار يُسجَّل في دفتر التشغيل: 1.2.1 فما فوق (الأقدم من 1.1 لا يحمّل نموذجاً كثيفاً)
+    /workspace/venv-escha/bin/python -c "import escha; print(escha.__version__)"
+    # serve.py يسلّم السكربت هذه المتغيرات: إن لم يقرأ أحدها خُدم النموذج باسم أو منفذ أو مفتاح غير المطلوب، فيتوقف التثبيت هنا
+    for name in MODEL SERVED_NAME HOST PORT API_KEY; do
+      grep -q "\b$name\b" /workspace/escha/sglang/serve.sh || { echo "serve.sh does not read $name" >&2; exit 1; }
+    done
     /workspace/venv-escha/bin/pip freeze > /workspace/venv-escha.lock
     ;;
 esac

@@ -20,7 +20,7 @@ def test_every_profile_file_loads_with_a_sampling_for_every_use() -> None:
     profiles = load_profiles()
 
     assert Settings.model_fields["llm_profile"].default in profiles, "the default profile exists"
-    assert len(profiles) >= 5
+    assert len(profiles) >= 4
     for profile in profiles.values():
         assert set(profile.sampling) == set(USES), profile.name
 
@@ -37,21 +37,22 @@ def test_a_call_carries_the_profiles_sampling_and_request_extras(client: TestCli
         },
     )
 
-    assert model.settings[0] == {"temperature": 0.3, "top_p": 0.8, "max_tokens": 700, "extra_body": {"top_k": 20}}
+    extras = {"top_k": 20, "chat_template_kwargs": {"enable_thinking": False}}  # thinking off in every request
+    assert model.settings[0] == {"temperature": 0.3, "top_p": 0.8, "max_tokens": 700, "extra_body": extras}
 
 
 def test_a_retry_keeps_the_extras_and_lowers_only_the_temperature() -> None:
-    profile = load_profile("qwen3.6-35b-a3b-fp8")
+    profile = load_profile("qwen3.8-27b-fp8")
 
     first, retry = profile.settings("chat"), profile.settings("chat", temperature=0.1)
 
-    assert first["extra_body"] == {"top_k": 20, "chat_template_kwargs": {"enable_thinking": False}}
+    assert first["extra_body"] == {"top_k": 20, "chat_template_kwargs": {"reasoning_effort": "none"}}
     assert first.get("presence_penalty") == 1.5
     assert {**first, "temperature": 0.1} == retry
 
 
 def test_a_profile_without_every_use_or_with_a_greedy_temperature_is_refused(tmp_path: Path) -> None:
-    good = load_profile("qwen3.6-35b-a3b-fp8").model_dump()
+    good = load_profile("qwen3.8-27b-fp8").model_dump()
 
     with pytest.raises(ValidationError, match="sampling is missing chat"):
         ModelProfile.model_validate({**good, "sampling": {k: v for k, v in good["sampling"].items() if k != "chat"}})
@@ -59,7 +60,7 @@ def test_a_profile_without_every_use_or_with_a_greedy_temperature_is_refused(tmp
         ModelProfile.model_validate(
             {**good, "sampling": {**good["sampling"], "json": {**good["sampling"]["json"], "temperature": 0}}}
         )
-    (tmp_path / "other-name.toml").write_text((PROFILES_DIR / "qwen3.6-35b-a3b-fp8.toml").read_text())
+    (tmp_path / "other-name.toml").write_text((PROFILES_DIR / "qwen3.8-27b-fp8.toml").read_text())
     with pytest.raises(RuntimeError, match="named after its profile"):
         load_profiles(tmp_path)
 
@@ -87,19 +88,45 @@ def test_the_ai_node_serves_every_profile_as_zon_ai_on_the_loopback(name: str, t
     assert "secret-key" not in printed, "a printed command never shows the key"
     if profile.runtime == "escha":
         assert "SERVED_NAME=zon-ai HOST=127.0.0.1 PORT=30000" in printed and printed.rstrip().endswith("serve.sh")
+        assert f"PATH={tmp_path}/venv-escha/bin:" in printed, "the provider's script finds its own python first"
     else:
         assert "--served-model-name zon-ai --host 127.0.0.1 --port 30000" in printed
         assert printed.rstrip().endswith(" ".join(profile.serve.args))
 
 
 def test_a_profile_cannot_move_the_engine_off_the_loopback(tmp_path: Path) -> None:
-    text = (PROFILES_DIR / "qwen3.6-35b-a3b-fp8.toml").read_text().replace('args = ["', 'args = ["--host=0.0.0.0", "')
-    (tmp_path / "qwen3.6-35b-a3b-fp8.toml").write_text(text)
+    text = (PROFILES_DIR / "qwen3.8-27b-fp8.toml").read_text().replace('args = ["', 'args = ["--host=0.0.0.0", "')
+    (tmp_path / "qwen3.8-27b-fp8.toml").write_text(text)
 
     done = subprocess.run(
-        [sys.executable, str(SERVE), "qwen3.6-35b-a3b-fp8", "--print", "--profiles", str(tmp_path)],
+        [sys.executable, str(SERVE), "qwen3.8-27b-fp8", "--print", "--profiles", str(tmp_path)],
         capture_output=True,
         text=True,
     )
 
     assert done.returncode != 0 and "may not set --host" in done.stderr
+
+
+def test_a_profile_on_the_official_sglang_is_served_the_same_way(tmp_path: Path) -> None:
+    text = (PROFILES_DIR / "qwen3.8-27b-fp8.toml").read_text()
+    text = text.replace('runtime = "vllm"', 'runtime = "sglang"').replace(
+        'name = "qwen3.8-27b-fp8"', 'name = "on-sglang"'
+    )
+    (tmp_path / "on-sglang.toml").write_text(
+        text[: text.index("[serve]")] + '[serve]\nargs = ["--context-length", "32768"]\n'
+    )
+
+    printed = subprocess.run(
+        [sys.executable, str(SERVE), "on-sglang", "--print", "--profiles", str(tmp_path)],
+        env={**os.environ, "ZON_WORKSPACE": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+    assert (
+        f"{tmp_path}/venv-sglang/bin/python -m sglang.launch_server --model-path {tmp_path}/models/Qwen3.8-27B"
+        in printed
+    )
+    assert "--served-model-name zon-ai --host 127.0.0.1 --port 30000" in printed
+    assert printed.rstrip().endswith("--context-length 32768")
