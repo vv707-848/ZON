@@ -8,6 +8,7 @@ use App\Jobs\Scheduled\RemindSubscriptionRenewals;
 use App\Models\BoostUsage;
 use App\Models\BuyerPreference;
 use App\Models\Customer;
+use App\Models\Invoice;
 use App\Models\Listing;
 use App\Models\Payment;
 use App\Models\Project;
@@ -193,6 +194,19 @@ class StorePurchasesTest extends TestCase
 
         $this->assertSame('refunded', Payment::query()->sole()->status->value);
         $this->assertFalse($listing->fresh()->isUrgent());
+    }
+
+    public function test_a_google_purchase_gets_our_invoice_only_while_we_are_vat_registered(): void
+    {
+        $seeker = $this->seeker();
+        Settings::put(Setting::GooglePlayVatByZon, true);
+        $this->buy('google', self::SEEKER_PLAN, "sim:{$seeker->storeToken()}:vat001")->assertOk();
+        $this->assertSame(0, Invoice::query()->count(), 'not registered: Google remits the tax, whatever that setting says');
+
+        Settings::put(Setting::VatRegistered, true);
+        Settings::put(Setting::VatNumber, '300000000000003');
+        $this->buy('google', self::SEEKER_PLAN, "sim:{$seeker->storeToken()}:vat002")->assertOk();
+        $this->assertNotNull(Invoice::query()->sole()->qr_tlv);
     }
 
     public function test_without_a_configured_key_no_notice_is_taken(): void

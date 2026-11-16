@@ -5,6 +5,8 @@ namespace Tests\Feature\Api;
 use App\Models\Customer;
 use App\Models\LegalPage;
 use App\Models\Listing;
+use App\Support\Settings\Setting;
+use App\Support\Settings\Settings;
 use Illuminate\Broadcasting\BroadcastManager;
 use Tests\TestCase;
 
@@ -31,7 +33,9 @@ class AccountReadsTest extends TestCase
         $this->assertMatchesRegularExpression('/^ZON-\d{4}-\d{6}$/', (string) $invoices->json('data.0.number'));
         $this->apiContract('invoices', $invoices);
         $id = $invoices->json('data.0.id');
-        $invoice = $this->getJson("/api/v1/invoices/{$id}")->assertOk()->assertJsonPath('data.total', $checkout->json('data.amount'));
+        Settings::put(Setting::VatNumber, '300000000000003');     // filled in before registering: not printed until registered
+        $invoice = $this->getJson("/api/v1/invoices/{$id}")->assertOk()->assertJsonPath('data.total', $checkout->json('data.amount'))
+            ->assertJsonPath('data.vat', '0.00')->assertJsonPath('data.seller.vat_number', null);
         $this->assertEqualsWithDelta((float) $invoice->json('data.total'), (float) $invoice->json('data.subtotal') + (float) $invoice->json('data.vat'), 0.001, 'its total is its subtotal and VAT');
         $this->assertNotEmpty($invoice->json('data.lines'));
         $this->apiContract('invoice', $invoice);

@@ -46,7 +46,8 @@ use Illuminate\Support\Facades\DB;
  *   customer keeps the plan) moves its period's end with it — read from the store on a notice or a claim sent again,
  *   with no second payment, invoice or balance. Never earlier: an account hold's past expiry ends nothing sooner.
  * - **No invoice of ours:** Apple sells as our commissionaire and remits the tax; Google too, unless our VAT number is
- *   registered with Google (Setting::GooglePlayVatByZon) — then each Google purchase gets our invoice.
+ *   registered with Google (Setting::GooglePlayVatByZon) while we are VAT-registered — then each Google purchase gets
+ *   our invoice. Not registered, Google remits it whatever that setting says.
  */
 final class ApplyStorePurchase
 {
@@ -136,7 +137,7 @@ final class ApplyStorePurchase
      */
     private function record(Customer $customer, StoreTransaction $tx, array $product, ?array $target): Payment
     {
-        $invoiced = $tx->store === 'google' && Settings::bool(Setting::GooglePlayVatByZon);
+        $invoiced = $tx->store === 'google' && Settings::bool(Setting::VatRegistered) && Settings::bool(Setting::GooglePlayVatByZon);
         $subscription = $product['purpose'] === PaymentPurpose::Subscription;
 
         $payment = DB::transaction(function () use ($customer, $tx, $product, $target, $invoiced) {

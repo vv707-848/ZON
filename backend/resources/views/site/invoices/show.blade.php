@@ -19,16 +19,18 @@
         <dt>المشتري</dt><dd>{{ $invoice->buyer_name }}</dd>
     </dl>
     <table class="section lines">
-        <thead><tr><th>البيان</th><th>الكمية</th><th>قبل الضريبة</th><th>الضريبة</th><th>الإجمالي</th></tr></thead>
+        {{-- No VAT on it (not registered when it was issued): no tax columns, as a receipt of a seller outside VAT --}}
+        @php $taxed = $invoice->vat_halalas > 0; @endphp
+        <thead><tr><th>البيان</th><th>الكمية</th>@if ($taxed)<th>قبل الضريبة</th><th>الضريبة</th>@endif<th>الإجمالي</th></tr></thead>
         <tbody>
             @foreach ($invoice->lines ?? [] as $line)
                 <tr><td>{{ $line['description'] }}</td><td>{{ $line['quantity'] }}</td>
-                    <td>{{ Format::price((float) (new Money((int) $line['subtotal']))->riyals()) }}</td>
-                    <td>{{ Format::price((float) (new Money((int) $line['vat']))->riyals()) }}</td>
+                    @if ($taxed)<td>{{ Format::price((float) (new Money((int) $line['subtotal']))->riyals()) }}</td>
+                    <td>{{ Format::price((float) (new Money((int) $line['vat']))->riyals()) }}</td>@endif
                     <td>{{ Format::price((float) (new Money((int) $line['total']))->riyals()) }}</td></tr>
             @endforeach
         </tbody>
-        <tfoot><tr><th colspan="4">الإجمالي{{ $invoice->vat_halalas > 0 ? ' شامل الضريبة' : '' }}</th><th>{{ Format::price((float) (new Money($invoice->total_halalas))->riyals()) }}</th></tr></tfoot>
+        <tfoot><tr><th colspan="{{ $taxed ? 4 : 2 }}">الإجمالي{{ $taxed ? ' شامل الضريبة' : '' }}</th><th>{{ Format::price((float) (new Money($invoice->total_halalas))->riyals()) }}</th></tr></tfoot>
     </table>
     @unless ($invoice->qr_tlv)<p class="hint section">المنصة غير مسجّلة في ضريبة القيمة المضافة حين صدر هذا الإيصال.</p>@endunless
 </article>
