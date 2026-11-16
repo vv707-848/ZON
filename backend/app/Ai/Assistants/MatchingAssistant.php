@@ -14,7 +14,7 @@ use App\Models\Listing;
 use App\Models\ProjectUnit;
 
 /**
- * «مساعد المطابقة»: three lists — offers matching the wish, offers that broaden it (other types within the budget),
+ * «مساعد المطابقة»: three lists — offers matching the wish, offers that broaden it (what its budget buys in the whole city),
  * and project unit models (grouped into project cards by Laravel). Nothing at all → a search miss is recorded and
  * the app suggests posting a request (suggest_request).
  */

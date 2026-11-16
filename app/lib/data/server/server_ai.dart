@@ -3,7 +3,7 @@
 //
 //   POST /ai/search                                 offers for a need: each a listing and its score
 //   POST /ai/search/requests                        a broker's: the requests his offer answers
-//   POST /ai/matching                               the wish's results: the same type · other types · projects
+//   POST /ai/matching                               the wish's results: the same type · the city within the budget · projects
 //   POST /ai/matching/projects/{id}/searchers       a developer's: the seekers a project suits, each with its unit
 //   GET  /ai/matching/projects/{id}/brokers         a developer's: the brokers of its city by their clients' count
 //   POST /ai/chat · GET /ai/chat                    «زون»: an answer with its sources and where to go; the history
@@ -87,7 +87,7 @@ class Matching {
   /// The wish's own type, in its neighbourhoods.
   final List<Scored<Listing>> matched;
 
-  /// «توسيع الإدراك»: other types within the budget.
+  /// «توسيع الإدراك»: what the budget buys in the whole city — other neighbourhoods and other types.
   final List<Scored<Listing>> broaden;
   final List<MatchedProject> projects;
 

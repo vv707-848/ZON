@@ -4,5 +4,5 @@
 Thumbs.db
 .idea/
 *.swp
-_tools/__pycache__/
+_tools/**/__pycache__/
 _tools/site-audit/node_modules/
