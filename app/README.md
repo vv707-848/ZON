@@ -125,8 +125,10 @@ flutter build ipa --release
      `build.gradle.kts` يقرؤه وحده. بدونه تُوقَّع نسخة release بمفتاح debug: تعمل على جوال التجربة، وGoogle Play يرفضها.
    - **iOS:** اختر فريق التطوير (Team) في Xcode.
 3. **رقم الإصدار**: السطر `version: 1.2.1+4` في `pubspec.yaml` (الرقم بعد `+` يزيد مع كل رفع).
-4. **المحاكاة**: ابنِ نسخة المتجر بـ `--dart-define=ZON_SIMULATIONS=false` إلى أن تُربط الخدمات الحقيقية.
-5. **الخادم والأخطاء والإشعارات** (حين تُربط كل الشرائح):
+4. **المحاكاة**: نسخة release لا تحاكي شيئاً ما لم تُبنَ بـ `--dart-define=ZON_SIMULATIONS=true` (لنسخة عرض فقط، لا للمتجر). والسطر `ZON_SIMULATIONS=false` أدناه يقول ذلك صراحة.
+   - **الأجهزة:** آيفون فقط (`TARGETED_DEVICE_FAMILY = 1`)؛ على آيباد يعمل بوضع التوافق. الواجهة مبنية لعرض الجوال، فلا يُعلَن لآيباد قبل تصميمه وتجربته عليه.
+   - **حساب المراجعة:** الدخول بالجوال وكلمة السر، بلا رمز تحقق. يصنعه المدير العام ويُكتب في App Review وPlay Console (`docs/operations.md` ← «مراجعة المتاجر»).
+5. **الخادم والأخطاء والإشعارات**:
    ```bash
    flutter build appbundle --release \
      --dart-define=ZON_API_URL=https://api.zon.sa/api/v1 \

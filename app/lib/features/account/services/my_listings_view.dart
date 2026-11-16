@@ -4,13 +4,13 @@
 //
 // With a server, a broker's or an owner's listings are its (GET /listings/mine, ServerMyListings): every state,
 // «نشط» being the published ones; hiding is a pause, «مباع» is final (asked first), «تمييز» and «عاجل» come from
-// the plan's balance (without it, the price — paying in the app comes with the plans). A listing whose wording
+// the plan's balance (without it, its price, bought through the store). A listing whose wording
 // waits for him opens its review.
 //
 // A developer's projects with a server are its too (GET /projects/mine, ServerMyProjects): a draft opens its
 // wording review, which publishes; hiding is a pause, showing asks publishing again; «تعديل» opens its editor
 // (server_project_editor.dart). «تمييز» of a published project is free while his free ones last (the panel's
-// number), then paid at the panel's price; a project has no «عاجل».
+// number), then bought through the store like any boost (App Store 3.1.1); a project has no «عاجل».
 //
 // «مباع»: an owner's listing asks the price it sold for (his commission is reckoned on it); a broker's asks it too,
 // but it may stay empty — it helps Zon read the market (decision of 13 November).
@@ -33,7 +33,6 @@ import 'package:zon/data/models/models.dart';
 import 'package:zon/data/server/server_listings.dart';
 import 'package:zon/data/server/server_my_listings.dart';
 import 'package:zon/data/server/server_my_projects.dart';
-import 'package:zon/data/server/server_payments.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/licence_dialog.dart';
 import 'package:zon/features/account/services/sale_price_dialog.dart';
@@ -133,7 +132,7 @@ class _MyListingsViewState extends State<MyListingsView> {
     if (ok && mounted) await _change(l, ServerMyListings.sold, 'لم يُسجَّل البيع');
   }
 
-  /// «تمييز» of his project: free while his free ones last; then its price, paid here.
+  /// «تمييز» of his project: free while his free ones last; then bought through the store.
   Future<void> _featureProject(Listing l) async {
     final epoch = store.serverEpoch;
     try {
@@ -147,29 +146,15 @@ class _MyListingsViewState extends State<MyListingsView> {
         await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يتم التمييز', message: e.forUser);
         return;
       }
-      final Checkout checkout;
-      try {
-        checkout = await ServerPayments.start('featured', target: <String, Object?>{'type': 'project', 'id': int.parse(ServerListings.rawId(l.id))});
-      } on ApiError catch (e) {
-        if (mounted) await showAppNotice(context, icon: Lu.circleAlert, title: 'لم يتم التمييز', message: e.forUser);
-        return;
-      }
-      if (!mounted || epoch != store.serverEpoch) return;
-      final paid = await showPayDialog(
+      // a digital boost inside the app: through the store's own billing (App Store 3.1.1 · Google Play Billing)
+      final paid = await buyFromStore(
         context,
+        purpose: 'featured',
+        target: <String, Object?>{'type': 'project', 'id': int.parse(ServerListings.rawId(l.id))},
         icon: Lu.crown,
-        title: 'تمييز المشروع — ${ServerMyListings.priceOf(e) ?? checkout.amount} ريال',
+        title: 'تمييز المشروع',
         message: 'مشاريعك المميزة مجاناً مستخدمة الآن. يُميَّز «${l.title}» بعد الدفع، ولم يتغير شيء قبله.',
-        amount: (double.tryParse(checkout.amount) ?? 0).round(),
-        simulated: checkout.payable,
-        pay: () async {
-          if (epoch != store.serverEpoch) return false;
-          try {
-            return await ServerPayments.confirm(checkout, checkout.reference!);
-          } on ApiError {
-            return false;
-          }
-        },
+        price: ServerMyListings.priceOf(e),
       );
       if (paid && mounted) unawaited(_load());
     }

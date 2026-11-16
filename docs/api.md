@@ -258,7 +258,7 @@
 | `POST` | `/payments/webhook/{provider}` | عام | إشعار مزوّد الدفع؛ لا يُصدَّق محتواه — يُقرأ الدفع من المزوّد ثم يُطبَّق (ConfirmPayment) | `PaymentWebhookController@handle` |
 | `GET` | `/payments/{payment}` | 🔒 · رغبة | حالة عملية دفع لي (المعرّف العام `public_id`) | `BillingController@payment` |
 | `POST` | `/payments/{payment}/confirm` | 🔒 · رغبة | تأكيد بعد الدفع في التطبيق: قراءة المزوّد ثم التطبيق مرة واحدة والفاتورة | `BillingController@confirm` |
-| `POST` | `/store/check` | 🔒 · رغبة | قبل نافذة المتجر: هل يُشترى هذا الآن، لهذا العرض أو الطلب؟ (ردود الدفع نفسها) | `StoreController@check` |
+| `POST` | `/store/check` | 🔒 · رغبة | قبل نافذة المتجر: هل يُشترى هذا الآن، لهذا العرض أو المشروع أو الطلب؟ (ردود الدفع نفسها) | `StoreController@check` |
 | `POST` | `/store/notices/{store}` | عام | إشعار المتجر (آبل V2 · Google RTDN) بمفتاح في الرابط؛ لا يُصدَّق محتواه — يُقرأ الشراء من المتجر: تجديد أو استرداد | `StoreNoticeController@handle` |
 | `GET` | `/store/products` | 🔒 · رغبة | منتجات المتجر لدوري، ورمز حسابي الذي يُرفق بكل شراء، وأيّ المتجرين محاكاة على هذا الخادم (`simulated`) | `StoreController@products` |
 | `POST` | `/store/purchases` | 🔒 · رغبة | بعد نافذة المتجر: معرّف عملية آبل أو رمز شراء Google؛ يُطبَّق مرة واحدة بكلمة المتجر | `StoreController@purchase` |

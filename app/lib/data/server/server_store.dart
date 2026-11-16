@@ -259,14 +259,40 @@ abstract final class ServerStore {
     }
   }
 
+  /// The plans [restore] asked the store for, for the account it asked them for: a plan it gives back is sent
+  /// with no record of its own on this phone. The server applies it only to the account whose store token the
+  /// purchase carries.
+  static (String, Set<String>)? _restoring;
+
+  /// «استعادة المشتريات»: the store gives back the plans this store account bought (they arrive on its
+  /// delivered stream, and go to the server from [listen]). False when this phone's store cannot.
+  static Future<bool> restore({required int epoch}) async {
+    final s = sheet;
+    final account = store.readSession()?.id;
+    if (s == null || account == null || !await s.available()) return false;
+    final shelf = await ServerStore.shelf();
+    if (epoch != store.serverEpoch) throw const AccountChanged();
+    _restoring = (
+      account,
+      <String>{
+        for (final (id, purpose, _) in shelf.products)
+          if (purpose == 'subscription') id,
+      },
+    );
+    await s.restore(accountToken: shelf.accountToken);
+    return true;
+  }
+
   /// [receipt] to the server, for what it was kept for; finished on the phone once the server has it. The
   /// payment's status (`paid` · `unapplied`), or null when it is not for this account or not known here (it stays
   /// with the store, unfinished). An ApiError when the server did not take it (sent again on the next delivery).
   static Future<String?> deliver(StoreReceipt receipt, {required int epoch}) async {
     final kept = _pending()[receipt.productId];
     final account = store.readSession()?.id;
-    if (kept is! Map || account == null || kept['account'] != account) return null;
-    final target = kept['target'] is Map ? (kept['target']! as Map).cast<String, Object?>() : null;
+    final restoring = _restoring;
+    final restoredPlan = kept == null && receipt.restored && restoring != null && restoring.$1 == account && restoring.$2.contains(receipt.productId);
+    if (!restoredPlan && (kept is! Map || account == null || kept['account'] != account)) return null;
+    final target = kept is Map && kept['target'] is Map ? (kept['target']! as Map).cast<String, Object?>() : null;
     final status = await purchase(
       StoreOrder(store: platformStore, productId: receipt.productId, reference: receipt.reference, target: target),
       epoch: epoch,
@@ -302,5 +328,6 @@ abstract final class ServerStore {
     await _queue?.cancel();
     _queue = null;
     sheet = null;
+    _restoring = null;
   }
 }

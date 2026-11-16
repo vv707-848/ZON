@@ -17,7 +17,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 /// What the store gave for one purchase.
 @immutable
 class StoreReceipt {
-  const StoreReceipt({required this.productId, required this.reference, this.native});
+  const StoreReceipt({required this.productId, required this.reference, this.native, this.restored = false});
 
   final String productId;
 
@@ -26,6 +26,9 @@ class StoreReceipt {
 
   /// The plugin's own record, to finish it with.
   final Object? native;
+
+  /// Given back by «استعادة المشتريات» (a purchase made before, perhaps on another phone), not bought now.
+  final bool restored;
 }
 
 /// How the sheet ended.
@@ -65,8 +68,13 @@ abstract class StoreSheet {
   /// Tells the store the purchase was delivered.
   Future<void> finish(StoreReceipt receipt);
 
-  /// Purchases the store delivers outside a sheet: unfinished ones on start, a pending one once approved.
+  /// Purchases the store delivers outside a sheet: unfinished ones on start, a pending one once approved, and
+  /// what [restore] gives back.
   Stream<StoreReceipt> get delivered;
+
+  /// Asks the store for the purchases this store account made before (App Store 3.1.1: restorable purchases need a
+  /// way to restore them): they arrive on [delivered].
+  Future<void> restore({required String accountToken});
 }
 
 /// The real sheet, on an iPhone or an Android phone.
@@ -127,7 +135,7 @@ class InAppStoreSheet implements StoreSheet {
             _settle(p.productID, const SheetFailed('لم يعطِ المتجر رقماً للشراء.'));
             continue;
           }
-          final receipt = StoreReceipt(productId: p.productID, reference: reference, native: p);
+          final receipt = StoreReceipt(productId: p.productID, reference: reference, native: p, restored: p.status == PurchaseStatus.restored);
           if (_waiting.containsKey(p.productID)) {
             _settle(p.productID, SheetBought(receipt));
           } else {
@@ -136,6 +144,9 @@ class InAppStoreSheet implements StoreSheet {
       }
     }
   }
+
+  @override
+  Future<void> restore({required String accountToken}) => _iap.restorePurchases(applicationUserName: accountToken);
 
   @override
   Future<void> finish(StoreReceipt receipt) async {

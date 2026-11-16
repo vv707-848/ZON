@@ -231,7 +231,7 @@ void main() {
     expect(find.text('مخفي — أوقفته أنت'), findsNothing);
   });
 
-  testWidgets('«تمييز» of his published project: free while his free ones last; then its price, paid here', (tester) async {
+  testWidgets('«تمييز» of his published project: free while his free ones last; then bought through the store', (tester) async {
     final published = <String, Object?>{
       ...recorded('projects_mine'),
       'data': <Object?>[_one('project_published')],
@@ -258,25 +258,26 @@ void main() {
     expect(find.text('مميّز'), findsOneWidget);
     expect(server.sent('POST', 'checkout'), isEmpty, reason: 'free: nothing to pay');
 
-    // his free ones used: its price, paid here (the server's simulation), then featured
+    // his free ones used: bought through the store like any boost (App Store 3.1.1), never a payment page
     server.on('GET', 'projects/mine', 200, published);
     await pumpApp(tester, '/account/listings');
     await _settle(tester);
     server.on('POST', 'projects/$project/boost', 402, recorded('project_boost_price'));
-    server.on('POST', 'checkout', 201, recorded('checkout_project_featured'));
-    final payment = _one('checkout_project_featured')['payment_id'];
-    server.on('POST', 'payments/$payment/confirm', 200, recorded('payment_project_featured'));
+    server.on('GET', 'store/products', 200, recorded('store_products'));
+    server.on('POST', 'store/check', 200, recorded('store_check_plan'));
+    server.on('POST', 'store/purchases', 200, recorded('store_purchase_boost'));
     await tapText(tester, 'تمييز');
     await _settle(tester);
-    expect(FakeServer.body(server.sent('POST', 'checkout').single), <String, Object?>{
-      'purpose': 'featured',
-      'target': <String, Object?>{'type': 'project', 'id': project},
-    });
+    final target = <String, Object?>{'type': 'project', 'id': project};
+    expect(FakeServer.body(server.sent('POST', 'store/check').single), <String, Object?>{'product_id': 'com.zon.app.featured', 'target': target});
     expect(find.textContaining('تمييز المشروع — 100'), findsOneWidget);
     server.on('GET', 'projects/mine', 200, featured);
     await tapText(tester, 'ادفع ${riyals(100)}', last: true);
     await _settle(tester, 10);
-    expect(server.sent('POST', 'payments/$payment/confirm'), hasLength(1));
+    final bought = FakeServer.body(server.sent('POST', 'store/purchases').single);
+    expect(bought['product_id'], 'com.zon.app.featured');
+    expect(bought['target'], target);
+    expect(server.sent('POST', 'checkout'), isEmpty, reason: 'no payment outside the store for a boost');
     expect(find.text('مميّز'), findsOneWidget);
   });
 

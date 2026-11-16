@@ -54,6 +54,16 @@ class FakeSheet implements StoreSheet {
 
   @override
   Stream<StoreReceipt> get delivered => _delivered.stream;
+
+  /// What the store gives back on «استعادة المشتريات».
+  List<StoreReceipt> owned = <StoreReceipt>[];
+  final List<String> restoredFor = <String>[];
+
+  @override
+  Future<void> restore({required String accountToken}) async {
+    restoredFor.add(accountToken);
+    owned.forEach(_delivered.add);
+  }
 }
 
 /// The products answer, with no store simulated on this server.
@@ -241,6 +251,42 @@ void main() {
       expect(sheet.opened, isEmpty);
       expect(find.text('الشراء من المتجر غير متاح في هذه النسخة بعد. لم يُخصم شيء ولم يتغير شيء.'), findsOneWidget);
       expect(server.sent('POST', 'store/purchases'), isEmpty);
+    });
+
+    testWidgets('«استعادة المشتريات»: the plans the store gives back go to the server for him, and no boost does', (tester) async {
+      final (server, sheet) = await _plans(tester);
+      ServerStore.listen();
+      sheet.owned = <StoreReceipt>[
+        const StoreReceipt(productId: _plan, reference: 'play-token-0003', restored: true),
+        const StoreReceipt(productId: 'com.zon.app.featured', reference: 'play-token-0004', restored: true),
+      ];
+      server.on('POST', 'store/purchases', 200, recorded('store_purchase_plan'));
+      server.on('GET', 'subscription', 200, recorded('subscription'));
+      expect(find.text('أحكام وشروط الاستخدام'), findsOneWidget, reason: 'beside «اشترك» (App Store 3.1.2)');
+      expect(find.text('سياسة الخصوصية'), findsOneWidget);
+
+      await tapText(tester, 'استعادة المشتريات');
+      await _settle(tester);
+
+      expect(sheet.restoredFor, <String>[_token], reason: 'the store is asked for his store account\'s purchases');
+      expect(FakeServer.body(server.sent('POST', 'store/purchases').single), <String, Object?>{
+        'store': 'google',
+        'product_id': _plan,
+        'reference': 'play-token-0003',
+      }, reason: 'a plan, with no target; a boost has no record here and is not sent');
+      expect(sheet.finished, <String>['play-token-0003']);
+      expect(find.textContaining('طلبنا من المتجر مشترياتك السابقة'), findsOneWidget);
+
+      await tapText(tester, 'حسناً');
+      await serverSignIn(
+        server,
+        account: me(id: 42, role: 'seeker', name: 'حساب آخر'),
+        token: '7|second',
+      );
+      await _settle(tester);
+      sheet.deliver(const StoreReceipt(productId: _plan, reference: 'play-token-0005', restored: true));
+      await _settle(tester);
+      expect(server.sent('POST', 'store/purchases'), hasLength(1), reason: 'restored for the account that asked, not the next one');
     });
   });
 }

@@ -14,6 +14,8 @@
 // their prices and what each includes as the server lists them, his plan now with its last day and what is left
 // of its balances, and his invoices. A plan is bought through the store (shared/widgets/store_purchase.dart);
 // the page reads his plan again once the server says it is paid. Nothing of the phone's own billing is shown.
+// Beside «اشترك» (App Store 3.1.2): that the plan renews, and the terms and the privacy policy one tap away; and
+// «استعادة المشتريات» where the store's own sheet sells (3.1.1).
 
 import 'dart:async';
 
@@ -211,6 +213,57 @@ class _PlansViewState extends State<PlansView> {
     await _load();
   }
 
+  bool _restoring = false;
+
+  /// «استعادة المشتريات»: the store gives back his plans, and the server applies what it reads from the store.
+  Future<void> _restore() async {
+    final epoch = store.serverEpoch;
+    setState(() => _restoring = true);
+    String message;
+    try {
+      message = await ServerStore.restore(epoch: epoch)
+          ? 'طلبنا من المتجر مشترياتك السابقة. ما يجده يُطبَّق على حسابك حين يؤكده الخادم.'
+          : 'لا يستطيع المتجر الاستعادة على هذا الجهاز الآن.';
+    } on AccountChanged {
+      return;
+    } on ApiError catch (e) {
+      message = e.forUser;
+    } catch (_) {
+      message = 'تعذّر الوصول إلى المتجر.';
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
+    if (!mounted || epoch != store.serverEpoch) return;
+    await showAppNotice(context, icon: Lu.crown, title: 'استعادة المشتريات', message: message);
+    if (mounted) await _load();
+  }
+
+  /// That a plan renews, and the terms and the privacy policy, beside «اشترك».
+  Widget _terms() {
+    Widget link(String label, String slug) => GestureDetector(
+      onTap: () => Nav.go(context, '/legal/$slug'),
+      child: Tx(
+        label,
+        style: ts(13, w: 700, lh: 19.5, c: AppColors.forest).copyWith(decoration: TextDecoration.underline),
+      ),
+    );
+    return Column(
+      children: <Widget>[
+        Tx(
+          'تتجدد الباقة تلقائياً بسعرها ومدتها حتى تلغيها من اشتراكات حسابك في المتجر.',
+          style: ts(13, lh: 19.5, c: AppColors.muted),
+          align: TextAlign.center,
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 16,
+          children: <Widget>[link('أحكام وشروط الاستخدام', 'terms'), link('سياسة الخصوصية', 'privacy')],
+        ),
+      ],
+    );
+  }
+
   /// "280.00" → "280"; "0.5" stays.
   static String _whole(String riyals) => riyals.replaceFirst(RegExp(r'\.0+$'), '');
 
@@ -247,6 +300,14 @@ class _PlansViewState extends State<PlansView> {
           body: <Widget>[if (offer.features.isNotEmpty) _list('تشمل الباقة', offer.features), const SizedBox(height: 8)],
         ),
         if (plan.subscribed && plan.code == offer.code) _cta('الباقة مفعّلة', null) else _cta('اشترك: ${offer.name}', () => _buy(offer)),
+        const SizedBox(height: 16),
+      ],
+      if (offers.onSaleFor(role).isNotEmpty) ...<Widget>[
+        _terms(),
+        if (ServerStore.sheet != null) ...<Widget>[
+          const SizedBox(height: 12),
+          AppButton(label: _restoring ? 'جارٍ الاستعادة…' : 'استعادة المشتريات', tone: ButtonTone.secondary, onTap: _restoring ? null : _restore),
+        ],
         const SizedBox(height: 16),
       ],
       if (role == 'owner') ...<Widget>[

@@ -1,4 +1,7 @@
-// What this build simulates. A store build sets `--dart-define=ZON_SIMULATIONS=false`.
+// What this build simulates. Off in a release build unless it says `--dart-define=ZON_SIMULATIONS=true`: a store
+// build forgotten without the flag shows nothing made up (App Store 2.1: no demo content in a submitted build).
+
+import 'package:flutter/foundation.dart';
 
 /// Whether this build simulates what the server and its providers will do:
 /// - payments, the REGA contract approval and licence numbers, which stop at
@@ -9,4 +12,4 @@
 ///
 /// Off, nothing is made up: what the account did not create and the server
 /// did not send is not shown.
-const bool kSimulations = bool.fromEnvironment('ZON_SIMULATIONS', defaultValue: true);
+const bool kSimulations = bool.fromEnvironment('ZON_SIMULATIONS', defaultValue: !kReleaseMode);
