@@ -1,0 +1,44 @@
+# Qwen3.8-27B بضغط Escha-W2 (EschaLabs): النموذج الذي قيس في المختبر عند Groq، مكمّماً إلى 2/3-bit لكل إسقاط
+# (2.469 bit للوزن في المتوسط) مع تضمين ورأس مخرجات int8: نحو 10.15GB. كثيف لا MoE: 64 طبقة، 16 منها انتباه كامل.
+# نموذج العقدة المعتمد (قرار صاحب المشروع، 16 نوفمبر 2026). دقته بهذا التكميم على مهامنا غير مقاسة: يقيسها المختبر
+# على البطاقة، ومرجعه `qwen3.8-27b-fp8` (الأوزان الكاملة بالمعاملات نفسها).
+# يعمل بوقت تشغيل المزوّد وحده (EschaLabs/escha-runtime-qwen3dense: نسخته من SGLang مربوطة بـ torch 2.9)، وهو نصي فقط.
+name = "qwen3.8-27b-escha-w2"
+weights = "EschaLabs/Qwen3.8-27B-Escha-W2"
+runtime = "escha"
+licence = "Apache-2.0"
+
+# معاملات `qwen3.8-27b-fp8` نفسها (وضع بلا تفكير: 0.7 · 0.8 · 20 · 1.5) كي تُقارن النسختان على شيء واحد. بطاقة
+# المزوّد لا تعطي معاملات إلا لوضع التفكير (1.0 · 0.95 · 20)، ونحن نطفئه.
+[sampling]
+json = { temperature = 0.3, top_p = 0.8, max_tokens = 700 }
+summary = { temperature = 0.4, top_p = 0.8, max_tokens = 600 }
+report = { temperature = 0.4, top_p = 0.8, max_tokens = 900 }
+chat = { temperature = 0.7, top_p = 0.8, max_tokens = 500, presence_penalty = 1.5 }
+
+# التفكير يُطفأ مرتين: في الخادم (THINK=0 أدناه) وفي كل طلب. الحقل داخل chat_template_kwargs حصراً: البطاقة تقول إن
+# enable_thinking في أعلى الطلب يُهمَل.
+[request]
+top_k = 20
+chat_template_kwargs = { enable_thinking = false }
+
+# سكربت المزوّد serve.sh يقرأ هذه المتغيرات (sglang/INSTALL.md في escha-runtime-qwen3dense). القيم لبطاقة A40
+# (48GB، Ampere) يشاركها خادم التضمين، ولثمانية طلبات معاً (= LLM_MAX_CONCURRENCY):
+# - CTXLEN و MAXREQ و MAXMAMBA: سياق 32k لثمانية مسارات. كل مسار يحجز نحو 0.15GB من حالة الطبقات التكرارية.
+# - MEM = 0.75: نحو 33GB للأوزان (10GB) ولمخزن KV (64KiB للتوكن: 8 × 32k ≈ 17GB)، والباقي للتضمين ولمسار
+#   المخطط (نحو 0.5GB عند أول طلب json_schema). الافتراضي 0.72 موزون لبطاقة 24GB.
+# - CUDA_GRAPH_BS: يجب أن يشمل أكبر دفعة؛ دفعة غير ملتقطة تجري أبطأ بنحو 15%. و GRAPHS=1: النموذج بطيء بدونها.
+# - RADIX = 0: توصية المزوّد ما لم تتكرر الطلبات حرفياً (يعيد استعمال المطابقة التامة فقط).
+# - INT8 = on: رأس المخرجات يبقى int8 كما خُزّن (الوضع auto يطفئه فوق 24GB)؛ قاس المزوّد به +7% في التوليد.
+# - JSON_WS (افتراضه 1) يُترك: JSON بلا فراغات، ومخرج json_schema ثابت بين التشغيلات.
+# مقابض لم تُضبط وتُجرَّب في المختبر: ESCHA_ROUTE (يُختار آلياً: lovelace على Ampere) و SPEC (ترميز تخميني لمستخدم واحد).
+[serve.env]
+CTXLEN = "32768"
+MAXREQ = "8"
+MAXMAMBA = "8"
+RADIX = "0"
+GRAPHS = "1"
+CUDA_GRAPH_BS = "1 2 4 8"
+THINK = "0"
+INT8 = "on"
+MEM = "0.75"

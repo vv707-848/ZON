@@ -76,8 +76,10 @@ def command(profile: dict, key: str) -> tuple[list[str], dict[str, str]]:
         ]
         return argv, {}
     if runtime == "escha":
-        # The provider's script (escha-runtime-qwen3moe/sglang/serve.sh) reads only variables.
+        # The provider's script (escha-runtime-qwen3dense/sglang/serve.sh) reads only variables. Its python is the
+        # environment's, first on PATH, whether or not the script reads VENV.
         env = {
+            "PATH": f"{venv / 'bin'}:{os.environ.get('PATH', '')}",
             "VENV": str(venv),
             "MODEL": model,
             "SERVED_NAME": SERVED_NAME,
