@@ -55,6 +55,11 @@ def test_the_number_guard_is_laravels() -> None:
     assert not number_guard("زادت الطلبات 45%", rows, {}), "a percentage the rows do not hold"
     assert not number_guard("متوسط الميزانية 1.15 مليون", rows, {}), "PHP rounds 1.15 to 1.2: NumberGuard refuses it"
     assert number_guard("آخر 30 يوماً", [], {"days": 30}), "a number from the question's parameters"
+    gap = [{"neighborhood": "الحمراء", "requests": 8, "listings": 20, "gap": -12}]
+    assert number_guard("الطلبات 8 والعروض 20 بفجوة -12، أي نقص قدره 12.", gap, {}), "a negative value's magnitude"
+    trend = [{"month": "2026-05", "avg_price": 905000}, {"month": "2026-10", "avg_price": 952000}]
+    assert number_guard("من 905 ألف في مايو 2026 (2026-05) إلى 952,000 في شهر 10.", trend, {}), "a month's parts"
+    assert not number_guard("ارتفع السعر منذ 2025.", trend, {}) and not number_guard("الفجوة 13.", gap, {})
 
 
 def test_text_scorers_reward_the_facts_and_punish_what_was_never_said() -> None:
@@ -73,6 +78,15 @@ def test_text_scorers_reward_the_facts_and_punish_what_was_never_said() -> None:
 
 def _case(case_id: str) -> Case:
     return next(c for c in load_cases() if c.id == case_id)
+
+
+def test_a_number_a_packages_features_say_is_not_a_made_up_one() -> None:
+    case = next(c for c in load_cases() if c.id == "chat-012")  # «توفير 1060 ريالاً عن الشهري» is a feature
+    said = "باقة الوسيط شهرياً 280 ريالاً وسنوياً 2300، والسنوية توفر 1060 ريالاً، وفيها البحث الذكي في الطلبات."
+
+    assert score(case, {"answer": said, "covered": True, "sources": []}).metrics["numbers"] == 1.0
+    made_up = {"answer": said.replace("1060", "1999"), "covered": True, "sources": []}
+    assert score(case, made_up).metrics["numbers"] == 0.0
 
 
 def test_the_superagent_scorers_know_the_report_and_its_parameters() -> None:

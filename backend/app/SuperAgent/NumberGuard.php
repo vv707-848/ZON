@@ -8,6 +8,9 @@ use App\Support\ArabicText;
  * Every number in the model's analysis must come from what it read — the rows, the parameters, how many rows each
  * report has: a number the model made up rejects the analysis, and the rows are still shown without it. Small
  * numbers too («الإيراد 12 مليون»): a count the data does not hold is written in words («ثلاثة أحياء»).
+ *
+ * A number is read from the text without its sign, so a negative value allows its magnitude («فجوة -12», «نقص 12»);
+ * and a month or a date («2026-05») allows its parts («مايو 2026», «شهر 5»): both are what the rows say.
  */
 final class NumberGuard
 {
@@ -21,8 +24,13 @@ final class NumberGuard
         foreach ($rows as $row) {
             foreach ($row as $value) {
                 if (is_numeric($value)) {
-                    foreach ($this->forms((float) $value) as $form) {
+                    foreach ($this->forms(abs((float) $value)) as $form) {
                         $allowed[$form] = true;
+                    }
+                } elseif (is_string($value)) {
+                    preg_match_all('/\d+/', ArabicText::asciiDigits($value), $parts);
+                    foreach ($parts[0] as $part) {
+                        $allowed[$part] = $allowed[ltrim($part, '0') ?: '0'] = true;
                     }
                 }
             }

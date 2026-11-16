@@ -11,8 +11,10 @@
 - **`summarize_batch`** is the map/reduce path for thousands of texts: batches of up to 500, then one reduce
   call over the batch summaries. It runs from Laravel's queue, not in a live request.
 
-The schemas are built per request: a report or a proposal can only be one of the names Laravel sent (constrained
-decoding enforces it), and a parameter the catalog does not declare is dropped.
+The schemas are built per request: a report or a proposal can only be one of the names Laravel sent, and its
+parameters only the ones the catalog declares, each of its declared type, values and range (constrained decoding
+enforces both). The model writes null for a parameter it does not set; one the chosen report does not declare is
+dropped.
 """
 
 from typing import Annotated, Any, Literal
@@ -36,22 +38,54 @@ def _one_of(names: list[str]) -> Any:
     return Literal[tuple(names)]
 
 
-def _choices_model(names: list[str]) -> type[BaseModel]:
-    choice = create_model("ReportChoice", report=(_one_of(names), ...), params=(dict[str, Any], {}))
+Declared = dict[str, dict[str, dict[str, Any]]]  # report or action → parameter → its JSON schema
+
+
+def _param_type(schemas: list[dict[str, Any]]) -> Any:
+    """One parameter as every entry that declares it allows it: Laravel checks the chosen entry's own range after."""
+    kinds = {schema.get("type") for schema in schemas}
+    if kinds == {"string"}:
+        if all("enum" in schema for schema in schemas):
+            return _one_of(list(dict.fromkeys(value for schema in schemas for value in schema["enum"])))
+        return str
+    if kinds == {"integer"}:
+        low = [schema["minimum"] for schema in schemas if "minimum" in schema]
+        high = [schema["maximum"] for schema in schemas if "maximum" in schema]
+        whole = len(low) == len(high) == len(schemas)
+        return Annotated[int, Field(ge=min(low), le=max(high))] if whole else int
+    return Any  # a kind this module does not know: left to Laravel's check
+
+
+def _params_model(declared: Declared) -> type[BaseModel]:
+    """Every parameter the entries declare, by name: a named, typed key the model fills or leaves null — an open
+    map told it nothing, and it left it empty."""
+    by_name: dict[str, list[dict[str, Any]]] = {}
+    for params in declared.values():
+        for name, schema in params.items():
+            by_name.setdefault(name, []).append(schema)
+    fields: dict[str, Any] = {name: (_param_type(schemas) | None, None) for name, schemas in by_name.items()}
+    return create_model("Params", **fields)
+
+
+def _choices_model(declared: Declared) -> type[BaseModel]:
+    params = _params_model(declared)
+    choice = create_model("ReportChoice", report=(_one_of(list(declared)), ...), params=(params, params()))
     return create_model("ReportChoices", reports=(Annotated[list[choice], Field(max_length=MAX_QUESTIONS)], ...))
 
 
-def _next_model(names: list[str]) -> type[BaseModel]:
-    return create_model("NextReport", report=(_one_of(names) | None, ...), params=(dict[str, Any], {}))
+def _next_model(declared: Declared) -> type[BaseModel]:
+    params = _params_model(declared)
+    return create_model("NextReport", report=(_one_of(list(declared)) | None, ...), params=(params, params()))
 
 
-def _written_model(actions: list[str]) -> type[BaseModel]:
-    action: Any = _one_of(actions) | None if actions else None
+def _written_model(declared: Declared) -> type[BaseModel]:
+    action: Any = _one_of(list(declared)) | None if declared else None
+    params = _params_model(declared)
     recommendation = create_model(
         "Recommendation",
         text=(Annotated[str, Field(max_length=300)], ...),
         action=(action, None),
-        params=(dict[str, Any], {}),
+        params=(params, params()),
     )
     return create_model(
         "ReportWritten",
@@ -61,7 +95,7 @@ def _written_model(actions: list[str]) -> type[BaseModel]:
 
 
 def _declared(params: dict[str, Any], declared: dict[str, Any]) -> dict[str, Any]:
-    return {name: value for name, value in params.items() if name in declared}  # undeclared: dropped
+    return {name: value for name, value in params.items() if name in declared and value is not None}
 
 
 async def _answer(ctx: Ctx, agent: str, req: BaseModel, output: type[BaseModel], use: Use) -> LlmResult[BaseModel]:
@@ -74,7 +108,7 @@ async def _answer(ctx: Ctx, agent: str, req: BaseModel, output: type[BaseModel],
 async def report_select(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(ReportSelectInput, data)
     declared = {entry.report: entry.params for entry in req.catalog}
-    answer = await _answer(ctx, "report_select", req, _choices_model(list(declared)), "json")
+    answer = await _answer(ctx, "report_select", req, _choices_model(declared), "json")
     reports: list[dict[str, Any]] = []
     for choice in answer.output.model_dump()["reports"]:
         item = {"report": choice["report"], "params": _declared(choice["params"], declared[choice["report"]])}
@@ -86,7 +120,7 @@ async def report_select(ctx: Ctx, data: dict[str, Any]) -> Result:
 async def report_explore(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(ReportExploreInput, data)
     declared = {entry.report: entry.params for entry in req.catalog}
-    answer = await _answer(ctx, "report_explore", req, _next_model(list(declared)), "json")
+    answer = await _answer(ctx, "report_explore", req, _next_model(declared), "json")
     choice = answer.output.model_dump()
     params = {} if choice["report"] is None else _declared(choice["params"], declared[choice["report"]])
     return Result(
@@ -97,7 +131,7 @@ async def report_explore(ctx: Ctx, data: dict[str, Any]) -> Result:
 async def report_write(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(ReportWriteInput, data)
     declared = {entry.action: entry.params for entry in req.proposals}
-    answer = await _answer(ctx, "report_write", req, _written_model(list(declared)), "report")
+    answer = await _answer(ctx, "report_write", req, _written_model(declared), "report")
     written = answer.output.model_dump()
     recommendations = []
     for item in written["recommendations"]:

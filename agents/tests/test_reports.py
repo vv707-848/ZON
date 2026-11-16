@@ -61,6 +61,55 @@ def test_one_report_per_question_from_the_catalog_with_its_declared_parameters(
     assert choice["properties"]["report"]["enum"] == ["top_demand_by_neighborhood", "listing_funnel"]
 
 
+def test_parameters_are_named_and_typed_as_the_catalog_declares_and_an_unset_one_is_left_out(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    catalog = [
+        {
+            "report": "top_demand_by_neighborhood",
+            "description": "أعلى الأحياء طلباً",
+            "params": {
+                "city": {"type": "string", "enum": ["الرياض", "جدة"]},
+                "days": {"type": "integer", "minimum": 1, "maximum": 365, "default": 30},
+            },
+        },
+        {
+            "report": "price_trend",
+            "description": "اتجاه الأسعار",
+            "params": {
+                "city": {"type": "string", "enum": ["الرياض", "جدة", "الخبر"]},
+                "neighborhood": {"type": "string"},
+                "months": {"type": "integer", "minimum": 1, "maximum": 24},
+            },
+        },
+    ]
+    asked = {"question": "أعلى الأحياء طلباً في جدة؟", "catalog": catalog}
+    model.answers["report_select"] = {
+        "reports": [
+            {
+                "report": "top_demand_by_neighborhood",
+                "params": {"city": "جدة", "days": None, "neighborhood": None, "months": 6},
+            }
+        ]
+    }
+
+    output = call(client, "report_select", asked)["output"]
+
+    assert output == {"reports": [{"report": "top_demand_by_neighborhood", "params": {"city": "جدة"}}]}, (
+        "null: not set · months: another report's"
+    )
+    params = model.schemas["report_select"]["$defs"]["Params"]["properties"]
+    assert list(params) == ["city", "days", "neighborhood", "months"], "named: an open map told the model nothing"
+    assert params["city"]["anyOf"][0] == {"enum": ["الرياض", "جدة", "الخبر"], "type": "string"}
+    assert params["days"]["anyOf"] == [{"maximum": 365, "minimum": 1, "type": "integer"}, {"type": "null"}]
+    assert params["neighborhood"]["anyOf"][0] == {"type": "string"}
+
+    model.answers["report_select"] = {"reports": [{"report": "price_trend", "params": {"city": "أبها", "months": 6}}]}
+    assert client.post("/agents/report_select", json=asked).status_code == 503, "a value the catalog does not allow"
+    model.answers["report_select"] = {"reports": [{"report": "price_trend", "params": {"city": "جدة", "months": 60}}]}
+    assert client.post("/agents/report_select", json=asked).status_code == 503, "out of every declared range"
+
+
 def test_a_question_no_report_answers_gets_none(client: TestClient, model: ScriptedModel) -> None:
     model.answers["report_select"] = {"reports": []}
 

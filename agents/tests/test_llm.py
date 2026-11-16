@@ -14,6 +14,7 @@ import pytest
 from pydantic import BaseModel
 
 from zon_agents.llm import LLM, ModelFailed, load_prompts, openai_model
+from zon_agents.pipelines.reports import _choices_model
 from zon_agents.profiles import SIMULATED
 from zon_agents.schemas.agents import SearchersAnswer
 
@@ -115,6 +116,11 @@ def test_a_host_gets_the_schema_in_its_strict_form_and_our_engines_get_it_as_it_
     assert theirs["strict"] is True
     assert theirs["schema"]["additionalProperties"] is False and row["additionalProperties"] is False
     assert row["required"] == ["id", "score", "unit_id"], "every key required: an absent one is written as null"
+
+    catalog = {"top_demand": {"city": {"type": "string", "enum": ["جدة"]}, "days": {"type": "integer"}}}
+    choices = _asked(_choices_model(catalog), hosted=True)
+    assert choices["strict"] is True, "a report's parameters are named: a host can hold the model to them"
+    assert choices["schema"]["$defs"]["Params"]["required"] == ["city", "days"]
 
     free = _asked(_Open, hosted=True)
     assert free["strict"] is False, "a free map cannot be said strictly: asked for without it"

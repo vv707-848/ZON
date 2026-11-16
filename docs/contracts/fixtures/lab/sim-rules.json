@@ -122,10 +122,10 @@
    },
    "metrics": {
     "action": 0.0,
-    "guard": 0.8333,
-    "mention": 0.9
+    "guard": 1.0,
+    "mention": 0.7917
    },
-   "score": 0.5417,
+   "score": 0.5625,
    "variants": {}
   },
   "search_listings": {
@@ -213,6 +213,6 @@
   "digest": "476098c7fd930a97"
  },
  "lab": 1,
- "overall": 0.8438,
+ "overall": 0.845,
  "simulation": "rules"
 }

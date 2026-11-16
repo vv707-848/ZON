@@ -144,7 +144,10 @@ def number_guard(text: str, rows: Sequence[dict[str, Any]], params: dict[str, An
         for value in row.values():
             number = _numeric(value)
             if number is not None:
-                permitted |= forms(number)
+                permitted |= forms(abs(number))  # read from the text without its sign
+            elif isinstance(value, str):  # a month or a date («2026-05»): its parts are data
+                for part in re.findall(r"\d+", norm(value)):
+                    permitted |= {part, part.lstrip("0") or "0"}
     for value in params.values():
         if _numeric(value) is not None:
             permitted.add(plain(str(value)))
@@ -260,13 +263,15 @@ def score_chat(case: Case, output: dict[str, Any]) -> Score:
         return Score(1.0, {"covered": 1.0})
     answer = str(output.get("answer", ""))
     passages = [p["text"] for p in case.context.get("passages", [])]
-    prices = [p.get("price") for p in case.input.get("packages", [])]
+    packages = case.input.get("packages", [])
+    prices = [p.get("price") for p in packages]
+    said = [text for p in packages for text in (p.get("name", ""), *p.get("features", []))]  # «توفير 1060 ريالاً»
     cited = {int(s["doc_id"]) for s in output.get("sources", [])}
     metrics = _present(
         covered=1.0,
         cite=float(bool(cited & set(expect.cite))) if expect.cite else None,
         mention=recall(answer, expect.mention),
-        numbers=float(numbers_ok(answer, allowed([*passages, case.input["message"]], prices))),
+        numbers=float(numbers_ok(answer, allowed([*passages, *said, case.input["message"]], prices))),
         lang=None if expect.lang is None else float(_written_in(answer, expect.lang)),
     )
     return Score(_mean(metrics), metrics)
