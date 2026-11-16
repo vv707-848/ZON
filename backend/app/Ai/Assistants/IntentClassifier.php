@@ -33,13 +33,24 @@ final class IntentClassifier
         return ChatIntent::OutOfScope;
     }
 
-    /** ar · en · ur — Urdu has letters Arabic lacks; Latin letters mean English. */
+    /** Words English uses in almost any sentence and the other Latin-script languages do not. */
+    private const ENGLISH = ['the', 'a', 'an', 'is', 'are', 'i', 'my', 'me', 'you', 'your', 'what', 'how', 'can', 'do', 'does', 'for', 'to', 'in', 'of', 'with', 'and', 'about', 'need', 'want', 'much', 'there', 'this', 'which', 'where', 'when', 'why', 'it'];
+
+    /**
+     * The language the rules read and the fixed texts are written in: ar · ur (letters Arabic lacks) · en (Latin
+     * letters and an English word) — or xx, any other language: its message skips the rules (they are Arabic,
+     * English and Urdu phrases) and the model names the intent (ChatAssistant). The answer is in the message's own
+     * language whichever this is.
+     */
     public static function language(string $message): string
     {
+        $words = preg_split('/[^\p{L}]+/u', mb_strtolower($message), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
         return match (true) {
             preg_match('/[ٹڈڑںہھےۓکگ]/u', $message) === 1 => 'ur',
             preg_match('/\p{Arabic}/u', $message) === 1 => 'ar',
-            preg_match('/[A-Za-z]/', $message) === 1 => 'en',
+            preg_match('/^[\p{Latin}\s\p{P}\p{N}\p{S}]+$/u', $message) === 1 && array_intersect($words, self::ENGLISH) !== [] => 'en',
+            preg_match('/\p{L}/u', $message) === 1 => 'xx',
             default => 'ar',
         };
     }

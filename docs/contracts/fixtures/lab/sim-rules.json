@@ -1,7 +1,7 @@
 {
  "agents": {
   "chat": {
-   "cases": 16,
+   "cases": 20,
    "failed": 0,
    "latency_ms": {
     "p50": 0,
@@ -9,12 +9,13 @@
    },
    "metrics": {
     "cite": 1.0,
-    "covered": 0.875,
-    "lang": 0.5,
+    "covered": 0.75,
+    "intent": 0.25,
+    "lang": 0.3333,
     "mention": 0.9545,
     "numbers": 1.0
    },
-   "score": 0.849,
+   "score": 0.6792,
    "variants": {}
   },
   "clean_listing": {
@@ -198,7 +199,7 @@
  },
  "dataset": {
   "agents": {
-   "chat": 16,
+   "chat": 20,
    "clean_listing": 44,
    "match_searchers": 8,
    "matching": 12,
@@ -209,10 +210,10 @@
    "search_requests": 14,
    "summarize": 10
   },
-  "cases": 200,
-  "digest": "1b5c195801005db5"
+  "cases": 204,
+  "digest": "35fd1ea2ffc663c6"
  },
  "lab": 1,
- "overall": 0.845,
+ "overall": 0.825,
  "simulation": "rules"
 }

@@ -210,14 +210,21 @@ class _BarqChatScreenState extends State<BarqChatScreen> {
                         : 'أشرح شروط التملك والصك وفال والتمويل بأي لغة. وإذا استاهل، مثال شعبي خفيف على حالك.',
                     style: ts(14, lh: 24, c: const Color(0xC4FFFFFF)),
                   ),
+                  if (Api.on) ...<Widget>[
+                    const SizedBox(height: 6),
+                    Tx('أجيب بلغتك. قد يخطئ زون؛ المرجع هو النص الرسمي المذكور تحت كل جواب.', style: ts(13, lh: 19.5, c: const Color(0xA3FFFFFF))),
+                  ],
                 ],
               ),
             ),
           for (final m in log) TalkBubble(text: m.t, mine: m.me == true),
           if (think) const TalkBubble(text: 'برق يفكّر…', mine: false),
           if (_last case final ChatReply r when !think) ...<Widget>[
-            for (final s in r.sources)
+            for (final s in r.sources) ...<Widget>[
               Tx('المصدر: ${s.title}${s.effective == null ? '' : ' · ${s.effective}'}', style: ts(13, lh: 19.5, c: AppColors.muted)),
+              // under an answer in another language, the source's own Arabic words
+              if (r.lang != 'ar' && s.quote.isNotEmpty) Tx('«${s.quote}»', style: ts(13, lh: 19.5, c: AppColors.ink)),
+            ],
             if (r.action case final String to) AppButton(label: 'افتح', tone: ButtonTone.secondary, onTap: () => Nav.go(context, to)),
             if (r.ai.simulated) Tx('محاكاة: الإجابة بقواعد ثابتة، لا بنموذج ذكاء.', style: ts(13, lh: 19.5, c: AppColors.muted)),
           ],

@@ -144,9 +144,21 @@ class ChatSource {
 
 /// «زون»'s answer.
 class ChatReply {
-  const ChatReply({required this.answer, required this.covered, required this.intent, required this.sources, required this.ai, this.action});
+  const ChatReply({
+    required this.answer,
+    required this.covered,
+    required this.intent,
+    required this.sources,
+    required this.ai,
+    this.action,
+    this.lang = 'ar',
+  });
 
+  /// In the language he wrote in.
   final String answer;
+
+  /// The server's reading of that language: `ar` · `en` · `ur`, or `xx` for any other.
+  final String lang;
 
   /// False: the library does not cover the question, and the answer says so.
   final bool covered;
@@ -295,6 +307,7 @@ abstract final class ServerAi {
       answer: '${r.map['answer'] ?? ''}',
       covered: r.map['covered'] == true,
       intent: '${r.map['intent'] ?? ''}',
+      lang: '${r.map['lang'] ?? 'ar'}',
       sources: <ChatSource>[
         for (final s in _rows(r.map['sources']))
           ChatSource(

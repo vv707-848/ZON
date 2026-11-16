@@ -274,11 +274,14 @@ def score_summarize(case: Case, output: dict[str, Any]) -> Score:
 def score_chat(case: Case, output: dict[str, Any]) -> Score:
     expect = case.expected(ChatExpect)
     covered = bool(output.get("covered"))
+    named = None if expect.intent is None else float(output.get("intent") == expect.intent)
     if covered != expect.covered:
-        return Score(0.0, {"covered": 0.0})
-    if not covered:
-        return Score(1.0, {"covered": 1.0})
+        return Score(0.0, _present(covered=0.0, intent=named))
     answer = str(output.get("answer", ""))
+    if not covered:
+        said_in = None if expect.lang is None else float(_written_in(answer, expect.lang))
+        metrics = _present(covered=1.0, intent=named, lang=said_in)
+        return Score(min(metrics.values()), metrics)  # «outside the library» is right only whole: intent and language
     passages = [p["text"] for p in case.context.get("passages", [])]
     packages = case.input.get("packages", [])
     prices = [p.get("price") for p in packages]
@@ -290,6 +293,7 @@ def score_chat(case: Case, output: dict[str, Any]) -> Score:
         mention=recall(answer, expect.mention),
         numbers=float(numbers_ok(answer, allowed([*passages, *said, case.input["message"]], prices))),
         lang=None if expect.lang is None else float(_written_in(answer, expect.lang)),
+        intent=named,
     )
     return Score(_mean(metrics), metrics)
 
@@ -299,11 +303,25 @@ _ARABIC = re.compile(r"[\u0600-\u06FF]")
 _URDU = re.compile(r"[\u0679\u0688\u0691\u06A9\u06AF\u06BA\u06BE\u06C1\u06D2]")  # ٹ ڈ ڑ ک گ ں ھ ہ ے
 
 
+_SCRIPTS = {"ru": re.compile(r"[\u0400-\u04FF]"), "hi": re.compile(r"[\u0900-\u097F]")}
+# A Latin language by words of its own that English does not use
+_WORDS = {
+    "fr": {"le", "la", "les", "des", "est", "vous", "votre", "pas", "pour", "avec", "une", "nous", "lors", "de"},
+    "tr": {"ve", "bir", "için", "paket", "aylık", "fiyatı", "riyal", "olan", "bu", "ile"},
+}
+
+
 def _written_in(text: str, lang: str) -> bool:
-    """English: mostly Latin letters · Urdu: letters Arabic does not have."""
+    """English: mostly Latin letters · Urdu: letters Arabic does not have · Russian, Hindi: mostly their script ·
+    French, Turkish: Latin, with words of their own."""
+    latin, arabic = len(_LATIN.findall(text)), len(_ARABIC.findall(text))
     if lang == "en":
-        latin, arabic = len(_LATIN.findall(text)), len(_ARABIC.findall(text))
         return latin > 2 * arabic
+    if lang in _SCRIPTS:
+        return len(_SCRIPTS[lang].findall(text)) > 2 * (latin + arabic)
+    if lang in _WORDS:
+        words = set(re.findall(r"\w+", text.lower()))
+        return latin > 2 * arabic and len(words & _WORDS[lang]) >= 2
     return bool(_URDU.search(text))
 
 
