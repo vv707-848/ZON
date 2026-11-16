@@ -153,6 +153,13 @@ class SuperAgentTest extends AdminTestCase
         $this->assertFalse($guard->passes('الإيراد 12 مليون ريال', [['revenue' => 280]], []), 'no blanket pass for numbers up to 12');
         $this->assertTrue($guard->passes('ثلاثة أحياء، والثاني منها النرجس', [['requests' => 38]], []), 'counts in words are not numbers');
 
+        $gap = [['neighborhood' => 'الحمراء', 'requests' => 8, 'listings' => 20, 'gap' => -12]];
+        $this->assertTrue($guard->passes('الطلبات 8 والعروض 20 بفجوة -12، أي نقص قدره 12.', $gap, []), 'a negative value, with its sign or as a magnitude');
+        $trend = [['month' => '2026-05', 'listings' => 140, 'avg_price' => 905000], ['month' => '2026-10', 'listings' => 188, 'avg_price' => 952000]];
+        $this->assertTrue($guard->passes('من 905 ألف في مايو 2026 (2026-05) إلى 952,000 في شهر 10.', $trend, []), 'the year and the month of a row\'s month are data');
+        $this->assertFalse($guard->passes('ارتفع السعر منذ 2025.', $trend, []), 'a year no row holds');
+        $this->assertFalse($guard->passes('الفجوة 13.', $gap, []));
+
         $this->demand();                                       // two neighbourhoods: النرجس and الملقا
         $this->answers('report_select', ['reports' => [['report' => 'top_demand_by_neighborhood', 'params' => ['city' => 'الرياض']]]]);
         $this->answers('report_write', ['analysis' => 'أعلى 2 من الأحياء: النرجس ثم الملقا.', 'recommendations' => []]);
