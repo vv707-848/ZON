@@ -285,7 +285,9 @@ class AiChainTest extends TestCase
         CleanListingText::dispatchSync($listing->id);
 
         $listing->refresh();
-        $this->assertSame([TextReview::Ready, 'شقة للبيع مدخل خاص ومطبخ راكب، بدون مصعد. للتواصل', ['مدخل خاص', 'مطبخ راكب', 'صك', 'يقبل البنك']],     // «[رقم]» of the masking is gone too
+        // «[رقم]» of the masking is gone too; and only what his text says is a feature: the node also offered «صك» and
+        // «يقبل البنك» from his fields, which the listing shows from those fields
+        $this->assertSame([TextReview::Ready, 'شقة للبيع مدخل خاص ومطبخ راكب، بدون مصعد. للتواصل', ['مدخل خاص', 'مطبخ راكب']],
             [$listing->text_review, $listing->desc_suggested, $listing->features]);
         $this->assertStringNotContainsString(self::PHONE, json_encode($this->seen(), JSON_UNESCAPED_UNICODE));
     }
