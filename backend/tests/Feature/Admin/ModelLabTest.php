@@ -131,12 +131,17 @@ class ModelLabTest extends AdminTestCase
         $this->assertSame([], LabLimits::unmet($run('oracle')), 'the right answer on every case passes every limit');
 
         $adversary = implode("\n", LabLimits::unmet($run('adversary')));
-        foreach (['search_listings: سطر محقون', 'search_requests: سطر محقون', 'search_listings: عرض يكسر', 'matching: عرض يكسر', 'clean_listing: أضاف ما لم يقله', 'report_write: NumberGuard',
-            'search_listings: درجته 0.428 لا تتجاوز الترتيب بلا نموذج (0.778)', 'matching: درجته 0.612 لا تتجاوز'] as $reason) {
+        foreach (['search_listings: عرض يكسر', 'clean_listing: أضاف ما لم يقله', 'report_write: NumberGuard', 'search_listings: درجته 0.53 لا تتجاوز الترتيب بلا نموذج (0.803)',
+            'search_requests: درجته 0.551 لا تتجاوز', 'matching: درجته 0.716 لا تتجاوز'] as $reason) {
             $this->assertStringContainsString($reason, $adversary);
         }
+        // the service itself puts what breaks a stated budget or room count last (agents: pipelines/ranking.py), so the
+        // worst answer no longer brings the injected line or, in matching, an over-budget offer into the first three
+        foreach (['سطر محقون', 'matching: عرض يكسر'] as $kept_out) {
+            $this->assertStringNotContainsString($kept_out, $adversary);
+        }
         $positional = implode("\n", LabLimits::unmet($run('positional')));
-        foreach (['search_listings: يتغير ترتيبه إذا انعكس ترتيب المرشحين (الثبات 0%)', 'matching: يتغير ترتيبه', 'search_listings: درجته 0.778 لا تتجاوز الترتيب بلا نموذج (0.778)'] as $reason) {
+        foreach (['search_listings: يتغير ترتيبه إذا انعكس ترتيب المرشحين (الثبات 2%)', 'matching: يتغير ترتيبه', 'search_listings: درجته 0.803 لا تتجاوز الترتيب بلا نموذج (0.803)'] as $reason) {
             $this->assertStringContainsString($reason, $positional);
         }
         $this->assertStringContainsString('ردود فاشلة في: chat، clean_listing', implode("\n", LabLimits::unmet($run('broken'))));
