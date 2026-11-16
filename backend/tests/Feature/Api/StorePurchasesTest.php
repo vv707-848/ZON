@@ -3,12 +3,17 @@
 namespace Tests\Feature\Api;
 
 use App\Actions\Admin\RefundPayment;
+use App\Enums\BoostVia;
 use App\Jobs\Scheduled\RemindSubscriptionRenewals;
+use App\Models\BoostUsage;
 use App\Models\BuyerPreference;
 use App\Models\Customer;
 use App\Models\Listing;
 use App\Models\Payment;
+use App\Models\Project;
 use App\Models\Subscription;
+use App\Support\Settings\Setting;
+use App\Support\Settings\Settings;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use InvalidArgumentException;
@@ -115,6 +120,22 @@ class StorePurchasesTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         app(RefundPayment::class)(Payment::query()->where('status', 'unapplied')->sole(), 'من اللوحة');   // the store refunds its own sales
+    }
+
+    public function test_a_developers_project_is_featured_through_the_store_and_takes_no_free_place(): void
+    {
+        $developer = $this->signIn(Customer::factory()->developer()->create());
+        Settings::put(Setting::ProjectFeaturedFree, 0);
+        $project = Project::factory()->published()->create(['developer_id' => $developer->id]);
+        $target = ['type' => 'project', 'id' => $project->id];
+
+        $this->postJson('/api/v1/store/check', ['product_id' => 'com.zon.app.featured', 'target' => $target])->assertOk();
+        $this->buy('apple', 'com.zon.app.featured', "sim:{$developer->storeToken()}:proj01", $target)->assertOk()->assertJsonPath('data.status', 'paid');
+
+        $this->assertTrue($project->fresh()->featured_until->isFuture());
+        $this->assertSame(BoostVia::Payment, BoostUsage::query()->where('target_id', $project->id)->sole()->via);
+        $other = Project::factory()->published()->create(['developer_id' => Customer::factory()->developer()->create()->id]);
+        $this->postJson('/api/v1/store/check', ['product_id' => 'com.zon.app.featured', 'target' => ['type' => 'project', 'id' => $other->id]])->assertNotFound();
     }
 
     public function test_renewals_and_refunds_arrive_as_store_notices_and_are_read_back(): void

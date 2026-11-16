@@ -66,7 +66,7 @@ class StoreController extends Controller
             'product_id' => ['required', 'string', 'max:100'],
             'reference' => [$purchase ? 'required' : 'nullable', 'string', 'max:4096'],
             'target' => ['nullable', 'array'],
-            'target.type' => ['required_with:target', 'string', 'in:listing,request'],
+            'target.type' => ['required_with:target', 'string', 'in:listing,project,request'],   // a project's «تمييز» too: in the app, only through the store
             'target.id' => ['required_with:target', 'integer'],
         ]);
     }
