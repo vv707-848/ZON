@@ -670,6 +670,35 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
         {},
         {"covered": True, "mention": [["الميزانية"], ["الحي"]]},
     ),
+    # A language Laravel's rules do not read: «auto», and the model names the intent; it answers in that language.
+    (
+        "chat-017",
+        {
+            "intent": "auto",
+            "lang": "xx",
+            "message": "Est-ce que vous gardez mon numéro d'identité quand je vérifie avec Nafath ?",
+        },
+        _passages(103, 105),
+        {"covered": True, "cite": [103], "mention": [["Nafath"]], "lang": "fr", "intent": "knowledge"},
+    ),
+    (
+        "chat-018",
+        {"intent": "auto", "lang": "xx", "message": "Arayan paketi aylık ne kadar?", "packages": _PACKAGES},
+        _passages(101),
+        {"covered": True, "mention": [["199"]], "lang": "tr", "intent": "packages"},
+    ),
+    (
+        "chat-019",
+        {"intent": "auto", "lang": "xx", "message": "Как найти квартиру с нужными мне характеристиками?"},
+        _passages(104),
+        {"covered": True, "lang": "ru", "intent": "semantic_search"},
+    ),
+    (
+        "chat-020",
+        {"intent": "auto", "lang": "xx", "message": "आज का क्रिकेट मैच कौन जीतेगा?"},
+        _passages(104),
+        {"covered": False, "lang": "hi", "intent": "out_of_scope"},
+    ),
 ]
 
 # ── The SuperAgent's choice of reports (report_select) ──────────────────────────────────────────

@@ -89,6 +89,27 @@ void main() {
       expect(find.widgetWithText(AppButton, 'افتح'), findsNothing, reason: 'this answer leads nowhere');
     });
 
+    testWidgets('an answer in his language carries the source\'s own Arabic words under it; «قد يخطئ زون» is said', (tester) async {
+      const french = 'La licence publicitaire est obligatoire pour publier une annonce immobilière.';
+      final server = await _open(
+        tester,
+        (s) => s.on('POST', 'ai/chat', 200, <String, Object?>{
+          ...recorded('ai_chat'),
+          'data': <String, Object?>{...reply, 'answer': french, 'lang': 'xx'},
+        }),
+      );
+      expect(find.text('أجيب بلغتك. قد يخطئ زون؛ المرجع هو النص الرسمي المذكور تحت كل جواب.'), findsOneWidget);
+      await _say(tester, 'Quand expire la licence publicitaire ?');
+
+      expect(server.sent('POST', 'ai/chat'), hasLength(1));
+      expect(find.text(french), findsOneWidget);
+      expect(find.text('«${source['quote_ar']}»'), findsOneWidget, reason: 'the Arabic original under the translated answer');
+
+      server.on('POST', 'ai/chat', 200, recorded('ai_chat'));
+      await _say(tester, question);
+      expect(find.text('«${source['quote_ar']}»'), findsNothing, reason: 'an Arabic answer is its own source text');
+    });
+
     testWidgets('an answer that leads somewhere opens it; a model\'s answer carries no «محاكاة»', (tester) async {
       final plans = <String, Object?>{
         ...reply,

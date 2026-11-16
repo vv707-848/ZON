@@ -252,6 +252,7 @@ _UNCOVERED = {
     "en": "Zon's library does not cover this question.",
     "ur": "زون کی لائبریری اس سوال کا احاطہ نہیں کرتی۔",
 }
+_UNCOVERED["xx"] = _UNCOVERED["en"]
 
 
 def _tokens(text: str) -> set[str]:
@@ -266,6 +267,11 @@ def _number(value: float) -> str:
 
 def _chat(payload: dict[str, Any]) -> dict[str, Any]:
     lang, intent = str(payload.get("lang", "ar")), str(payload["intent"])
+    if intent == "auto":  # no rule reads its language: the library if its words meet a passage, else outside it
+        known = _chat({**payload, "intent": "knowledge"})
+        if known["covered"]:
+            return {**known, "intent": "knowledge"}
+        return {"answer": _UNCOVERED[lang], "covered": False, "citations": [], "intent": "out_of_scope"}
     if intent == "packages":
         priced = [p for p in payload.get("packages", []) if p.get("price") is not None]
         if not priced:
@@ -286,7 +292,7 @@ def _chat(payload: dict[str, Any]) -> dict[str, Any]:
         "ar": " ".join(quoted[:2]),
         "en": f"Zon's library answers this under «{best['title']}»; the original Arabic text is quoted below.",
         "ur": f"زون کی لائبریری میں اس کا جواب «{best['title']}» کے تحت ہے؛ اصل عربی متن نیچے ہے۔",
-    }[lang]
+    }["en" if lang == "xx" else lang]
     return {
         "answer": answer[:1500],
         "covered": True,

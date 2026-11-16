@@ -161,8 +161,11 @@ class PackageFact(Payload):
 
 
 class ChatInput(Payload):
-    lang: Literal["ar", "en", "ur"] = "ar"
-    intent: ChatIntent
+    # Laravel's guess, for its fixed texts: Arabic, English, Urdu, or another language ("xx"). The answer is in the
+    # language of the message whatever it is.
+    lang: Literal["ar", "en", "ur", "xx"] = "ar"
+    # "auto": a language Laravel's rules do not read — the model names the intent (ChatAnswer.intent)
+    intent: ChatIntent | Literal["auto"]
     message: Annotated[str, Field(min_length=1, max_length=1000)]
     history: Annotated[list[Exchange], Field(max_length=1)] = []
     packages: list[PackageFact] = []
@@ -177,6 +180,9 @@ class ChatAnswer(BaseModel):
     answer: Annotated[str, Field(min_length=1, max_length=1500)]
     covered: bool
     citations: list[Citation] = []
+    intent: Annotated[
+        ChatIntent | Literal["out_of_scope"] | None, Field(description="the message's intent, only when asked «auto»")
+    ] = None
 
 
 # ── summaries ───────────────────────────────────────────────────────────────────────────────────

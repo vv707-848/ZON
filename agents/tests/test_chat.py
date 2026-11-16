@@ -1,11 +1,13 @@
 """The chat answers from retrieved passages only, and its sources come from those passages."""
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import ScriptedModel, call, index
 from zon_agents.config import Settings
 from zon_agents.profiles import load_profile
+from zon_agents.tools.retrieval import Retrieval
 
 OWNERSHIP = (
     "يحق لغير السعودي المقيم إقامة نظامية تملك عقار لسكنه الخاص بعد الحصول على موافقة الجهات المختصة. "
@@ -110,8 +112,63 @@ def test_package_questions_get_the_platforms_own_figures(client: TestClient, mod
 
     output = call(client, "chat", {"intent": "packages", "message": "كم الاشتراك؟", "packages": packages})["output"]
 
-    assert output == {"answer": "باقة الوسيط السنوية بـ 2300 ريال.", "covered": True, "sources": []}
+    assert output == {
+        "answer": "باقة الوسيط السنوية بـ 2300 ريال.",
+        "covered": True,
+        "sources": [],
+        "intent": "packages",
+    }
     assert model.calls_of("chat")[0][1]["packages"] == packages
+
+
+def test_a_language_no_rule_reads_is_answered_in_it_and_the_model_names_the_intent(
+    client: TestClient, model: ScriptedModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _document(client)
+    # bge-m3 matches a French question to an Arabic passage; the tests' bag of words does not: it reads its meaning
+    knowledge = Retrieval.knowledge
+    monkeypatch.setattr(
+        Retrieval, "knowledge", lambda self, question, today: knowledge(self, "يحق لغير السعودي تملك عقار", today)
+    )
+    quoted = "يحق لغير السعودي المقيم إقامة نظامية تملك عقار لسكنه الخاص"
+    model.answers["chat"] = {
+        "answer": "Oui : un résident étranger peut posséder un logement pour lui-même.",
+        "covered": True,
+        "citations": [{"passage": 1, "quote_ar": quoted}],
+        "intent": "knowledge",
+    }
+    asked = {"lang": "xx", "intent": "auto", "message": "Un étranger peut-il posséder un bien en Arabie ?"}
+
+    output = call(client, "chat", {**asked, "packages": [{"name": "الباحث", "price": 199}]})["output"]
+
+    assert output["intent"] == "knowledge" and output["covered"] is True
+    assert output["answer"].startswith("Oui") and output["sources"][0]["quote_ar"] == quoted, (
+        "the Arabic source under it"
+    )
+    sent = model.calls_of("chat")[0][1]
+    assert sent["passages"] and sent["packages"], "both, for the model to choose from"
+
+    model.answers["chat"] = {
+        "answer": "Je suis l'assistant immobilier de Zon.",
+        "covered": True,
+        "intent": "out_of_scope",
+    }
+    outside = call(client, "chat", {**asked, "message": "Qui gagnera le match ce soir ?"})["output"]
+    assert outside == {
+        "answer": "Je suis l'assistant immobilier de Zon.",
+        "covered": False,
+        "sources": [],
+        "intent": "out_of_scope",
+    }
+
+    model.answers["chat"] = {
+        "answer": "Oui, sans aucune limite.",
+        "covered": True,
+        "citations": [],
+        "intent": "knowledge",
+    }
+    unproven = call(client, "chat", {**asked, "message": "Un étranger peut-il tout acheter ?"})["output"]
+    assert unproven["covered"] is False and "limite" not in unproven["answer"], "the fixed text, not an unsourced claim"
 
 
 def test_when_the_model_is_down_laravel_answers_on_its_own(client: TestClient, model: ScriptedModel) -> None:

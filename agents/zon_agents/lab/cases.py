@@ -86,7 +86,8 @@ class ChatExpect(_Strict):
     covered: bool
     cite: list[int] = []  # documents any of which a covered answer cites
     mention: Terms = []
-    lang: Literal["en", "ur"] | None = None  # the answer is in the asker's language
+    lang: str | None = None  # the answer is in the asker's language (en · ur · fr · tr · ru · hi)
+    intent: str | None = None  # for «auto»: the intent the model must name
 
 
 class Chosen(_Strict):

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Ai\Assistants\IntentClassifier;
 use App\Models\AiRequest;
 use App\Models\BuyerPreference;
 use App\Models\ChatMessage;
@@ -292,6 +293,32 @@ class AiTest extends TestCase
 
         $this->assertSame(['passed', 'passed', 'replaced', 'replaced'], ChatMessage::query()->orderBy('id')->pluck('guard_status')->all());
         $this->getJson('/api/v1/ai/chat')->assertJsonCount(4, 'data');
+    }
+
+    public function test_the_chat_answers_in_any_language_and_the_model_names_the_intent_where_no_rule_reads_it(): void
+    {
+        $this->assertSame(
+            ['ar', 'en', 'ur', 'xx', 'xx', 'xx', 'xx'],
+            array_map(IntentClassifier::language(...), ['كم سعر الباقة؟', 'How much is the plan?', 'میں اپنا اکاؤنٹ کیسے حذف کروں؟',
+                'Combien coûte le forfait ?', 'Arayan paketi ne kadar?', 'Сколько стоит пакет?', 'पैकेज कितने का है?']),
+        );
+        $this->seeker();
+        $knowledge = ['answer' => 'Oui, avec l\'accord des autorités.', 'covered' => true, 'sources' => [['doc_id' => 1, 'title' => 'x', 'quote_ar' => 'يحق لغير السعودي المقيم']], 'intent' => 'knowledge'];
+        Http::fake(['agents.test/agents/chat' => Http::sequence()
+            ->push(['output' => $knowledge, 'degraded' => false, 'usage' => [], 'latency_ms' => 900])
+            ->push(['output' => ['answer' => 'Je suis l\'assistant immobilier de Zon.', 'covered' => false, 'sources' => [], 'intent' => 'out_of_scope'], 'degraded' => false, 'usage' => [], 'latency_ms' => 900])
+            ->push(['detail' => 'down'], 503)]);
+
+        $this->postJson('/api/v1/ai/chat', ['message' => 'Un étranger peut-il posséder un logement en Arabie saoudite ?'])->assertOk()
+            ->assertJsonPath('data.lang', 'xx')->assertJsonPath('data.intent', 'knowledge')->assertJsonPath('data.answer', $knowledge['answer'])
+            ->assertJsonPath('data.sources.0.quote_ar', 'يحق لغير السعودي المقيم');
+        Http::assertSent(fn (Sent $r) => $r['intent'] === 'auto' && $r['lang'] === 'xx' && $r['packages'] !== []);   // no rule read it: the model names the intent, with both contexts
+        $this->postJson('/api/v1/ai/chat', ['message' => 'Qui va gagner le match ?'])->assertOk()
+            ->assertJsonPath('data.intent', 'out_of_scope')->assertJsonPath('data.answer', 'Je suis l\'assistant immobilier de Zon.')->assertJsonPath('data.action', null);
+        $this->postJson('/api/v1/ai/chat', ['message' => 'Combien coûte le forfait ?'])->assertOk()
+            ->assertJsonPath('data.answer', 'I can’t answer right now — try again shortly or contact support from Settings.');
+
+        $this->assertSame(['xx', 'xx', 'xx'], ChatMessage::query()->orderBy('id')->pluck('lang')->all());
     }
 
     public function test_a_client_summary_is_masked_stored_and_reused_while_the_notes_are_unchanged(): void

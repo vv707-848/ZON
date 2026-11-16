@@ -20,18 +20,21 @@ use App\Support\Trace;
 
 /**
  * «زون» — the chat (barq_chat_screen.dart), in this order:
- *   1 blocked words → a fixed answer · 2 language (ar · en · ur) · 3 intent by rules; out of scope → a fixed
- *   answer, no call · 4 the call with a closed context (knowledge passages, or the packages' exact numbers) ·
+ *   1 blocked words → a fixed answer · 2 language (ar · en · ur · xx) · 3 intent by rules; out of scope → a fixed
+ *   answer, no call — in any other language (xx) the rules are skipped and the model names the intent («auto»:
+ *   the passages and the packages are both its context; «out of scope» is its own sentence in that language) ·
+ *   4 the call with a closed context (knowledge passages, or the packages' exact numbers) ·
  *   5 ChatGuard · 6 packages answered from the table itself when the AI is down · 7 saved (masked) in chat_messages.
  * The account's own name is masked with the rest («أنا خالد…» reaches no model, no row, no training sample).
+ * The answer is in the message's language; a fixed text is in ar · en · ur, and in English for any other.
  */
 final class ChatAssistant
 {
     private const FIXED = [
-        'blocked' => ['ar' => 'لا أستطيع المساعدة في هذا. اسألني عن العقار والباقات والخدمات في زون.', 'en' => 'I can’t help with that. Ask me about property, plans and Zon’s services.', 'ur' => 'میں اس میں مدد نہیں کر سکتا۔ جائیداد اور زون کی خدمات کے بارے میں پوچھیں۔'],
-        'out_of_scope' => ['ar' => 'أنا مساعد زون العقاري: أجيب عن الباقات والتراخيص والنشر والبحث والمطابقة.', 'en' => 'I’m Zon’s property assistant: plans, licences, publishing, search and matching.', 'ur' => 'میں زون کا اسسٹنٹ ہوں: پیکجز، لائسنس، اشاعت، تلاش۔'],
-        'unavailable' => ['ar' => 'تعذّر الرد الآن، حاول بعد قليل أو تواصل مع الدعم من الإعدادات.', 'en' => 'I can’t answer right now — try again shortly or contact support from Settings.', 'ur' => 'ابھی جواب ممکن نہیں، تھوڑی دیر بعد کوشش کریں۔'],
-        'not_covered' => ['ar' => 'لا أملك معلومة موثقة عن هذا. راجع الجهة الرسمية المختصة.', 'en' => 'I don’t have verified information on this. Please check with the official authority.', 'ur' => 'اس بارے میں مصدقہ معلومات نہیں ہیں۔'],
+        'blocked' => ['ar' => 'لا أستطيع المساعدة في هذا. اسألني عن العقار والباقات والخدمات في زون.', 'en' => 'I can’t help with that. Ask me about property, plans and Zon’s services.', 'xx' => 'I can’t help with that. Ask me about property, plans and Zon’s services.', 'ur' => 'میں اس میں مدد نہیں کر سکتا۔ جائیداد اور زون کی خدمات کے بارے میں پوچھیں۔'],
+        'out_of_scope' => ['ar' => 'أنا مساعد زون العقاري: أجيب عن الباقات والتراخيص والنشر والبحث والمطابقة.', 'en' => 'I’m Zon’s property assistant: plans, licences, publishing, search and matching.', 'xx' => 'I’m Zon’s property assistant: plans, licences, publishing, search and matching.', 'ur' => 'میں زون کا اسسٹنٹ ہوں: پیکجز، لائسنس، اشاعت، تلاش۔'],
+        'unavailable' => ['ar' => 'تعذّر الرد الآن، حاول بعد قليل أو تواصل مع الدعم من الإعدادات.', 'en' => 'I can’t answer right now — try again shortly or contact support from Settings.', 'xx' => 'I can’t answer right now — try again shortly or contact support from Settings.', 'ur' => 'ابھی جواب ممکن نہیں، تھوڑی دیر بعد کوشش کریں۔'],
+        'not_covered' => ['ar' => 'لا أملك معلومة موثقة عن هذا. راجع الجهة الرسمية المختصة.', 'en' => 'I don’t have verified information on this. Please check with the official authority.', 'xx' => 'I don’t have verified information on this. Please check with the official authority.', 'ur' => 'اس بارے میں مصدقہ معلومات نہیں ہیں۔'],
     ];
 
     /** Where the app should take the user for the services the chat only points to. */
@@ -51,7 +54,8 @@ final class ChatAssistant
         if (ArabicText::containsAny($message, Settings::list(Setting::ChatBlockedTerms))) {
             return $this->answer($customer, $message, $lang, ChatIntent::OutOfScope, self::FIXED['blocked'][$lang], false, [], 'replaced', null);
         }
-        $intent = $this->classifier->classify($message);
+        $auto = $lang === 'xx';
+        $intent = $auto ? null : $this->classifier->classify($message);
         if ($intent === ChatIntent::OutOfScope) {
             return $this->answer($customer, $message, $lang, $intent, self::FIXED['out_of_scope'][$lang], false, [], 'passed', null);
         }
@@ -60,23 +64,30 @@ final class ChatAssistant
         $last = ChatMessage::query()->where('customer_id', $customer->id)->latest('id')->first();
         $result = $this->ai->call(AiAgent::Chat, [
             'lang' => $lang,
-            'intent' => $intent->value,
+            'intent' => $intent->value ?? 'auto',
             'message' => $message,
             'history' => $last === null ? [] : [['q' => mb_substr($last->question, 0, 1000), 'a' => mb_substr($last->answer, 0, 2000)]],
-            'packages' => $intent === ChatIntent::Packages ? $packages : [],
+            'packages' => $auto || $intent === ChatIntent::Packages ? $packages : [],
         ], check: fn (array $out) => trim((string) ($out['answer'] ?? '')) === '' ? null : [
             'answer' => trim((string) $out['answer']),
             'covered' => (bool) ($out['covered'] ?? false),
             'sources' => array_values(array_filter((array) ($out['sources'] ?? []), 'is_array')),
+            'intent' => (string) ($out['intent'] ?? ''),
         ], customer: $customer, cache: false, known: [$customer->name]);
 
         if (! $result->usable()) {
             $fallback = $intent === ChatIntent::Packages ? $this->packagesText($packages, $lang) : self::FIXED['unavailable'][$lang];
 
-            return $this->answer($customer, $message, $lang, $intent, $fallback, $intent === ChatIntent::Packages, [], 'passed', $result);
+            return $this->answer($customer, $message, $lang, $intent ?? ChatIntent::OutOfScope, $fallback, $intent === ChatIntent::Packages, [], 'passed', $result);
         }
 
         $out = $result->output;
+        $intent ??= ChatIntent::tryFrom($out['intent']) ?? ChatIntent::OutOfScope;    // named by the model («auto»)
+        if ($intent === ChatIntent::OutOfScope) {           // its one sentence, in his language, if nothing in it is unsafe
+            $said = $this->guard->passes($out['answer'], false, [], $amounts, false);
+
+            return $this->answer($customer, $message, $lang, $intent, $said ? $out['answer'] : self::FIXED['out_of_scope'][$lang], false, [], $said ? 'passed' : 'replaced', $result);
+        }
         $ok = $this->guard->passes($out['answer'], $out['covered'], $out['sources'], $amounts, $intent === ChatIntent::Knowledge);
         if (! $ok) {
             $text = $intent === ChatIntent::Packages ? $this->packagesText($packages, $lang) : self::FIXED['not_covered'][$lang];

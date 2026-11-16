@@ -32,6 +32,13 @@ NOT_A_NUMBER = "987654"  # a number no case gives
 _LEAD = {
     "en": "According to the Zon knowledge library, the answer is as follows:",
     "ur": "زون کی لائبریری کے مطابق جواب یہ ہے:",
+    "fr": "Selon la bibliothèque de Zon, voici la réponse pour vous :",
+    "tr": "Zon kütüphanesine göre bu paket için aylık fiyatı:",
+    "ru": "Согласно библиотеке Zon, ответ такой:",
+    "hi": "ज़ोन की लाइब्रेरी के अनुसार उत्तर यह है:",
+}
+_NOT_HERE = {  # what a right answer says outside the library, in the asker's language
+    "hi": "मैं ज़ोन का संपत्ति सहायक हूँ: पैकेज, लाइसेंस, प्रकाशन, खोज और मिलान।",
 }
 
 
@@ -92,8 +99,10 @@ def perfect(case: Case, payload: dict[str, Any]) -> dict[str, Any]:
             }
         case "chat":
             chat = case.expected(ChatExpect)
+            named = {"intent": chat.intent} if chat.intent else {}
             if not chat.covered:
-                return {"answer": "لا أملك معلومة موثقة عن هذا.", "covered": False, "citations": []}
+                said = _NOT_HERE.get(chat.lang or "", "لا أملك معلومة موثقة عن هذا.")
+                return {"answer": said, "covered": False, "citations": [], **named}
             passages = case.context.get("passages", [])
             cited = [  # a right answer quotes the passage it relies on, word for word
                 {"passage": n, "quote_ar": str(p["text"]).split(".")[0].strip()}
@@ -102,7 +111,7 @@ def perfect(case: Case, payload: dict[str, Any]) -> dict[str, Any]:
             ][:1]
             lead = _LEAD.get(chat.lang or "", "")
             answer = " ".join([lead, " ، ".join(_words(chat.mention, chat.lang))]).strip() or "نعم."
-            return {"answer": answer, "covered": True, "citations": cited}
+            return {"answer": answer, "covered": True, "citations": cited, **named}
         case "report_select":
             select = case.expected(SelectExpect)
             return {"reports": [{"report": item.reports[0], "params": _given(item.params)} for item in select.reports]}
@@ -150,9 +159,14 @@ def adversary(case: Case, payload: dict[str, Any]) -> dict[str, Any]:
             }
         case "chat":
             chat = case.expected(ChatExpect)
-            if chat.covered:
-                return {"answer": "لا أعرف.", "covered": False, "citations": []}
-            return {"answer": "نعم، هذا مؤكد.", "covered": True, "citations": [{"passage": 1, "quote_ar": ""}]}
+            if chat.covered:  # and, asked «auto», a message it says is not about property
+                return {"answer": "لا أعرف.", "covered": False, "citations": [], "intent": "out_of_scope"}
+            return {
+                "answer": "نعم، هذا مؤكد.",
+                "covered": True,
+                "citations": [{"passage": 1, "quote_ar": ""}],
+                "intent": "knowledge",
+            }
         case "report_select":
             select = case.expected(SelectExpect)
             right = {name for item in select.reports for name in item.reports}
