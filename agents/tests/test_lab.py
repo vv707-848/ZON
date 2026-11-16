@@ -80,6 +80,14 @@ def _case(case_id: str) -> Case:
     return next(c for c in load_cases() if c.id == case_id)
 
 
+def test_a_half_said_in_words_is_the_number_it_says() -> None:
+    case = next(c for c in load_cases() if c.id == "summary-002")  # «ميزانيته صارت مليون ونصف»
+    said = {"signals": ["تذبذب في الميزانية"], "recommended_action": "تأكيد الميزانية", "confidence": "low"}
+
+    assert score(case, {**said, "summary": "رفع ميزانيته إلى 1.5 مليون ثم عاد إلى 700 ألف."}).metrics["numbers"] == 1.0
+    assert score(case, {**said, "summary": "رفع ميزانيته إلى 2.5 مليون."}).metrics["numbers"] == 0.0
+
+
 def test_a_number_a_packages_features_say_is_not_a_made_up_one() -> None:
     case = next(c for c in load_cases() if c.id == "chat-012")  # «توفير 1060 ريالاً عن الشهري» is a feature
     said = "باقة الوسيط شهرياً 280 ريالاً وسنوياً 2300، والسنوية توفر 1060 ريالاً، وفيها البحث الذكي في الطلبات."

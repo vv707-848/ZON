@@ -6,6 +6,10 @@ Laravel builds the candidates in SQL (mandatory city · neighbourhood · type; t
    bank) from the fields and the cleaned descriptions. It writes nothing else: the app shows no explanation under
    a result, so the model's whole answer is ids and scores.
 3. **Check:** every id must be a candidate; anything else is dropped silently.
+4. **Conditions:** a result that breaks a condition the need states in numbers — its price more than a tenth over
+   the top of the budget, or fewer rooms than asked — goes after every result that does not. Nothing is removed.
+   The model orders by what the texts say and lets a close wording outrank a broken budget (measured: a request
+   whose budget the offer broke was in the first three in 5 cases of 6, twice); arithmetic is the code's.
 
 If the model fails, the answer is `degraded`: the hybrid order with its scores. If the embedding server or Qdrant
 fails, the call fails (503) and Laravel answers with the SQL order (§7 «سياسة الفشل»).
@@ -36,6 +40,7 @@ from zon_agents.schemas.agents import (
 from zon_agents.store import LISTINGS, PROJECT_UNITS, REQUESTS
 
 SHORTLIST = 30  # candidates the model reads after the hybrid query (§10.1 step 8 → 9)
+OVER_BUDGET = 1.10  # a price above the top of the budget by more than this breaks it (docs/model-lab.md)
 
 Candidate = ListingCandidate | UnitCandidate | RequestCandidate
 
@@ -78,6 +83,34 @@ def _checked(
     return out
 
 
+def _breaks(need: Need, candidate: Candidate) -> bool:
+    """The candidate breaks a condition of the need that both state in numbers. A request is read the other way
+    round: the need is the broker's offer, and the condition is the request's own budget and rooms."""
+    if isinstance(candidate, RequestCandidate):
+        price, top, rooms, asked = need.budget_max, candidate.budget_max, need.bedrooms, candidate.rooms_min
+    else:
+        price, top, rooms, asked = candidate.price, need.budget_max, candidate.bedrooms, need.bedrooms
+        if asked and rooms is None:
+            return True  # rooms asked for and not stated: not shown to meet them
+    over = bool(top) and price is not None and price > (top or 0) * OVER_BUDGET
+    few = bool(asked) and rooms is not None and rooms < (asked or 0)
+    return over or few
+
+
+def conditions_first(
+    results: list[dict[str, Any]], need: Need, shortlist: Sequence[tuple[Candidate, float]]
+) -> list[dict[str, Any]]:
+    """What breaks a condition after what does not, each group in the order it had; a result moved down does not
+    keep a score above the ones now before it."""
+    broken = {c.id for c, _ in shortlist if _breaks(need, c)}
+    kept = [r for r in results if r["id"] not in broken]
+    late = [r for r in results if r["id"] in broken]
+    if not kept or not late:
+        return results
+    lowest = min(r["score"] for r in kept)
+    return kept + [{**r, "score": min(r["score"], lowest)} for r in late]
+
+
 def _plain(shortlist: Sequence[tuple[Candidate, float]], limit: int) -> list[dict[str, Any]]:
     """The degraded answer: hybrid order and scores."""
     return [{"id": c.id, "score": score} for c, score in shortlist[:limit]]
@@ -108,8 +141,9 @@ async def _rank_one(
     try:
         answer = await ctx.llm.run(agent, payload, SearchAnswer, "json")
     except ModelFailed as exc:
-        return Result({"results": _plain(shortlist, limit)}, degraded=True, log={"llm": exc.reason})
-    output = {"results": _checked(answer.output.results, shortlist, limit)}
+        plain = conditions_first(_plain(shortlist, limit), need, shortlist)
+        return Result({"results": plain}, degraded=True, log={"llm": exc.reason})
+    output = {"results": conditions_first(_checked(answer.output.results, shortlist, limit), need, shortlist)}
     return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
 
 
@@ -135,11 +169,15 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
     try:
         answer = await ctx.llm.run("matching", payload, MatchingAnswer, "json")
     except ModelFailed as exc:
-        output = {"matched": _plain(matched, req.limit), "broaden": _plain(broaden, req.limit), "units": unit_scores}
+        output = {
+            "matched": conditions_first(_plain(matched, req.limit), req.need, matched),
+            "broaden": conditions_first(_plain(broaden, req.limit), req.need, broaden),
+            "units": unit_scores,
+        }
         return Result(output, degraded=True, log={"llm": exc.reason})
     output = {
-        "matched": _checked(answer.output.matched, matched, req.limit),
-        "broaden": _checked(answer.output.broaden, broaden, req.limit),
+        "matched": conditions_first(_checked(answer.output.matched, matched, req.limit), req.need, matched),
+        "broaden": conditions_first(_checked(answer.output.broaden, broaden, req.limit), req.need, broaden),
         "units": unit_scores,
     }
     return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)

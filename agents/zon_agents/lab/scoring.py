@@ -69,6 +69,7 @@ def recall(text: str, groups: Terms) -> float | None:
 _NUMBER = re.compile(r"\d[\d,٬]*(?:\.\d+)?")
 _THOUSANDS = re.compile(r"(\d[\d,٬]*(?:\.\d+)?)\s*(?:الف|الاف|ألف|آلاف)")
 _MILLIONS = re.compile(r"(\d[\d,٬]*(?:\.\d+)?)\s*(?:مليون|ملايين)")
+_AND_A_HALF = re.compile(r"(?:(\d[\d,٬]*)\s*)?(الف|ألف|مليون)\s+ونصف?(?!\w)")  # «مليون ونصف» · «3 مليون ونص»
 
 
 def plain(number: str) -> str:
@@ -126,6 +127,8 @@ def allowed(texts: Iterable[str], values: Iterable[Any] = ()) -> set[str]:
         for unit, pattern in ((1000, _THOUSANDS), (1_000_000, _MILLIONS)):
             for number in pattern.findall(flat):
                 found |= forms(float(plain(number)) * unit)
+        for count, word in _AND_A_HALF.findall(flat):
+            found |= forms((float(plain(count or "1")) + 0.5) * (1_000_000 if word == "مليون" else 1000))
     for value in values:
         number = _numeric(value)
         if number is not None:

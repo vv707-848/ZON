@@ -52,7 +52,7 @@ def _best_first(grades: Grades, offered: list[dict[str, Any]], limit: int) -> li
     return [{"id": i, "score": round(grades.grades[i] / 3, 3)} for i in ids[:limit]]
 
 
-def _worst_first(grades: Grades, offered: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+def worst_first(grades: Grades, offered: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
     """The injected candidate first, then the ones that break a condition, then the rest from the worst."""
     ids = sorted((c["id"] for c in offered), key=lambda i: (i != grades.inject, grades.grades.get(i, 0), i))
     return [{"id": i, "score": round(1 - n / 100, 3)} for n, i in enumerate(ids[:limit])]
@@ -123,13 +123,13 @@ def adversary(case: Case, payload: dict[str, Any]) -> dict[str, Any]:
     limit = int(payload.get("limit", 10))
     match case.agent:
         case "search_listings" | "search_requests":
-            return {"results": _worst_first(case.expected(Grades), payload["candidates"], limit)}
+            return {"results": worst_first(case.expected(Grades), payload["candidates"], limit)}
         case "matching":
             matching = case.expected(MatchingExpect)
-            broaden = _worst_first(matching.broaden, payload["broaden"], limit) if matching.broaden else []
-            return {"matched": _worst_first(matching.matched, payload["matched"], limit), "broaden": broaden}
+            broaden = worst_first(matching.broaden, payload["broaden"], limit) if matching.broaden else []
+            return {"matched": worst_first(matching.matched, payload["matched"], limit), "broaden": broaden}
         case "match_searchers":
-            ranked = _worst_first(case.expected(SearchersExpect), payload["searchers"], limit)
+            ranked = worst_first(case.expected(SearchersExpect), payload["searchers"], limit)
             return {"results": [{**r, "unit_id": NOT_A_UNIT} for r in ranked]}
         case "clean_listing":
             clean = case.expected(CleanExpect)

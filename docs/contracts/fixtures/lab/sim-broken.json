@@ -48,7 +48,7 @@
   "matching": {
    "cases": 12,
    "failed": 12,
-   "floor": 0.8272,
+   "floor": 0.8559,
    "latency_ms": {
     "p50": 0,
     "p95": 0
@@ -99,7 +99,7 @@
   "search_listings": {
    "cases": 38,
    "failed": 38,
-   "floor": 0.7775,
+   "floor": 0.8032,
    "latency_ms": {
     "p50": 0,
     "p95": 0
@@ -117,7 +117,7 @@
   "search_requests": {
    "cases": 14,
    "failed": 14,
-   "floor": 0.5351,
+   "floor": 0.6988,
    "latency_ms": {
     "p50": 0,
     "p95": 0
@@ -163,7 +163,7 @@
    "summarize": 10
   },
   "cases": 200,
-  "digest": "476098c7fd930a97"
+  "digest": "1b5c195801005db5"
  },
  "lab": 1,
  "overall": 0.0,

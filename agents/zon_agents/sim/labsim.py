@@ -9,6 +9,9 @@ every known result checked — before a GPU is paid for.
 | `broken` | never an answer of the schema | every call the model takes fails, and is recorded as failed |
 | `rules` | the rule model (rules.py) | it always answers, and twice the same |
 
+In a search or a matching the pipeline itself puts what breaks a numeric condition last (ranking.py), whatever the
+model answered: what is known of `adversary` and `positional` there is what that leaves in the first three.
+
 `rules` is also the floor: its scores are what the documented rules reach with no model at all.
 """
 
@@ -23,7 +26,9 @@ from zon_agents.lab.cases import Case, ChatExpect, Grades, MatchingExpect, Searc
 from zon_agents.lab.runner import CURRENT, RANKING, Outcome, report, run_cases
 from zon_agents.lab.scoring import TOP
 from zon_agents.llm import LLM, load_prompts
+from zon_agents.pipelines.ranking import conditions_first
 from zon_agents.profiles import SIMULATED
+from zon_agents.schemas.agents import ListingCandidate, Need, RequestCandidate
 from zon_agents.sim import oracle, rules
 from zon_agents.sim.model import Answerer, function_model
 
@@ -85,6 +90,19 @@ def _lists(case: Case) -> list[tuple[str, Grades]]:
     return [("", case.expected(SearchersExpect if case.agent == "match_searchers" else Grades))]
 
 
+def _first_three(case: Case, name: str, answered: list[dict[str, Any]]) -> list[int]:
+    """The first three of an answer once the pipeline has put what breaks a numeric condition last."""
+    kind = RequestCandidate if case.agent == "search_requests" else ListingCandidate
+    shortlist = [(kind(**candidate), 0.0) for candidate in case.input[name]]
+    return [r["id"] for r in conditions_first(answered, Need(**case.input["need"]), shortlist)][:TOP]
+
+
+def _worst_three(case: Case, suffix: str, grades: Grades) -> list[int]:
+    """The worst a model can make a search or a matching show."""
+    name = {"": "candidates", "_matched": "matched", "_broaden": "broaden"}[suffix]
+    return _first_three(case, name, oracle.worst_first(grades, case.input[name], int(case.input.get("limit", 10))))
+
+
 def _wrong(outcome: Outcome, why: str) -> str:
     return f"{outcome.case} ({outcome.agent}, {outcome.variant}): {why} — score {outcome.score}, {outcome.metrics}"
 
@@ -107,14 +125,16 @@ def _adversary(outcome: Outcome, case: Case) -> list[str]:
 
     if case.agent in RANKING:
         for suffix, grades in _lists(case):
-            must(
-                f"top1{suffix}", float(len(set(grades.grades.values())) == 1)
-            )  # first is the best only if all are equal
+            if case.agent == "match_searchers":  # no condition is the pipeline's there: the worst three as answered
+                must(f"top1{suffix}", float(len(set(grades.grades.values())) == 1))
+                if any(g == 0 for g in grades.grades.values()):
+                    must(f"zero_top3{suffix}", 1.0)
+                continue
+            first = _worst_three(case, suffix, grades)
+            must(f"top1{suffix}", float(grades.grades.get(first[0], 0) == max(grades.grades.values())))
             if grades.inject is not None:
-                must(f"inject_top3{suffix}", 1.0)
-            # the three first are the worst three: one of them breaks a condition whenever any candidate does
-            if any(g == 0 for g in grades.grades.values()):
-                must(f"zero_top3{suffix}", 1.0)
+                must(f"inject_top3{suffix}", float(grades.inject in first))
+            must(f"zero_top3{suffix}", float(any(grades.grades.get(i, 0) == 0 for i in first)))
         if "unit" in metrics:
             must("unit", 0.0)
     elif case.agent == "clean_listing":
@@ -150,8 +170,8 @@ def _answered(outcome: Outcome, case: Case) -> list[str]:
 def _swapped_top(case: Case) -> float:
     """How much of the top three a positional answer keeps when the candidates come in the opposite order."""
     name = "matched" if case.agent == "matching" else "candidates"
-    ids = [c["id"] for c in case.input[name]][: int(case.input.get("limit", 10))]
-    first, last = set(ids[:TOP]), set(ids[::-1][:TOP])
+    given = [{"id": c["id"], "score": 0.0} for c in case.input[name]][: int(case.input.get("limit", 10))]
+    first, last = set(_first_three(case, name, given)), set(_first_three(case, name, given[::-1]))
     return len(first & last) / max(len(first), len(last), 1)
 
 

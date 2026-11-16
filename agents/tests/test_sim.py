@@ -60,10 +60,9 @@ def test_the_right_answer_scores_one_on_every_case_through_the_production_pipeli
 
 def test_the_answer_each_limit_exists_to_catch_trips_it(runs: dict[str, Any]) -> None:
     agents = labsim.summary("adversary", runs["adversary"][0], CASES)["agents"]
-    assert agents["search_listings"]["metrics"]["inject_top3"] == 1.0
-    assert agents["search_requests"]["metrics"]["inject_top3"] == 1.0
-    assert agents["search_listings"]["metrics"]["zero_top3"] > 0.05
-    assert agents["matching"]["metrics"]["zero_top3_matched"] > 0.05
+    assert agents["search_listings"]["metrics"]["zero_top3"] > 0.05  # a wish only the text states: the model's
+    assert agents["matching"]["metrics"]["top1_matched"] == 0.0
+    assert agents["match_searchers"]["metrics"]["zero_top3"] > 0.05
     assert agents["clean_listing"]["metrics"]["invented"] == 0.0
     assert agents["report_write"]["metrics"]["guard"] == 0.0
     assert all(entry["failed"] == 0 for entry in agents.values())  # wrong, never failing: the score must say it
@@ -282,8 +281,8 @@ def test_a_failing_node_gives_what_a_failing_model_gives(stack: tuple[TestClient
         ({"llm": "slow", "delay": 5}, "timeout"),
     ):
         assert sim.post("/sim/mode", json=mode).status_code == 200
-        ranked = call(agents, "search_listings", SEARCH)  # a ranking agent degrades: the order it was given
-        assert ranked["degraded"] is True and [r["id"] for r in ranked["output"]["results"]] == [3, 2, 1]
+        ranked = call(agents, "search_listings", SEARCH)  # a ranking agent degrades: the order it was given,
+        assert ranked["degraded"] is True and [r["id"] for r in ranked["output"]["results"]] == [3, 1, 2]  # 2M last
         refused = agents.post("/agents/clean_listing", json=clean)  # a writing agent has nothing to fall back on
         assert (refused.status_code, refused.json()["detail"]) == (503, f"llm ({reason}) unavailable")
     sim.post("/sim/reset")
