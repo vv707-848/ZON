@@ -8,6 +8,7 @@ use App\Enums\StaffType;
 use App\Filament\Resources\Cities\Pages\CreateCity;
 use App\Filament\Resources\Cities\Pages\EditCity;
 use App\Filament\Resources\CommissionDues\Pages\CreateCommissionDue;
+use App\Filament\Resources\CommissionDues\Pages\ListCommissionDues;
 use App\Filament\Resources\MarketingContracts\Pages\EditMarketingContract;
 use App\Filament\Resources\Packages\Pages\EditPackage;
 use App\Filament\Resources\Roles\Pages\CreateRole;
@@ -68,6 +69,21 @@ class AdminFormsTest extends AdminTestCase
             'starts_at' => now()->subMonth(), 'ends_at' => now()->addMonth()]);
         $this->record(['listing_id' => $this->soldBy($subscribed)->id])->assertHasFormErrors(['listing_id']);               // his plan covered the sale
         $this->assertDatabaseCount('commission_dues', 1);
+    }
+
+    public function test_a_sale_price_the_seller_gave_is_read_against_the_listed_one_and_corrected_before_it_is_collected(): void
+    {
+        $this->signInSuperadmin();
+        $listing = Listing::factory()->for(Customer::factory()->owner()->create())->create(['status' => ListingStatus::Sold, 'price' => 1200000]);
+        $due = CommissionDue::query()->create(['customer_id' => $listing->customer_id, 'source_type' => 'owner_case', 'source_id' => 1, 'listing_id' => $listing->id,
+            'sale_price' => '0.01', 'percent' => '2.50', 'amount_halalas' => CommissionDue::amountFor('0.01', '2.50'), 'status' => CommissionStatus::Due]);
+
+        Livewire::test(ListCommissionDues::class)->assertSee('المعلن 1,200,000 · 0٪ منه')
+            ->callTableAction('reprice', $due, ['sale_price' => 1150000, 'note' => 'صك البيع'])->assertHasNoTableActionErrors();
+
+        $due->refresh();
+        $this->assertSame(['1150000.00', 2875000, CommissionStatus::Due], [(string) $due->sale_price, (int) $due->amount_halalas, $due->status], '2.5 % of 1,150,000 SAR');
+        $this->assertSame(1, Activity::query()->where('event', 'commission_repriced')->count());
     }
 
     public function test_a_packages_price_takes_two_decimals_at_most_and_is_logged(): void

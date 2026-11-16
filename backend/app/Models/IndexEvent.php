@@ -35,12 +35,14 @@ class IndexEvent extends Model
     }
 
     /**
-     * Every try of PushIndexEvent failed: waits for RetryPendingIndexEvents or «إعادة الإرسال» in the panel.
+     * Every try of PushIndexEvent failed, or the service refused it (a 4xx is final): RetryPendingIndexEvents sends
+     * it again up to `zon.index.max_attempts`, a refused one never; «إعادة الإرسال» in the panel always can.
      *
      * @param  Builder<IndexEvent>  $query
      */
     public function scopeFailed(Builder $query): void
     {
-        $query->whereNull('acked_at')->where('attempts', '>=', 3)->whereNotNull('last_error');
+        $query->whereNull('acked_at')->whereNotNull('last_error')
+            ->where(fn (Builder $q) => $q->where('attempts', '>=', 3)->orWhere('last_error', 'like', 'HTTP 4%'));
     }
 }

@@ -9,9 +9,6 @@ use App\Models\CommissionDue;
 use App\Models\Listing;
 use App\Models\SaleReport;
 use App\Support\Actor;
-use App\Support\Money;
-use Brick\Math\BigDecimal;
-use Brick\Math\RoundingMode;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -39,7 +36,6 @@ final class MarkListingSold
             $case = $listing->ownerCase()->first();
             if ($case !== null) {
                 $price = $salePrice ?? (string) $listing->price;
-                $halalas = BigDecimal::of($price)->multipliedBy(100)->toScale(0, RoundingMode::HalfUp)->toInt();
                 CommissionDue::query()->create([
                     'customer_id' => $listing->customer_id,
                     'source_type' => $case->getMorphClass(),
@@ -47,7 +43,7 @@ final class MarkListingSold
                     'listing_id' => $listing->id,
                     'sale_price' => $price,
                     'percent' => $case->commission_percent,
-                    'amount_halalas' => (new Money($halalas))->percent((string) $case->commission_percent)->halalas,
+                    'amount_halalas' => CommissionDue::amountFor($price, (string) $case->commission_percent),
                     'status' => CommissionStatus::Due,
                 ]);
                 $case->forceFill(['stage' => OwnerCaseStage::Closed])->save();

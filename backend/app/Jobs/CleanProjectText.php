@@ -5,23 +5,33 @@ namespace App\Jobs;
 use App\Ai\AiGateway;
 use App\Enums\AiAgent;
 use App\Enums\TextReview;
+use App\Jobs\Concerns\WaitsOnce;
 use App\Models\Project;
 use App\Notifications\Notices;
 use App\Support\ArabicText;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\DB;
 
-/** The first of a project's two reviews: its own description (clean_project). Without the AI: kept as written. */
-class CleanProjectText implements ShouldQueue
+/**
+ * The first of a project's two reviews: its own description (clean_project). Without the AI: kept as written.
+ * One waiting per project, until it starts (WaitsOnce).
+ */
+class CleanProjectText implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable;
+    use Dispatchable, InteractsWithQueue, Queueable, WaitsOnce;
 
     public function __construct(public readonly int $projectId)
     {
         $this->onQueue('ai');
+    }
+
+    public function uniqueId(): string
+    {
+        return (string) $this->projectId;
     }
 
     public function handle(AiGateway $ai): void

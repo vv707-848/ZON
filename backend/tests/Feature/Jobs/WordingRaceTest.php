@@ -15,6 +15,7 @@ use App\Models\Project;
 use App\Models\ProjectUnit;
 use Closure;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 /**
@@ -121,6 +122,21 @@ class WordingRaceTest extends TestCase
         $this->assertSame($newText, $unit->refresh()->desc_raw);
         $this->assertSame($newWording, $unit->desc_suggested, 'the edit\'s own wording was sent, and kept');
         $this->assertSame(TextReview::Ready, $unit->text_review);
+    }
+
+    public function test_saves_close_together_ask_the_ai_once_for_a_listing_a_project_and_its_units(): void
+    {
+        Queue::fake();
+        foreach ([1, 2] as $save) {
+            CleanListingText::dispatch(7);
+            CleanProjectText::dispatch(7);
+            CleanUnitTexts::dispatch(7);
+        }
+        CleanListingText::dispatch(8);
+
+        Queue::assertPushed(CleanListingText::class, 2);    // one waiting for each listing
+        Queue::assertPushed(CleanProjectText::class, 1);
+        Queue::assertPushed(CleanUnitTexts::class, 1);
     }
 
     public function test_a_project_or_unit_whose_wording_never_left_is_sent_again(): void

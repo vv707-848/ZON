@@ -11,9 +11,6 @@ use App\Models\CommissionDue;
 use App\Models\MarketingContract;
 use App\Models\ProjectUnit;
 use App\Models\SaleReport;
-use App\Support\Money;
-use Brick\Math\BigDecimal;
-use Brick\Math\RoundingMode;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -38,7 +35,7 @@ final class SellUnits
                 ->where(fn ($q) => $q->whereNull('project_id')->orWhere('project_id', $unit->project_id))->orderByDesc('project_id')->first();
             if ($contract !== null) {
                 $price = $salePrice ?? (string) $unit->price;
-                $each = BigDecimal::of($price)->multipliedBy(100)->toScale(0, RoundingMode::HalfUp)->toInt();
+                $each = CommissionDue::amountFor($price, (string) $contract->commission_percent);
                 for ($i = 0; $i < $count; $i++) {
                     CommissionDue::query()->create([
                         'customer_id' => $unit->project->developer_id,
@@ -47,7 +44,7 @@ final class SellUnits
                         'project_unit_id' => $unit->id,
                         'sale_price' => $price,
                         'percent' => $contract->commission_percent,
-                        'amount_halalas' => (new Money($each))->percent((string) $contract->commission_percent)->halalas,
+                        'amount_halalas' => $each,
                         'status' => CommissionStatus::Due,
                     ]);
                 }

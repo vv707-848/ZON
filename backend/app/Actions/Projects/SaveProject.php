@@ -10,7 +10,6 @@ use App\Models\Customer;
 use App\Models\Project;
 use App\Support\MediaLibrary;
 use App\Support\PublishingGate;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 
 /** Creates or edits a project. A new description goes back to the AI wording; units are re-indexed with it. */
@@ -48,7 +47,7 @@ final class SaveProject
         });
         if ($newText) {
             // after the save: a queue that cannot take it fails nothing saved (RequeueStuckWording sends it again)
-            rescue(fn () => Bus::dispatch(new CleanProjectText($saved->id)), report: true);
+            CleanProjectText::sendFor($saved->id);
         }
 
         return $saved;

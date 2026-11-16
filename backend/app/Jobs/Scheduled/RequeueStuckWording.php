@@ -10,7 +10,6 @@ use App\Jobs\ScheduledJob;
 use App\Models\Listing;
 use App\Models\Project;
 use App\Models\ProjectUnit;
-use Illuminate\Support\Facades\Bus;
 
 /**
  * A listing, project or unit whose wording was never sent (the queue could not take it when it was saved:
@@ -25,9 +24,9 @@ class RequeueStuckWording extends ScheduledJob
     public function handle(): void
     {
         Listing::query()->where('text_review', TextReview::Pending)->where('updated_at', '<=', now()->subMinutes(self::AFTER_MINUTES))
-            ->select('id')->chunkById(200, fn ($listings) => $listings->each(fn (Listing $l) => Bus::dispatch(new CleanListingText($l->id))));
+            ->select('id')->chunkById(200, fn ($listings) => $listings->each(fn (Listing $l) => CleanListingText::sendFor($l->id)));
         Project::query()->where('text_review', TextReview::Pending)->where('updated_at', '<=', now()->subMinutes(self::AFTER_MINUTES))
-            ->select('id')->chunkById(200, fn ($projects) => $projects->each(fn (Project $p) => Bus::dispatch(new CleanProjectText($p->id))));
+            ->select('id')->chunkById(200, fn ($projects) => $projects->each(fn (Project $p) => CleanProjectText::sendFor($p->id)));
         ProjectUnit::query()->where('text_review', TextReview::Pending)->where('updated_at', '<=', now()->subMinutes(self::AFTER_MINUTES))
             ->distinct()->pluck('project_id')->each(fn (int $project) => CleanUnitTexts::sendFor($project));   // one call per project
     }
