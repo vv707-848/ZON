@@ -10,11 +10,13 @@ use App\Enums\ListingStatus;
 use App\Enums\TextReview;
 use App\Http\Requests\Api\Listings\ListingRequest;
 use App\Indexing\IndexSync;
+use App\Jobs\Concerns\WaitsOnce;
 use App\Models\Listing;
 use App\Notifications\Notices;
 use App\Support\Actor;
 use App\Support\ArabicText;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -24,14 +26,22 @@ use Illuminate\Support\Facades\DB;
  * The AI wording of a description (clean_listing, queue `ai`). The suggestion waits for the advertiser's decision
  * («بانتظار مراجعتك»). If the AI cannot answer, the listing is published as written (text_review = auto): the AI
  * never stands between an advertiser and his publication. An identical suggestion needs no decision.
+ *
+ * One waiting per listing, until it starts (WaitsOnce): the queue has two workers, and two saves close together
+ * would otherwise ask the AI twice about the same text.
  */
-class CleanListingText implements ShouldQueue
+class CleanListingText implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable;
+    use Dispatchable, InteractsWithQueue, Queueable, WaitsOnce;
 
     public function __construct(public readonly int $listingId)
     {
         $this->onQueue('ai');
+    }
+
+    public function uniqueId(): string
+    {
+        return (string) $this->listingId;
     }
 
     public function handle(AiGateway $ai, PublishListing $publish, ChangeListingStatus $status, IndexSync $index): void

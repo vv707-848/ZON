@@ -97,7 +97,7 @@ final class CreateListing
         });
         // the wording follows what is saved: a queue that cannot take it now fails nothing (reported), and
         // RequeueStuckWording sends it again (Bus::dispatch sends at once, within rescue)
-        rescue(fn () => Bus::dispatch(new CleanListingText($listing->id)), report: true);
+        CleanListingText::sendFor($listing->id);
 
         return $listing;
     }

@@ -85,19 +85,40 @@ class CommissionDueResource extends Resource
                 Audit::log("commission_{$to->value}", 'تسوية عمولة', $record, ['note' => $data['note']]);
             });
 
+        // A sale price is what the seller said: «مستحقة» is not collected before staff read it against the listed price,
+        // and a price that is not the sale's is corrected here (its commission computed again), never collected as is.
+        $reprice = Action::make('reprice')->label('تصحيح سعر البيع')->color('warning')
+            ->visible(fn (CommissionDue $c) => $c->status === CommissionStatus::Due && $c->source_type !== 'listing' && Staff::can(Permission::ManagePayments))
+            ->schema([
+                TextInput::make('sale_price')->label('سعر البيع الصحيح (ريال)')->numeric()->minValue(1)->rule('decimal:0,2')->required(),
+                Textarea::make('note')->label('مصدر السعر الصحيح')->required()->maxLength(500),
+            ])
+            ->action(function (CommissionDue $record, array $data) {
+                $was = (string) $record->sale_price;
+                $price = (string) $data['sale_price'];
+                $record->forceFill([
+                    'sale_price' => $price,
+                    'amount_halalas' => CommissionDue::amountFor($price, (string) $record->percent),
+                    'notes' => trim($record->notes."\nسعر البيع {$was} ← {$price}: ".$data['note']),
+                ])->save();
+                Audit::log('commission_repriced', 'تصحيح سعر البيع', $record, ['from' => $was, 'to' => $price, 'note' => $data['note']]);
+            });
+
         return $table->defaultSort('id', 'desc')
-            ->modifyQueryUsing(fn ($query) => $query->with(['customer']))
+            ->modifyQueryUsing(fn ($query) => $query->with(['customer', 'listing', 'unit']))
             ->columns([
                 TextColumn::make('customer.name')->label('الحساب')->searchable(),
                 TextColumn::make('source_type')->label('المصدر')->formatStateUsing(fn (string $state) => ['owner_case' => 'سعي مالك', 'marketing_contract' => 'عقد مطوّر', 'listing' => 'حصة وسيط'][$state] ?? $state),
-                TextColumn::make('sale_price')->label('سعر البيع')->numeric(),
+                TextColumn::make('sale_price')->label('سعر البيع')->numeric()
+                    ->description(fn (CommissionDue $c) => ($listed = $c->listedPrice()) === null || (float) $listed <= 0 ? null
+                        : 'المعلن '.number_format((float) $listed).' · '.round((float) $c->sale_price / (float) $listed * 100).'٪ منه'),
                 TextColumn::make('percent')->label('النسبة ٪'),
                 Columns::money('amount_halalas', 'المستحق'),
                 Columns::enum('status', 'الحالة', Columns::STATUS_COLORS),
                 TextColumn::make('created_at')->label('التاريخ')->date(),
             ])
             ->filters([SelectFilter::make('status')->label('الحالة')->options(CommissionStatus::options())])
-            ->recordActions([$settle('paid', 'تحصيل', CommissionStatus::Paid, 'success'), $settle('waive', 'إعفاء', CommissionStatus::Waived, 'gray')]);
+            ->recordActions([$reprice, $settle('paid', 'تحصيل', CommissionStatus::Paid, 'success'), $settle('waive', 'إعفاء', CommissionStatus::Waived, 'gray')]);
     }
 
     public static function getPages(): array

@@ -16,6 +16,7 @@ use App\Models\SearchMiss;
 use App\Models\SearchRequest;
 use App\Models\Subscription;
 use App\Models\TrainingSample;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request as Sent;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -252,6 +253,27 @@ class AiTest extends TestCase
 
         $this->postJson('/api/v1/ai/search', [...$search, 'query' => 'مدخل خاص ومصعد'])->assertOk();
         Http::assertSent(fn (Sent $r) => $r['need']['budget_max'] === null && $r['need']['bedrooms'] === null);
+    }
+
+    public function test_a_request_that_fails_after_its_place_was_reserved_is_not_counted(): void
+    {
+        $listing = Listing::factory()->published()->create();
+        $free = Customer::factory()->seeker()->create();        // a free account: three searches a day
+        BuyerPreference::factory()->for($free)->create();
+        $this->signIn($free);
+        $form = ['city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'query' => 'مدخل خاص'];
+
+        Http::fake(fn () => throw new \RuntimeException('a fault after the reservation'));
+        foreach (range(1, 2) as $try) {
+            $this->postJson('/api/v1/ai/search', $form)->assertStatus(500);
+        }
+
+        Http::swap(new Factory);   // the fault is over
+        $this->agent(['results' => [['id' => $listing->id, 'score' => 0.7]]]);
+        foreach (range(1, 3) as $i) {
+            $this->postJson('/api/v1/ai/search', [...$form, 'query' => "طلب {$i}"])->assertOk();   // the day's three are all still his
+        }
+        $this->postJson('/api/v1/ai/search', [...$form, 'query' => 'طلب 4'])->assertStatus(429);
     }
 
     public function test_the_chat_answers_by_intent_and_its_guard_replaces_unsafe_answers(): void

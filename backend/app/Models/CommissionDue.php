@@ -3,6 +3,9 @@
 namespace App\Models;
 
 use App\Enums\CommissionStatus;
+use App\Support\Money;
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -41,5 +44,21 @@ class CommissionDue extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(ProjectUnit::class, 'project_unit_id');
+    }
+
+    /** The commission on a sale at [price] riyals: [percent] of it, in halalas. */
+    public static function amountFor(string $price, string $percent): int
+    {
+        $halalas = BigDecimal::of($price)->multipliedBy(100)->toScale(0, RoundingMode::HalfUp)->toInt();
+
+        return (new Money($halalas))->percent($percent)->halalas;
+    }
+
+    /** What the listing or the unit was offered at: beside the price the seller said it sold for. */
+    public function listedPrice(): ?string
+    {
+        $price = $this->listing->price ?? $this->unit->price ?? null;
+
+        return $price === null ? null : (string) $price;
     }
 }

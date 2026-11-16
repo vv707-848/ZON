@@ -49,6 +49,8 @@ return [
         'secret' => env('INDEX_SHARED_SECRET'),
         'connect_timeout' => 5,
         'timeout' => 10,
+        // RetryPendingIndexEvents stops resending a signal after this many sends; «إعادة الإرسال» in the panel still can.
+        'max_attempts' => 12,
     ],
 
     'media_disk' => env('MEDIA_DISK', 'minio'),

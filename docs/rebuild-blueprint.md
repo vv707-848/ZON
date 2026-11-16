@@ -543,7 +543,7 @@ search_listings · search_requests · matching · match_searchers · chat · sum
 - **`php artisan zon:reindex [entity] [--force]`:** إعادة تعبئة الفهرس بعد إعادة بناء Qdrant.
 - **برامج Supervisor:** zon-worker-index · zon-worker-ai · zon-worker-general · zon-reverb · zon-agents.
 - **Nginx:**
-  - حد 60 طلباً في الدقيقة لكل عنوان (`burst=20`) قبل PHP.
+  - حارس فيضان قبل PHP: 600 طلب في الدقيقة لكل عنوان (`burst=120`)، لأن شركات الاتصال تضع هواتف كثيرة خلف عنوان واحد (CGNAT). الحد لكل مستخدم في Laravel (`throttle:api` 120 في الدقيقة لكل حساب). ويبهوك ميسّر وإشعارات المتجرين خارج الحدّين.
   - Reverb على `/app/`.
   - `media.zon.sa` يمرّر إلى MinIO بترويسة `Host 127.0.0.1:9000` لأن الروابط موقّعة عليها (`temporary_url` في قرص minio).
 

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 /**
  * The stores' server-to-server notices: App Store Server Notifications V2 and Google's real-time developer
  * notifications (Pub/Sub push). The URL carries a key (STORE_NOTICES_KEY) — no key configured, no notice taken.
+ * In the URL because neither store lets a notice carry a header of ours; nginx logs paths without their query.
  * A notice is only a hint: the purchase it names is read back from the store. Any answer but 2xx makes the
  * store send again, so a notice we cannot use is still «received».
  */

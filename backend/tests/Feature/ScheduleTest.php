@@ -10,6 +10,7 @@ use App\Enums\ListingStatus;
 use App\Enums\RequestStatus;
 use App\Enums\TextReview;
 use App\Indexing\IndexSync;
+use App\Jobs\PushIndexEvent;
 use App\Jobs\Scheduled\AutoPublishPendingReviews;
 use App\Jobs\Scheduled\ComputeDailyAreaStats;
 use App\Jobs\Scheduled\ComputeDailyMetrics;
@@ -37,7 +38,9 @@ use App\Models\SearchRequest;
 use App\Models\Task;
 use App\Models\User;
 use App\Support\PublicView;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -249,5 +252,31 @@ class ScheduleTest extends TestCase
         (new RetryPendingIndexEvents)->handle();
         $this->assertNotNull($event->fresh()->acked_at);
         Http::assertSent(fn ($r) => $r->hasHeader('X-Signature') && str_starts_with($r->header('X-Signature')[0], 'sha256='));
+    }
+
+    public function test_index_signals_are_not_resent_for_ever(): void
+    {
+        Bus::fake([PushIndexEvent::class]);
+        $listing = Listing::factory()->published()->create();
+        $old = ['entity' => 'listing', 'entity_id' => $listing->id, 'action' => 'update', 'version' => 1, 'payload_hash' => str_repeat('0', 40), 'created_at' => now()->subHour()];
+        $down = IndexEvent::query()->create([...$old, 'attempts' => 3, 'last_error' => 'connection: refused', 'sent_at' => now()->subHour()]);
+        $tired = IndexEvent::query()->create([...$old, 'version' => 2, 'attempts' => (int) config('zon.index.max_attempts'), 'last_error' => 'HTTP 503: down', 'sent_at' => now()->subHour()]);
+        $refused = IndexEvent::query()->create([...$old, 'version' => 3, 'attempts' => 1, 'last_error' => 'HTTP 422: bad payload', 'sent_at' => now()->subHour()]);
+
+        (new RetryPendingIndexEvents)->handle();
+
+        Bus::assertDispatchedTimes(PushIndexEvent::class, 1);
+        Bus::assertDispatched(PushIndexEvent::class, fn (PushIndexEvent $job) => $job->eventId === $down->id);
+        $this->assertEqualsCanonicalizing([$down->id, $tired->id, $refused->id], IndexEvent::query()->failed()->pluck('id')->all(), 'the panel shows each one, to send by hand');
+    }
+
+    public function test_a_scheduled_job_is_not_queued_again_while_a_run_of_it_waits_or_works(): void
+    {
+        Queue::fake();
+        SendTaskReminders::dispatch();
+        SendTaskReminders::dispatch();
+        NotifyWishMatches::dispatch();
+        Queue::assertPushed(SendTaskReminders::class, 1);
+        Queue::assertPushed(NotifyWishMatches::class, 1);
     }
 }
