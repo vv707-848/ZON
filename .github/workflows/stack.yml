@@ -13,6 +13,7 @@ on:
       - agents/zon_agents/sim/**
       - deploy/php/**
       - deploy/mysql/**
+      - deploy/nginx/**
       - backend/composer.lock
       - backend/database/**
       - agents/uv.lock
@@ -27,6 +28,26 @@ permissions:
   contents: read
 
 jobs:
+  nginx:
+    # deploy/nginx/zon.conf on the version production installs (nginx.org's 1.30 branch: `http2 on;` needs 1.25.1
+    # or later, Ubuntu's 1.24 refuses it). `nginx -t` reads every directive and opens every listen, IPv6 included.
+    name: nginx -t (1.30)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: The production config is valid
+        run: |
+          for host in zon.sa api.zon.sa media.zon.sa; do
+            mkdir -p "$RUNNER_TEMP/le/live/$host"
+            openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=$host" \
+              -keyout "$RUNNER_TEMP/le/live/$host/privkey.pem" -out "$RUNNER_TEMP/le/live/$host/fullchain.pem" 2>/dev/null
+          done
+          docker run --rm --network host \
+            -v "$PWD/deploy/nginx/zon.conf:/etc/nginx/conf.d/default.conf:ro" -v "$RUNNER_TEMP/le:/etc/letsencrypt:ro" \
+            nginx:1.30 sh -c 'nginx -v && nginx -t'
+
   stack:
     name: docker compose up
     runs-on: ubuntu-24.04
