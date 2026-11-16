@@ -262,7 +262,7 @@ abstract final class ServerStore {
   /// The plans [restore] asked the store for, for the account it asked them for: a plan it gives back is sent
   /// with no record of its own on this phone. The server applies it only to the account whose store token the
   /// purchase carries.
-  static (int, Set<String>)? _restoring;
+  static (String, Set<String>)? _restoring;
 
   /// «استعادة المشتريات»: the store gives back the plans this store account bought (they arrive on its
   /// delivered stream, and go to the server from [listen]). False when this phone's store cannot.
