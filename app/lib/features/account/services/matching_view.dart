@@ -2,7 +2,7 @@
 // offers and the seekers / brokers who match their projects.
 //
 // With a server (ServerAi) nothing is ranked or made up here: the wish's results are the server's three lists in
-// its order (its own type · other types · projects with the unit models that fit), asked once the wish is known
+// its order (its own type · the rest of the city within the budget · projects with the unit models that fit), asked once the wish is known
 // and again when it is saved; a developer's seekers and brokers are the server's, for a published project of his.
 // The page says when the order is not a model's or is the simulation's, and shows the plan's refusals.
 
@@ -486,7 +486,7 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
       if (!scan && tab == 'other' && answered)
         radarWish(
           Api.on
-              ? 'أنواع أخرى ضمن ميزانيتك. علّم مطابق أو غير مطابق واكتب السبب.'
+              ? 'في مدينتك وضمن ميزانيتك — حي أو نوع مختلف. علّم مطابق أو غير مطابق واكتب السبب.'
               : 'نفس المدينة فقط — نوع أو حي مختلف. علّم مطابق أو غير مطابق واكتب السبب.',
         ),
       if (!scan && answered && tab == 'projects')

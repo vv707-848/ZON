@@ -36,6 +36,7 @@ return [
         'cache_minutes' => 15,
         'results' => 10,
         'candidates_limit' => 300,
+        'broaden_area_share' => 0.8,   // «توسيع الإدراك»: an alternative's area is at least this share of the area the wish states
         'free_text_max' => 1000,
         'quota_connection' => 'quota',
         // AI quota layers: the account's cap ×1, the device ×1.5, the IP ×3.

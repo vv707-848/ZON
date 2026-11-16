@@ -1,6 +1,7 @@
 """The ranking agents: semantic search (listings · requests), the matching assistant and the developer's searchers.
 
-Laravel builds the candidates in SQL (mandatory city · neighbourhood · type; the budget only orders). Here:
+Laravel builds the candidates in SQL (mandatory city · neighbourhood · type; the budget only orders), and reads
+into the need a budget and a room count that only the free text states (StatedNumbers). Here:
 1. **Shortlist:** Qdrant ranks the candidates against the user's free text, never the whole collection.
 2. **Rank:** the model orders the shortlist and scores it, judging the wishes (budget, rooms, area, age, deed,
    bank) from the fields and the cleaned descriptions. It writes nothing else: the app shows no explanation under
@@ -148,7 +149,8 @@ async def _rank_one(
 
 
 async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
-    """Two listing lists that never overlap («مطابق» · «توسيع الإدراك»), and unit models ranked by their own
+    """Two listing lists that never overlap («مطابق» · «توسيع الإدراك»: what the budget buys in the whole city, any
+    neighbourhood and type — Laravel's ListingCandidates::broaden), and unit models ranked by their own
     descriptions — Laravel shows the winners as project cards (§10.3 path هـ)."""
     req = parse(MatchingInput, data)
     query = await _query(ctx, req.need, req.terms)

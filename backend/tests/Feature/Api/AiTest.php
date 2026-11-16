@@ -201,6 +201,59 @@ class AiTest extends TestCase
         Http::assertSent(fn (Sent $r) => $r['need']['neighborhood'] === 'النرجس' && $r['need']['budget_max'] == 900000 && ! str_contains($r['need']['free_text'], '0551234567'));
     }
 
+    /** «توسيع الإدراك»: the city, the budget and the area — any neighbourhood and any type, and never an offer of «مطابق». */
+    public function test_the_alternatives_are_what_the_budget_buys_in_the_whole_city_at_the_area_the_wish_states(): void
+    {
+        $offer = fn (array $of) => Listing::factory()->published()->create(['price' => 850000, 'area_built' => 300, 'area_land' => null, ...$of]);
+        $matched = $offer([]);
+        $elsewhere = $offer(['neighborhood' => 'الملقا']);                                   // the same type, another neighbourhood
+        $villa = $offer(['neighborhood' => 'الياسمين', 'property_type' => 'villa', 'price' => 900000, 'area_built' => 240]);   // 80% of the area: the least
+        $land = $offer(['property_type' => 'land', 'area_built' => null, 'area_land' => 500]);
+        $out = [
+            'small' => $offer(['neighborhood' => 'الملقا', 'area_built' => 239]),
+            'no area' => $offer(['neighborhood' => 'الملقا', 'area_built' => null]),
+            'over the budget' => $offer(['neighborhood' => 'الملقا', 'price' => 900001]),
+            'another city' => $offer(['city' => 'جدة', 'neighborhood' => 'الروضة']),
+            'for rent' => $offer(['neighborhood' => 'الملقا', 'purpose' => 'rent']),
+        ];
+        $this->agent(['matched' => [['id' => $matched->id, 'score' => 0.9]], 'broaden' => [['id' => $villa->id, 'score' => 0.8], ['id' => $out['small']->id, 'score' => 0.7]], 'units' => []]);
+        $seeker = $this->seeker();
+        BuyerPreference::query()->where('customer_id', $seeker->id)->update(['notes' => 'حوش واسع، مساحة 300']);
+
+        $response = $this->postJson('/api/v1/ai/matching')->assertOk();
+
+        Http::assertSent(function (Sent $r) use ($matched, $elsewhere, $villa, $land) {
+            $this->assertSame([$matched->id], array_column($r['matched'], 'id'));
+            $this->assertEqualsCanonicalizing([$elsewhere->id, $villa->id, $land->id], array_column($r['broaden'], 'id'));
+            $this->assertArrayNotHasKey('area', $r['need'], 'the area narrows the candidates here; the agents\' contract did not change');
+
+            return true;
+        });
+        $this->assertSame([$villa->id], array_column(array_column($response->json('data.broaden'), 'listing'), 'id'), 'an id that was not offered is dropped');
+
+        BuyerPreference::query()->where('customer_id', $seeker->id)->update(['notes' => 'حوش واسع', 'budget_max' => null, 'budget_min' => 700000]);
+        cache()->flush();
+        $this->postJson('/api/v1/ai/matching')->assertOk();
+        Http::assertSent(fn (Sent $r) => $r['need']['budget_max'] === null && $r['broaden'] === []);   // no top: no list about the budget
+    }
+
+    public function test_a_price_and_rooms_only_the_description_states_are_the_needs_and_a_filled_field_wins(): void
+    {
+        Listing::factory()->published()->create(['price' => 880000]);
+        $this->agent(['results' => []]);
+        $this->seeker();
+        $search = ['city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment'];
+
+        $this->postJson('/api/v1/ai/search', [...$search, 'query' => 'شقة ٤ غرف بحدود ٩٠٠ ألف وفيها حوش'])->assertOk();
+        Http::assertSent(fn (Sent $r) => $r['need']['budget_max'] == 900000 && $r['need']['bedrooms'] === 4 && str_contains($r['need']['free_text'], 'حوش'));
+
+        $this->postJson('/api/v1/ai/search', [...$search, 'budget_max' => 700000, 'bedrooms' => 2, 'query' => 'شقة 4 غرف بحدود 900 ألف'])->assertOk();
+        Http::assertSent(fn (Sent $r) => $r['need']['budget_max'] == 700000 && $r['need']['bedrooms'] === 2);
+
+        $this->postJson('/api/v1/ai/search', [...$search, 'query' => 'مدخل خاص ومصعد'])->assertOk();
+        Http::assertSent(fn (Sent $r) => $r['need']['budget_max'] === null && $r['need']['bedrooms'] === null);
+    }
+
     public function test_the_chat_answers_by_intent_and_its_guard_replaces_unsafe_answers(): void
     {
         $this->seeker();
