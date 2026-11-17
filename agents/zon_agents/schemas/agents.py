@@ -145,7 +145,7 @@ class SearchersAnswer(BaseModel):
 
 # ── chat ────────────────────────────────────────────────────────────────────────────────────────
 
-ChatIntent = Literal["knowledge", "packages", "semantic_search", "search_request", "matching"]
+ChatIntent = Literal["knowledge", "packages", "semantic_search", "search_request", "matching", "decision"]
 
 
 class Exchange(Payload):

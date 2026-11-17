@@ -316,7 +316,7 @@ deploy/                          nginx · supervisor · cron · ssh · mysql · 
 - **`ChatAssistant`:**
   1. قائمة المنع.
   2. كشف اللغة (ar · en · ur).
-  3. مصنّف نية بالقواعد، بالأولوية: packages > search_request > matching > knowledge > semantic_search. خارج النطاق ← رد ثابت بلا نداء.
+  3. مصنّف نية بالقواعد، بالأولوية: packages > search_request > matching > decision > knowledge > semantic_search. خارج النطاق ← رد ثابت بلا نداء. و`decision` سعر يُسأل عن تقييمه أو قرار بيع وشراء: خيارات بشروطها والقرار له، بلا حكم على السعر (قرار صاحب المشروع، وسيط مرخّص، 17 نوفمبر).
   4. نداء بسياق مغلق.
   5. `ChatGuard`: لا أرقام تواصل ولا روابط؛ لا مبلغ لم تعطه المنصة؛ «مغطى» يتطلب مصادر.
   6. رد الباقات حتمي حين يتعطل الذكاء.

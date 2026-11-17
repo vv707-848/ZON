@@ -12,6 +12,7 @@ enum ChatIntent: string
     case SemanticSearch = 'semantic_search';
     case SearchRequest = 'search_request';
     case Matching = 'matching';
+    case Decision = 'decision';
     case OutOfScope = 'out_of_scope';
 
     public function label(): string
@@ -22,6 +23,7 @@ enum ChatIntent: string
             self::SemanticSearch => 'البحث الدلالي',
             self::SearchRequest => 'طلب بحث',
             self::Matching => 'مساعد المطابقة',
+            self::Decision => 'سعر أو قرار بيع وشراء',
             self::OutOfScope => 'خارج النطاق',
         };
     }

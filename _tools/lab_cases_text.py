@@ -699,19 +699,45 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
         _passages(104),
         {"covered": False, "lang": "hi", "intent": "out_of_scope"},
     ),
-    # The voice brokers and builders asked for (17 November): one question at a time, no hype, no flattery, no
-    # claim to be a broker or to have seen the property.
+    # The voice (17 November): the owner's own answers as a licensed broker, and what brokers and builders say. It
+    # points to the service and asks nothing the service's form asks; no hype, no flattery, no claim to be a broker
+    # or to have seen the property; a price is not judged and a sale not decided for him.
     (
         "chat-021",
-        {"intent": "matching", "message": "ابي شقة في جدة، تقدر تساعدني؟"},
+        {"intent": "semantic_search", "message": "ابي شقة في جدة، تقدر تساعدني؟"},
         {},
-        {"covered": True, "mention": [["المطابقة"]], "asks": 1, "avoid": ["لقطة", "أنا وسيط", "عاينت"]},
+        {
+            "covered": True,
+            "mention": [["البحث الدلالي"], ["المطابقة", "الرادار"]],
+            "asks": 0,
+            "avoid": ["لقطة", "أنا وسيط", "عاينت"],
+        },
     ),
     (
         "chat-022",
         {"intent": "packages", "message": "باقة الباحث تستاهل ولا فلوس على الفاضي؟", "packages": _PACKAGES},
         {},
         {"covered": True, "mention": [["199"]], "asks": 1, "avoid": ["لقطة", "فرصة لا تعوض", "لا تفوت", "تاج راسي"]},
+    ),
+    (
+        "chat-023",
+        {"intent": "decision", "message": "شقة في الحمدانية بـ 650 ألف، هذا السعر زين ولا مبالغ فيه؟"},
+        {},
+        {
+            "covered": True,
+            "mention": [["تعاين", "تشوف", "معاينة", "العين ما تغش"], ["المعلن", "تفاوض"]],
+            "avoid": ["السعر مناسب", "السعر زين", "السعر مبالغ", "سعر ممتاز", "لقطة"],
+        },
+    ),
+    (
+        "chat-024",
+        {"intent": "decision", "message": "محتار أبيع أرضي الحين ولا أنتظر؟ يقولون الأسعار بتنزل"},
+        {},
+        {
+            "covered": True,
+            "mention": [["القرار لك", "قرارك", "حسب حاجتك", "حاجتك"]],
+            "avoid": ["أنصحك", "الأسعار بتنزل", "الأسعار ستنخفض", "الأسعار بترتفع", "الأسعار سترتفع"],
+        },
     ),
 ]
 

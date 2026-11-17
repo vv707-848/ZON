@@ -1,7 +1,7 @@
 {
  "agents": {
   "chat": {
-   "cases": 22,
+   "cases": 24,
    "failed": 0,
    "latency_ms": {
     "p50": 0,
@@ -202,7 +202,7 @@
  },
  "dataset": {
   "agents": {
-   "chat": 22,
+   "chat": 24,
    "clean_listing": 44,
    "match_searchers": 8,
    "matching": 12,
@@ -213,8 +213,8 @@
    "search_requests": 14,
    "summarize": 10
   },
-  "cases": 206,
-  "digest": "1f76a184484157e1"
+  "cases": 208,
+  "digest": "8ecec47718b73f67"
  },
  "lab": 1,
  "overall": 0.8693,
