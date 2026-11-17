@@ -10,10 +10,13 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:zon/app/router.dart';
+import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/data/auth/server_auth.dart';
 import 'package:zon/data/models/models.dart';
 import 'package:zon/data/server/server_wishes.dart';
 import 'package:zon/data/store.dart';
+import 'package:zon/features/account/services/widgets/desk.dart';
+import 'package:zon/features/auth/login_screen.dart';
 
 import '../support/server_env.dart';
 import '../support/test_env.dart';
@@ -81,6 +84,10 @@ void main() {
 
     await tester.enterText(find.byType(EditableText).last, 'فيلا عوائل قرب المدارس');
     await tester.pump();
+    final save = find.widgetWithText(GateCta, 'حفظ الرغبة والدخول');
+    expect(tester.widget<GateCta>(save).disabled, isTrue, reason: 'buy or rent is chosen, never assumed');
+    tester.widgetList<SelectBox>(find.byType(SelectBox)).first.onChanged('rent');
+    await tester.pump();
     await tapText(tester, 'حفظ الرغبة والدخول');
     await _settle(tester);
     expect(find.text('تعذّر الاتصال بزون. تحقق من الإنترنت وحاول مرة أخرى.'), findsOneWidget, reason: 'not saved: said so, still here');
@@ -94,6 +101,7 @@ void main() {
     expect(sent, hasLength(2));
     expect(sent.last.headers['Idempotency-Key'], sent.first.headers['Idempotency-Key'], reason: 'one wish, however often sent');
     expect(FakeServer.body(sent.last)['notes'], 'فيلا عوائل قرب المدارس');
+    expect(FakeServer.body(sent.last)['purpose'], 'rent');
     expect(sent.last.headers['Authorization'], 'Bearer 8|new-token');
     expect(_path(), '/account/matching');
     expect(store.loadWish()!.id, '${_one('preference')['id']}');
@@ -146,7 +154,7 @@ void main() {
     final server = serverDevice();
     await serverSignIn(server, account: me(role: 'seeker'));
     server.on('GET', 'preferences', 200, ok(<Object?>[]));
-    store.saveWish(const Wish(city: 'الرياض', hoods: <String>['الملقا'], types: <String>[], budget: '', text: 'رغبة قديمة على الجوال'));
+    store.saveWish(const Wish(purpose: 'sale', city: 'الرياض', hoods: <String>['الملقا'], types: <String>[], budget: '', text: 'رغبة قديمة على الجوال'));
 
     await pumpApp(tester, '/account/matching');
     await _settle(tester);
@@ -228,6 +236,8 @@ void main() {
       server.on('DELETE', 'preferences/$id', 200, ok());
       await pumpApp(tester, '/account/matching');
       await _settle(tester);
+      tester.widgetList<MeterSelect>(find.byType(MeterSelect)).first.onChanged('sale'); // buy or rent, first
+      await tester.pump();
 
       for (var i = 0; i < 2; i++) {
         await tester.enterText(find.byType(EditableText).last, 'فيلا عوائل قرب المدارس');

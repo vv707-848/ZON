@@ -79,7 +79,7 @@ class RequestsTest extends TestCase
     public function test_a_seeker_keeps_one_wish_free_and_more_with_a_plan(): void
     {
         $seeker = $this->signIn(Customer::factory()->seeker()->create());
-        $wish = ['city' => 'الرياض', 'neighborhoods' => ['النرجس'], 'budget_max' => '900,000', 'notes' => 'قرب مدرسة'];
+        $wish = ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhoods' => ['النرجس'], 'budget_max' => '900,000', 'notes' => 'قرب مدرسة'];
 
         $this->postJson('/api/v1/preferences', $wish)->assertCreated()->assertJsonPath('data.budget_max', 900000)->assertJsonPath('data.property_types', []);
         $this->getJson('/api/v1/favorites')->assertOk();   // the wish opens the app
@@ -96,8 +96,10 @@ class RequestsTest extends TestCase
         $this->signIn(Customer::factory()->seeker()->create());
         $this->getJson('/api/v1/favorites')->assertStatus(428)->assertJsonPath('error.code', 'PREFERENCE_REQUIRED');
 
-        $created = $this->postJson('/api/v1/preferences', ['city' => 'الرياض', 'neighborhoods' => ['النرجس'], 'property_types' => ['villa'], 'notes' => 'فيلا عوائل قرب المدارس'])
-            ->assertCreated()->assertJsonPath('data.is_active', true);
+        $wish = ['city' => 'الرياض', 'neighborhoods' => ['النرجس'], 'property_types' => ['villa'], 'notes' => 'فيلا عوائل قرب المدارس'];
+        $this->postJson('/api/v1/preferences', $wish)->assertUnprocessable()->assertJsonStructure(['error' => ['details' => ['fields' => ['purpose']]]]);   // never «sale» unsaid
+        $created = $this->postJson('/api/v1/preferences', ['purpose' => 'rent', ...$wish])
+            ->assertCreated()->assertJsonPath('data.is_active', true)->assertJsonPath('data.purpose', 'rent');
         $this->apiContract('preference', $created);
         $id = $created->json('data.id');
 

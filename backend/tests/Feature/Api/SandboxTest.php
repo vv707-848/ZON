@@ -132,7 +132,7 @@ class SandboxTest extends TestCase
     public function test_a_tester_counts_nowhere(): void
     {
         $seekerPlan = Package::query()->where('code', 'seeker')->value('id');
-        $search = ['city' => 'الرياض', 'neighborhood' => 'الياسمين', 'property_type' => 'villa', 'query' => 'فيلا بمسبح'];
+        $search = ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhood' => 'الياسمين', 'property_type' => 'villa', 'query' => 'فيلا بمسبح'];
         $feedback = ['context' => 'search', 'result_type' => 'listing', 'result_id' => 1, 'is_match' => false, 'reason' => 'بعيد عن المدارس'];
         foreach ([Customer::factory()->seeker()->tester()->create(), Customer::factory()->seeker()->create()] as $i => $seeker) {
             BuyerPreference::factory()->create(['customer_id' => $seeker->id]);

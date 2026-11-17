@@ -193,6 +193,7 @@ void main() {
             await pumpApp(tester, place == 'matching' ? '/account/matching' : '/account/search', size: size);
             if (place == 'requests') await tapText(tester, 'بحث طلبات');
             if (place != 'matching') {
+              await _choose(tester, 'اختر', 'شراء');
               await _choose(tester, 'اختر', 'الرياض');
               await _choose(tester, 'اختر', 'الملقا');
               await _choose(tester, 'اختر', 'فيلا');

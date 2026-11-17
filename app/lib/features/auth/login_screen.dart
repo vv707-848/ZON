@@ -810,6 +810,9 @@ class _WishSetupState extends State<_WishSetup> {
     return list.isNotEmpty ? list.first : '';
   }();
   String type = 'all';
+
+  /// "sale" (شراء) | "rent" (استئجار): chosen, never assumed.
+  String purpose = '';
   final TextEditingController _text = TextEditingController();
   bool _busy = false;
   String _err = '';
@@ -847,7 +850,13 @@ class _WishSetupState extends State<_WishSetup> {
     final hoodOpts = kCities[c] ?? const <String>[];
     return _GateForm(
       children: <Widget>[
-        const GateHero(title: 'رغبتك في زون', sub: 'مدينة وحي ونوع — ثم وصف يغذي مساعد المطابقة', tight: true),
+        const GateHero(title: 'رغبتك في زون', sub: 'شراء أو استئجار، ومدينة وحي ونوع — ثم وصف يغذي مساعد المطابقة', tight: true),
+        _label('شراء أو استئجار'),
+        _select(
+          value: purpose,
+          options: const <Opt>[Opt('', 'اختر', disabled: true), Opt('sale', 'شراء'), Opt('rent', 'استئجار')],
+          onChanged: (v) => setState(() => purpose = v),
+        ),
         _label('المدينة'),
         _select(
           value: c,
@@ -879,9 +888,10 @@ class _WishSetupState extends State<_WishSetup> {
         if (_err.isNotEmpty) FormError(_err),
         GateCta(
           label: _busy ? 'جارٍ الحفظ…' : 'حفظ الرغبة والدخول',
-          disabled: _text.text.trim().isEmpty || _busy,
+          disabled: purpose.isEmpty || _text.text.trim().isEmpty || _busy,
           onTap: () => _done(
             Wish(
+              purpose: purpose,
               city: c,
               hoods: hood.isNotEmpty ? <String>[hood] : const <String>[],
               types: type == 'all' ? const <String>[] : <String>[type],
