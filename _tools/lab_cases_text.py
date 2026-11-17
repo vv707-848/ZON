@@ -669,7 +669,7 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
     ),
     (
         "chat-016",
-        {"intent": "matching", "message": "وش هو مساعد المطابقة؟"},
+        {"intent": "matching", "role": "seeker", "message": "وش هو مساعد المطابقة؟"},
         {},
         {"covered": True, "mention": [["الحي"], ["الرادار", "ينبهك", "تنبيه"]], "asks": 0},
     ),
@@ -707,7 +707,7 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
     # or to have seen the property; a price is not judged and a sale not decided for him.
     (
         "chat-021",
-        {"intent": "semantic_search", "message": "ابي شقة في جدة، تقدر تساعدني؟"},
+        {"intent": "semantic_search", "role": "seeker", "message": "ابي شقة في جدة، تقدر تساعدني؟"},
         {},
         {
             "covered": True,
@@ -737,6 +737,12 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
                 "لقطة",
             ],  # a verdict, not «لا أقيّم إن كان مناسباً»
         },
+    ),
+    (
+        "chat-025",
+        {"intent": "semantic_search", "role": "broker", "message": "عندي عميل يبي فيلا في الرياض، كيف ألقى له؟"},
+        {},
+        {"covered": True, "mention": [["البحث الدلالي"]], "asks": 0, "avoid": ["مساعد المطابقة", "الرادار"]},
     ),
     (
         "chat-024",

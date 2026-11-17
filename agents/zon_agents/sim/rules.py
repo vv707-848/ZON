@@ -252,6 +252,11 @@ _GUIDE = {
         "ur": "چیٹ قیمت نہیں جانچتی: جائیداد خود دیکھیں، پھر مشتہر سے بات کریں۔ فیصلہ آپ کا ہے۔",
     },
 }
+_SEARCH_ONLY = {
+    "ar": "ابحث في «البحث الدلالي»: بالمدينة ثم الحي ثم النوع ووصفك، في العروض وفي طلبات الباحثين.",
+    "en": "Use semantic search: the city, the neighbourhood and the type, then describe what you want.",
+    "ur": "سیمانٹک سرچ استعمال کریں: شہر، محلہ اور قسم چنیں، پھر اپنی ضرورت لکھیں۔",
+}
 _UNCOVERED = {
     "ar": "لا تغطي مكتبة زون هذا السؤال.",
     "en": "Zon's library does not cover this question.",
@@ -284,6 +289,8 @@ def _chat(payload: dict[str, Any]) -> dict[str, Any]:
         listed = "، ".join(f"{p['name']} بـ{_number(float(p['price']))} ريال" for p in priced)
         lead = {"ar": "باقات زون الحالية: ", "en": "Zon's current plans: ", "ur": "زون کے موجودہ پیکجز: "}[lang]
         return {"answer": f"{lead}{listed}.", "covered": True, "citations": []}
+    if intent in ("semantic_search", "matching") and payload.get("role") in ("broker", "owner"):
+        return {"answer": _SEARCH_ONLY[lang], "covered": True, "citations": []}  # matching is the seekers'
     if intent != "knowledge":
         return {"answer": _GUIDE[intent][lang], "covered": True, "citations": []}
     asked = _tokens(str(payload["message"]))

@@ -16,6 +16,7 @@ If the model fails, the answer is `degraded`: the hybrid order with its scores. 
 fails, the call fails (503) and Laravel answers with the SQL order (§7 «سياسة الفشل»).
 """
 
+from collections import Counter
 from collections.abc import Sequence
 from typing import Any
 
@@ -215,10 +216,14 @@ async def match_searchers(ctx: Ctx, data: dict[str, Any]) -> Result:
     if not req.searchers:
         return Result({"results": []})
     fits = sorted(((_fit(s, req.units), s) for s in req.searchers), key=lambda pair: pair[0][0])[: SHORTLIST * 2]
-    unit_ids = {u.id for u in req.units}
+    # at most a shortlist of unit models, the seekers' nearest first: 100 models of 400 characters with 60 seekers
+    # come near the node's 32k context, and a prompt past it is no answer (lab load)
+    nearest = Counter(unit for (_, unit), _ in fits if unit is not None)
+    units = sorted(req.units, key=lambda u: -nearest[u.id])[:SHORTLIST]
+    unit_ids = {u.id for u in units}
     payload = {
         "project": req.project.model_dump(exclude_none=True),
-        "units": [u.model_dump(exclude_none=True) for u in req.units],
+        "units": [u.model_dump(exclude_none=True) for u in units],
         "searchers": [s.model_dump(exclude_none=True) for _, s in fits],
         "limit": req.limit,
     }

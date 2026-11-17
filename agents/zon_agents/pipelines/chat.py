@@ -62,6 +62,7 @@ async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
 
     payload: dict[str, Any] = {
         "lang": req.lang,
+        "role": req.role,
         "intent": req.intent,
         "message": req.message,
         "history": [h.model_dump() for h in req.history],

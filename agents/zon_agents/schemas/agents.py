@@ -166,6 +166,8 @@ class ChatInput(Payload):
     lang: Literal["ar", "en", "ur", "xx"] = "ar"
     # "auto": a language Laravel's rules do not read — the model names the intent (ChatAnswer.intent)
     intent: ChatIntent | Literal["auto"]
+    # the asker's role, for the services he has (a seeker searches and matches; a broker or an owner searches)
+    role: Literal["seeker", "broker", "owner", "developer"] | None = None
     message: Annotated[str, Field(min_length=1, max_length=1000)]
     history: Annotated[list[Exchange], Field(max_length=1)] = []
     packages: list[PackageFact] = []

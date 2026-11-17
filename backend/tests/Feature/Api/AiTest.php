@@ -301,7 +301,7 @@ class AiTest extends TestCase
 
         $this->postJson('/api/v1/ai/chat', ['message' => 'وش رأيك بالمباراة؟'])->assertOk()->assertJsonPath('data.intent', 'out_of_scope')->assertJsonPath('meta.ai.status', 'skipped');
         $this->postJson('/api/v1/ai/chat', ['message' => 'كم سعر الباقة؟'])->assertOk()->assertJsonPath('data.answer', 'باقة الباحث 199 ريال شهرياً.')->assertJsonPath('data.action', '/account/plans');
-        Http::assertSent(fn (Sent $r) => $r['intent'] === 'packages' && collect((array) $r['packages'])->contains('price', 199.0));
+        Http::assertSent(fn (Sent $r) => $r['intent'] === 'packages' && $r['role'] === 'seeker' && collect((array) $r['packages'])->contains('price', 199.0));
         $this->postJson('/api/v1/ai/chat', ['message' => 'كيف أطلع ترخيص فال؟'])->assertJsonPath('data.answer', 'لا أملك معلومة موثقة عن هذا. راجع الجهة الرسمية المختصة.');
         $this->postJson('/api/v1/ai/chat', ['message' => 'كم رسوم الترخيص؟'])->assertJsonPath('data.covered', false);
 

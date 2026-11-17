@@ -174,6 +174,20 @@ def test_the_developer_gets_searchers_with_one_of_his_own_unit_models(client: Te
     assert {(r["id"], r["unit_id"]) for r in degraded["output"]["results"]} == {(7, 40), (8, 41)}
 
 
+def test_a_project_with_many_unit_models_shows_the_model_a_shortlist_its_seekers_nearest_first(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    units = [{"id": n, "type": "apartment", "price": 500000 + n * 10000, "desc": "نموذج " * 60} for n in range(1, 101)]
+    searchers = [{"id": 7, "type": "apartment", "budget_min": 1480000, "budget_max": 1500000}]  # nearest: unit 99
+    model.answers["match_searchers"] = {"results": [{"id": 7, "score": 0.9, "unit_id": 99}]}
+
+    output = call(client, "match_searchers", {"project": {}, "units": units, "searchers": searchers})["output"]
+
+    shown = [u["id"] for u in model.calls_of("match_searchers")[0][1]["units"]]
+    assert len(shown) == 30 and shown[0] == 99, "a shortlist, the seekers' nearest model first"
+    assert output["results"] == [{"id": 7, "score": 0.9, "unit_id": 99}]
+
+
 def test_brokers_search_requests_in_their_own_collection(client: TestClient, model: ScriptedModel) -> None:
     request = {"city": "الرياض", "neighborhoods": ["النرجس"], "property_types": ["villa"], "desc": "فيلا بمسبح"}
     index(client, "request", 77, request)
