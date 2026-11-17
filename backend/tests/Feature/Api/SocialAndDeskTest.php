@@ -134,7 +134,7 @@ class SocialAndDeskTest extends TestCase
         $seeker = $this->signIn($this->seekerWithWish());                              // the free plan's one active wish
         $first = $seeker->preferences()->sole();
         $this->patchJson("/api/v1/preferences/{$first->id}", ['is_active' => false])->assertOk();
-        $second = $this->postJson('/api/v1/preferences', ['city' => 'الرياض', 'neighborhoods' => ['الملقا'], 'property_types' => ['villa']])->assertCreated()->json('data.id');
+        $second = $this->postJson('/api/v1/preferences', ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhoods' => ['الملقا'], 'property_types' => ['villa']])->assertCreated()->json('data.id');
 
         $this->patchJson("/api/v1/preferences/{$first->id}", ['is_active' => true])->assertStatus(409)->assertJsonPath('error.code', 'PLAN_LIMIT_REACHED');
         $this->assertSame([$second], $seeker->preferences()->where('is_active', true)->pluck('id')->all());

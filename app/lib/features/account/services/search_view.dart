@@ -39,6 +39,9 @@ class SemanticSearchView extends StatefulWidget {
 class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksState<SemanticSearchView> {
   /// "listings" | "requests"
   String target = 'listings';
+
+  /// "sale" (شراء) | "rent" (استئجار): chosen first, never assumed — a price and a yearly rent never share a list.
+  String purpose = '';
   String city = '';
   String hood = '';
   String type = '';
@@ -85,7 +88,7 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
     setState(() {
       forgetMarks();
       target = 'listings';
-      city = hood = type = '';
+      purpose = city = hood = type = '';
       rows = null;
       scan = false;
       _needsPlan = false; // the next account's plan is its own
@@ -101,13 +104,13 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
     _quota = null;
   }
 
-  bool get ready => city.isNotEmpty && hood.isNotEmpty && type.isNotEmpty;
+  bool get ready => purpose.isNotEmpty && city.isNotEmpty && hood.isNotEmpty && type.isNotEmpty;
 
   /// The server's answer, in its order.
   Future<void> _ask() async {
     final epoch = _epoch;
     final requests = target == 'requests';
-    final need = ServerAi.need(city: city, neighborhood: hood, type: type, query: q.text);
+    final need = ServerAi.need(purpose: purpose, city: city, neighborhood: hood, type: type, query: q.text);
     setState(() {
       scan = true;
       rows = null;
@@ -118,7 +121,12 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
     bool mine() => mounted && epoch == _epoch && epoch == store.serverEpoch;
     // an answer to what the form no longer asks is not shown under it
     bool current() =>
-        mine() && requests == (target == 'requests') && need['city'] == city && need['neighborhood'] == hood && need['property_type'] == type;
+        mine() &&
+        requests == (target == 'requests') &&
+        need['purpose'] == purpose &&
+        need['city'] == city &&
+        need['neighborhood'] == hood &&
+        need['property_type'] == type;
     try {
       final List<Object> found;
       final AiMeta ai;
@@ -155,6 +163,7 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
     }
     setState(() => scan = true);
     final t = target;
+    final p = purpose;
     final c = city;
     final h = hood;
     final ty = type;
@@ -164,10 +173,10 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
       if (!mounted) return;
       List<Object> list;
       if (t == 'listings') {
-        final pool = store.allListings().where((l) => l.city == c && l.neighborhood == h && l.propertyType == ty).toList();
+        final pool = store.allListings().where((l) => l.purpose == p && l.city == c && l.neighborhood == h && l.propertyType == ty).toList();
         list = sortByScore<Listing>(pool, (l) => scoreByFeedback(listingHay(l), text, marks, l.id));
       } else {
-        final pool = store.allRequests().where((r) => r.city == c && r.neighborhoods.contains(h) && r.types.contains(ty)).toList();
+        final pool = store.allRequests().where((r) => r.purpose == p && r.city == c && r.neighborhoods.contains(h) && r.types.contains(ty)).toList();
         list = sortByScore<RequestItem>(
           pool,
           (r) => scoreByFeedback(
@@ -243,6 +252,17 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
             ? 'اكتب وصف طلب العميل بوضوح — الذكاء يجيب الطلبات المطابقة. بعد النتائج علّم مطابق أو غير مطابق واكتب السبب.'
             : 'اكتب الوصف بشكل واضح لجلب عروض مطابقة — بعد النتائج علّم مطابق أو غير مطابق واكتب السبب${Api.on ? '' : '، البحث الجاي أدق'}',
       ),
+      SvcField(
+        label: target == 'requests' ? 'طلب العميل' : 'شراء أو استئجار',
+        child: selSelect(
+          value: purpose,
+          options: const <Opt>[noOpt, Opt('sale', 'شراء'), Opt('rent', 'استئجار')],
+          onChanged: (v) => setState(() {
+            purpose = v;
+            rows = null;
+          }),
+        ),
+      ),
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
@@ -303,7 +323,7 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
             enabled: ready,
             placeholder: ready
                 ? (target == 'requests' ? 'مثال: عميل يبحث عن فيلا شمال الرياض…' : 'مثال: فيلا بحديقة قريبة من المدارس شمال الرياض…')
-                : 'اختر المدينة والحي والنوع أولاً',
+                : 'اختر الشراء أو الاستئجار والمدينة والحي والنوع أولاً',
             placeholderColor: AppColors.muted,
             textStyle: ts(15, lh: 21.5, c: AppColors.ink),
             decoration: kSelDeco,
@@ -320,7 +340,7 @@ class _SemanticSearchViewState extends State<SemanticSearchView> with SemMarksSt
       if (_error case final String e) FormError(e),
       if (_quota case final String said) PlanDoor(said),
       if (!scan && rows != null && rows!.isNotEmpty && _ai != null) AiNote(ai: _ai!),
-      if (!scan && rows != null && rows!.isEmpty) radarWish('لا نتائج في هذه المدينة والحي والنوع.'),
+      if (!scan && rows != null && rows!.isEmpty) radarWish('لا نتائج ${purpose == 'rent' ? 'للإيجار' : 'للبيع'} في هذه المدينة والحي والنوع.'),
       if (!scan && rows != null)
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

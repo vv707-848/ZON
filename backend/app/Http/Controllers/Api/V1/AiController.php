@@ -219,7 +219,7 @@ class AiController extends Controller
             'property_type' => ['required_without:property_types', 'nullable', Rule::enum(PropertyType::class)],
             'property_types' => ['required_without:property_type', 'nullable', 'array', 'max:10'],
             'property_types.*' => [Rule::enum(PropertyType::class)],
-            'purpose' => ['nullable', Rule::enum(Purpose::class)],
+            'purpose' => ['required', Rule::enum(Purpose::class)],   // buy or rent: a sale price and a yearly rent never share a list
             'budget_min' => ['nullable', 'numeric', 'gte:0'],
             'budget_max' => ['nullable', 'numeric', 'gt:0'],
             'bedrooms' => ['nullable', 'integer', 'between:0,50'],

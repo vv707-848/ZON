@@ -38,16 +38,17 @@ Future<void> _settle(WidgetTester tester, [int times = 8]) async {
   }
 }
 
-/// The page's three choices, as the selects give them: 0 city · 1 neighbourhood · 2 type.
+/// The page's choices, as the selects give them: 0 buy or rent · 1 city · 2 neighbourhood · 3 type.
 Future<void> _choose(WidgetTester tester, int which, String value) async {
   tester.widgetList<SelectBox>(find.byType(SelectBox)).elementAt(which).onChanged(value);
   await tester.pump();
 }
 
 Future<void> _form(WidgetTester tester, {String type = 'apartment', String text = ''}) async {
-  await _choose(tester, 0, 'الرياض');
-  await _choose(tester, 1, 'النرجس');
-  await _choose(tester, 2, type);
+  await _choose(tester, 0, 'sale');
+  await _choose(tester, 1, 'الرياض');
+  await _choose(tester, 2, 'النرجس');
+  await _choose(tester, 3, type);
   if (text.isNotEmpty) {
     await tester.enterText(find.byType(EditableText).first, text);
     await tester.pump();
@@ -79,7 +80,13 @@ Future<FakeServer> _open(WidgetTester tester, void Function(FakeServer) stubs, {
 }
 
 void main() {
-  const need = <String, Object?>{'city': 'الرياض', 'neighborhood': 'النرجس', 'property_type': 'apartment', 'query': 'مدخل خاص ومصعد'};
+  const need = <String, Object?>{
+    'purpose': 'sale',
+    'city': 'الرياض',
+    'neighborhood': 'النرجس',
+    'property_type': 'apartment',
+    'query': 'مدخل خاص ومصعد',
+  };
   const simulated = 'محاكاة: الترتيب بقواعد ثابتة، لا بنموذج ذكاء.';
   const notRanked = 'تعذّر ترتيب الذكاء الآن، فهذه النتائج بترتيب قاعدة البيانات.';
   final offers = _order('ai_search', 'listing', 'L');
@@ -218,12 +225,24 @@ void main() {
       expect(find.byType(SelectBox), findsNothing);
     });
 
+    testWidgets('buy or rent is chosen before anything is searched: never assumed', (tester) async {
+      final server = await _open(tester, (s) => s.on('POST', 'ai/search', 200, recorded('ai_search')));
+      await _choose(tester, 1, 'الرياض');
+      await _choose(tester, 2, 'النرجس');
+      await _choose(tester, 3, 'apartment');
+      expect(tester.widget<AppButton>(find.widgetWithText(AppButton, 'بحث')).onTap, isNull);
+
+      await _choose(tester, 0, 'rent');
+      await _search(tester);
+      expect(FakeServer.body(server.sent('POST', 'ai/search').single)['purpose'], 'rent');
+    });
+
     testWidgets('an answer to what the form no longer asks is not shown under it', (tester) async {
       final server = await _open(tester, (s) => s.on('POST', 'ai/search', 200, recorded('ai_search')));
       final late = server.hold('POST', 'ai/search');
       await _form(tester);
       await _search(tester);
-      await _choose(tester, 2, 'villa');
+      await _choose(tester, 3, 'villa');
       late.complete();
       await _settle(tester);
       expect(find.byType(FolioMini), findsNothing);
@@ -244,7 +263,7 @@ void main() {
       await _settle(tester);
       expect(find.byType(FolioMini), findsNothing);
       expect(find.text('مدخل خاص ومصعد'), findsNothing);
-      expect(tester.widgetList<SelectBox>(find.byType(SelectBox)).map((s) => s.value), <String>['', '', '']);
+      expect(tester.widgetList<SelectBox>(find.byType(SelectBox)).map((s) => s.value), <String>['', '', '', '']);
     });
   });
 }

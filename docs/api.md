@@ -112,7 +112,7 @@
 | `GET` | `/notifications` | 🔒 | الإشعارات (صفحات)، و`meta.unread` | `NotificationController@index` |
 | `POST` | `/notifications/read` | 🔒 | تعليم إشعارات أو كلها كمقروءة | `NotificationController@read` |
 | `GET` | `/preferences` | 🔒 | رغباتي (الباحث) | `PreferenceController@index` |
-| `POST` | `/preferences` | 🔒 | إضافة رغبة: المدينة، الأحياء، الأنواع، الميزانية، الملاحظات، ومشاركتها في التقارير | `PreferenceController@store` |
+| `POST` | `/preferences` | 🔒 | إضافة رغبة: **شراء أو استئجار (`purpose`: sale · rent، إجباري)**، المدينة، الأحياء، الأنواع، الميزانية، الملاحظات، ومشاركتها في التقارير | `PreferenceController@store` |
 | `PUT|PATCH` | `/preferences/{preference}` | 🔒 | تعديل رغبة؛ إعادة تفعيلها تُحسب من حد الباقة | `PreferenceController@update` |
 | `DELETE` | `/preferences/{preference}` | 🔒 | حذف رغبة | `PreferenceController@destroy` |
 | `GET` | `/support-tickets` | 🔒 | مراسلاتي مع «فريق زون»: آخر رسالة وما لم أقرأه | `SupportController@index` |
@@ -275,6 +275,6 @@
 | `GET` | `/ai/matching/projects/{project}/brokers` | 🔒 · رغبة · مطوّر | وسطاء مدينة المشروع بعدد عملائهم المطابقين — دون كشف العملاء | `AiController@brokers` |
 | `POST` | `/ai/matching/projects/{project}/searchers` | 🔒 · رغبة · مطوّر · حصة matching | باحثون تناسبهم وحدات مشروعي المنشور، مع الوحدة الأنسب | `AiController@searchers` |
 | `GET` | `/ai/quota` | 🔒 · رغبة | رصيدي اليومي لكل خدمة ذكاء ووقت التجديد | `AiController@quota` |
-| `POST` | `/ai/search` | 🔒 · رغبة · حصة search | البحث الدلالي في العروض: الخانات الإجبارية + نص حر؛ مرشّحو SQL ← ترتيب الوكيل ← كل نتيجة العرض ودرجته | `AiController@search` |
-| `POST` | `/ai/search/requests` | 🔒 · رغبة · وسيط · حصة search | بحث الوسيط في طلبات الباحثين (ميزة باقة: 402 بدونها) | `AiController@searchRequests` |
+| `POST` | `/ai/search` | 🔒 · رغبة · حصة search | البحث الدلالي في العروض: الخانات الإجبارية (**`purpose` شراء أو استئجار**، المدينة، الحي، النوع) + نص حر؛ مرشّحو SQL ← ترتيب الوكيل ← كل نتيجة العرض ودرجته | `AiController@search` |
+| `POST` | `/ai/search/requests` | 🔒 · رغبة · وسيط · حصة search | بحث الوسيط في طلبات الباحثين بالخانات نفسها ومنها `purpose` (ميزة باقة: 402 بدونها) | `AiController@searchRequests` |
 | `POST` | `/ai/summaries` | 🔒 · رغبة · حصة summary | ملخص ملاحظات عميل أو مالك أو مهامي (نطاق مالكها فقط)، مخزَّن ويُعاد ما لم تتغير الملاحظات | `AiController@summarize` |

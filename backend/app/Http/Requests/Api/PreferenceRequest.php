@@ -8,7 +8,7 @@ use App\Rules\KnownCity;
 use App\Rules\KnownNeighborhood;
 use Illuminate\Validation\Rule;
 
-/** The seeker's wish (_WishSetup of login_screen.dart): city, neighbourhoods, types (none = every type), budget, notes. */
+/** The seeker's wish (_WishSetup of login_screen.dart): buy or rent, city, neighbourhoods, types (none = every type), budget, notes. */
 class PreferenceRequest extends ApiRequest
 {
     protected array $numeric = ['budget_min', 'budget_max', 'bedrooms'];
@@ -22,7 +22,7 @@ class PreferenceRequest extends ApiRequest
         $city = $this->input('city', $this->route('preference')?->city);
 
         return [
-            'purpose' => ['sometimes', Rule::enum(Purpose::class)],
+            'purpose' => [$need, Rule::enum(Purpose::class)],          // buy or rent: never «sale» for a wish that did not say
             'city' => [$need, 'string', new KnownCity],
             'neighborhoods' => [$need, 'array', 'min:1', 'max:10', new KnownNeighborhood(is_string($city) ? $city : null)],
             'neighborhoods.*' => ['string', 'distinct'],
