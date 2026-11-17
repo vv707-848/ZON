@@ -137,7 +137,7 @@ void main() {
   });
 
   group('placement — inside the description field', () {
-    testWidgets('semantic search on offers: disabled until city, district and type', (tester) async {
+    testWidgets('semantic search on offers: disabled until buy or rent, city, district and type', (tester) async {
       await freshDevice();
       signUp('v01.offers', role: 'broker');
       billing.startPeriod(Plans.brokerYear, paymentRef: 'test');
@@ -146,7 +146,8 @@ void main() {
       expectMicInside(tester);
       await tester.tap(_mic);
       await tester.pump();
-      expect(fake.starts, 0, reason: 'disabled before the three choices');
+      expect(fake.starts, 0, reason: 'disabled before the four choices');
+      await _choose(tester, 'اختر', 'شراء');
       await _choose(tester, 'اختر', 'الرياض');
       await _choose(tester, 'اختر', 'الملقا');
       await _choose(tester, 'اختر', 'فيلا');
@@ -323,7 +324,9 @@ void main() {
   test('the wish is saved per account (dictated text is ordinary text)', () async {
     await freshDevice();
     signUp('v01.wish', role: 'seeker');
-    store.saveWish(const Wish(purpose: 'sale', city: 'الرياض', hoods: <String>['الملقا'], types: <String>['villa'], budget: '', text: 'فيلا قرب المدارس'));
+    store.saveWish(
+      const Wish(purpose: 'sale', city: 'الرياض', hoods: <String>['الملقا'], types: <String>['villa'], budget: '', text: 'فيلا قرب المدارس'),
+    );
     expect(store.loadWish()!.text, 'فيلا قرب المدارس');
   });
 }
