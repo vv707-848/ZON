@@ -323,7 +323,7 @@ void main() {
   test('the wish is saved per account (dictated text is ordinary text)', () async {
     await freshDevice();
     signUp('v01.wish', role: 'seeker');
-    store.saveWish(const Wish(city: 'الرياض', hoods: <String>['الملقا'], types: <String>['villa'], budget: '', text: 'فيلا قرب المدارس'));
+    store.saveWish(const Wish(purpose: 'sale', city: 'الرياض', hoods: <String>['الملقا'], types: <String>['villa'], budget: '', text: 'فيلا قرب المدارس'));
     expect(store.loadWish()!.text, 'فيلا قرب المدارس');
   });
 }

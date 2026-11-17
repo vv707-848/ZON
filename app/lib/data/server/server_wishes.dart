@@ -34,7 +34,13 @@ abstract final class ServerWishes {
   }
 
   /// The wish as the server reads it (its text is the notes the matching reads).
-  static Map<String, Object?> form(Wish w) => <String, Object?>{'purpose': w.purpose, 'city': w.city, 'neighborhoods': w.hoods, 'property_types': w.types, 'notes': w.text};
+  static Map<String, Object?> form(Wish w) => <String, Object?>{
+    'purpose': w.purpose,
+    'city': w.city,
+    'neighborhoods': w.hoods,
+    'property_types': w.types,
+    'notes': w.text,
+  };
 
   static Wish fromJson(Map<String, Object?> j) => Wish(
     id: j['id'] == null ? null : '${j['id']}',

@@ -45,11 +45,13 @@ void main() {
   test('a recorded wish, read as the app reads it, and sent back as the server reads it', () {
     final w = ServerWishes.fromJson(_one('preference'));
     expect(w.id, '${_one('preference')['id']}');
+    expect(w.purpose, 'sale');
     expect(w.city, 'الرياض');
     expect(w.hoods, <String>['النرجس']);
     expect(w.types, <String>['villa']);
     expect(w.text, 'فيلا عوائل قرب المدارس');
     expect(ServerWishes.form(w), <String, Object?>{
+      'purpose': 'sale',
       'city': 'الرياض',
       'neighborhoods': <String>['النرجس'],
       'property_types': <String>['villa'],
@@ -154,7 +156,9 @@ void main() {
     final server = serverDevice();
     await serverSignIn(server, account: me(role: 'seeker'));
     server.on('GET', 'preferences', 200, ok(<Object?>[]));
-    store.saveWish(const Wish(purpose: 'sale', city: 'الرياض', hoods: <String>['الملقا'], types: <String>[], budget: '', text: 'رغبة قديمة على الجوال'));
+    store.saveWish(
+      const Wish(purpose: 'sale', city: 'الرياض', hoods: <String>['الملقا'], types: <String>[], budget: '', text: 'رغبة قديمة على الجوال'),
+    );
 
     await pumpApp(tester, '/account/matching');
     await _settle(tester);

@@ -37,7 +37,9 @@ void main() {
       signUp('scale.$role', role: role);
       if (role == 'broker') billing.startPeriod(Plans.brokerYear, paymentRef: 'test');
       if (role == 'seeker') {
-        store.saveWish(const Wish(purpose: 'sale', city: 'الرياض', hoods: <String>['الملقا'], types: <String>[], budget: '', text: 'فيلا قرب المدارس'));
+        store.saveWish(
+          const Wish(purpose: 'sale', city: 'الرياض', hoods: <String>['الملقا'], types: <String>[], budget: '', text: 'فيلا قرب المدارس'),
+        );
       }
       publishTestListing('scale-$role');
       tester.platformDispatcher.textScaleFactorTestValue = 1.2;

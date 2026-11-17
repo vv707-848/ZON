@@ -80,7 +80,13 @@ Future<FakeServer> _open(WidgetTester tester, void Function(FakeServer) stubs, {
 }
 
 void main() {
-  const need = <String, Object?>{'purpose': 'sale', 'city': 'الرياض', 'neighborhood': 'النرجس', 'property_type': 'apartment', 'query': 'مدخل خاص ومصعد'};
+  const need = <String, Object?>{
+    'purpose': 'sale',
+    'city': 'الرياض',
+    'neighborhood': 'النرجس',
+    'property_type': 'apartment',
+    'query': 'مدخل خاص ومصعد',
+  };
   const simulated = 'محاكاة: الترتيب بقواعد ثابتة، لا بنموذج ذكاء.';
   const notRanked = 'تعذّر ترتيب الذكاء الآن، فهذه النتائج بترتيب قاعدة البيانات.';
   final offers = _order('ai_search', 'listing', 'L');
@@ -257,7 +263,7 @@ void main() {
       await _settle(tester);
       expect(find.byType(FolioMini), findsNothing);
       expect(find.text('مدخل خاص ومصعد'), findsNothing);
-      expect(tester.widgetList<SelectBox>(find.byType(SelectBox)).map((s) => s.value), <String>['', '', '']);
+      expect(tester.widgetList<SelectBox>(find.byType(SelectBox)).map((s) => s.value), <String>['', '', '', '']);
     });
   });
 }
