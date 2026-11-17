@@ -180,8 +180,12 @@ class ChatAnswer(BaseModel):
     answer: Annotated[str, Field(min_length=1, max_length=1500)]
     covered: bool
     citations: list[Citation] = []
+    # One enum, not ChatIntent | Literal["out_of_scope"]: that union is a «const», which a host's strict mode
+    # refuses (Groq takes enum, not const) — every chat answer failed there after «auto» came in (#100).
     intent: Annotated[
-        ChatIntent | Literal["out_of_scope"] | None, Field(description="the message's intent, only when asked «auto»")
+        Literal["knowledge", "packages", "semantic_search", "search_request", "matching", "decision", "out_of_scope"]
+        | None,
+        Field(description="the message's intent, only when asked «auto»"),
     ] = None
 
 

@@ -16,7 +16,17 @@ from pydantic import BaseModel
 from zon_agents.llm import LLM, ModelFailed, load_prompts, openai_model
 from zon_agents.pipelines.reports import _choices_model
 from zon_agents.profiles import SIMULATED
-from zon_agents.schemas.agents import SearchersAnswer
+from zon_agents.schemas.agents import (
+    BatchAnswer,
+    ChatAnswer,
+    CleanListingAnswer,
+    CleanProjectAnswer,
+    CleanUnitsAnswer,
+    MatchingAnswer,
+    SearchAnswer,
+    SearchersAnswer,
+    SummaryAnswer,
+)
 
 
 class _Ranked(BaseModel):
@@ -125,6 +135,14 @@ def test_a_host_gets_the_schema_in_its_strict_form_and_our_engines_get_it_as_it_
     free = _asked(_Open, hosted=True)
     assert free["strict"] is False, "a free map cannot be said strictly: asked for without it"
     assert "params" in free["schema"]["properties"]
+
+
+def test_no_answer_a_host_is_asked_for_holds_a_const_its_strict_mode_refuses() -> None:
+    answers = [ChatAnswer, SearchAnswer, MatchingAnswer, SearchersAnswer, SummaryAnswer, BatchAnswer]
+    answers += [CleanListingAnswer, CleanProjectAnswer, CleanUnitsAnswer]
+    for output in answers:
+        strict = json.dumps(_asked(output, hosted=True)["schema"])
+        assert '"const"' not in strict, f"{output.__name__}: a one-value choice is an enum, not a const"
 
 
 def test_a_host_that_says_the_model_wrote_no_schema_is_the_models_failure_not_the_endpoints() -> None:
