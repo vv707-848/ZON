@@ -392,7 +392,10 @@ _SUMMARIES: list[tuple[str, str, list[tuple[str, str, str]], dict[str, Any]]] = 
             ("متابعة", "2026-08-15", "قال ميزانيته صارت مليون ونصف ويبي فيلا مو شقة."),
             ("متابعة", "2026-08-20", "رجع وقال شقة بس، والميزانية 700 ألف."),
         ],
-        {"signals": [["متغير", "متردد", "غير ثابت", "تغير", "متضارب", "تغيّر", "تذبذب"]], "confidence": ["low", "medium"]},
+        {
+            "signals": [["متغير", "متردد", "غير ثابت", "تغير", "متضارب", "تغيّر", "تذبذب"]],
+            "confidence": ["low", "medium"],
+        },
     ),
     (
         "summary-003",
@@ -668,7 +671,7 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
         "chat-016",
         {"intent": "matching", "message": "وش هو مساعد المطابقة؟"},
         {},
-        {"covered": True, "mention": [["الميزانية"], ["الحي"]]},
+        {"covered": True, "mention": [["الحي"], ["الرادار", "ينبهك", "تنبيه"]], "asks": 0},
     ),
     # A language Laravel's rules do not read: «auto», and the model names the intent; it answers in that language.
     (
@@ -726,7 +729,13 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
         {
             "covered": True,
             "mention": [["تعاين", "تشوف", "معاينة", "العين ما تغش"], ["المعلن", "تفاوض"]],
-            "avoid": ["السعر مناسب", "السعر زين", "السعر مبالغ", "سعر ممتاز", "لقطة"],
+            "avoid": [
+                "سعر ممتاز",
+                "سعر عادل",
+                "السعر معقول",
+                "سعره معقول",
+                "لقطة",
+            ],  # a verdict, not «لا أقيّم إن كان مناسباً»
         },
     ),
     (
@@ -735,7 +744,7 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
         {},
         {
             "covered": True,
-            "mention": [["القرار لك", "قرارك", "حسب حاجتك", "حاجتك"]],
+            "mention": [["القرار لك", "القرار يعود لك", "قرارك", "حاجتك", "وضعك"]],
             "avoid": ["أنصحك", "الأسعار بتنزل", "الأسعار ستنخفض", "الأسعار بترتفع", "الأسعار سترتفع"],
         },
     ),

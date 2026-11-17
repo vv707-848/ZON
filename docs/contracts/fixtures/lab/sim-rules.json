@@ -14,10 +14,10 @@
     "covered": 0.7917,
     "intent": 0.25,
     "lang": 0.3333,
-    "mention": 0.9333,
+    "mention": 0.9667,
     "numbers": 1.0
    },
-   "score": 0.7257,
+   "score": 0.7326,
    "variants": {}
   },
   "clean_listing": {
@@ -213,9 +213,9 @@
    "summarize": 10
   },
   "cases": 208,
-  "digest": "8ecec47718b73f67"
+  "digest": "03f8f60ec5babd65"
  },
  "lab": 1,
- "overall": 0.8305,
+ "overall": 0.8313,
  "simulation": "rules"
 }
