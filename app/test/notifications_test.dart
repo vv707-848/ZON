@@ -35,7 +35,7 @@ void main() {
   testWidgets('bell → list → the matching row opens the matching assistant; read state and count update', (tester) async {
     await freshDevice();
     signUp('n01.seeker', role: 'seeker');
-    store.saveWish(const Wish(city: 'الرياض', hoods: <String>['الملقا'], types: <String>[], budget: '', text: 'فيلا قرب المدارس'));
+    store.saveWish(const Wish(purpose: 'sale', city: 'الرياض', hoods: <String>['الملقا'], types: <String>[], budget: '', text: 'فيلا قرب المدارس'));
     expect(store.freshMatches(), isNotEmpty, reason: 'the sample data has offers in الملقا');
 
     await pumpApp(tester, '/');

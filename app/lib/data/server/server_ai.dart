@@ -213,8 +213,19 @@ abstract final class ServerAi {
   ];
 
   /// What a search sends: the three he chose, and what he wrote if anything.
-  static Map<String, Object?> need({required String city, required String neighborhood, required String type, String query = ''}) =>
-      <String, Object?>{'city': city, 'neighborhood': neighborhood, 'property_type': type, if (query.trim().isNotEmpty) 'query': query.trim()};
+  static Map<String, Object?> need({
+    required String purpose,
+    required String city,
+    required String neighborhood,
+    required String type,
+    String query = '',
+  }) => <String, Object?>{
+    'purpose': purpose,
+    'city': city,
+    'neighborhood': neighborhood,
+    'property_type': type,
+    if (query.trim().isNotEmpty) 'query': query.trim(),
+  };
 
   static Future<Ranked<Listing>> search(Map<String, Object?> need, {required int epoch}) => _asked(() async {
     store.stillAccount(epoch);

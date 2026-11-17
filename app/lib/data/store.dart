@@ -881,15 +881,7 @@ class Store extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<String> matchingIds(Wish wish, List<Listing> listings) => listings
-      .where(
-        (l) =>
-            (wish.city == 'all' || l.city == wish.city) &&
-            (wish.hoods.isEmpty || wish.hoods.contains(l.neighborhood)) &&
-            (wish.types.isEmpty || wish.types.contains(l.propertyType)),
-      )
-      .map((l) => l.id)
-      .toList();
+  List<String> matchingIds(Wish wish, List<Listing> listings) => listings.where(wish.fits).map((l) => l.id).toList();
 
   List<String> loadSeenHits() => _read<List<String>>(_seenKey, <String>[], (j) => (j as List).map((e) => e.toString()).toList());
 

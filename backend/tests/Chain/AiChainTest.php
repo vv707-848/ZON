@@ -138,7 +138,7 @@ class AiChainTest extends TestCase
     {
         $o = $this->offers();
         $seeker = $this->seeker(account: ['name' => 'خالد المطيري']);
-        $search = ['city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 900000, 'bedrooms' => 3,
+        $search = ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 900000, 'bedrooms' => 3,
             'query' => 'أنا خالد المطيري، أبي مدخل خاص ومصعد، كلمني '.self::PHONE];
 
         $response = $this->postJson('/api/v1/ai/search', $search)->assertOk()
@@ -166,7 +166,7 @@ class AiChainTest extends TestCase
     {
         $o = $this->offers();
         $this->seeker();
-        $search = ['city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 900000, 'query' => 'مدخل خاص ومصعد'];
+        $search = ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 900000, 'query' => 'مدخل خاص ومصعد'];
         $ids = fn (TestResponse $r) => array_column($this->ranked($r, 'data.results', 'listing'), 0);
 
         foreach (['invalid', 'down'] as $failure) {
@@ -209,7 +209,7 @@ class AiChainTest extends TestCase
         $poor = $request('شقة فيها مصعد', ['budget_max' => 600000]);
         $this->signIn($this->plan(Customer::factory()->broker()->create(), Package::BROKER_MONTH));
 
-        $response = $this->postJson('/api/v1/ai/search/requests', ['city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 880000,
+        $response = $this->postJson('/api/v1/ai/search/requests', ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 880000,
             'query' => 'عندي شقة فيها مصعد وموقف خاص'])->assertOk()->assertJsonPath('meta.ai', ['status' => 'ok', 'simulated' => true]);
         $this->apiContract('ai_search_requests', $response);
 

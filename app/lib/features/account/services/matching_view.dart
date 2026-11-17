@@ -71,6 +71,9 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
   late final Wish? _seed = store.loadWish();
   late Wish? saved = _seed;
   late bool edit = (_seed?.text ?? '').isEmpty;
+
+  /// "sale" (شراء) | "rent" (استئجار): chosen, never assumed.
+  late String purpose = _seed?.purpose ?? '';
   late String city = (_seed != null && _seed.city.isNotEmpty && _seed.city != 'all') ? _seed.city : 'الرياض';
   late String hood = (_seed != null && _seed.hoods.isNotEmpty) ? _seed.hoods.first : kCities['الرياض']![0];
   late String type = (_seed != null && _seed.types.isNotEmpty) ? _seed.types.first : 'all';
@@ -260,6 +263,7 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
 
   Wish _payload() => Wish(
     id: saved?.id,
+    purpose: purpose,
     city: city,
     hoods: hood.isNotEmpty ? <String>[hood] : const <String>[],
     types: type == 'all' ? const <String>[] : <String>[type],
@@ -319,14 +323,7 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
     final qy = query;
     if (qy == null) return (hit: const <Listing>[], other: const <Listing>[]);
     final scored = sortByScore<Listing>(list, (l) => scoreByFeedback(listingHay(l), qy.text, rankMarks, l.id));
-    final hit = scored
-        .where(
-          (l) =>
-              (qy.city == 'all' || l.city == qy.city) &&
-              (qy.hoods.isEmpty || qy.hoods.contains(l.neighborhood)) &&
-              (qy.types.isEmpty || qy.types.contains(l.propertyType)),
-        )
-        .toList();
+    final hit = scored.where(qy.fits).toList();
     final hitIds = hit.map((l) => l.id).toSet();
     final other = scored.where((l) => (qy.city == 'all' || l.city == qy.city) && !hitIds.contains(l.id)).take(8).toList();
     return (hit: hit, other: other);
@@ -364,6 +361,8 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
         children: <Widget>[
           DeskJewel(value: 'ON', small: 'رادار', title: 'الرادار يعمل', ringColor: const Color(0xFF9BE7C4), valueStyle: _ringValue),
+          if (s.purpose.isNotEmpty)
+            CrmMeters(top: 12, tiles: <(Widget, String)>[(meter(s.purpose == 'rent' ? 'استئجار' : 'شراء'), 'شراء أو استئجار')]),
           CrmMeters(
             top: 12,
             tiles: <(Widget, String)>[
@@ -389,6 +388,7 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
                 final c = s.city != 'all' ? s.city : 'الرياض';
                 text.text = s.text;
                 setState(() {
+                  purpose = s.purpose;
                   city = c;
                   hood = s.hoods.isNotEmpty ? s.hoods.first : kCities[c]![0];
                   type = s.types.isNotEmpty ? s.types.first : 'all';
@@ -406,6 +406,20 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
         children: <Widget>[
           DeskJewel(value: '—', small: 'رغبة', title: 'حدد رغبتك', frac: 0.18, valueStyle: _ringValue),
+          CrmMeters(
+            top: 12,
+            tiles: <(Widget, String)>[
+              (
+                MeterSelect(
+                  value: purpose,
+                  color: kDeskAccent,
+                  options: const <Opt>[Opt('', 'اختر', disabled: true), Opt('sale', 'شراء'), Opt('rent', 'استئجار')],
+                  onChanged: (v) => setState(() => purpose = v),
+                ),
+                'شراء أو استئجار',
+              ),
+            ],
+          ),
           CrmMeters(
             top: 12,
             tiles: <(Widget, String)>[
@@ -458,7 +472,7 @@ class _SeekerMatchingViewState extends State<SeekerMatchingView> with SemMarksSt
               child: Tx(_error, style: ts(14, w: 600, lh: 20, c: const Color(0xFFFFB4A8))),
             ),
           _mxRow(<(String, VoidCallback?)>[
-            (_sending ? 'جارٍ الحفظ…' : 'حفظ الرغبة', text.text.trim().isEmpty || _sending ? null : () => _persist(_payload())),
+            (_sending ? 'جارٍ الحفظ…' : 'حفظ الرغبة', purpose.isEmpty || text.text.trim().isEmpty || _sending ? null : () => _persist(_payload())),
             if (saved != null) ('إلغاء', () => setState(() => edit = false)),
           ]),
         ],
