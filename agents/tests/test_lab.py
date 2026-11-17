@@ -11,6 +11,7 @@ from pydantic_ai.models.function import FunctionModel
 
 from tests.conftest import ScriptedModel
 from zon_agents.lab.cases import EXPECTS, Case, check, load_cases
+from zon_agents.lab.load import FREE_TEXT, SIZES, load, production_size
 from zon_agents.lab.runner import RANKING, Outcome, refused, report, run_cases, sample
 from zon_agents.lab.scoring import ndcg, number_guard, score
 from zon_agents.llm import LLM, ModelFailed
@@ -185,6 +186,35 @@ def _answers(model: ScriptedModel) -> None:
         "report_explore": {"report": None, "params": {}},
         "report_write": {"analysis": "تحليل الصفوف", "recommendations": []},
     }
+
+
+def test_the_load_check_asks_at_productions_sizes_and_counts_what_fails(model: ScriptedModel) -> None:
+    _answers(model)
+    cases = load_cases()
+    big = production_size(next(c for c in cases if c.agent == "matching"))
+    for field in ("matched", "broaden"):
+        assert len(big.input[field]) == 30 and {len(c["desc"]) for c in big.input[field]} == {600}, field
+    ids = [c["id"] for field in ("matched", "broaden") for c in big.input[field]]
+    assert len(set(ids)) == 60, "every candidate its own id, in both lists"
+    assert len(big.input["need"]["free_text"]) == FREE_TEXT
+    seekers = production_size(next(c for c in cases if c.agent == "match_searchers")).input
+    assert (len(seekers["units"]), len(seekers["searchers"])) == (100, 200)
+
+    model.answers["search_requests"] = ModelFailed("unavailable")
+    llm = LLM(
+        FunctionModel(model),
+        model.prompts,
+        profile=load_profile("qwen3.8-27b-fp8"),
+        max_concurrency=4,
+        budget_seconds=5,
+    )
+    found = asyncio.run(load(llm, cases, at_once=4, rounds=2))
+
+    assert set(found) == set(SIZES)
+    assert found["matching"]["asked"] == 8 and found["matching"]["failed"] == 0
+    assert found["search_requests"]["failed"] == 8, "a prompt the engine refuses is a failure, as in production"
+    sent = [payload for agent, payload, _ in model.calls if agent == "search_listings"]
+    assert len(sent[-1]["candidates"]) == 30, "the shortlist production reads"
 
 
 def test_a_run_measures_every_agent_end_to_end_and_writes_the_report(model: ScriptedModel) -> None:

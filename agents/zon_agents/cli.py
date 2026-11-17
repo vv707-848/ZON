@@ -21,6 +21,7 @@ from zon_agents import logs, monitoring
 from zon_agents.config import Settings
 from zon_agents.lab import hosted
 from zon_agents.lab.cases import check, load_cases
+from zon_agents.lab.load import load
 from zon_agents.lab.runner import Outcome, floors, refused, report, run_cases, sample
 from zon_agents.llm import LLM, load_prompts, openai_model
 from zon_agents.main import create_app
@@ -108,6 +109,28 @@ def _lab_run(args: argparse.Namespace) -> int:
     _print_summary(result, out)
     for reason, count in llm.refusals.most_common(5):
         print(f"the endpoint ×{count}: {reason}", file=sys.stderr)
+    return 0
+
+
+def _lab_load(args: argparse.Namespace) -> int:
+    key = os.environ.get("LLM_API_KEY", "")
+    model = openai_model(args.base_url, key, args.model, args.budget)
+    llm = LLM(
+        model,
+        load_prompts(),
+        profile=load_profile(args.profile),
+        max_concurrency=args.at_once,
+        budget_seconds=args.budget,
+    )
+    found = asyncio.run(load(llm, load_cases(), at_once=args.at_once, rounds=args.rounds))
+    print(f"{'agent':16} {'asked':>5} {'failed':>6} {'tokens_in':>9} {'p50 ms':>7} {'p95 ms':>7}")
+    for agent, row in found.items():
+        counts = f"{row['asked']:5} {row['failed']:6} {row['tokens_in_max']:9}"
+        print(f"{agent:16} {counts} {row['p50_ms']:7} {row['p95_ms']:7}")
+        for reason, count in row["failures"].items():
+            print(f"   ×{count}: {reason}")
+    out = args.out or Path(f"load-{args.profile}-{datetime.now(UTC):%Y%m%d-%H%M}.json")
+    out.write_text(json.dumps(found, ensure_ascii=False, indent=1), encoding="utf-8")
     return 0
 
 
@@ -228,6 +251,14 @@ def main() -> None:
     plan.add_argument("--agents", default="", help="only these agents, comma-separated")
     plan.add_argument("--sample", type=int, help="cases of each agent (0: all; default: what the daily limit allows)")
     plan.add_argument("--sample-shift", type=int, default=0, help="another day's sample: every pick moved this many on")
+    heavy = lab_commands.add_parser("load", help="ranking at production's sizes, several at once (key in LLM_API_KEY)")
+    heavy.add_argument("--profile", required=True, help="zon_agents/models/<profile>.toml: the model it serves")
+    heavy.add_argument("--base-url", default=DEFAULTS["llm_base_url"].default)
+    heavy.add_argument("--model", default=DEFAULTS["llm_model"].default, help="the name the engine serves it under")
+    heavy.add_argument("--at-once", type=int, default=DEFAULTS["llm_max_concurrency"].default, help="asked together")
+    heavy.add_argument("--rounds", type=int, default=3)
+    heavy.add_argument("--budget", type=float, default=DEFAULTS["request_budget_seconds"].default, help="seconds")
+    heavy.add_argument("--out", type=Path, help="the report file (default load-<profile>-<time>.json)")
     known = lab_commands.add_parser("sim", help="the cases against the simulation: every known result checked")
     known.add_argument("--runs", help=f"only these, comma-separated (default {','.join(labsim.RUNS)})")
     known.add_argument("--out", type=Path, help="a folder for each run's summary (sim-<run>.json)")
@@ -236,7 +267,7 @@ def main() -> None:
     if args.command == "lab":
         if args.lab == "check":
             sys.exit(_lab_check())
-        sys.exit({"run": _lab_run, "plan": _lab_plan, "sim": _lab_sim}[args.lab](args))
+        sys.exit({"run": _lab_run, "plan": _lab_plan, "sim": _lab_sim, "load": _lab_load}[args.lab](args))
     if args.command == "sim":
         uvicorn.run(create_sim_app(), host=args.host, port=args.port, log_level="warning")
         return

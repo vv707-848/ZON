@@ -121,6 +121,14 @@ def test_package_questions_get_the_platforms_own_figures(client: TestClient, mod
     assert model.calls_of("chat")[0][1]["packages"] == packages
 
 
+def test_the_model_knows_the_askers_role_for_the_services_he_has(client: TestClient, model: ScriptedModel) -> None:
+    model.answers["chat"] = {"answer": "ابحث في «البحث الدلالي» في العروض وفي طلبات الباحثين.", "covered": True}
+
+    call(client, "chat", {"intent": "semantic_search", "role": "broker", "message": "عندي عميل يبي فيلا"})
+
+    assert model.calls_of("chat")[0][1]["role"] == "broker", "a broker is not sent to the seekers' matching"
+
+
 def test_a_language_no_rule_reads_is_answered_in_it_and_the_model_names_the_intent(
     client: TestClient, model: ScriptedModel, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -64,6 +64,7 @@ final class ChatAssistant
         $last = ChatMessage::query()->where('customer_id', $customer->id)->latest('id')->first();
         $result = $this->ai->call(AiAgent::Chat, [
             'lang' => $lang,
+            'role' => $customer->role->value,      // the services he has: a seeker searches and matches, a broker searches
             'intent' => $intent->value ?? 'auto',
             'message' => $message,
             'history' => $last === null ? [] : [['q' => mb_substr($last->question, 0, 1000), 'a' => mb_substr($last->answer, 0, 2000)]],
