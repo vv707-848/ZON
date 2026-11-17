@@ -102,6 +102,17 @@ def test_a_number_a_packages_features_say_is_not_a_made_up_one() -> None:
     assert score(case, made_up).metrics["numbers"] == 0.0
 
 
+def test_a_chat_answer_asks_one_thing_at_a_time_without_hype_or_flattery() -> None:
+    case = next(c for c in load_cases() if c.id == "chat-022")
+    plain = "باقة الباحث 199 ريالاً شهرياً، وفيها مساعد المطابقة. تبي أشرح لك وش تفرق عن المجاني؟"
+
+    assert score(case, {"answer": plain, "covered": True, "sources": []}).value == 1.0
+    hype = score(case, {"answer": plain.replace("شهرياً،", "شهرياً، لقطة يا تاج راسي،"), "covered": True, "sources": []})
+    assert hype.metrics["avoid"] == 0.0
+    survey = score(case, {"answer": plain + " وش ميزانيتك؟ ووين تبي؟", "covered": True, "sources": []})
+    assert survey.metrics["asks"] == 0.0
+
+
 def test_the_superagent_scorers_know_the_report_and_its_parameters() -> None:
     gap = _case("select-023")  # two reports answer it; city and days matter
     all_cities = _case("select-022")  # «في كل المدن»: no city

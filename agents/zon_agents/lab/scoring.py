@@ -294,6 +294,8 @@ def score_chat(case: Case, output: dict[str, Any]) -> Score:
         numbers=float(numbers_ok(answer, allowed([*passages, *said, case.input["message"]], prices))),
         lang=None if expect.lang is None else float(_written_in(answer, expect.lang)),
         intent=named,
+        avoid=float(not any(norm(word) in norm(answer) for word in expect.avoid)) if expect.avoid else None,
+        asks=None if expect.asks is None else float(answer.count("؟") + answer.count("?") <= expect.asks),
     )
     return Score(_mean(metrics), metrics)
 

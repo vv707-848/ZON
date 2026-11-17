@@ -699,6 +699,20 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
         _passages(104),
         {"covered": False, "lang": "hi", "intent": "out_of_scope"},
     ),
+    # The voice brokers and builders asked for (17 November): one question at a time, no hype, no flattery, no
+    # claim to be a broker or to have seen the property.
+    (
+        "chat-021",
+        {"intent": "matching", "message": "ابي شقة في جدة، تقدر تساعدني؟"},
+        {},
+        {"covered": True, "mention": [["المطابقة"]], "asks": 1, "avoid": ["لقطة", "أنا وسيط", "عاينت"]},
+    ),
+    (
+        "chat-022",
+        {"intent": "packages", "message": "باقة الباحث تستاهل ولا فلوس على الفاضي؟", "packages": _PACKAGES},
+        {},
+        {"covered": True, "mention": [["199"]], "asks": 1, "avoid": ["لقطة", "فرصة لا تعوض", "لا تفوت", "تاج راسي"]},
+    ),
 ]
 
 # ── The SuperAgent's choice of reports (report_select) ──────────────────────────────────────────
