@@ -6,8 +6,8 @@ use App\Enums\ChatIntent;
 use App\Support\ArabicText;
 
 /**
- * The chat's intent by rules, in priority order: packages > search_request > matching > knowledge >
- * semantic_search. Nothing matches → out of scope (a fixed answer, no AI call).
+ * The chat's intent by rules, in priority order: packages > search_request > matching > decision > knowledge >
+ * semantic_search. «decision» is a price to judge or a sale to decide: the chat gives the options, not a verdict. Nothing matches → out of scope (a fixed answer, no AI call).
  */
 final class IntentClassifier
 {
@@ -16,6 +16,8 @@ final class IntentClassifier
         'packages' => ['باقة', 'باقات', 'الباقه', 'اشتراك', 'الاشتراك', 'رصيد', 'تمييز', 'مميز', 'سعر الباقة', 'كم السعر', 'كم سعر', 'تكلفة', 'package', 'subscription', 'plan', 'pricing', 'پیکج', 'قیمت'],
         'search_request' => ['طلب بحث', 'اضيف طلب', 'أضيف طلب', 'انشر طلب', 'طلب عاجل', 'اسوي طلب', 'post a request', 'add a request', 'درخواست'],
         'matching' => ['مطابقة', 'رغبتي', 'رغبة', 'يطابق', 'المطابق', 'match', 'matching', 'my wish'],
+        'decision' => ['السعر زين', 'سعره زين', 'السعر مناسب', 'سعره مناسب', 'مبالغ فيه', 'سعر مبالغ', 'يستاهل السعر', 'يسوى', 'اتفاوض', 'التفاوض', 'محتار', 'متردد', 'ابيع ولا', 'اشتري ولا', 'ولا انتظر',
+            'overpriced', 'fair price', 'good price', 'should i buy', 'should i sell', 'negotiate'],
         'knowledge' => ['ترخيص', 'رخصة', 'فال', 'نفاذ', 'الهيئة', 'عقد', 'سعي', 'عمولة', 'ضريبة', 'صك', 'تملك', 'نظام', 'شروط', 'سياسة', 'وساطة', 'تسجيل عيني', 'إفراغ', 'افراغ',
             'licence', 'license', 'contract', 'commission', 'tax', 'policy', 'deed', 'لائسنس'],
         'semantic_search' => ['ابحث', 'أبحث', 'ابغى', 'ابي', 'أبي', 'ودي', 'شقة', 'شقه', 'فيلا', 'فله', 'ارض', 'أرض', 'عمارة', 'دور', 'استراحة', 'محل', 'مكتب', 'للبيع', 'للايجار', 'للإيجار',

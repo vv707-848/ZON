@@ -335,6 +335,20 @@ class AiTest extends TestCase
         $this->assertSame(['xx', 'xx', 'xx'], ChatMessage::query()->orderBy('id')->pluck('lang')->all());
     }
 
+    public function test_a_price_to_judge_or_a_sale_to_decide_reaches_the_model_and_gets_options_not_a_verdict(): void
+    {
+        $this->seeker();
+        $options = 'الشات لا يقيّم الأسعار: تفاوض مع المعلن بعد أن تعاين العقار بنفسك، فالعين ما تغش.';
+        $this->agent(['answer' => $options, 'covered' => true, 'sources' => []]);
+
+        foreach (['هذا السعر زين ولا مبالغ فيه؟', 'محتار أبيع أرضي الحين ولا أنتظر؟'] as $asked) {
+            $this->postJson('/api/v1/ai/chat', ['message' => $asked])->assertOk()
+                ->assertJsonPath('data.intent', 'decision')->assertJsonPath('data.answer', $options)->assertJsonPath('data.action', null);
+        }
+        Http::assertSent(fn (Sent $r) => $r['intent'] === 'decision' && $r['packages'] === []);
+        $this->assertSame('decision', (new IntentClassifier)->classify('يا الغالي هل السعر مناسب؟')->value);   // «يا الغالي» is a greeting, not a price
+    }
+
     public function test_a_client_summary_is_masked_stored_and_reused_while_the_notes_are_unchanged(): void
     {
         $broker = $this->signIn(Customer::factory()->broker()->create());

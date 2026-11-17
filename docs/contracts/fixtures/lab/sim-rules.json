@@ -1,21 +1,23 @@
 {
  "agents": {
   "chat": {
-   "cases": 20,
+   "cases": 24,
    "failed": 0,
    "latency_ms": {
     "p50": 0,
     "p95": 0
    },
    "metrics": {
+    "asks": 1.0,
+    "avoid": 1.0,
     "cite": 1.0,
-    "covered": 0.75,
+    "covered": 0.7917,
     "intent": 0.25,
     "lang": 0.3333,
-    "mention": 0.9545,
+    "mention": 0.9667,
     "numbers": 1.0
    },
-   "score": 0.6792,
+   "score": 0.7326,
    "variants": {}
   },
   "clean_listing": {
@@ -199,7 +201,7 @@
  },
  "dataset": {
   "agents": {
-   "chat": 20,
+   "chat": 24,
    "clean_listing": 44,
    "match_searchers": 8,
    "matching": 12,
@@ -210,10 +212,10 @@
    "search_requests": 14,
    "summarize": 10
   },
-  "cases": 204,
-  "digest": "35fd1ea2ffc663c6"
+  "cases": 208,
+  "digest": "03f8f60ec5babd65"
  },
  "lab": 1,
- "overall": 0.825,
+ "overall": 0.8313,
  "simulation": "rules"
 }

@@ -35,18 +35,33 @@ SECTIONS = [
 # "METHOD uri" (uri without api/v1/) → (section, description)
 DESCRIPTIONS = {
     # ── app ──
-    "GET app/config": ("app", "قيم الإقلاع: إصدار المنصة (`X-App-Platform`) والصيانة، رابط المشاركة، رقم نسخة المرجع، حدود الصور والشات"),
+    "GET app/config": (
+        "app",
+        "قيم الإقلاع: إصدار المنصة (`X-App-Platform`) والصيانة، رابط المشاركة، رقم نسخة المرجع، حدود الصور والشات",
+    ),
     "GET catalog": (
         "app",
         "المرجع: المدن وأحياؤها، أنواع العقار وحقول كل نوع، وقوائم الاختيار (الغرض، الأدوار، الإشغال، فئات الملاحظات، أسباب البلاغ، تفضيلات الإشعار)",
     ),
     "GET legal": ("app", "صفحات السياسات المنشورة بلا نصوصها: الخمس أولاً، ثم ما أضافته الإدارة"),
     "GET legal/{slug}": ("app", "صفحة سياسة بنصها ورقم نسختها (terms · privacy · …) كما تحرَّر من اللوحة"),
-    "GET packages": ("billing", "الباقات الفعّالة بأسعارها وأرصدتها وميزاتها وهل تُشترى، وأسعار الخدمات المفردة (تمييز، عاجل…)"),
-    "POST support-tickets": ("app", "شكوى · اقتراح · استفسار (للزائر والمسجّل)، وعرض تخصه إن وُجد؛ تُرجع رقم القيد ومدة الرد المعلنة"),
+    "GET packages": (
+        "billing",
+        "الباقات الفعّالة بأسعارها وأرصدتها وميزاتها وهل تُشترى، وأسعار الخدمات المفردة (تمييز، عاجل…)",
+    ),
+    "POST support-tickets": (
+        "app",
+        "شكوى · اقتراح · استفسار (للزائر والمسجّل)، وعرض تخصه إن وُجد؛ تُرجع رقم القيد ومدة الرد المعلنة",
+    ),
     "GET|POST broadcasting/auth": ("social", "توثيق القنوات الخاصة لـ Reverb: `customers.{id}` و`conversations.{id}`"),
-    "POST payments/webhook/{provider}": ("billing", "إشعار مزوّد الدفع؛ لا يُصدَّق محتواه — يُقرأ الدفع من المزوّد ثم يُطبَّق (ConfirmPayment)"),
-    "POST store/notices/{store}": ("billing", "إشعار المتجر (آبل V2 · Google RTDN) بمفتاح في الرابط؛ لا يُصدَّق محتواه — يُقرأ الشراء من المتجر: تجديد أو استرداد"),
+    "POST payments/webhook/{provider}": (
+        "billing",
+        "إشعار مزوّد الدفع؛ لا يُصدَّق محتواه — يُقرأ الدفع من المزوّد ثم يُطبَّق (ConfirmPayment)",
+    ),
+    "POST store/notices/{store}": (
+        "billing",
+        "إشعار المتجر (آبل V2 · Google RTDN) بمفتاح في الرابط؛ لا يُصدَّق محتواه — يُقرأ الشراء من المتجر: تجديد أو استرداد",
+    ),
     # ── auth ──
     "POST auth/register": ("auth", "بدء التسجيل: يحفظ النموذج مؤقتاً 15 دقيقة ويرسل رمز الجوال (202)"),
     "POST auth/otp/verify": ("auth", "تأكيد رمز التسجيل: ينشئ الحساب ويُرجع الرمز المميِّز وبيانات حسابي (201)"),
@@ -61,11 +76,20 @@ DESCRIPTIONS = {
     "POST me/phone": ("me", "طلب تغيير الجوال: رمز إلى الرقم الجديد"),
     "POST me/phone/verify": ("me", "تأكيد الجوال الجديد بالرمز"),
     "PUT me/password": ("me", "تغيير كلمة السر (`current_password` مطلوبة)؛ تخرج الأجهزة الأخرى"),
-    "PUT me/notification-preferences": ("me", "مفاتيح الإشعارات: الست مفعّلة افتراضياً (رسائل · نشر المتابَعين · طلبات المنطقة · حالة الإعلان · تقييمات · مطابقة)، و`marketing` (العروض والتسويق) مطفأ حتى يوافق المستخدم"),
-    "POST me/devices": ("me", "تسجيل معرّف Push للجهاز (`push_token`: معرّف التثبيت FID من FCM) ومنصته — مربوط بجلسة هذا الجهاز، وعند كل فتح للتطبيق"),
+    "PUT me/notification-preferences": (
+        "me",
+        "مفاتيح الإشعارات: الست مفعّلة افتراضياً (رسائل · نشر المتابَعين · طلبات المنطقة · حالة الإعلان · تقييمات · مطابقة)، و`marketing` (العروض والتسويق) مطفأ حتى يوافق المستخدم",
+    ),
+    "POST me/devices": (
+        "me",
+        "تسجيل معرّف Push للجهاز (`push_token`: معرّف التثبيت FID من FCM) ومنصته — مربوط بجلسة هذا الجهاز، وعند كل فتح للتطبيق",
+    ),
     "GET me/sessions": ("me", "أجهزتي: جلسة لكل جهاز (الاسم، المنصة، آخر استخدام، وهذا الجهاز)"),
     "DELETE me/sessions/{session}": ("me", "إنهاء جلسة جهاز: يخرج ويتوقف عنه الـ Push"),
-    "POST me/nafath": ("me", "بدء التحقق عبر نفاذ: الرقم الذي يختاره المستخدم في تطبيق نفاذ ومهلته؛ طلب واحد في الوقت نفسه"),
+    "POST me/nafath": (
+        "me",
+        "بدء التحقق عبر نفاذ: الرقم الذي يختاره المستخدم في تطبيق نفاذ ومهلته؛ طلب واحد في الوقت نفسه",
+    ),
     "GET me/nafath": ("me", "حالة التحقق، و`attempt`: waiting · verified · rejected · expired (يبدأ من جديد)"),
     "POST account/delete": ("me", "طلب حذف الحساب: يُخفى المحتوى فوراً، والحذف النهائي بعد المهلة"),
     "POST account/legacy-claims": ("me", "طلب استعادة بيانات الإصدار السابق؛ تراجعه اللوحة يدوياً"),
@@ -81,28 +105,58 @@ DESCRIPTIONS = {
     "GET me/followers": ("social", "من يتابعني"),
     "GET me/following": ("social", "من أتابع"),
     # ── browse ──
-    "GET feed": ("browse", "الرئيسية: العروض والمشاريع في قائمة واحدة بفلاترها وترتيبها (الأحدث · الأقدم · المميز · السعر · المساحة)، ولكل صف `kind`"),
+    "GET feed": (
+        "browse",
+        "الرئيسية: العروض والمشاريع في قائمة واحدة بفلاترها وترتيبها (الأحدث · الأقدم · المميز · السعر · المساحة)، ولكل صف `kind`",
+    ),
     "GET listings": ("browse", "العروض المنشورة مع التصفية (المدينة، الحي، النوع، الغرض، السعر…) والفرز؛ المميز أولاً"),
-    "GET listings/{listing}": ("browse", "تفاصيل عرض منشور (أو عرضي بأي حالة)؛ أرقام التواصل للمسجّلين فقط، ولا شيء بين متحاظرَين"),
+    "GET listings/{listing}": (
+        "browse",
+        "تفاصيل عرض منشور (أو عرضي بأي حالة)؛ أرقام التواصل للمسجّلين فقط، ولا شيء بين متحاظرَين",
+    ),
     "GET projects": ("browse", "المشاريع المنشورة مع التصفية"),
     "GET projects/{project}": ("browse", "تفاصيل مشروع ووحداته؛ نموذج المشروع «الجاهز» لا يظهر للعموم إلا بترخيص ساري"),
     "GET projects/{project}/units/{unit}": ("browse", "تفاصيل نموذج وحدة"),
-    "GET requests": ("browse", "طلبات البحث المنشورة: تصفية بالدور والغرض والمدينة والحي والنوع، والفرز `new` · `old` (العاجل أولاً) · `urgent` (العاجل وحده) · `cheap` (أقل ميزانية، وبلا ميزانية آخراً)؛ التواصل حسب الحق (`access`)"),
+    "GET requests": (
+        "browse",
+        "طلبات البحث المنشورة: تصفية بالدور والغرض والمدينة والحي والنوع، والفرز `new` · `old` (العاجل أولاً) · `urgent` (العاجل وحده) · `cheap` (أقل ميزانية، وبلا ميزانية آخراً)؛ التواصل حسب الحق (`access`)",
+    ),
     "GET requests/{searchRequest}": ("browse", "تفاصيل طلب بحث"),
-    "GET customers/{customer}": ("browse", "الملف العام باسم المستخدم: المدينة، التقييم وتقييمي له، أعداد المتابِعين والعروض، وهل أتابعه"),
+    "GET customers/{customer}": (
+        "browse",
+        "الملف العام باسم المستخدم: المدينة، التقييم وتقييمي له، أعداد المتابِعين والعروض، وهل أتابعه",
+    ),
     "GET customers/{customer}/listings": ("browse", "عروض المعلن المنشورة"),
     # ── listings ──
     "GET listings/mine": ("listings", "عروضي بكل حالاتها"),
-    "POST listings": ("listings", "إضافة عرض: البوابات (فال/نفاذ/الحد/الترخيص أو ملف المالك) ← الصياغة في طابور `ai` ← `pending_review` أو النشر"),
-    "POST listings/licence-check": ("listings", "«تحقق»: رقم الترخيص الإعلاني يُسأل عنه لدى الهيئة قبل تعبئة العرض — صالح وغير منتهٍ وتاريخ انتهائه، أو رسالة الحقل. لا يُحفظ شيء، ويُفحص ثانيةً عند النشر"),
+    "POST listings": (
+        "listings",
+        "إضافة عرض: البوابات (فال/نفاذ/الحد/الترخيص أو ملف المالك) ← الصياغة في طابور `ai` ← `pending_review` أو النشر",
+    ),
+    "POST listings/licence-check": (
+        "listings",
+        "«تحقق»: رقم الترخيص الإعلاني يُسأل عنه لدى الهيئة قبل تعبئة العرض — صالح وغير منتهٍ وتاريخ انتهائه، أو رسالة الحقل. لا يُحفظ شيء، ويُفحص ثانيةً عند النشر",
+    ),
     "PATCH listings/{listing}": ("listings", "تعديل عرضي؛ تغيير النص يعيده إلى مراجعة الصياغة"),
     "DELETE listings/{listing}": ("listings", "حذف عرضي (عدا المباع) وإخراجه من الفهرس"),
     "GET listings/{listing}/review": ("listings", "الصياغة المقترحة مقابل النص الأصلي"),
-    "POST listings/{listing}/review": ("listings", "قرار المعلن: `approve` المقترح · `edit` بنصه · `reject` فيبقى نصه الأصلي ← النشر"),
+    "POST listings/{listing}/review": (
+        "listings",
+        "قرار المعلن: `approve` المقترح · `edit` بنصه · `reject` فيبقى نصه الأصلي ← النشر",
+    ),
     "POST listings/{listing}/pause": ("listings", "إيقاف مؤقت (من «منشور» فقط)"),
-    "POST listings/{listing}/resume": ("listings", "استئناف ما أوقفه المعلن أو صار «غير نشط». المخفي والمرفوض يعيدهما الإشراف وحده، ومنتهي الرخصة يعيده التجديد"),
-    "POST listings/{listing}/licence": ("listings", "تجديد الرخصة: رقمها (أو رقم جديد) يُفحص لدى الهيئة بتاريخ انتهائها، ويعود العرض «منتهي الترخيص» إلى النشر"),
-    "POST listings/{listing}/sold": ("listings", "تم البيع (نهائي)؛ عرض المالك يتطلب `sale_price` (سعر البيع الفعلي، خانتان عشريتان)، وعليه يُحسب سعي زون المستحق. لغيره اختياري، ويُسجَّل لتقرير السوق كما قيل"),
+    "POST listings/{listing}/resume": (
+        "listings",
+        "استئناف ما أوقفه المعلن أو صار «غير نشط». المخفي والمرفوض يعيدهما الإشراف وحده، ومنتهي الرخصة يعيده التجديد",
+    ),
+    "POST listings/{listing}/licence": (
+        "listings",
+        "تجديد الرخصة: رقمها (أو رقم جديد) يُفحص لدى الهيئة بتاريخ انتهائها، ويعود العرض «منتهي الترخيص» إلى النشر",
+    ),
+    "POST listings/{listing}/sold": (
+        "listings",
+        "تم البيع (نهائي)؛ عرض المالك يتطلب `sale_price` (سعر البيع الفعلي، خانتان عشريتان)، وعليه يُحسب سعي زون المستحق. لغيره اختياري، ويُسجَّل لتقرير السوق كما قيل",
+    ),
     "POST listings/{listing}/boost": ("listings", "تمييز أو عاجل: من رصيد الباقة، وإلا عملية دفع"),
     "POST media": ("listings", "رفع صورة `photo` (jpg · png · webp حتى 8MB) إلى MinIO؛ تُربط بالعرض أو المشروع بمعرّفها"),
     "DELETE media/{media}": ("listings", "حذف صورة لي"),
@@ -110,18 +164,33 @@ DESCRIPTIONS = {
     "GET projects/mine": ("projects", "مشاريعي بكل حالاتها"),
     "POST projects": ("projects", "إضافة مشروع (المطوّر المفعّل بعقد تسويق)"),
     "PATCH projects/{project}": ("projects", "تعديل مشروعي"),
-    "GET projects/{project}/review": ("projects", "الصياغة المقترحة لوصف المشروع ووصف كل نموذج، وحالة المشروع (`status`)"),
+    "GET projects/{project}/review": (
+        "projects",
+        "الصياغة المقترحة لوصف المشروع ووصف كل نموذج، وحالة المشروع (`status`)",
+    ),
     "POST projects/{project}/review": ("projects", "قرار المطوّر على وصف المشروع"),
-    "POST projects/{project}/publish": ("projects", "النشر الأول: وصف مقرَّر، وحدة واحدة على الأقل، وترخيص لكل نموذج في «الجاهز»"),
+    "POST projects/{project}/publish": (
+        "projects",
+        "النشر الأول: وصف مقرَّر، وحدة واحدة على الأقل، وترخيص لكل نموذج في «الجاهز»",
+    ),
     "POST projects/{project}/pause": ("projects", "إيقاف مؤقت (من «منشور» فقط)"),
-    "POST projects/{project}/boost": ("projects", "تمييز المشروع المنشور: مجاني ما دام عدد مشاريعه المميزة مجاناً أقل من الإعداد، وإلا 402 بالسعر وعملية دفع"),
+    "POST projects/{project}/boost": (
+        "projects",
+        "تمييز المشروع المنشور: مجاني ما دام عدد مشاريعه المميزة مجاناً أقل من الإعداد، وإلا 402 بالسعر وعملية دفع",
+    ),
     "POST projects/{project}/resume": ("projects", "استئناف ما أوقفه المطوّر، بعد شروط النشر كاملة من جديد"),
     "POST projects/{project}/units": ("projects", "إضافة نموذج وحدة"),
     "POST projects/{project}/units/review": ("projects", "قرار المطوّر على أوصاف الوحدات دفعة واحدة"),
     "PATCH projects/{project}/units/{unit}": ("projects", "تعديل نموذج وحدة"),
     "DELETE projects/{project}/units/{unit}": ("projects", "حذف نموذج وحدة"),
-    "POST projects/{project}/units/{unit}/licence": ("projects", "التحقق من ترخيص الوحدة لدى الهيئة (REGA)، وتجديده: الأحدث هو الرخصة"),
-    "POST projects/{project}/units/{unit}/sold": ("projects", "بيع عدد من وحدات النموذج، وسعر البيع `sale_price` اختياري (خانتان عشريتان) ويُسجَّل لتقرير السوق كما قيل؛ عمولة العقد لكل وحدة"),
+    "POST projects/{project}/units/{unit}/licence": (
+        "projects",
+        "التحقق من ترخيص الوحدة لدى الهيئة (REGA)، وتجديده: الأحدث هو الرخصة",
+    ),
+    "POST projects/{project}/units/{unit}/sold": (
+        "projects",
+        "بيع عدد من وحدات النموذج، وسعر البيع `sale_price` اختياري (خانتان عشريتان) ويُسجَّل لتقرير السوق كما قيل؛ عمولة العقد لكل وحدة",
+    ),
     # ── owner ──
     "GET owner-cases": ("owner", "ملفاتي كمالك"),
     "POST owner-cases": ("owner", "فتح ملف: الصك ← عقد الوساطة مع زون وموافقة نفاذ ← رسوم الترخيص ← الترخيص"),
@@ -130,24 +199,39 @@ DESCRIPTIONS = {
     "GET requests/mine": ("requests", "طلباتي"),
     "GET requests/area": ("requests", "طلبات مدينة الوسيط من غيره، العاجل أولاً، مع حقه في التواصل (`meta.access`)"),
     "POST requests": ("requests", "إضافة طلب بحث؛ `urgent` من الرصيد أو بالدفع (النتيجة في `meta.urgent`)"),
-    "PUT requests/{searchRequest}": ("requests", "تعديل طلبي بنموذجه كاملاً (الحقل الفارغ يُفرَّغ، و`urgent` لا يُعدَّل هنا)؛ المغلق لا يُعدَّل (409)"),
+    "PUT requests/{searchRequest}": (
+        "requests",
+        "تعديل طلبي بنموذجه كاملاً (الحقل الفارغ يُفرَّغ، و`urgent` لا يُعدَّل هنا)؛ المغلق لا يُعدَّل (409)",
+    ),
     "POST requests/{searchRequest}/urgent": ("requests", "اجعله طلبًا عاجلًا: من رصيد الباقة، وإلا 402 بالسعر"),
     "POST requests/{searchRequest}/close": ("requests", "إغلاق طلبي"),
     "POST requests/{searchRequest}/to-client": ("requests", "تحويل طلب إلى عميل في مكتبي"),
     # ── social ──
     "GET conversations": ("social", "محادثاتي مع آخر رسالة وغير المقروء، الأحدث أولاً (30 في الصفحة)"),
-    "POST conversations": ("social", "بدء محادثة مع `to` (اسم المستخدم) حول عرض أو مشروع أو طلب منشور لأحد الطرفين، بأول رسالة (تُرفض بين متحاظرَين)"),
+    "POST conversations": (
+        "social",
+        "بدء محادثة مع `to` (اسم المستخدم) حول عرض أو مشروع أو طلب منشور لأحد الطرفين، بأول رسالة (تُرفض بين متحاظرَين)",
+    ),
     "GET conversations/{conversation}/messages": ("social", "رسائل محادثة أنا طرف فيها (صفحات)"),
-    "POST conversations/{conversation}/messages": ("social", "إرسال رسالة؛ تُبث على `conversations.{id}` وتُشعِر الطرف الآخر"),
+    "POST conversations/{conversation}/messages": (
+        "social",
+        "إرسال رسالة؛ تُبث على `conversations.{id}` وتُشعِر الطرف الآخر",
+    ),
     "POST conversations/{conversation}/read": ("social", "تعليم المحادثة مقروءة"),
     "GET favorites": ("social", "مفضلتي"),
     "POST favorites": ("social", "إضافة إلى المفضلة (`listing` · `project`)"),
     "DELETE favorites/{type}/{id}": ("social", "إزالة من المفضلة"),
-    "POST reports": ("social", "بلاغ عمّا يراه المبلِّغ: عرض أو مشروع أو طلب منشور، حساب، تقييم، أو رسالة في محادثة هو طرفها؛ ثلاثة مبلِّغين مختلفين يخفون آلياً"),
+    "POST reports": (
+        "social",
+        "بلاغ عمّا يراه المبلِّغ: عرض أو مشروع أو طلب منشور، حساب، تقييم، أو رسالة في محادثة هو طرفها؛ ثلاثة مبلِّغين مختلفين يخفون آلياً",
+    ),
     "POST customers/{customer}/follow": ("social", "متابعة معلن"),
     "DELETE customers/{customer}/follow": ("social", "إلغاء المتابعة"),
     "POST customers/{customer}/rating": ("social", "تقييم بالنجوم (مرة لكل معلن، قابلة للتعديل)"),
-    "POST customers/{customer}/block": ("social", "حظر: يلغي المتابعة بالاتجاهين، ويخفي المحتوى ويمنع الرسائل بين الطرفين"),
+    "POST customers/{customer}/block": (
+        "social",
+        "حظر: يلغي المتابعة بالاتجاهين، ويخفي المحتوى ويمنع الرسائل بين الطرفين",
+    ),
     "DELETE customers/{customer}/block": ("social", "إلغاء الحظر"),
     # ── desk ──
     "GET clients": ("desk", "عملائي"),
@@ -176,7 +260,10 @@ DESCRIPTIONS = {
     "POST tasks": ("desk", "إضافة مهمة (أولوية، موعد تذكير)"),
     "PUT|PATCH tasks/{task}": ("desk", "تعديل مهمة"),
     "DELETE tasks/{task}": ("desk", "حذف مهمة"),
-    "POST tasks/{task}/done": ("desk", "إنجاز مهمة أو إعادتها: `done` true · false، فتكرار الطلب لا يعكسها؛ بدونه تتبدّل"),
+    "POST tasks/{task}/done": (
+        "desk",
+        "إنجاز مهمة أو إعادتها: `done` true · false، فتكرار الطلب لا يعكسها؛ بدونه تتبدّل",
+    ),
     # ── billing ──
     "GET subscription": ("billing", "باقتي ومدتها وأرصدتها وحدودها"),
     "POST checkout": (
@@ -184,22 +271,37 @@ DESCRIPTIONS = {
         "بدء عملية دفع `purpose`: subscription · featured · urgent_listing · urgent_request · ad_licence. الخادم يسعّر ويعيد استخدام عملية معلّقة خلال 30 دقيقة",
     ),
     "GET payments/{payment}": ("billing", "حالة عملية دفع لي (المعرّف العام `public_id`)"),
-    "POST payments/{payment}/confirm": ("billing", "تأكيد بعد الدفع في التطبيق: قراءة المزوّد ثم التطبيق مرة واحدة والفاتورة"),
+    "POST payments/{payment}/confirm": (
+        "billing",
+        "تأكيد بعد الدفع في التطبيق: قراءة المزوّد ثم التطبيق مرة واحدة والفاتورة",
+    ),
     "GET store/products": ("billing", "منتجات المتجر لدوري، ورمز حسابي الذي يُرفق بكل شراء"),
     "POST store/check": ("billing", "قبل نافذة المتجر: هل يُشترى هذا الآن، لهذا العرض أو الطلب؟ (ردود الدفع نفسها)"),
-    "POST store/purchases": ("billing", "بعد نافذة المتجر: معرّف عملية آبل أو رمز شراء Google؛ يُطبَّق مرة واحدة بكلمة المتجر"),
+    "POST store/purchases": (
+        "billing",
+        "بعد نافذة المتجر: معرّف عملية آبل أو رمز شراء Google؛ يُطبَّق مرة واحدة بكلمة المتجر",
+    ),
     "GET invoices": ("billing", "فواتيري"),
     "GET invoices/{invoice}": ("billing", "فاتورة (رقم `ZON-YYYY-NNNNNN` المتسلسل)"),
     # ── ai ──
     "GET ai/quota": ("ai", "رصيدي اليومي لكل خدمة ذكاء ووقت التجديد"),
-    "POST ai/search": ("ai", "البحث الدلالي في العروض: الخانات الإجبارية + نص حر؛ مرشّحو SQL ← ترتيب الوكيل ← كل نتيجة العرض ودرجته"),
+    "POST ai/search": (
+        "ai",
+        "البحث الدلالي في العروض: الخانات الإجبارية + نص حر؛ مرشّحو SQL ← ترتيب الوكيل ← كل نتيجة العرض ودرجته",
+    ),
     "POST ai/search/requests": ("ai", "بحث الوسيط في طلبات الباحثين (ميزة باقة: 402 بدونها)"),
     "POST ai/matching": ("ai", "مساعد المطابقة: من رغبتي (أو حاجة مرسلة) ← عروض مطابقة، عروض أوسع، ومشاريع"),
     "POST ai/matching/projects/{project}/searchers": ("ai", "باحثون تناسبهم وحدات مشروعي المنشور، مع الوحدة الأنسب"),
-    "GET ai/matching/projects/{project}/brokers": ("ai", "وسطاء مدينة المشروع بعدد عملائهم المطابقين — دون كشف العملاء"),
+    "GET ai/matching/projects/{project}/brokers": (
+        "ai",
+        "وسطاء مدينة المشروع بعدد عملائهم المطابقين — دون كشف العملاء",
+    ),
     "POST ai/chat": ("ai", "شات زون: سؤال حسب النية من مكتبة المعرفة، مع حارس يستبدل الإجابة غير الآمنة"),
     "GET ai/chat": ("ai", "سجل محادثتي مع زون"),
-    "POST ai/summaries": ("ai", "ملخص ملاحظات عميل أو مالك أو مهامي (نطاق مالكها فقط)، مخزَّن ويُعاد ما لم تتغير الملاحظات"),
+    "POST ai/summaries": (
+        "ai",
+        "ملخص ملاحظات عميل أو مالك أو مهامي (نطاق مالكها فقط)، مخزَّن ويُعاد ما لم تتغير الملاحظات",
+    ),
     "POST ai/feedback": ("ai", "«مطابق/غير مطابق» على نتيجة؛ السبب إلزامي لغير المطابق ويُخزَّن مقنَّعاً"),
 }
 
@@ -277,7 +379,13 @@ def main(routes_path: str, errors_path: str, out_path: str) -> None:
     for key, title in SECTIONS:
         if not rows[key]:
             continue
-        out += ["", f"### {title}", "", "| الطريقة | المسار | الصلاحية | ما يفعله | الكود |", "|---|---|---|---|---|"] + rows[key]
+        out += [
+            "",
+            f"### {title}",
+            "",
+            "| الطريقة | المسار | الصلاحية | ما يفعله | الكود |",
+            "|---|---|---|---|---|",
+        ] + rows[key]
     out.append("")
     open(out_path, "w", encoding="utf-8").write("\n".join(out))
 

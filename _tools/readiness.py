@@ -84,7 +84,7 @@ def app_calls(lib: pathlib.Path) -> set[tuple[str, str]]:
         code, strings = dart_code(f.read_text(encoding="utf-8"))
         for method, k in re.findall(r"\.(get|post|put|patch|delete)\(\s*\x00(\d+)\x00", code):
             calls.add((method.upper(), strings[int(k)]))
-        for k in re.findall(r"\b_all\(\s*\x00(\d+)\x00\s*\)", code):   # every page of a list: its GET
+        for k in re.findall(r"\b_all\(\s*\x00(\d+)\x00\s*\)", code):  # every page of a list: its GET
             calls.add(("GET", strings[int(k)]))
     return calls
 
@@ -125,7 +125,9 @@ def main(routes_file: str, hits_file: str, lib: str) -> None:
         if route_key(r["method"], r["uri"]) not in hits:
             methods = [m for m in r["method"].split("|") if m != "HEAD"]
             unreached.append(f"{'|'.join(methods)} {r['uri'].removeprefix('api/v1/')}")
-    print(f"api: routes the app's code calls {len(wired)} / {len(apps)} (the outside's {len(NOT_THE_APPS)} not counted)")
+    print(
+        f"api: routes the app's code calls {len(wired)} / {len(apps)} (the outside's {len(NOT_THE_APPS)} not counted)"
+    )
     print("api routes no test reaches:", ", ".join(sorted(unreached)))
 
 

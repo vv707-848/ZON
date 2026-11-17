@@ -88,6 +88,8 @@ class ChatExpect(_Strict):
     mention: Terms = []
     lang: str | None = None  # the answer is in the asker's language (en · ur · fr · tr · ru · hi)
     intent: str | None = None  # for «auto»: the intent the model must name
+    avoid: list[str] = []  # words the answer must not say: hype («لقطة»), flattery, a claim to be a broker
+    asks: int | None = None  # at most this many questions: one missing thing asked at a time, not a survey
 
 
 class Chosen(_Strict):

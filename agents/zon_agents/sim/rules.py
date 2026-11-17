@@ -232,7 +232,7 @@ _STOP_WORDS = "في من على عن الى هل ما وش كيف متى كم ه
 _STOP = frozenset(norm(w) for w in _STOP_WORDS.split())
 _GUIDE = {
     "semantic_search": {
-        "ar": "ابدأ بالمدينة ثم الحي ثم نوع العقار، ثم اكتب ما تريده بكلماتك في «البحث الدلالي».",
+        "ar": "ابحث في «البحث الدلالي» بالمدينة ثم الحي ثم النوع ووصفك، أو فعّل «مساعد المطابقة» وينبّهك الرادار.",
         "en": "Start with the city, then the neighbourhood and the property type, then describe what you want.",
         "ur": "پہلے شہر، پھر محلہ اور جائیداد کی قسم چنیں، پھر اپنی ضرورت لکھیں۔",
     },
@@ -242,9 +242,14 @@ _GUIDE = {
         "ur": "«اضافہ» سے تلاش کی درخواست دیں: عام درخواست مفت ہے، فوری درخواست کی فیس ہے۔",
     },
     "matching": {
-        "ar": "مساعد المطابقة للباحث والمطوّر: أكمل رغبتك بالمدينة والحي والنوع والميزانية والوصف.",
-        "en": "The matching assistant is for seekers and developers: complete your wish (city, type, budget).",
-        "ur": "میچنگ اسسٹنٹ تلاش کرنے والوں اور ڈویلپرز کے لیے ہے: اپنی خواہش مکمل کریں۔",
+        "ar": "مساعد المطابقة للباحث والمطوّر: عبّ فيه المدينة والحي والنوع ووصفاً مفصّلاً، وينبّهك الرادار بما يطابق.",
+        "en": "The matching assistant is for seekers and developers: fill in your wish and its radar alerts you.",
+        "ur": "میچنگ اسسٹنٹ تلاش کرنے والوں اور ڈویلپرز کے لیے ہے: اپنی خواہش لکھیں، ریڈار آپ کو بتائے گا۔",
+    },
+    "decision": {
+        "ar": "الشات لا يقيّم الأسعار ولا يقرر عنك: تفاوض مع المعلن بعد أن تعاين العقار بنفسك، والقرار لك حسب حاجتك.",
+        "en": "The chat does not judge prices or decide for you: see the property, then negotiate with the advertiser.",
+        "ur": "چیٹ قیمت نہیں جانچتی: جائیداد خود دیکھیں، پھر مشتہر سے بات کریں۔ فیصلہ آپ کا ہے۔",
     },
 }
 _UNCOVERED = {

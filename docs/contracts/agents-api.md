@@ -114,11 +114,12 @@
 **المدخل:**
 
 ```json
-{"lang":"ar|en|ur","intent":"knowledge|packages|semantic_search|search_request|matching",
+{"lang":"ar|en|ur|xx","intent":"knowledge|packages|semantic_search|search_request|matching|decision|auto",
  "message":"…","history":[{"q":"…","a":"…"}],"packages":[{"name","price","period","features":[…]}]}
 ```
 
-- `intent` من مصنّف القواعد في Laravel. «خارج النطاق» لا يصل الخدمة أصلاً.
+- `intent` من مصنّف القواعد في Laravel. «خارج النطاق» لا يصل الخدمة أصلاً. و`auto` للغة لا تقرؤها القواعد (`lang: xx`): النموذج يسمّي النية في `intent` بالمخرج، أو `out_of_scope`.
+- `decision`: سعر يُسأل عن تقييمه أو قرار بيع وشراء: خيارات بشروطها والقرار له، بلا حكم على السعر وبلا مقاطع ولا باقات.
 - `history`: آخر تبادل واحد فقط.
 - `knowledge`: الخدمة تسترجع أعلى 5 مقاطع من `knowledge` (عابر للغات) وتجيب منها وحدها.
 - `packages`: أرقام الباقات من Laravel حرفياً، والنموذج يصوغ فقط.
@@ -126,7 +127,7 @@
 **المخرج:**
 
 ```json
-{"answer":"…","covered":true,
+{"answer":"…","covered":true,"intent":"knowledge",
  "sources":[{"doc_id":12,"title":"تملك غير السعوديين","effective_date":"2026-05-01","quote_ar":"…"}]}
 ```
 
