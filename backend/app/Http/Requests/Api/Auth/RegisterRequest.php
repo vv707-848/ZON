@@ -19,7 +19,8 @@ class RegisterRequest extends ApiRequest
     public function rules(): array
     {
         return [
-            'role' => ['required', Rule::enum(CustomerRole::class)],
+            // a developer account is opened by staff with its marketing contract («المطوّرون» in the panel), never here
+            'role' => ['required', Rule::enum(CustomerRole::class)->except([CustomerRole::Developer])],
             'name' => ['required', 'string', 'max:120'],
             'phone' => ['required', 'regex:/^\+9665\d{8}$/', Rule::unique('customers', 'phone')],
             'city' => ['required', 'string', new KnownCity],
@@ -33,6 +34,6 @@ class RegisterRequest extends ApiRequest
     /** @return array<string, string> */
     public function messages(): array
     {
-        return ['phone.regex' => __('validation.phone'), 'username.regex' => __('validation.username')];
+        return ['role.enum' => 'حساب المطوّر يُفتح مع فريق زون، لا من التسجيل.', 'phone.regex' => __('validation.phone'), 'username.regex' => __('validation.username')];
     }
 }

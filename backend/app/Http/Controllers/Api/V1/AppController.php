@@ -17,6 +17,7 @@ use App\Models\AppConfig;
 use App\Models\City;
 use App\Models\LegalPage;
 use App\Support\Api;
+use App\Support\Phone;
 use App\Support\Settings\Setting;
 use App\Support\Settings\Settings;
 use Illuminate\Http\JsonResponse;
@@ -44,6 +45,8 @@ class AppController extends Controller
             'photos_max' => Settings::int(Setting::ListingPhotosMax),
             'photo_max_kb' => (int) config('zon.media.max_kb'),
             'chat_max_chars' => Settings::int(Setting::ChatMaxChars),
+            // a developer account is opened with Zon's team, not signed up for: the number its sign-up choice opens in WhatsApp
+            'developer_whatsapp' => Phone::normalize(Settings::string(Setting::DeveloperWhatsapp)),
         ]);
     }
 
