@@ -27,6 +27,7 @@
 | `ai-node/install.sh` | يُشغَّل مرة من طرفية الـ Pod | الذكاء |
 | `ai-node/entrypoint.sh` · `ai-node/serve.py` · `ai-node/embed/server.py` | `/workspace/entrypoint.sh` · `/workspace/serve.py` · `/workspace/embed/server.py` | الذكاء |
 | `agents/zon_agents/models/*.toml` (ملفات النماذج) | `/workspace/profiles/` | الذكاء |
+| `ai-node/lab-pod.sh` | أمر بدء Pod القياس المؤقت وحده (`docs/model-lab.md` «جلسة بلا طرفية») | الذكاء — القياس |
 
 ## إعدادات الـ Pod
 

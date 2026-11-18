@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # AI node (RunPod) — ONE-TIME install on the persistent disk /workspace (architecture §7). Run line by line from the
-# Pod's terminal; nothing is installed at boot. The model is a profile (agents/zon_agents/models/<name>.toml): step ②
-# installs its engine and downloads its weights, and is repeated for every profile tried (the model lab).
+# Pod's terminal, or whole (lab-pod.sh does, with PROFILE set); nothing is installed at boot. The model is a profile
+# (agents/zon_agents/models/<name>.toml): step ② installs its engine and downloads its weights, and is repeated for
+# every profile tried (the model lab).
 set -eo pipefail   # no -u: the venv activate script reads unset variables
 
 # من طرفية الـ Pod — كل ما يُثبَّت يُكتب على /workspace فلا يُعاد مع الإقلاع
@@ -10,19 +11,29 @@ set -eo pipefail   # no -u: the venv activate script reads unset variables
 # صورة RunPod تفعّل hf_transfer على مستوى النظام وهو غير مثبّت داخل هذه البيئات — يُطفأ للتنزيل
 export HF_HUB_ENABLE_HF_TRANSFER=0
 
+# Python 3.12 لكل البيئات (شرط وقت تشغيل Escha). صورة بلا 3.12 تأخذ نسخة uv، وتُحفظ على القرص الدائم: بيئة
+# مبنية على مفسّر في قرص الحاوية تنكسر بعد أول إعادة تشغيل
+PY=$(command -v python3.12 || true)
+if [ -z "$PY" ]; then
+  python3 -m pip install -q uv
+  export UV_PYTHON_INSTALL_DIR=/workspace/python
+  python3 -m uv python install 3.12
+  PY=$(python3 -m uv python find 3.12)
+fi
+
 # ① المشترك: ملفات المستودع، وأداة التنزيل، وخادم التضمين ببيئته المستقلة حتى لا تمس حزمه بيئة النموذج
 # ينسخ من المستودع: deploy/ai-node/{entrypoint.sh,serve.py,embed/server.py} وملفات agents/zon_agents/models/*.toml
 mkdir -p /workspace/embed /workspace/profiles /workspace/models /workspace/keys /workspace/cache/triton
-python3.12 -m venv /workspace/venv-tools
-/workspace/venv-tools/bin/pip install -U pip "huggingface_hub[cli]"
-python3.12 -m venv /workspace/venv-embed
+"$PY" -m venv /workspace/venv-tools
+/workspace/venv-tools/bin/pip install -U pip "huggingface_hub[cli]" uv
+"$PY" -m venv /workspace/venv-embed
 /workspace/venv-embed/bin/pip install "torch==2.9.*" --index-url https://download.pytorch.org/whl/cu128
 /workspace/venv-embed/bin/pip install FlagEmbedding==1.4.2 fastapi uvicorn
 /workspace/venv-embed/bin/pip freeze > /workspace/venv-embed.lock
 /workspace/venv-tools/bin/hf download BAAI/bge-m3 --local-dir /workspace/models/bge-m3 --exclude "onnx/*"
 
 # ② ملف نموذج واحد: محركه ثم أوزانه — يُكرَّر لكل ملف يُجرَّب، والمحرك يُثبَّت مرة لكل نوع
-PROFILE=qwen3.8-27b-escha-w2
+PROFILE=${PROFILE:-qwen3.8-27b-escha-w2}
 RUNTIME=$(sed -n 's/^runtime = "\(.*\)"/\1/p' "/workspace/profiles/$PROFILE.toml")
 echo "$PROFILE → $RUNTIME"
 
@@ -30,18 +41,18 @@ echo "$PROFILE → $RUNTIME"
 case "$RUNTIME" in
   vllm)
     # عجلة vLLM تجلب torch المطابقة لها
-    python3.12 -m venv /workspace/venv-vllm
+    "$PY" -m venv /workspace/venv-vllm
     /workspace/venv-vllm/bin/pip install -U pip "vllm==0.33.0"
     /workspace/venv-vllm/bin/pip freeze > /workspace/venv-vllm.lock
     ;;
   sglang)
-    python3.12 -m venv /workspace/venv-sglang
+    "$PY" -m venv /workspace/venv-sglang
     /workspace/venv-sglang/bin/pip install -U pip "sglang==0.5.23"
     /workspace/venv-sglang/bin/pip freeze > /workspace/venv-sglang.lock
     ;;
   escha)
     # torch أولاً وبالإصدار 2.9.x: نواة escha مربوطة بـ libtorch 2.9، وأي torch أحدث يُسقط الاستيراد
-    python3.12 -m venv /workspace/venv-escha
+    "$PY" -m venv /workspace/venv-escha
     /workspace/venv-escha/bin/pip install -U pip wheel
     /workspace/venv-escha/bin/pip install "torch==2.9.*" --index-url https://download.pytorch.org/whl/cu128
     # وقت تشغيل النماذج الكثيفة (Qwen3.8-27B). لا يُثبَّت معه sglang من PyPI: العجلة تحمل نسختها منه
@@ -67,7 +78,10 @@ read -r REPO DIR < <(python3 /workspace/serve.py "$PROFILE" --weights)
 # أمر التشغيل كما سيُنفَّذ — بلا المفتاح
 python3 /workspace/serve.py "$PROFILE" --print
 
-# ③ مفتاح النفق — يُولَّد مرة، ويُضاف مفتاحه العام في عقدة التطبيق (القسم ١٣)
-ssh-keygen -t ed25519 -N "" -f /workspace/keys/tunnel_ed25519 -C zon-ai-node
-# APP_NODE_IP مضبوط في إعدادات الـ Pod · والبصمة تُطابَق مع بصمة الخادم الفعلية قبل الاعتماد
-ssh-keyscan -t ed25519 "$APP_NODE_IP" > /workspace/keys/known_hosts
+# ③ مفتاح النفق — لـ Pod الإنتاج وحده (Pod القياس بلا APP_NODE_IP يتخطاه). يُولَّد مرة، ويُضاف مفتاحه العام في
+# عقدة التطبيق (القسم ١٣)
+if [ -n "${APP_NODE_IP:-}" ]; then
+  [ -f /workspace/keys/tunnel_ed25519 ] || ssh-keygen -t ed25519 -N "" -f /workspace/keys/tunnel_ed25519 -C zon-ai-node
+  # البصمة تُطابَق مع بصمة الخادم الفعلية قبل الاعتماد
+  ssh-keyscan -t ed25519 "$APP_NODE_IP" > /workspace/keys/known_hosts
+fi
