@@ -23,27 +23,8 @@ STAMP=$(date -u +%Y%m%d-%H%M)
 mkdir -p /workspace/logs /workspace/reports
 exec > >(tee -a "/workspace/logs/lab-$PROFILE-$STAMP.log") 2>&1
 
-# ① the repository at the ref asked — public, read over HTTPS
-if [ -d /workspace/zon/.git ]; then
-  git -C /workspace/zon fetch -q origin "$REF"
-  git -C /workspace/zon checkout -q FETCH_HEAD
-else
-  git clone -q https://github.com/vv707-848/ZON.git /workspace/zon
-  git -C /workspace/zon checkout -q "$REF"
-fi
-echo "repository at $(git -C /workspace/zon rev-parse --short HEAD)"
-
-# ② the node's files where install.sh and serve.py look for them (deploy/README.md «الملفات»)
-mkdir -p /workspace/profiles /workspace/embed
-cp /workspace/zon/deploy/ai-node/{entrypoint.sh,serve.py} /workspace/
-cp /workspace/zon/deploy/ai-node/embed/server.py /workspace/embed/
-cp /workspace/zon/agents/zon_agents/models/*.toml /workspace/profiles/
-
-# ③ the profile's engine and weights, once — a marker per profile on the persistent disk
-if [ ! -f "/workspace/.installed-$PROFILE" ]; then
-  PROFILE="$PROFILE" bash /workspace/zon/deploy/ai-node/install.sh
-  touch "/workspace/.installed-$PROFILE"
-fi
+# ①–③ the repository at ZON_REF, the node's files, the profile installed once (prepare.sh — production's too)
+ZON_PROFILE="$PROFILE" bash <(curl -fsSL "https://raw.githubusercontent.com/vv707-848/ZON/$REF/deploy/ai-node/prepare.sh")
 
 # ④ the engine, as production serves it: zon-ai on 127.0.0.1:30000 with the key. The first start compiles kernels
 # and captures CUDA graphs — up to 30 minutes are allowed before giving up

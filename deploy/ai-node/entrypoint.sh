@@ -7,6 +7,16 @@ set -euo pipefail
 # ZON_PROFILE: ملف النموذج الذي تخدمه البطاقة — هو نفسه LLM_PROFILE في خدمة الوكلاء
 : "${APP_NODE_IP:?}" "${LLM_API_KEY:?}" "${ZON_PROFILE:?}"
 
+# مفتاح النفق وبصمة عقدة التطبيق: من القرص (install.sh، الخطوة ③)، أو من أسرار الـ Pod حين لا طرفية
+# TUNNEL_KEY_B64: المفتاح الخاص بترميز base64 (سطر واحد) · APP_NODE_HOSTKEY: «ssh-ed25519 AAAA…» من عقدة التطبيق نفسها
+if [ -n "${TUNNEL_KEY_B64:-}" ] && [ ! -f /workspace/keys/tunnel_ed25519 ]; then
+  mkdir -p /workspace/keys
+  ( umask 077; printf '%s' "$TUNNEL_KEY_B64" | base64 -d > /workspace/keys/tunnel_ed25519 )
+fi
+if [ -n "${APP_NODE_HOSTKEY:-}" ]; then
+  printf '%s %s\n' "$APP_NODE_IP" "$APP_NODE_HOSTKEY" > /workspace/keys/known_hosts
+fi
+
 # ① النفق: البطاقة تفتح اتصالاً صادراً إلى عقدة التطبيق — لا منفذ وارد عليها
 # التضمين يصل هناك على 18080 لأن 8080 منفذ Laravel Reverb
 mkdir -p /root/.ssh
