@@ -8,6 +8,8 @@ use App\Models\AppConfig;
 use App\Models\Customer;
 use App\Models\DeletionRequest;
 use App\Models\Listing;
+use App\Support\Settings\Setting;
+use App\Support\Settings\Settings;
 use Database\Seeders\ReferenceSeeder;
 use Illuminate\Testing\TestResponse;
 use Spatie\Activitylog\Models\Activity;
@@ -58,11 +60,22 @@ class AuthTest extends TestCase
             ->assertJsonStructure(['error' => ['details' => ['fields' => ['username', 'phone', 'city', 'password', 'fal_number']], 'trace_id']]);
     }
 
-    public function test_a_developer_waits_for_his_contract_and_a_broker_licence_is_checked(): void
+    public function test_a_developer_account_is_opened_with_zons_team_not_signed_up_for(): void
     {
-        $this->signUp(['role' => 'developer', 'username' => 'afaq', 'phone' => '0551111111']);
-        $this->postJson('/api/v1/auth/otp/verify', ['phone' => '0551111111', 'code' => $this->lastCode('+966551111111')])
-            ->assertCreated()->assertJsonPath('data.me.status', 'pending');
+        $this->signUp(['role' => 'developer', 'username' => 'afaq', 'phone' => '0551111111'])
+            ->assertStatus(422)->assertJsonPath('error.details.fields.role.0', 'حساب المطوّر يُفتح مع فريق زون، لا من التسجيل.');
+        $this->assertSame([], $this->sms()->sent(), 'no code is sent for it');
+        $this->getJson('/api/v1/app/config')->assertOk()->assertJsonPath('data.developer_whatsapp', null);
+
+        Settings::put(Setting::DeveloperWhatsapp, '٠٥٥ ٩٩٩ ٨٨٧٧');
+        $this->getJson('/api/v1/app/config')->assertJsonPath('data.developer_whatsapp', '+966559998877');
+        Settings::put(Setting::DeveloperWhatsapp, 'واتساب');
+        // not a phone: no number rather than a broken link
+        $this->getJson('/api/v1/app/config')->assertJsonPath('data.developer_whatsapp', null);
+    }
+
+    public function test_a_broker_licence_is_checked_at_sign_up(): void
+    {
 
         $this->signUp(['role' => 'broker', 'username' => 'fahad', 'phone' => '0552222222', 'fal_number' => '١١٠٠٠١٢٣٤٥']);
         $this->postJson('/api/v1/auth/otp/verify', ['phone' => '0552222222', 'code' => $this->lastCode('+966552222222')])->assertCreated();

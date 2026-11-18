@@ -37,7 +37,7 @@ use Illuminate\Validation\Rules\Password;
 use UnitEnum;
 
 /**
- * «المطوّرون»: developer accounts are created here by staff (or sign up in the app and wait), and become active
+ * «المطوّرون»: developer accounts are created here by staff only (the app's sign-up sends a developer to WhatsApp), and become active
  * with their marketing contract — the commission per unit sold comes from it.
  */
 class DeveloperResource extends Resource

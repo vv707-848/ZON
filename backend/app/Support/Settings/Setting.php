@@ -45,6 +45,7 @@ enum Setting: string
     // ── Accounts and support
     case DeletionGraceDays = 'accounts.deletion_grace_days';
     case SupportResponseHours = 'support.response_hours';
+    case DeveloperWhatsapp = 'accounts.developer_whatsapp';
 
     // ── The chat «زون»
     case ChatMaxChars = 'chat.max_chars';
@@ -91,7 +92,7 @@ enum Setting: string
             self::ChatBlockedTerms => [],
             self::MarketReportMinRequests => 5,
             self::SuperAgentDailyCap => 30,
-            self::SiteLegalName, self::SiteCrNumber, self::SiteFalLicence, self::SiteAddress, self::SiteEmail, self::SitePhone => '',
+            self::SiteLegalName, self::SiteCrNumber, self::SiteFalLicence, self::SiteAddress, self::SiteEmail, self::SitePhone, self::DeveloperWhatsapp => '',
         };
     }
 
@@ -103,7 +104,7 @@ enum Setting: string
             self::FeaturedPrice, self::UrgentListingPrice, self::ProjectFeaturedPrice, self::UrgentRequestPrice, self::AdLicenceFee => 'money',
             self::OwnerCommissionPercent, self::BrokerFreeSharePercent, self::VatRate => 'decimal',
             self::VatNumber, self::SellerName, self::SiteLegalName, self::SiteCrNumber, self::SiteFalLicence, self::SiteAddress,
-            self::SiteEmail, self::SitePhone => 'text',
+            self::SiteEmail, self::SitePhone, self::DeveloperWhatsapp => 'text',
             self::ChatBlockedTerms => 'list',
             default => 'int',
         };
@@ -137,6 +138,7 @@ enum Setting: string
             self::MatchNotifyMax => 'أقصى عدد عروض في إشعار المطابقة الواحد',
             self::DeletionGraceDays => 'مهلة حذف الحساب (يوم)',
             self::SupportResponseHours => 'مدة الرد المعلنة على الشكاوى والتذاكر (ساعة)',
+            self::DeveloperWhatsapp => 'واتساب فتح حسابات المطوّرين (جوال سعودي): «مطوّر» في التسجيل يحوّل إليه، وفارغاً يقول «تواصل مع فريق زون» بلا رقم',
             self::ChatMaxChars => 'أقصى طول لرسالة الشات (حرف)',
             self::ChatBlockedTerms => 'كلمات المنع في الشات (سطر لكل كلمة)',
             self::MarketReportMinRequests => 'الحد الأدنى للطلبات في تقرير السوق (لا يُخفض تحت 5)',

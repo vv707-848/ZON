@@ -12,9 +12,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:zon/app/external_links.dart';
 import 'package:zon/app/router.dart';
 import 'package:zon/core/icons/lucide.dart';
 import 'package:zon/core/net/api_error.dart';
+import 'package:zon/core/net/app_gate.dart';
 import 'package:zon/core/net/operation_key.dart';
 import 'package:zon/core/theme/theme.dart';
 import 'package:zon/core/utils/input.dart';
@@ -33,7 +35,7 @@ const Map<String, String> _hint = <String, String>{
   'seeker': 'حدد رغبتك ثم تصفّح',
   'broker': 'رخصة فال — عروض وعملاء',
   'owner': 'انشر عقارك بتوثيق',
-  'developer': 'مشاريع ووحدات للبيع',
+  'developer': 'مشاريع ووحدات للبيع — يُفتح مع فريق زون',
 };
 
 /// `/login` — the gate, sign in and sign up.
@@ -681,6 +683,8 @@ class _SignUpState extends State<_SignUp> {
           GateCta(label: 'متابعة', onTap: () => setState(() => step = 1)),
         ],
       );
+    } else if (step == 1 && role == 'developer') {
+      body = const _DeveloperContact();
     } else if (step == 1) {
       final ok = _name.text.isNotEmpty && _phone.text.isNotEmpty && _user.text.isNotEmpty && _pass.text.length >= 8;
       body = _GateForm(
@@ -725,6 +729,43 @@ class _SignUpState extends State<_SignUp> {
     // With a server the code created the account: the wish step has no way back to the code.
     final back = step == 0 ? widget.onBack : (Auth.server && step == 3 ? null : () => setState(() => step -= 1));
     return GateChrome(back: back, child: body);
+  }
+}
+
+/// A developer account is opened with Zon's team — the marketing contract first — never signed up for here: the
+/// choice opens the WhatsApp number set in the panel (`developer_whatsapp` of GET /app/config), and with none set,
+/// only says so (with a server, a visitor's support ticket reaches the team).
+class _DeveloperContact extends StatelessWidget {
+  const _DeveloperContact();
+
+  static const String _greeting = 'السلام عليكم، أرغب في فتح حساب مطوّر عقاري في زون.';
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String?>(
+      valueListenable: AppGate.developerWhatsapp,
+      builder: (context, number, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          const GateHero(
+            title: 'حساب المطوّر',
+            sub: 'يُفتح مع فريق زون: نتعرّف على مشاريعك ونسجّل عقد التسويق، ثم نرسل لك اسم المستخدم وكلمة السر.',
+            tight: true,
+          ),
+          const SizedBox(height: 18),
+          if (number != null)
+            GateCta(
+              label: 'تواصل معنا عبر واتساب',
+              icon: Lu.messageCircle,
+              onTap: () => openExternal('https://wa.me/${number.replaceAll('+', '')}?text=${Uri.encodeComponent(_greeting)}'),
+            )
+          else if (Auth.server)
+            GateCta(label: 'راسل فريق زون', icon: Lu.messageCircle, onTap: () => Nav.go(context, '/support'))
+          else
+            Tx('تواصل مع فريق زون لفتح حسابك.', style: ts(14, w: 500, lh: 21, c: AppColors.stone)),
+        ],
+      ),
+    );
   }
 }
 

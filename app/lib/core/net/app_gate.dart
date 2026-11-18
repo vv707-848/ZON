@@ -51,6 +51,9 @@ abstract final class AppGate {
   /// The store's latest version when it is newer than this app's.
   static final ValueNotifier<NewerVersion?> newer = ValueNotifier<NewerVersion?>(null);
 
+  /// The WhatsApp number a developer is sent to from the sign-up (set in the panel; null when none is).
+  static final ValueNotifier<String?> developerWhatsapp = ValueNotifier<String?>(null);
+
   /// Reads `GET /app/config` (always answered, even below the minimum or during maintenance) and sets the gate.
   /// Maintenance lets testers in: for a signed-in account an ordinary request decides (its 503 closes the gate).
   static Future<void> check(ApiClient api) async {
@@ -60,6 +63,7 @@ abstract final class AppGate {
     } on ApiError {
       return; // offline: what we knew stays
     }
+    developerWhatsapp.value = _text(result.map['developer_whatsapp']);
     final platform = result.map['platform'];
     if (platform is! Map) {
       state.value = const GateOpen();
