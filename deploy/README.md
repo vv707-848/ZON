@@ -27,6 +27,9 @@
 | `ai-node/install.sh` | يُشغَّل مرة من طرفية الـ Pod | الذكاء |
 | `ai-node/entrypoint.sh` · `ai-node/serve.py` · `ai-node/embed/server.py` | `/workspace/entrypoint.sh` · `/workspace/serve.py` · `/workspace/embed/server.py` | الذكاء |
 | `agents/zon_agents/models/*.toml` (ملفات النماذج) | `/workspace/profiles/` | الذكاء |
+| `ai-node/prepare.sh` | يجلب المستودع وينسخ ملفات العقدة ويثبّت الملف مرة، قبل الخدمة. أول أمر بدء الـ Pod حين لا طرفية؛ والإنتاج يثبّت `ZON_REF` على commit | الذكاء |
+| `ai-node/gpu-check.sh` | `/workspace/gpu-check.sh` — يشغّله `prepare.sh` على البطاقة عند كل بدء: مترجم C يترجم فعلاً، وتحقق المزوّد | الذكاء |
+| `ai-node/lab-pod.sh` | أمر بدء Pod القياس المؤقت وحده (`docs/model-lab.md` «جلسة بلا طرفية») | الذكاء — القياس |
 
 ## إعدادات الـ Pod
 
@@ -37,6 +40,12 @@
 | `APP_NODE_IP` | عنوان عقدة التطبيق (النفق) |
 | `LLM_API_KEY` | مفتاح المحرك — القيمة نفسها في `agents/.env` |
 | `ZON_PROFILE` | ملف النموذج الذي تخدمه البطاقة — الاسم نفسه في `LLM_PROFILE` بخدمة الوكلاء. المعتمد: `qwen3.8-27b-escha-w2` |
+
+**بلا طرفية** (موصل RunPod): مفتاح النفق يُولَّد على عقدة التطبيق، ويصل الـ Pod سرّين من أسرار RunPod: `TUNNEL_KEY_B64` (المفتاح الخاص بترميز base64 في سطر واحد) و`APP_NODE_HOSTKEY` (بصمة عقدة التطبيق: `ssh-ed25519 AAAA…`). و`entrypoint.sh` يكتبهما في `/workspace/keys` إن لم يجدهما. أمر البدء:
+```bash
+bash -c "curl -fsSL https://raw.githubusercontent.com/vv707-848/ZON/<commit>/deploy/ai-node/prepare.sh -o /workspace/prepare.sh && bash /workspace/prepare.sh && exec bash /workspace/entrypoint.sh"
+```
+مع `ZON_REF=<commit>` نفسه، فإعادة التشغيل لا تجلب تغييراً لم يُقَس.
 
 تبديل النموذج: تثبيت ملفه بالخطوة ② من `install.sh`، ثم تغيير `ZON_PROFILE` و`LLM_PROFILE` معاً، ثم إعادة تشغيل الـ Pod وخدمة الوكلاء.
 
