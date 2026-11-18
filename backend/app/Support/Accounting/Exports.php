@@ -5,6 +5,7 @@ namespace App\Support\Accounting;
 use App\Enums\PaymentPurpose;
 use App\Enums\PaymentStatus;
 use App\Models\Invoice;
+use App\Models\MarketBrief;
 use App\Models\Payment;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -61,6 +62,24 @@ final class Exports
                     $payment->purpose->label(), self::riyals($payment->amount_halalas), self::riyals($payment->vat_halalas), $payment->currency,
                     self::kind($payment->purpose), $payment->status->label(), self::day($payment->updated_at), $payment->provider,
                     $payment->provider_ref, $payment->invoice?->number,
+                ];
+            }
+        });
+    }
+
+    /** The developers' market briefs paid in the period (by transfer outside the platform: no provider, no invoice of ours). */
+    public static function briefs(?string $from, ?string $until): StreamedResponse
+    {
+        $briefs = MarketBrief::query()->whereNotNull('paid_at')->whereNotNull('price_halalas')
+            ->tap(fn (Builder $q) => self::between($q, 'paid_at', $from, $until));
+
+        return self::csv(self::name('market-briefs', $from, $until), [
+            'رقم التقرير', 'تاريخ الدفع', 'المشتري', 'رقم الحساب', 'البيان', 'المبلغ', 'العملة', 'النوع المحاسبي', 'وسيلة الدفع',
+        ], function () use ($briefs) {
+            foreach ($briefs->lazyById(500) as $brief) {
+                yield [
+                    $brief->number, self::day($brief->paid_at), $brief->buyer_name, $brief->customer_id,
+                    'تقرير سوق: '.$brief->scope(), self::riyals((int) $brief->price_halalas), 'SAR', 'إيراد', 'تحويل',
                 ];
             }
         });

@@ -8,7 +8,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * One row per day × neighbourhood × type, so market reports never read the live tables (§11):
+ * One row per day × neighbourhood × type × buy or rent, so market reports never read the live tables (§11) — a sale's
+ * budget and a yearly rent never share a median, and rentals are no supply for buyers:
  *   requests of the day (JSON_TABLE spreads each request over its neighbourhoods and types) ·
  *   the median budget of the last 30 days and the median price of what is published (window functions) ·
  *   the share of «غير مطابق» answers in the area over 30 days.
@@ -32,23 +33,23 @@ class ComputeDailyAreaStats extends ScheduledJob
         /** @var array<string, array<string, mixed>> $stats  "city|neighborhood|type" => row */
         $stats = [];
         $set = function (object $r, string $field, mixed $value) use (&$stats): void {
-            $key = "{$r->city}|{$r->neighborhood}|{$r->property_type}";
-            $stats[$key] ??= ['city' => $r->city, 'neighborhood' => $r->neighborhood, 'property_type' => $r->property_type,
+            $key = "{$r->city}|{$r->neighborhood}|{$r->property_type}|{$r->purpose}";
+            $stats[$key] ??= ['city' => $r->city, 'neighborhood' => $r->neighborhood, 'property_type' => $r->property_type, 'purpose' => $r->purpose,
                 'requests_count' => 0, 'listings_count' => 0, 'median_budget' => null, 'median_price' => null, 'rejection_rate' => null];
             $stats[$key][$field] = $value;
         };
 
-        foreach (DB::select('SELECT r.city, n.neighborhood, t.property_type, COUNT(*) AS c '.self::SPREAD.' AND r.created_at >= ? AND r.created_at < ? GROUP BY 1, 2, 3', [$from, $to]) as $r) {
+        foreach (DB::select('SELECT r.city, n.neighborhood, t.property_type, r.purpose, COUNT(*) AS c '.self::SPREAD.' AND r.created_at >= ? AND r.created_at < ? GROUP BY 1, 2, 3, 4', [$from, $to]) as $r) {
             $set($r, 'requests_count', (int) $r->c);
         }
-        foreach ($this->medians('SELECT r.city, n.neighborhood, t.property_type, r.budget_max AS v '.self::SPREAD.' AND r.created_at >= ? AND r.created_at < ? AND r.budget_max IS NOT NULL', [$window, $to]) as $r) {
+        foreach ($this->medians('SELECT r.city, n.neighborhood, t.property_type, r.purpose, r.budget_max AS v '.self::SPREAD.' AND r.created_at >= ? AND r.created_at < ? AND r.budget_max IS NOT NULL', [$window, $to]) as $r) {
             $set($r, 'median_budget', $r->median);
         }
-        $listings = 'SELECT city, neighborhood, property_type, price AS v FROM listings WHERE '.self::REAL_LISTINGS;
+        $listings = 'SELECT city, neighborhood, property_type, purpose, price AS v FROM listings WHERE '.self::REAL_LISTINGS;
         foreach ($this->medians($listings, []) as $r) {
             $set($r, 'median_price', $r->median);
         }
-        foreach (DB::select('SELECT city, neighborhood, property_type, COUNT(*) AS c FROM listings WHERE '.self::REAL_LISTINGS.' GROUP BY 1, 2, 3') as $r) {
+        foreach (DB::select('SELECT city, neighborhood, property_type, purpose, COUNT(*) AS c FROM listings WHERE '.self::REAL_LISTINGS.' GROUP BY 1, 2, 3, 4') as $r) {
             $set($r, 'listings_count', (int) $r->c);
         }
         $rejections = DB::select("SELECT JSON_UNQUOTE(JSON_EXTRACT(query_snapshot, '$.city')) AS city, JSON_UNQUOTE(JSON_EXTRACT(query_snapshot, '$.neighborhood')) AS neighborhood,
@@ -72,18 +73,18 @@ class ComputeDailyAreaStats extends ScheduledJob
     }
 
     /**
-     * The median of `v` per (city, neighborhood, property_type) of a query, with window functions.
+     * The median of `v` per (city, neighborhood, property_type, purpose) of a query, with window functions.
      *
      * @param  list<mixed>  $bindings
-     * @return list<object{city: string, neighborhood: string, property_type: string, median: float}>
+     * @return list<object{city: string, neighborhood: string, property_type: string, purpose: string, median: float}>
      */
     private function medians(string $source, array $bindings): array
     {
-        return DB::select("SELECT city, neighborhood, property_type, AVG(v) AS median FROM (
-                SELECT city, neighborhood, property_type, v,
-                       ROW_NUMBER() OVER (PARTITION BY city, neighborhood, property_type ORDER BY v) AS rn,
-                       COUNT(*) OVER (PARTITION BY city, neighborhood, property_type) AS cnt
+        return DB::select("SELECT city, neighborhood, property_type, purpose, AVG(v) AS median FROM (
+                SELECT city, neighborhood, property_type, purpose, v,
+                       ROW_NUMBER() OVER (PARTITION BY city, neighborhood, property_type, purpose ORDER BY v) AS rn,
+                       COUNT(*) OVER (PARTITION BY city, neighborhood, property_type, purpose) AS cnt
                 FROM ({$source}) AS s
-            ) AS ranked WHERE rn IN (FLOOR((cnt + 1) / 2), CEIL((cnt + 1) / 2)) GROUP BY city, neighborhood, property_type", $bindings);
+            ) AS ranked WHERE rn IN (FLOOR((cnt + 1) / 2), CEIL((cnt + 1) / 2)) GROUP BY city, neighborhood, property_type, purpose", $bindings);
     }
 }

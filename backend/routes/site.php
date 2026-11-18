@@ -34,6 +34,9 @@ Route::middleware('site')->group(function () {
 
     Route::get('packages', Site\PackagesController::class)->name('site.packages');
 
+    // a developer's market brief, by its long random link until it expires («تقارير المطوّرين» in the panel)
+    Route::get('market-brief/{token}', Site\MarketBriefController::class)->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:60,1')->name('site.brief');
+
     Route::get('.well-known/apple-app-site-association', [Site\WellKnownController::class, 'apple']);
     Route::get('.well-known/apple-developer-merchantid-domain-association', [Site\WellKnownController::class, 'applePay']);
     Route::get('.well-known/assetlinks.json', [Site\WellKnownController::class, 'android']);

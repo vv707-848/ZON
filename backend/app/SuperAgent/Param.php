@@ -3,6 +3,7 @@
 namespace App\SuperAgent;
 
 use App\Enums\PropertyType;
+use App\Enums\Purpose;
 use App\Models\City;
 use InvalidArgumentException;
 
@@ -45,6 +46,12 @@ final readonly class Param
     public static function propertyType(bool $required = false): self
     {
         return new self('string', 'نوع العقار', null, $required, PropertyType::values());
+    }
+
+    /** Buy or rent — a market report never adds a sale's budget to a yearly rent's; sales unless asked. */
+    public static function purpose(): self
+    {
+        return new self('string', 'شراء أو استئجار', Purpose::Sale->value, false, Purpose::values(), hint: 'sale للشراء، rent للاستئجار السنوي');
     }
 
     public static function days(int $default = 30): self

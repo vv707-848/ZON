@@ -6,6 +6,7 @@ use App\Ai\Assistants\ChatAssistant;
 use App\Ai\Assistants\DeveloperMatching;
 use App\Ai\Assistants\MatchingAssistant;
 use App\Ai\Assistants\NoteSummarizer;
+use App\Ai\Assistants\SearchDemand;
 use App\Ai\Assistants\SemanticSearch;
 use App\Ai\Capture\TrainingCapture;
 use App\Ai\Masking\AiMasking;
@@ -67,7 +68,9 @@ class AiController extends Controller
     /** «البحث الدلالي» over listings: city + neighbourhood + type are required; the free text says the rest. */
     public function search(Request $request, SemanticSearch $search): JsonResponse
     {
-        $out = $search->listings($this->need($request), $request->user('api'));
+        $need = $this->need($request);
+        $out = $search->listings($need, $request->user('api'));
+        rescue(fn () => SearchDemand::record($need, $request->user('api')));   // a market signal never fails a search
 
         return Api::ok([
             'results' => array_map(fn (array $r) => ['listing' => new ListingResource($r['model']), 'score' => $r['score']], $out['results']),

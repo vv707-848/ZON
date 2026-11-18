@@ -25,7 +25,7 @@ final class DemandSupplyGap extends MarketTemplate
 
     public function params(): array
     {
-        return ['city' => Param::city(), 'days' => Param::days()];
+        return ['city' => Param::city(), 'purpose' => Param::purpose(), 'days' => Param::days()];
     }
 
     public function columns(): array
@@ -37,7 +37,7 @@ final class DemandSupplyGap extends MarketTemplate
     {
         return ['SELECT neighborhood, property_type, SUM(requests_count) AS requests, ROUND(AVG(listings_count), 1) AS avg_listings,
                 SUM(requests_count) - ROUND(AVG(listings_count)) AS gap
-            FROM ai_v_daily_area_stats WHERE city = ? AND stat_date >= ? GROUP BY neighborhood, property_type HAVING requests >= ? ORDER BY gap DESC',
-            [$params['city'], now()->subDays($params['days'])->toDateString(), self::minimumGroup()]];
+            FROM ai_v_daily_area_stats WHERE city = ? AND purpose = ? AND stat_date >= ? GROUP BY neighborhood, property_type HAVING requests >= ? ORDER BY gap DESC',
+            [$params['city'], $params['purpose'], now()->subDays($params['days'])->toDateString(), self::minimumGroup()]];
     }
 }

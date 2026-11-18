@@ -10,6 +10,12 @@ final readonly class Money
 {
     public function __construct(public int $halalas) {}
 
+    /** «1500.5» riyals as written in a form → 150050 halalas (half up). */
+    public static function fromRiyals(string $riyals): self
+    {
+        return new self(BigDecimal::of($riyals)->multipliedBy(100)->toScale(0, RoundingMode::HalfUp)->toInt());
+    }
+
     public static function sar(int|string $riyals): self
     {
         return new self(BigDecimal::of($riyals)->multipliedBy(100)->toScale(0, RoundingMode::HalfUp)->toInt());

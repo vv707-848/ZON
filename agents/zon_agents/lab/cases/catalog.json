@@ -284,6 +284,15 @@
                     "الخبر"
                 ]
             },
+            "purpose": {
+                "type": "string",
+                "enum": [
+                    "sale",
+                    "rent"
+                ],
+                "description": "sale للشراء، rent للاستئجار السنوي",
+                "default": "sale"
+            },
             "days": {
                 "type": "integer",
                 "minimum": 1,
@@ -304,6 +313,15 @@
                     "الدمام",
                     "الخبر"
                 ]
+            },
+            "purpose": {
+                "type": "string",
+                "enum": [
+                    "sale",
+                    "rent"
+                ],
+                "description": "sale للشراء، rent للاستئجار السنوي",
+                "default": "sale"
             },
             "property_type": {
                 "type": "string",
@@ -334,6 +352,15 @@
                     "الدمام",
                     "الخبر"
                 ]
+            },
+            "purpose": {
+                "type": "string",
+                "enum": [
+                    "sale",
+                    "rent"
+                ],
+                "description": "sale للشراء، rent للاستئجار السنوي",
+                "default": "sale"
             }
         }
     },
@@ -370,6 +397,15 @@
                     "الدمام",
                     "الخبر"
                 ]
+            },
+            "purpose": {
+                "type": "string",
+                "enum": [
+                    "sale",
+                    "rent"
+                ],
+                "description": "sale للشراء، rent للاستئجار السنوي",
+                "default": "sale"
             },
             "neighborhood": {
                 "type": "string",
@@ -408,6 +444,15 @@
         "report": "region_demand_supply",
         "description": "لكل منطقة إدارية: طلبات الفترة مقابل متوسط العروض المنشورة يومياً، والطلب لكل عرض (فوق 1: الطلب أكثر من العرض). للمقارنة بين المناطق.",
         "params": {
+            "purpose": {
+                "type": "string",
+                "enum": [
+                    "sale",
+                    "rent"
+                ],
+                "description": "sale للشراء، rent للاستئجار السنوي",
+                "default": "sale"
+            },
             "property_type": {
                 "type": "string",
                 "enum": [
@@ -452,6 +497,15 @@
                     "منطقة الجوف",
                     "منطقة عسير"
                 ]
+            },
+            "purpose": {
+                "type": "string",
+                "enum": [
+                    "sale",
+                    "rent"
+                ],
+                "description": "sale للشراء، rent للاستئجار السنوي",
+                "default": "sale"
             },
             "property_type": {
                 "type": "string",
@@ -509,6 +563,204 @@
                 "minimum": 1,
                 "maximum": 365,
                 "default": 180
+            }
+        }
+    },
+    {
+        "report": "demand_map",
+        "description": "لكل حي ونوع في مدينة، للشراء أو الاستئجار: الباحثون بالبحث الدلالي في الفترة، والرغبات النشطة، والطلبات المرفوعة، مقابل العروض المنشورة الآن، والطلب لكل عرض.",
+        "params": {
+            "city": {
+                "type": "string",
+                "enum": [
+                    "الرياض",
+                    "جدة",
+                    "الدمام",
+                    "الخبر"
+                ]
+            },
+            "purpose": {
+                "type": "string",
+                "enum": [
+                    "sale",
+                    "rent"
+                ],
+                "description": "sale للشراء، rent للاستئجار السنوي",
+                "default": "sale"
+            },
+            "property_type": {
+                "type": "string",
+                "enum": [
+                    "apartment",
+                    "studio",
+                    "floor",
+                    "villa",
+                    "house",
+                    "resthouse",
+                    "land",
+                    "building",
+                    "shop",
+                    "office"
+                ]
+            },
+            "days": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 365,
+                "default": 90
+            },
+            "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 50,
+                "default": 30
+            }
+        }
+    },
+    {
+        "report": "budget_bands",
+        "description": "لكل شريحة سعر (بيع أو إيجار سنوي): عدد الطالبين بأعلى ميزانية فيها من البحث الدلالي والرغبات والطلبات، ونسبتهم، والعروض المنشورة في الشريحة نفسها، والطلب لكل عرض.",
+        "params": {
+            "city": {
+                "type": "string",
+                "enum": [
+                    "الرياض",
+                    "جدة",
+                    "الدمام",
+                    "الخبر"
+                ]
+            },
+            "purpose": {
+                "type": "string",
+                "enum": [
+                    "sale",
+                    "rent"
+                ],
+                "description": "sale للشراء، rent للاستئجار السنوي",
+                "default": "sale"
+            },
+            "neighborhood": {
+                "type": "string",
+                "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+            },
+            "property_type": {
+                "type": "string",
+                "enum": [
+                    "apartment",
+                    "studio",
+                    "floor",
+                    "villa",
+                    "house",
+                    "resthouse",
+                    "land",
+                    "building",
+                    "shop",
+                    "office"
+                ]
+            },
+            "days": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 365,
+                "default": 90
+            }
+        }
+    },
+    {
+        "report": "rooms_demand",
+        "description": "لكل عدد غرف نوم: عدد الطالبين الذين ذكروه (أقل عدد في الطلب) من البحث الدلالي والرغبات والطلبات، ونسبتهم، والعروض المنشورة بالعدد نفسه، والطلب لكل عرض.",
+        "params": {
+            "city": {
+                "type": "string",
+                "enum": [
+                    "الرياض",
+                    "جدة",
+                    "الدمام",
+                    "الخبر"
+                ]
+            },
+            "purpose": {
+                "type": "string",
+                "enum": [
+                    "sale",
+                    "rent"
+                ],
+                "description": "sale للشراء، rent للاستئجار السنوي",
+                "default": "sale"
+            },
+            "neighborhood": {
+                "type": "string",
+                "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+            },
+            "property_type": {
+                "type": "string",
+                "enum": [
+                    "apartment",
+                    "studio",
+                    "floor",
+                    "villa",
+                    "house",
+                    "resthouse",
+                    "land",
+                    "building",
+                    "shop",
+                    "office"
+                ]
+            },
+            "days": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 365,
+                "default": 90
+            }
+        }
+    },
+    {
+        "report": "demand_trend",
+        "description": "لكل شهر بتوقيت الرياض في مدينة (وحي ونوع إن طُلبا)، للشراء أو الاستئجار: الباحثون بالبحث الدلالي، والرغبات الجديدة، والطلبات المرفوعة، ونسبة تغيّر المجموع عن الشهر السابق.",
+        "params": {
+            "city": {
+                "type": "string",
+                "enum": [
+                    "الرياض",
+                    "جدة",
+                    "الدمام",
+                    "الخبر"
+                ]
+            },
+            "purpose": {
+                "type": "string",
+                "enum": [
+                    "sale",
+                    "rent"
+                ],
+                "description": "sale للشراء، rent للاستئجار السنوي",
+                "default": "sale"
+            },
+            "neighborhood": {
+                "type": "string",
+                "description": "اسم حي من مرجع زون كما ورد في السؤال، أو لا شيء"
+            },
+            "property_type": {
+                "type": "string",
+                "enum": [
+                    "apartment",
+                    "studio",
+                    "floor",
+                    "villa",
+                    "house",
+                    "resthouse",
+                    "land",
+                    "building",
+                    "shop",
+                    "office"
+                ]
+            },
+            "months": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 24,
+                "default": 6
             }
         }
     }

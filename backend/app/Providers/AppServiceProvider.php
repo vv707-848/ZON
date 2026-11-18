@@ -57,6 +57,7 @@ class AppServiceProvider extends ServiceProvider
         'kb_document' => Models\KbDocument::class,
         'search_term' => Models\SearchTerm::class,
         'city' => Models\City::class,
+        'market_brief' => Models\MarketBrief::class,
         'neighborhood' => Models\Neighborhood::class,
         'app_config' => Models\AppConfig::class,
         'legal_page' => Models\LegalPage::class,

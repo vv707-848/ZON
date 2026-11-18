@@ -25,7 +25,7 @@ final class ClientDemand extends MarketTemplate
 
     public function params(): array
     {
-        return ['city' => Param::city(), 'neighborhood' => Param::neighborhood(), 'property_type' => Param::propertyType(), 'days' => Param::days(180), 'limit' => Param::limit(20)];
+        return ['city' => Param::city(), 'purpose' => Param::purpose(), 'neighborhood' => Param::neighborhood(), 'property_type' => Param::propertyType(), 'days' => Param::days(180), 'limit' => Param::limit(20)];
     }
 
     public function columns(): array
@@ -39,8 +39,8 @@ final class ClientDemand extends MarketTemplate
             FROM ai_v_crm_clients k
             JOIN '.self::items('k.neighborhoods', 'neighborhood', 80).' n
             JOIN '.self::items('k.property_types', 'property_type', 12).' t
-            WHERE k.city = ? AND k.created_at >= ? AND (? IS NULL OR n.neighborhood = ?) AND (? IS NULL OR t.property_type = ?)
+            WHERE k.city = ? AND k.purpose = ? AND k.created_at >= ? AND (? IS NULL OR n.neighborhood = ?) AND (? IS NULL OR t.property_type = ?)
             GROUP BY n.neighborhood, t.property_type HAVING COUNT(*) >= ? ORDER BY clients DESC LIMIT '.(int) $params['limit'],
-            [$params['city'], self::since($params['days']), $params['neighborhood'], $params['neighborhood'], $params['property_type'], $params['property_type'], self::minimumGroup()]];
+            [$params['city'], $params['purpose'], self::since($params['days']), $params['neighborhood'], $params['neighborhood'], $params['property_type'], $params['property_type'], self::minimumGroup()]];
     }
 }
