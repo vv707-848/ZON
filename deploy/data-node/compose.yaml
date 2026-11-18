@@ -1,0 +1,47 @@
+# Data node (Oracle · Jeddah · 10.10.0.20 · Ubuntu 24.04 aarch64): MySQL 9.7 LTS and Qdrant 1.20 from their official
+# images. MySQL 9.7 is supported on Ubuntu 24.04 for x86_64 only (mysql.com «Supported Platforms»), while its
+# official image is published for linux/arm64/v8 too; Qdrant's images are multi-architecture.
+#
+#   sudo docker compose -f /opt/zon/deploy/data-node/compose.yaml up -d
+#
+# host network: each service binds 10.10.0.20 only (mysql/zon.cnf · QDRANT__SERVICE__HOST), no published port, and
+# the security list lets 10.10.0.10 alone reach 3306 and 6333. Data on the block volume mounted at /data.
+# Secrets live on the node only (/etc/zon, mode 600): never in this file or the repository.
+name: zon-data
+
+services:
+  mysql:
+    image: mysql:9.7.4
+    container_name: zon-mysql
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root
+    volumes:
+      - /data/mysql:/var/lib/mysql
+      - ../mysql/zon.cnf:/etc/mysql/conf.d/zon.cnf:ro
+      - /etc/zon/mysql-root:/run/secrets/mysql_root:ro
+      - /etc/zon/backup.cnf:/etc/zon/backup.cnf:ro          # the nightly dump runs inside (backup/zon-backup.sh)
+      - /var/backups/zon/mysql:/var/backups/zon/mysql
+    ulimits:
+      nofile: { soft: 65535, hard: 65535 }
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "10.10.0.20", "--silent"]
+      interval: 10s
+      retries: 12
+
+  qdrant:
+    image: qdrant/qdrant:v1.20.0
+    container_name: zon-qdrant
+    network_mode: host
+    restart: unless-stopped
+    env_file: /etc/zon/qdrant.env                             # QDRANT__SERVICE__API_KEY=…
+    environment:                                             # the same settings as qdrant/config.yaml
+      QDRANT__SERVICE__HOST: 10.10.0.20
+      QDRANT__SERVICE__HTTP_PORT: "6333"
+      QDRANT__SERVICE__GRPC_PORT: "6334"                       # bound on 10.10.0.20; the security list keeps it closed
+      QDRANT__STORAGE__STORAGE_PATH: /var/lib/qdrant/storage
+      QDRANT__STORAGE__SNAPSHOTS_PATH: /var/lib/qdrant/snapshots
+      QDRANT__TELEMETRY_DISABLED: "true"
+    volumes:
+      - /data/qdrant:/var/lib/qdrant
