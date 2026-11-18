@@ -28,6 +28,7 @@
 | `ai-node/entrypoint.sh` · `ai-node/serve.py` · `ai-node/embed/server.py` | `/workspace/entrypoint.sh` · `/workspace/serve.py` · `/workspace/embed/server.py` | الذكاء |
 | `agents/zon_agents/models/*.toml` (ملفات النماذج) | `/workspace/profiles/` | الذكاء |
 | `ai-node/prepare.sh` | يجلب المستودع وينسخ ملفات العقدة ويثبّت الملف مرة، قبل الخدمة. أول أمر بدء الـ Pod حين لا طرفية؛ والإنتاج يثبّت `ZON_REF` على commit | الذكاء |
+| `ai-node/gpu-check.sh` | `/workspace/gpu-check.sh` — يشغّله `prepare.sh` على البطاقة عند كل بدء: مترجم C يترجم فعلاً، وتحقق المزوّد | الذكاء |
 | `ai-node/lab-pod.sh` | أمر بدء Pod القياس المؤقت وحده (`docs/model-lab.md` «جلسة بلا طرفية») | الذكاء — القياس |
 
 ## إعدادات الـ Pod
