@@ -25,7 +25,7 @@ final class UnmetFeatures extends MarketTemplate
 
     public function params(): array
     {
-        return ['city' => Param::city()];
+        return ['city' => Param::city(), 'purpose' => Param::purpose()];
     }
 
     public function columns(): array
@@ -36,13 +36,13 @@ final class UnmetFeatures extends MarketTemplate
     public function query(array $params): array
     {
         return ["SELECT n.neighborhood, t.property_type, COUNT(DISTINCT w.id) AS wishes,
-                COUNT(DISTINCT CASE WHEN NOT EXISTS (SELECT 1 FROM ai_v_listings l WHERE l.status = 'published' AND l.city = w.city AND l.neighborhood = n.neighborhood
+                COUNT(DISTINCT CASE WHEN NOT EXISTS (SELECT 1 FROM ai_v_listings l WHERE l.status = 'published' AND l.purpose = w.purpose AND l.city = w.city AND l.neighborhood = n.neighborhood
                     AND l.property_type = t.property_type AND (w.budget_max IS NULL OR l.price <= w.budget_max)) THEN w.id END) AS unmet,
-                ROUND(COUNT(DISTINCT CASE WHEN NOT EXISTS (SELECT 1 FROM ai_v_listings l WHERE l.status = 'published' AND l.city = w.city AND l.neighborhood = n.neighborhood
+                ROUND(COUNT(DISTINCT CASE WHEN NOT EXISTS (SELECT 1 FROM ai_v_listings l WHERE l.status = 'published' AND l.purpose = w.purpose AND l.city = w.city AND l.neighborhood = n.neighborhood
                     AND l.property_type = t.property_type AND (w.budget_max IS NULL OR l.price <= w.budget_max)) THEN w.id END) / COUNT(DISTINCT w.id), 2) AS unmet_share
             FROM ai_v_preferences w JOIN ".self::items('w.neighborhoods', 'neighborhood', 80).' n
             JOIN '.self::items('w.property_types', 'property_type', 12).' t
-            WHERE w.city = ? AND w.is_active = 1 GROUP BY n.neighborhood, t.property_type HAVING wishes >= ? ORDER BY unmet_share DESC, wishes DESC',
-            [$params['city'], self::minimumGroup()]];
+            WHERE w.city = ? AND w.purpose = ? AND w.is_active = 1 GROUP BY n.neighborhood, t.property_type HAVING wishes >= ? ORDER BY unmet_share DESC, wishes DESC',
+            [$params['city'], $params['purpose'], self::minimumGroup()]];
     }
 }

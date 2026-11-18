@@ -29,7 +29,7 @@ final class RegionDemandSupply extends MarketTemplate
 
     public function params(): array
     {
-        return ['property_type' => Param::propertyType(), 'days' => Param::days()];
+        return ['purpose' => Param::purpose(), 'property_type' => Param::propertyType(), 'days' => Param::days()];
     }
 
     public function columns(): array
@@ -45,9 +45,9 @@ final class RegionDemandSupply extends MarketTemplate
         return ["SELECT region, {$names} AS region_name, COUNT(DISTINCT city) AS cities, SUM(requests_count) AS requests,
                 ROUND(SUM(listings_count) / COUNT(DISTINCT stat_date), 1) AS avg_listings,
                 ROUND(SUM(requests_count) / GREATEST(SUM(listings_count) / COUNT(DISTINCT stat_date), 1), 2) AS demand_per_listing
-            FROM ai_v_daily_area_stats WHERE region IS NOT NULL AND stat_date >= ?{$type}
+            FROM ai_v_daily_area_stats WHERE region IS NOT NULL AND purpose = ? AND stat_date >= ?{$type}
             GROUP BY region HAVING requests >= ? ORDER BY demand_per_listing DESC",
             [...array_merge(...array_map(fn (Region $r) => [$r->value, $r->label()], Region::cases())),
-                now()->subDays($params['days'])->toDateString(), ...array_filter([$params['property_type']]), self::minimumGroup()]];
+                $params['purpose'], now()->subDays($params['days'])->toDateString(), ...array_filter([$params['property_type']]), self::minimumGroup()]];
     }
 }

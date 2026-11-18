@@ -142,7 +142,9 @@ class SandboxTest extends TestCase
             $this->postJson('/api/v1/ai/feedback', $feedback)->assertCreated();
         }
 
-        $this->assertSame([1, 1, 2], [SearchMiss::query()->count(), SearchFeedback::query()->count(), TrainingSample::query()->count()], "the real seeker's miss, mark and two samples only");
+        $this->assertSame([1, 1, 2, 1], [SearchMiss::query()->count(), SearchFeedback::query()->count(), TrainingSample::query()->count(), DB::table('search_demand')->count()],
+            "the real seeker's miss, mark, two samples and search only");
+        $this->assertSame(['sale', 'الرياض', '["الياسمين"]'], array_values((array) DB::table('search_demand')->select('purpose', 'city', 'neighborhoods')->first()));
         Listing::factory()->published()->create(['customer_id' => Customer::factory()->broker()->tester()]);
         $this->assertSame([1, 0, 1], [DB::table('ai_v_customers')->count(), DB::table('ai_v_listings')->count(), DB::table('ai_v_preferences')->count()]);
 

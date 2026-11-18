@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Enums\PropertyType;
+use App\Enums\Purpose;
 use App\Enums\Region;
 use App\Filament\NavigationGroup;
 use App\Filament\Support\MarketMap;
@@ -75,12 +76,13 @@ class MarketReports extends Page
 
     public function mount(): void
     {
-        $this->form->fill(['days' => 30]);
+        $this->form->fill(['days' => 30, 'purpose' => Purpose::Sale->value]);
     }
 
     public function form(Schema $schema): Schema
     {
-        return $schema->statePath('filters')->columns(2)->components([
+        return $schema->statePath('filters')->columns(3)->components([
+            Select::make('purpose')->label('شراء أو استئجار')->options(Purpose::options())->selectablePlaceholder(false)->live(),
             Select::make('days')->label('الفترة')->options(self::PERIODS)->selectablePlaceholder(false)->live(),
             Select::make('property_type')->label('نوع العقار')->options(PropertyType::options())->placeholder('كل الأنواع')->live(),
         ]);
@@ -112,7 +114,7 @@ class MarketReports extends Page
 
     private function map(): HtmlString
     {
-        $filters = ['days' => (int) ($this->filters['days'] ?? 30), 'property_type' => $this->filters['property_type'] ?? null];
+        $filters = ['purpose' => $this->filters['purpose'] ?? Purpose::Sale->value, 'days' => (int) ($this->filters['days'] ?? 30), 'property_type' => $this->filters['property_type'] ?? null];
         $picked = Region::tryFrom((string) $this->region);
         $runner = app(ReportRunner::class);
         $regions = new RegionDemandSupply;
@@ -138,6 +140,7 @@ class MarketReports extends Page
                     ->options(fn (Get $get) => array_combine($names = City::catalog()[(string) $get('city')] ?? [], $names)),
                 'region' => Select::make('region')->label($param->label)->options(array_combine($regions, $regions))->required($param->required),
                 'property_type' => Select::make('property_type')->label($param->label)->options(PropertyType::options())->required($param->required),
+                'purpose' => Select::make('purpose')->label($param->label)->options(Purpose::options())->default($param->default)->selectablePlaceholder(false),
                 'days' => Select::make('days')->label('الفترة')->options(self::PERIODS)->default($param->default),
                 default => self::number($name, $param),
             };

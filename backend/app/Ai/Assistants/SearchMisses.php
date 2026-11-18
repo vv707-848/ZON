@@ -22,6 +22,7 @@ final class SearchMisses
             'city' => $need->city,
             'neighborhood' => $need->neighborhoods[0] ?? null,
             'property_type' => $need->types[0] ?? null,
+            'purpose' => $need->purpose,
             'budget_min' => $need->budgetMin,
             'budget_max' => $need->budgetMax,
             'free_text' => $need->freeText === '' ? null : AiMasking::text($need->freeText, $customer === null ? [] : [$customer->name]),
