@@ -671,7 +671,7 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
         "chat-016",
         {"intent": "matching", "role": "seeker", "message": "وش هو مساعد المطابقة؟"},
         {},
-        {"covered": True, "mention": [["الحي"], ["الرادار", "ينبهك", "تنبيه"]], "asks": 0},
+        {"covered": True, "mention": [["الحي"], ["الرادار", "ينبهك", "تنبهك", "تنبيه"]], "asks": 0},
     ),
     # A language Laravel's rules do not read: «auto», and the model names the intent; it answers in that language.
     (
@@ -750,7 +750,7 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
         {},
         {
             "covered": True,
-            "mention": [["القرار لك", "القرار يعود لك", "قرارك", "حاجتك", "وضعك"]],
+            "mention": [["القرار لك", "يعود لك", "قرارك", "حاجتك", "احتياجك", "وضعك"]],
             "avoid": ["أنصحك", "الأسعار بتنزل", "الأسعار ستنخفض", "الأسعار بترتفع", "الأسعار سترتفع"],
         },
     ),
