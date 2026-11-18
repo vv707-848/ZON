@@ -17,6 +17,22 @@ if [ -n "${APP_NODE_HOSTKEY:-}" ]; then
   printf '%s %s\n' "$APP_NODE_IP" "$APP_NODE_HOSTKEY" > /workspace/keys/known_hosts
 fi
 
+# بلا مفتاح على القرص ولا سرّ: يولّده الـ Pod على قرصه. ومع GH_TOKEN وLAB_ISSUE ينشر نصفه العام وحده (ليس سراً)
+# في القضية مرة واحدة، فتضيفه عقدة التطبيق لمستخدم النفق (docs/deploy-runbook.md 2.6). الخاص لا يغادر القرص
+mkdir -p /workspace/keys
+[ -f /workspace/keys/tunnel_ed25519 ] || ssh-keygen -q -t ed25519 -N "" -f /workspace/keys/tunnel_ed25519 -C zon-ai-node
+if [ -n "${GH_TOKEN:-}" ] && [ -n "${LAB_ISSUE:-}" ] && [ -f /workspace/keys/tunnel_ed25519.pub ] && [ ! -f /workspace/keys/.public-posted ]; then
+  python3 - <<'PY' && touch /workspace/keys/.public-posted || echo "the public key was not posted — the tunnel waits for it" >&2
+import json, os, urllib.request
+public = open("/workspace/keys/tunnel_ed25519.pub", encoding="utf-8").read().strip()
+request = urllib.request.Request(
+    f"https://api.github.com/repos/vv707-848/ZON/issues/{os.environ['LAB_ISSUE']}/comments",
+    data=json.dumps({"body": f"**مفتاح النفق العام لعقدة الذكاء** (`{os.environ.get('RUNPOD_POD_ID', '')}`):\n```\n{public}\n```"}).encode(),
+    method="POST", headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json"})
+print("posted:", urllib.request.urlopen(request, timeout=30).status)
+PY
+fi
+
 # ① النفق: البطاقة تفتح اتصالاً صادراً إلى عقدة التطبيق — لا منفذ وارد عليها
 # التضمين يصل هناك على 18080 لأن 8080 منفذ Laravel Reverb
 mkdir -p /root/.ssh

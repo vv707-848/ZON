@@ -1,28 +1,29 @@
 # النشر — ما يعمل أين وبأي ترتيب
 
-المرجع: وثيقة المعمارية v1.4، الأقسام ٦ و٧ و١٣ و١٧.
+المرجع: وثيقة المعمارية v1.4، الأقسام ٦ و٧ و١٣ و١٧. **خطوات الرفع كاملة بالترتيب: [`docs/deploy-runbook.md`](../docs/deploy-runbook.md).**
 
 ## العُقد الثلاث
 
 | العقدة | ما عليها |
 |---|---|
 | **التطبيق — جدة** (Oracle · ‏10.10.0.10) | Nginx · ‏PHP-FPM + Laravel (‏`/var/www/zon/backend`) · العمّال وReverb وخدمة الوكلاء عبر Supervisor · ‏Dragonfly · ‏MinIO |
-| **البيانات — جدة** (Oracle · ‏10.10.0.20) | MySQL 9.7 LTS · ‏Qdrant 1.20 — بلا منفذ عام |
+| **البيانات — جدة** (Oracle · ‏10.10.0.20) | MySQL 9.7 LTS · ‏Qdrant 1.20 من صورهما الرسمية (`data-node/compose.yaml`) — بلا منفذ عام |
 | **الذكاء — RunPod** (A40 · Pod ثابت) | النموذج المعتمد `qwen3.8-27b-escha-w2` (Qwen3.8-27B بضغط Escha-W2، نحو 10GB) بوقت تشغيل مزوّده، ويُخدَم باسم `zon-ai`؛ والمحرك دائماً ما يحدده ملف النموذج (Escha أو vLLM أو SGLang) · خادم التضمين bge-m3 — بلا منفذ وارد، ونفق SSH صادر منها إلى عقدة التطبيق |
 
 ## الملفات
 
 | الملف | يُنسخ إلى | العقدة |
 |---|---|---|
-| `nginx/zon.conf` | `/etc/nginx/sites-available/zon.conf`. يتطلب Nginx 1.30 من مستودع nginx.org (نسخة Ubuntu 1.24 لا تعرف `http2 on;`)، وشهادتين: `api.zon.sa`، و`zon.sa` مع `www.zon.sa` | التطبيق |
+| `nginx/zon.conf` | `/etc/nginx/sites-available/zon.conf`. يتطلب Nginx 1.30 من مستودع nginx.org (نسخة Ubuntu 1.24 لا تعرف `http2 on;`)، وثلاث شهادات: `api.zon.sa`، و`media.zon.sa`، و`zon.sa` مع `www.zon.sa` | التطبيق |
 | `php/zon.ini` | `/etc/php/8.5/fpm/conf.d/99-zon.ini` و`/etc/php/8.5/cli/conf.d/99-zon.ini`، ثم `systemctl restart php8.5-fpm` | التطبيق |
 | `supervisor/zon.conf` | `/etc/supervisor/conf.d/zon.conf` | التطبيق |
 | `cron/zon` | `/etc/cron.d/zon` | التطبيق |
 | `logrotate/zon` | `/etc/logrotate.d/zon` | التطبيق |
 | `ssh/sshd_config.zon` | ثلاثة أجزاء في `/etc/ssh/sshd_config` بالترتيب المكتوب داخله | التطبيق |
-| `mysql/zon.cnf` | `/etc/mysql/mysql.conf.d/zon.cnf` | البيانات |
+| `data-node/compose.yaml` | المستودع في `/opt/zon`، ثم `docker compose -f /opt/zon/deploy/data-node/compose.yaml up -d`. على Ubuntu تدعم Oracle رسمياً MySQL 9.7 على x86_64 وحده، وصورتها الرسمية منشورة لـ arm64 أيضاً | البيانات |
+| `mysql/zon.cnf` | يركّبه ملف compose في `/etc/mysql/conf.d/zon.cnf` | البيانات |
 | `mysql/users.sql` | يُنفَّذ مرة واحدة | البيانات |
-| `qdrant/config.yaml` | `/etc/qdrant/config.yaml` | البيانات |
+| `qdrant/config.yaml` | إعدادات Qdrant نفسها، وملف compose يمررها متغيرات `QDRANT__…` ومفتاحه من `/etc/zon/qdrant.env` | البيانات |
 | `backup/zon-backup.sh` · `backup/cron` · `backup/backup.cnf.example` | `/usr/local/bin/` · `/etc/cron.d/zon-backup` · `/etc/zon/backup.cnf` | البيانات |
 | `ai-node/install.sh` | يُشغَّل مرة من طرفية الـ Pod | الذكاء |
 | `ai-node/entrypoint.sh` · `ai-node/serve.py` · `ai-node/embed/server.py` | `/workspace/entrypoint.sh` · `/workspace/serve.py` · `/workspace/embed/server.py` | الذكاء |
@@ -41,7 +42,12 @@
 | `LLM_API_KEY` | مفتاح المحرك — القيمة نفسها في `agents/.env` |
 | `ZON_PROFILE` | ملف النموذج الذي تخدمه البطاقة — الاسم نفسه في `LLM_PROFILE` بخدمة الوكلاء. المعتمد: `qwen3.8-27b-escha-w2` |
 
-**بلا طرفية** (موصل RunPod): مفتاح النفق يُولَّد على عقدة التطبيق، ويصل الـ Pod سرّين من أسرار RunPod: `TUNNEL_KEY_B64` (المفتاح الخاص بترميز base64 في سطر واحد) و`APP_NODE_HOSTKEY` (بصمة عقدة التطبيق: `ssh-ed25519 AAAA…`). و`entrypoint.sh` يكتبهما في `/workspace/keys` إن لم يجدهما. أمر البدء:
+**بلا طرفية** (موصل RunPod):
+- **مفتاح النفق:** يولّده الـ Pod على قرصه.
+  - ومع `GH_TOKEN` و`LAB_ISSUE` ينشر نصفه العام وحده في القضية، فيُضاف لمستخدم النفق على عقدة التطبيق ([`docs/deploy-runbook.md`](../docs/deploy-runbook.md) 2.6).
+  - الخاص لا يغادر القرص. ويبقى `TUNNEL_KEY_B64` طريقاً بديلاً لمفتاح موجود.
+- **`APP_NODE_HOSTKEY`:** بصمة عقدة التطبيق، ‏`ssh-ed25519 AAAA…`، وهي إلزامية.
+أمر البدء:
 ```bash
 bash -c "curl -fsSL https://raw.githubusercontent.com/vv707-848/ZON/<commit>/deploy/ai-node/prepare.sh -o /workspace/prepare.sh && bash /workspace/prepare.sh && exec bash /workspace/entrypoint.sh"
 ```
