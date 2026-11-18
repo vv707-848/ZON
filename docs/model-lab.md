@@ -113,6 +113,20 @@
 
 التقريران JSON يبقيان على القرص في `/workspace/reports/` لرفعهما في اللوحة. والسجل كاملاً في `/workspace/logs/`.
 
+**التثبيت أولاً على Pod بلا بطاقة (أرخص):**
+- القرص الشبكي يركب على Pod معالج (CPU) في مركز البيانات نفسه، وكل ما يُثبَّت يُكتب عليه.
+  - Python 3.12 من uv على القرص لا من الصورة، فالبيئات تعمل على أي Pod يركبه.
+  - المحركات والأوزان أيضاً على القرص.
+- أمر البدء:
+  ```bash
+  bash -c "curl -fsSL https://raw.githubusercontent.com/vv707-848/ZON/main/deploy/ai-node/prepare.sh -o /workspace/prepare.sh && for p in qwen3.8-27b-escha-w2 qwen3.8-27b-fp8; do ZON_PROFILE=$p ZON_NO_GPU=1 bash /workspace/prepare.sh; done; runpodctl stop pod $RUNPOD_POD_ID"
+  ```
+- ثم Pod البطاقة على القرص نفسه بـ `lab-pod.sh`: يجد الملفين مثبّتين، فيبدأ بفحص البطاقة.
+- **فحص البطاقة** (`gpu-check.sh`، عند كل بدء):
+  - **مترجم C يترجم فعلاً**، بترويسات Python. بطاقة وقت تشغيل Escha تحذّر: في بعض الصور ينجح `gcc --version` ويفشل بناء رسوم CUDA بعد نحو 40 ثانية لنقص `libisl`. إن فشل الفحص يُثبَّت `build-essential`.
+  - **ثم تحقق المزوّد** `True True True`.
+- **ما لا ينتقل بين الـ Podين:** كل ما خارج `/workspace`، أي حزم النظام وذاكرة pip المؤقتة. لذلك يتكرر فحص البطاقة عند كل بدء.
+
 **في أول تشغيل لكل محرك**، تحقق من ثلاثة في سجله قبل الثقة بالأرقام:
 - يحترم `max_completion_tokens`، وهو حد الطول الذي ترسله PydanticAI.
 - التفكير مطفأ فعلاً: لا `<think>` في المخرج.

@@ -8,6 +8,9 @@ set -euo pipefail
 : "${ZON_PROFILE:?}"
 REF=${ZON_REF:-main}
 
+# On a Pod without a card (ZON_NO_GPU=1, or no nvidia-smi) it installs and stops there: everything lands on the
+# network volume, and the card's Pod then starts in seconds. On the card it also runs gpu-check.sh.
+
 # ① the repository — public, read over HTTPS
 if [ -d /workspace/zon/.git ]; then
   git -C /workspace/zon fetch -q origin "$REF"
@@ -20,7 +23,7 @@ echo "repository at $(git -C /workspace/zon rev-parse --short HEAD)"
 
 # ② the node's files (deploy/README.md «الملفات»)
 mkdir -p /workspace/profiles /workspace/embed
-cp /workspace/zon/deploy/ai-node/{entrypoint.sh,serve.py} /workspace/
+cp /workspace/zon/deploy/ai-node/{entrypoint.sh,serve.py,gpu-check.sh} /workspace/
 cp /workspace/zon/deploy/ai-node/embed/server.py /workspace/embed/
 cp /workspace/zon/agents/zon_agents/models/*.toml /workspace/profiles/
 
@@ -28,4 +31,11 @@ cp /workspace/zon/agents/zon_agents/models/*.toml /workspace/profiles/
 if [ ! -f "/workspace/.installed-$ZON_PROFILE" ]; then
   PROFILE="$ZON_PROFILE" bash /workspace/zon/deploy/ai-node/install.sh
   touch "/workspace/.installed-$ZON_PROFILE"
+fi
+
+# ④ on the card: what only the card can check
+if [ "${ZON_NO_GPU:-0}" != "1" ] && command -v nvidia-smi >/dev/null; then
+  ZON_PROFILE="$ZON_PROFILE" bash /workspace/gpu-check.sh
+else
+  echo "installed $ZON_PROFILE without a card — the card's Pod checks it before serving"
 fi

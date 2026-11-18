@@ -69,6 +69,7 @@ fi
 
 # ⑦ stop the Pod — billing is by the second; the volume stays until deleted
 kill "$ENGINE" 2>/dev/null || true
+# runpodctl comes in every Pod with a Pod-scoped key (RunPod's docs); both spellings of its command are tried
 if [ "${STOP_WHEN_DONE:-1}" = "1" ] && command -v runpodctl >/dev/null && [ -n "${RUNPOD_POD_ID:-}" ]; then
-  runpodctl stop pod "$RUNPOD_POD_ID"
+  runpodctl stop pod "$RUNPOD_POD_ID" || runpodctl pod stop "$RUNPOD_POD_ID"
 fi

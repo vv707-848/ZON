@@ -11,15 +11,13 @@ set -eo pipefail   # no -u: the venv activate script reads unset variables
 # صورة RunPod تفعّل hf_transfer على مستوى النظام وهو غير مثبّت داخل هذه البيئات — يُطفأ للتنزيل
 export HF_HUB_ENABLE_HF_TRANSFER=0
 
-# Python 3.12 لكل البيئات (شرط وقت تشغيل Escha). صورة بلا 3.12 تأخذ نسخة uv، وتُحفظ على القرص الدائم: بيئة
-# مبنية على مفسّر في قرص الحاوية تنكسر بعد أول إعادة تشغيل
-PY=$(command -v python3.12 || true)
-if [ -z "$PY" ]; then
-  python3 -m pip install -q uv
-  export UV_PYTHON_INSTALL_DIR=/workspace/python
-  python3 -m uv python install 3.12
-  PY=$(python3 -m uv python find 3.12)
-fi
+# Python 3.12 لكل البيئات (شرط وقت تشغيل Escha) من uv، محفوظاً على القرص الدائم دائماً لا من الصورة: البيئات
+# مبنية عليه، فتعمل على أي Pod يركب القرص — ومنها Pod بلا بطاقة يُثبَّت عليه كل شيء بكلفة أقل، ثم Pod البطاقة.
+# وفيه ترويسات Python التي يترجم بها Triton
+export UV_PYTHON_INSTALL_DIR=/workspace/python
+python3 -m pip install -q uv
+python3 -m uv python install 3.12
+PY=$(python3 -m uv python find 3.12)
 
 # ① المشترك: ملفات المستودع، وأداة التنزيل، وخادم التضمين ببيئته المستقلة حتى لا تمس حزمه بيئة النموذج
 # ينسخ من المستودع: deploy/ai-node/{entrypoint.sh,serve.py,embed/server.py} وملفات agents/zon_agents/models/*.toml
@@ -60,10 +58,7 @@ case "$RUNTIME" in
     /workspace/venv-escha/bin/pip install /workspace/escha/sglang/escha-*.whl
     # أقل من 5.8 يعمل النموذج بإعدادات خاطئة: كلام مرتّب ومعنى فاسد وتحذير واحد في السجل
     /workspace/venv-escha/bin/pip install "transformers>=5.8"
-    # تحقق المزوّد — الناتج المقبول الوحيد: True True True
-    /workspace/venv-escha/bin/python -c "import torch, escha, sglang; print(torch.cuda.is_available(), hasattr(torch.ops.escha, 'escham_decode_gemv'), bool(sglang.__version__))"
-    # الإصدار يُسجَّل في دفتر التشغيل: 1.2.1 فما فوق (الأقدم من 1.1 لا يحمّل نموذجاً كثيفاً)
-    /workspace/venv-escha/bin/python -c "import escha; print(escha.__version__)"
+    # تحقق المزوّد (True True True) يحتاج البطاقة: يجريه prepare.sh على Pod البطاقة قبل الخدمة (gpu_check)
     # serve.py يسلّم السكربت هذه المتغيرات: إن لم يقرأ أحدها خُدم النموذج باسم أو منفذ أو مفتاح غير المطلوب، فيتوقف التثبيت هنا
     for name in MODEL SERVED_NAME HOST PORT API_KEY; do
       grep -q "\b$name\b" /workspace/escha/sglang/serve.sh || { echo "serve.sh does not read $name" >&2; exit 1; }
