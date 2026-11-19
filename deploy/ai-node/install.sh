@@ -49,15 +49,19 @@ case "$RUNTIME" in
     /workspace/venv-sglang/bin/pip freeze > /workspace/venv-sglang.lock
     ;;
   escha)
-    # torch أولاً وبالإصدار 2.9.x: نواة escha مربوطة بـ libtorch 2.9، وأي torch أحدث يُسقط الاستيراد
+    # torch أولاً: 2.11.0 مع torchvision المبني له، وهو ما تقرنه SGLang 0.5.15.post1 (نسخة العجلة) بـ sglang-kernel 0.4.4.
+    # «torch 2.9.x» في INSTALL.md قديم: كود العجلة نفسه يقول إن وقت التشغيل بواجهة ABI مستقرة، ويطلب نواة 0.4.4 فما فوق،
+    # وكلها مربوطة بـ torch أحدث من 2.9 (القضية #119، gpu-check.sh ④ و⑤)
     "$PY" -m venv /workspace/venv-escha
     /workspace/venv-escha/bin/pip install -U pip wheel
-    /workspace/venv-escha/bin/pip install "torch==2.9.*" --index-url https://download.pytorch.org/whl/cu128
+    /workspace/venv-escha/bin/pip install "torch==2.11.0" "torchvision==0.26.0" --index-url https://download.pytorch.org/whl/cu128
     # وقت تشغيل النماذج الكثيفة (Qwen3.8-27B). لا يُثبَّت معه sglang من PyPI: العجلة تحمل نسختها منه
     /workspace/venv-tools/bin/hf download EschaLabs/escha-runtime-qwen3dense --include "sglang/*" --local-dir /workspace/escha
     /workspace/venv-escha/bin/pip install /workspace/escha/sglang/escha-*.whl
-    # نواة SGLang المبنية لـ torch 2.9.1 (0.4.1 لـ CUDA 12): العجلة تطلب 0.4.4 فما فوق، وكلها مربوطة بـ torch أحدث (gpu-check.sh ④)
-    /workspace/venv-escha/bin/pip install --no-deps --force-reinstall "sglang-kernel==0.4.1" --index-url https://sgl-project.github.io/whl/cu129/
+    # تبعيات العجلة قد تحرّك torch (أخذت 2.10.0 مرة)، فيُثبَّت ثانية
+    /workspace/venv-escha/bin/pip install "torch==2.11.0" "torchvision==0.26.0" --index-url https://download.pytorch.org/whl/cu128
+    # النواة 0.4.4 لـ CUDA 12: عجلات PyPI منها لـ CUDA 13 (libnvrtc.so.13) فلا تعمل على torch cu128
+    /workspace/venv-escha/bin/pip install --no-deps --force-reinstall "sglang-kernel==0.4.4" --index-url https://sgl-project.github.io/whl/cu129/
     # أقل من 5.8 يعمل النموذج بإعدادات خاطئة: كلام مرتّب ومعنى فاسد وتحذير واحد في السجل
     /workspace/venv-escha/bin/pip install "transformers>=5.8"
     # تحقق المزوّد (True True True) يحتاج البطاقة: يجريه prepare.sh على Pod البطاقة قبل الخدمة (gpu_check)
