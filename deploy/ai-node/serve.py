@@ -41,6 +41,9 @@ def command(profile: dict, key: str) -> tuple[list[str], dict[str, str]]:
     if clash:
         raise SystemExit(f"{name}: the profile may not set {', '.join(sorted(clash))}")
     venv = WORKSPACE / f"venv-{runtime}"
+    # Every engine finds its environment's tools first on PATH: FlashInfer builds its sampling kernel at the first
+    # request with `ninja`, which pip puts in the environment's bin. Without it vLLM died at start (issue #119)
+    path = {"PATH": f"{venv / 'bin'}:{os.environ.get('PATH', '')}"}
     if runtime == "sglang":
         argv = [
             str(venv / "bin/python"),
@@ -58,7 +61,7 @@ def command(profile: dict, key: str) -> tuple[list[str], dict[str, str]]:
             key,
             *args,
         ]
-        return argv, {}
+        return argv, path
     if runtime == "vllm":
         argv = [
             str(venv / "bin/vllm"),
@@ -74,12 +77,12 @@ def command(profile: dict, key: str) -> tuple[list[str], dict[str, str]]:
             key,
             *args,
         ]
-        return argv, {}
+        return argv, path
     if runtime == "escha":
         # The provider's script (escha-runtime-qwen3dense/sglang/serve.sh) reads only variables. Its python is the
-        # environment's, first on PATH, whether or not the script reads VENV.
+        # environment's (PATH), whether or not the script reads VENV.
         env = {
-            "PATH": f"{venv / 'bin'}:{os.environ.get('PATH', '')}",
+            **path,
             "VENV": str(venv),
             "MODEL": model,
             "SERVED_NAME": SERVED_NAME,
