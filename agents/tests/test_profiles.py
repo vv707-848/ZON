@@ -86,9 +86,10 @@ def test_the_ai_node_serves_every_profile_as_zon_ai_on_the_loopback(name: str, t
     profile = load_profile(name)
     assert weights == [profile.weights, str(tmp_path / "models" / profile.weights.split("/")[1])]
     assert "secret-key" not in printed, "a printed command never shows the key"
+    # every engine finds its environment's tools first: FlashInfer's first request builds a kernel with ninja (#119)
+    assert printed.startswith(f"PATH={tmp_path}/venv-{profile.runtime}/bin:"), "the environment's tools come first"
     if profile.runtime == "escha":
         assert "SERVED_NAME=zon-ai HOST=127.0.0.1 PORT=30000" in printed and printed.rstrip().endswith("serve.sh")
-        assert f"PATH={tmp_path}/venv-escha/bin:" in printed, "the provider's script finds its own python first"
     else:
         assert "--served-model-name zon-ai --host 127.0.0.1 --port 30000" in printed
         assert printed.rstrip().endswith(" ".join(profile.serve.args))
@@ -130,3 +131,4 @@ def test_a_profile_on_the_official_sglang_is_served_the_same_way(tmp_path: Path)
     )
     assert "--served-model-name zon-ai --host 127.0.0.1 --port 30000" in printed
     assert printed.rstrip().endswith("--context-length 32768")
+    assert printed.startswith(f"PATH={tmp_path}/venv-sglang/bin:")
