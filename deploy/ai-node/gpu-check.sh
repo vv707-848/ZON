@@ -7,6 +7,7 @@
 #   ② the card's driver: it must run CUDA 12.8 or later (the environments are torch cu128, and the Escha runtime asks
 #      for it). RunPod places a Pod on hosts of several drivers: create it with allowedCudaVersions ≥ 12.8
 #   ③ the provider's check: True True True, and the runtime's version (1.2.1 or later)
+#   ④ SGLang's kernels load: a CUDA-12 build of sglang-kernel, put in place here if the install brought a CUDA-13 one
 set -euo pipefail
 PROFILE=${ZON_PROFILE:?}
 W=${ZON_WORKSPACE:-/workspace}                       # another folder for the tests only (_tools/tests/test_ai_node.py)
@@ -36,4 +37,16 @@ if [ "$RUNTIME" = "escha" ]; then
   ok=$("$W/venv-escha/bin/python" -c "import torch, escha, sglang; print(torch.cuda.is_available(), hasattr(torch.ops.escha, 'escham_decode_gemv'), bool(sglang.__version__))")
   echo "escha check: $ok · version $("$W/venv-escha/bin/python" -c 'import escha; print(escha.__version__)')"
   [ "$ok" = "True True True" ] || { echo "the runtime does not run on this card" >&2; exit 1; }
+  # ④ SGLang's kernels as a CUDA-12 build. The runtime's wheel pulls sglang-kernel from PyPI, whose wheels are CUDA 13
+  # builds: on torch cu128 the engine dies on its first import (libnvrtc.so.13, «Could not load any common_ops»,
+  # issue #119). The same version from SGLang's cu129 index replaces it once, on the volume
+  if ! "$W/venv-escha/bin/python" -c "import sgl_kernel" 2>"$W/sgl-kernel-import.err"; then
+    kernel=$("$W/venv-escha/bin/python" -c "import importlib.metadata as m; print(m.version('sglang-kernel'))")
+    echo "sglang-kernel $kernel does not load here ($(tail -n 1 "$W/sgl-kernel-import.err")) — installing its CUDA-12 build" >&2
+    "$W/venv-escha/bin/pip" install -q --no-deps --force-reinstall "sglang-kernel==${kernel%%+*}" \
+      --index-url https://sgl-project.github.io/whl/cu129/
+    "$W/venv-escha/bin/python" -c "import sgl_kernel" || { echo "sglang-kernel still does not load on this card" >&2; exit 1; }
+    "$W/venv-escha/bin/pip" freeze > "$W/venv-escha.lock"
+  fi
+  echo "sglang-kernel $("$W/venv-escha/bin/python" -c "import importlib.metadata as m; print(m.version('sglang-kernel'))") loads"
 fi

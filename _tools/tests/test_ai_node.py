@@ -197,10 +197,12 @@ printf 'echo "profile=$ZON_PROFILE no_gpu=$ZON_NO_GPU" >> "%s/prepared"\\n' "$TE
 
 @unittest.skipUnless(shutil.which("gcc"), "gpu-check.sh compiles a C probe")
 class GpuCheckTest(unittest.TestCase):
-    """deploy/ai-node/gpu-check.sh: the runtime's wheel needs a driver that runs CUDA 12.8 or later."""
+    """deploy/ai-node/gpu-check.sh: a driver that runs CUDA 12.8 or later, and SGLang's kernels as a CUDA-12 build."""
 
-    def check(self, cuda: str | None) -> subprocess.CompletedProcess[str]:
+    def check(self, cuda: str | None, kernel: str = "cu12") -> subprocess.CompletedProcess[str]:
+        """kernel: «cu12» loads; «cu13» fails until pip reinstalls it; «broken» fails whatever pip does."""
         folder = pathlib.Path(tempfile.mkdtemp())
+        self.folder = folder
         self.addCleanup(shutil.rmtree, folder, True)
         w, bin_ = folder / "w", folder / "bin"
         write(w / "profiles" / "p.toml", 'runtime = "escha"\n')
@@ -211,8 +213,21 @@ case "$1" in --query-gpu*) echo "NVIDIA A40, 46068 MiB, 570.0" ;; *) echo "{head
         include = subprocess.run(["python3", "-I", "-c", "import sysconfig; print(sysconfig.get_paths()['include'])"],
                                  capture_output=True, text=True, check=True).stdout.strip()
         write(w / "venv-tools" / "bin" / "python", f"#!/bin/sh\necho {include}\n", True)
-        write(w / "venv-escha" / "bin" / "python", """#!/bin/sh
-case "$2" in *escham*) echo "True True True" ;; *) echo 1.2.5 ;; esac
+        # the CUDA-12 build is in place once pip has reinstalled it (the file «cu12»), or from the start
+        if kernel == "cu12":
+            write(w / "cu12", "")
+        write(w / "venv-escha" / "bin" / "python", f"""#!/bin/sh
+case "$2" in
+  *escham*) echo "True True True" ;;
+  "import sgl_kernel") [ -f "{w}/cu12" ] && [ "{kernel}" != broken ] && exit 0
+    echo "ImportError: libnvrtc.so.13: cannot open shared object file" >&2; exit 1 ;;
+  *sglang-kernel*) [ -f "{w}/cu12" ] && echo 0.4.6+cu129 || echo 0.4.6 ;;
+  *) echo 1.2.5 ;;
+esac
+""", True)
+        write(w / "venv-escha" / "bin" / "pip", f"""#!/bin/sh
+[ "$1" = freeze ] && exit 0
+echo "$*" >> "{folder}/pip"; touch "{w}/cu12"
 """, True)
         env = {"PATH": f"{bin_}:{os.environ['PATH']}", "ZON_WORKSPACE": str(w), "ZON_PROFILE": "p"}
         return subprocess.run(["bash", str(NODE / "gpu-check.sh")], env=env, capture_output=True, text=True, timeout=60)
@@ -230,6 +245,28 @@ case "$2" in *escham*) echo "True True True" ;; *) echo 1.2.5 ;; esac
                 result = self.check(cuda)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn("escha check: True True True", result.stdout)
+
+    def pip_calls(self) -> list[str]:
+        path = self.folder / "pip"
+        return path.read_text().splitlines() if path.exists() else []
+
+    def test_a_cuda_13_kernel_is_replaced_by_the_same_version_s_cuda_12_build(self) -> None:
+        result = self.check("13.2", kernel="cu13")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("libnvrtc.so.13", result.stderr)
+        self.assertEqual(self.pip_calls(), ["install -q --no-deps --force-reinstall sglang-kernel==0.4.6 "
+                                            "--index-url https://sgl-project.github.io/whl/cu129/"])
+        self.assertIn("sglang-kernel 0.4.6+cu129 loads", result.stdout)
+
+    def test_a_kernel_that_loads_is_left_alone(self) -> None:
+        result = self.check("13.2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.pip_calls(), [])
+
+    def test_a_kernel_that_still_fails_stops_before_the_engine(self) -> None:
+        result = self.check("13.2", kernel="broken")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("sglang-kernel still does not load on this card", result.stderr)
 
 
 if __name__ == "__main__":
