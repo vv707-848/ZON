@@ -7,13 +7,15 @@
 #   ② the card's driver: it must run CUDA 12.8 or later (the environments are torch cu128, and the Escha runtime asks
 #      for it). RunPod places a Pod on hosts of several drivers: create it with allowedCudaVersions ≥ 12.8
 #   ③ the provider's check: True True True, and the runtime's version (1.2.1 or later)
-#   ④ SGLang's kernels load: sglang-kernel 0.4.1 for CUDA 12, put in place here if the install brought another
+#   ④ torch 2.9.1 in the runtime's environment, put back here if the install's dependencies replaced it
+#   ⑤ SGLang's kernels load: sglang-kernel 0.4.1 for CUDA 12, put in place here if the install brought another
 set -euo pipefail
 PROFILE=${ZON_PROFILE:?}
 W=${ZON_WORKSPACE:-/workspace}                       # another folder for the tests only (_tools/tests/test_ai_node.py)
 RUNTIME=$(sed -n 's/^runtime = "\(.*\)"/\1/p' "$W/profiles/$PROFILE.toml")
 NEED_CUDA=12.8
-ESCHA_KERNEL=0.4.1                                   # ④
+ESCHA_TORCH=2.9.1 ESCHA_TORCHVISION=0.24.1          # ④
+ESCHA_KERNEL=0.4.1                                   # ⑤
 
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
 cuda=$(nvidia-smi | sed -n 's/.*CUDA Version: *\([0-9][0-9.]*\).*/\1/p' | head -n 1)
@@ -35,10 +37,21 @@ fi
 rm -rf "$probe"
 
 if [ "$RUNTIME" = "escha" ]; then
+  # ④ the runtime is built for torch 2.9 (its INSTALL.md), but its wheel's dependencies replace it: compressed-tensors
+  # 0.20 asks for torch>=2.10, and pip put 2.10.0 in its place (issue #119). Put back once, on the volume, with the
+  # torchvision built for it
+  torch_now=$("$W/venv-escha/bin/python" -c "import torch; print(torch.__version__)")
+  case "$torch_now" in
+    "$ESCHA_TORCH"+*|"$ESCHA_TORCH") ;;
+    *) echo "torch $torch_now in the runtime's environment — installing $ESCHA_TORCH" >&2
+       "$W/venv-escha/bin/pip" install -q "torch==$ESCHA_TORCH" "torchvision==$ESCHA_TORCHVISION" \
+         --index-url https://download.pytorch.org/whl/cu128
+       "$W/venv-escha/bin/pip" freeze > "$W/venv-escha.lock" ;;
+  esac
   ok=$("$W/venv-escha/bin/python" -c "import torch, escha, sglang; print(torch.cuda.is_available(), hasattr(torch.ops.escha, 'escham_decode_gemv'), bool(sglang.__version__))")
   echo "escha check: $ok · version $("$W/venv-escha/bin/python" -c 'import escha; print(escha.__version__)')"
   [ "$ok" = "True True True" ] || { echo "the runtime does not run on this card" >&2; exit 1; }
-  # ④ SGLang's kernels, built for this torch. The runtime's wheel asks for sglang-kernel>=0.4.4 (its SGLang is
+  # ⑤ SGLang's kernels, built for this torch. The runtime's wheel asks for sglang-kernel>=0.4.4 (its SGLang is
   # 0.5.15.post1), and pip takes the newest: PyPI's are CUDA 13 builds (libnvrtc.so.13), and every release from 0.4.2
   # links symbols torch 2.9.1 does not have (issue #119). 0.4.1 is the last one SGLang shipped with torch 2.9.1 (sglang
   # 0.5.10): its cu129 build links nothing torch 2.9.1 lacks, and has every name this SGLang imports on the GPU path

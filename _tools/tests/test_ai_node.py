@@ -199,8 +199,9 @@ printf 'echo "profile=$ZON_PROFILE no_gpu=$ZON_NO_GPU" >> "%s/prepared"\\n' "$TE
 class GpuCheckTest(unittest.TestCase):
     """deploy/ai-node/gpu-check.sh: a driver that runs CUDA 12.8 or later, and SGLang's kernels as a CUDA-12 build."""
 
-    def check(self, cuda: str | None, kernel: str = "cu12") -> subprocess.CompletedProcess[str]:
-        """kernel: «cu12» loads; «cu13» fails until pip reinstalls it; «broken» fails whatever pip does."""
+    def check(self, cuda: str | None, kernel: str = "cu12", torch: str = "2.9.1+cu128") -> subprocess.CompletedProcess[str]:
+        """kernel: «cu12» loads; «cu13» fails until pip reinstalls it; «broken» fails whatever pip does.
+        torch: the version found, until pip installs 2.9.1."""
         folder = pathlib.Path(tempfile.mkdtemp())
         self.folder = folder
         self.addCleanup(shutil.rmtree, folder, True)
@@ -218,6 +219,7 @@ case "$1" in --query-gpu*) echo "NVIDIA A40, 46068 MiB, 570.0" ;; *) echo "{head
             write(w / "cu12", "")
         write(w / "venv-escha" / "bin" / "python", f"""#!/bin/sh
 case "$2" in
+  *torch.__version__*) [ -f "{w}/torch291" ] && echo 2.9.1+cu128 || echo "{torch}" ;;
   *escham*) echo "True True True" ;;
   "import sgl_kernel") [ -f "{w}/cu12" ] && [ "{kernel}" != broken ] && exit 0
     echo "ImportError: libnvrtc.so.13: cannot open shared object file" >&2; exit 1 ;;
@@ -227,7 +229,8 @@ esac
 """, True)
         write(w / "venv-escha" / "bin" / "pip", f"""#!/bin/sh
 [ "$1" = freeze ] && exit 0
-echo "$*" >> "{folder}/pip"; touch "{w}/cu12"
+echo "$*" >> "{folder}/pip"
+case "$*" in *torch==*) touch "{w}/torch291" ;; *sglang-kernel*) touch "{w}/cu12" ;; esac
 """, True)
         env = {"PATH": f"{bin_}:{os.environ['PATH']}", "ZON_WORKSPACE": str(w), "ZON_PROFILE": "p"}
         return subprocess.run(["bash", str(NODE / "gpu-check.sh")], env=env, capture_output=True, text=True, timeout=60)
@@ -263,6 +266,19 @@ echo "$*" >> "{folder}/pip"; touch "{w}/cu12"
         result = self.check("13.2")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.pip_calls(), [])
+
+    def test_torch_replaced_by_the_install_is_put_back_to_2_9_1(self) -> None:
+        result = self.check("13.2", torch="2.10.0+cu128")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("torch 2.10.0+cu128 in the runtime's environment — installing 2.9.1", result.stderr)
+        self.assertEqual(self.pip_calls(), ["install -q torch==2.9.1 torchvision==0.24.1 "
+                                            "--index-url https://download.pytorch.org/whl/cu128"])
+
+    def test_torch_2_9_1_is_left_alone(self) -> None:
+        for found in ("2.9.1+cu128", "2.9.1"):
+            with self.subTest(torch=found):
+                self.check("13.2", torch=found)
+                self.assertEqual(self.pip_calls(), [])
 
     def test_a_kernel_that_still_fails_stops_before_the_engine(self) -> None:
         result = self.check("13.2", kernel="broken")

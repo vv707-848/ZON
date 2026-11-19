@@ -56,7 +56,9 @@ case "$RUNTIME" in
     # وقت تشغيل النماذج الكثيفة (Qwen3.8-27B). لا يُثبَّت معه sglang من PyPI: العجلة تحمل نسختها منه
     /workspace/venv-tools/bin/hf download EschaLabs/escha-runtime-qwen3dense --include "sglang/*" --local-dir /workspace/escha
     /workspace/venv-escha/bin/pip install /workspace/escha/sglang/escha-*.whl
-    # نواة SGLang المبنية لـ torch 2.9.1 (0.4.1 لـ CUDA 12): العجلة تطلب 0.4.4 فما فوق، وكلها مربوطة بـ torch أحدث (gpu-check.sh ④)
+    # تبعيات العجلة تستبدل torch: compressed-tensors 0.20 يطلب 2.10 فما فوق، فيُعاد 2.9.1 ومعه torchvision المبني له (gpu-check.sh ④)
+    /workspace/venv-escha/bin/pip install "torch==2.9.1" "torchvision==0.24.1" --index-url https://download.pytorch.org/whl/cu128
+    # نواة SGLang المبنية لـ torch 2.9.1 (0.4.1 لـ CUDA 12): العجلة تطلب 0.4.4 فما فوق، وكلها مربوطة بـ torch أحدث (gpu-check.sh ⑤)
     /workspace/venv-escha/bin/pip install --no-deps --force-reinstall "sglang-kernel==0.4.1" --index-url https://sgl-project.github.io/whl/cu129/
     # أقل من 5.8 يعمل النموذج بإعدادات خاطئة: كلام مرتّب ومعنى فاسد وتحذير واحد في السجل
     /workspace/venv-escha/bin/pip install "transformers>=5.8"
