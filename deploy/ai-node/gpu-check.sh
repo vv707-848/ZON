@@ -7,15 +7,15 @@
 #   ② the card's driver: it must run CUDA 12.8 or later (the environments are torch cu128, and the Escha runtime asks
 #      for it). RunPod places a Pod on hosts of several drivers: create it with allowedCudaVersions ≥ 12.8
 #   ③ the provider's check: True True True, and the runtime's version (1.2.1 or later)
-#   ④ torch 2.9.1 in the runtime's environment, put back here if the install's dependencies replaced it
-#   ⑤ SGLang's kernels load: sglang-kernel 0.4.1 for CUDA 12, put in place here if the install brought another
+#   ④ torch 2.11.0 in the runtime's environment, put back here if the install's dependencies moved it
+#   ⑤ SGLang's kernels load: sglang-kernel 0.4.4 for CUDA 12, put in place here if the install brought another
 set -euo pipefail
 PROFILE=${ZON_PROFILE:?}
 W=${ZON_WORKSPACE:-/workspace}                       # another folder for the tests only (_tools/tests/test_ai_node.py)
 RUNTIME=$(sed -n 's/^runtime = "\(.*\)"/\1/p' "$W/profiles/$PROFILE.toml")
 NEED_CUDA=12.8
-ESCHA_TORCH=2.9.1 ESCHA_TORCHVISION=0.24.1          # ④
-ESCHA_KERNEL=0.4.1                                   # ⑤
+ESCHA_TORCH=2.11.0 ESCHA_TORCHVISION=0.26.0         # ④
+ESCHA_KERNEL=0.4.4                                   # ⑤
 
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
 cuda=$(nvidia-smi | sed -n 's/.*CUDA Version: *\([0-9][0-9.]*\).*/\1/p' | head -n 1)
@@ -37,8 +37,9 @@ fi
 rm -rf "$probe"
 
 if [ "$RUNTIME" = "escha" ]; then
-  # ④ the runtime is built for torch 2.9 (its INSTALL.md), but its wheel's dependencies replace it: compressed-tensors
-  # 0.20 asks for torch>=2.10, and pip put 2.10.0 in its place (issue #119). Put back once, on the volume, with the
+  # ④ torch 2.11.0, the one upstream SGLang 0.5.15.post1 (the runtime's) is paired with. The runtime's INSTALL.md
+  # says 2.9.x, but its own code says it runs on a stable ABI and asks for sglang-kernel>=0.4.4, which links torch
+  # symbols 2.9 lacks; and its dependencies moved torch to 2.10.0 (issue #119). Put back once, on the volume, with the
   # torchvision built for it
   torch_now=$("$W/venv-escha/bin/python" -c "import torch; print(torch.__version__)")
   case "$torch_now" in
@@ -51,12 +52,10 @@ if [ "$RUNTIME" = "escha" ]; then
   ok=$("$W/venv-escha/bin/python" -c "import torch, escha, sglang; print(torch.cuda.is_available(), hasattr(torch.ops.escha, 'escham_decode_gemv'), bool(sglang.__version__))")
   echo "escha check: $ok · version $("$W/venv-escha/bin/python" -c 'import escha; print(escha.__version__)')"
   [ "$ok" = "True True True" ] || { echo "the runtime does not run on this card" >&2; exit 1; }
-  # ⑤ SGLang's kernels, built for this torch. The runtime's wheel asks for sglang-kernel>=0.4.4 (its SGLang is
-  # 0.5.15.post1), and pip takes the newest: PyPI's are CUDA 13 builds (libnvrtc.so.13), and every release from 0.4.2
-  # links symbols torch 2.9.1 does not have (issue #119). 0.4.1 is the last one SGLang shipped with torch 2.9.1 (sglang
-  # 0.5.10): its cu129 build links nothing torch 2.9.1 lacks, and has every name this SGLang imports on the GPU path
-  # (`fused_experts` for Intel XPU and `spatial` for PD multiplexing are imported only there). It replaces the other
-  # once, on the volume; still failing, the engine is not started
+  # ⑤ SGLang's kernels: 0.4.4, the floor the runtime's SGLang asks for and upstream's pair for torch 2.11, as the CUDA-12
+  # build. PyPI's wheels are CUDA 13 builds (libnvrtc.so.13), and pip takes the newest (0.4.6.post1, built for torch
+  # 2.13). Checked on the A40: torch 2.11.0+cu128, escha True True True, sgl_kernel 0.4.4+cu129 runs (issue #119).
+  # It replaces the other once, on the volume; still failing, the engine is not started
   if ! "$W/venv-escha/bin/python" -c "import sgl_kernel" 2>"$W/sgl-kernel-import.err"; then
     kernel=$("$W/venv-escha/bin/python" -c "import importlib.metadata as m; print(m.version('sglang-kernel'))")
     echo "sglang-kernel $kernel does not load here ($(grep -m1 -o 'undefined symbol.*\|lib[a-z]*\.so\.[0-9]*: cannot open[^;]*' "$W/sgl-kernel-import.err" || tail -n 1 "$W/sgl-kernel-import.err")) — installing $ESCHA_KERNEL for CUDA 12" >&2
