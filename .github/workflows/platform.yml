@@ -12,6 +12,9 @@ on:
       - _tools/site-audit/**
       - _tools/*.py
       - _tools/tests/**
+      - deploy/ai-node/**
+      - docs/deploy-runbook.md
+      - docs/model-lab.md
       - .github/workflows/platform.yml
       - .github/scripts/**
   pull_request:
@@ -22,6 +25,9 @@ on:
       - _tools/site-audit/**
       - _tools/*.py
       - _tools/tests/**
+      - deploy/ai-node/**
+      - docs/deploy-runbook.md
+      - docs/model-lab.md
       - .github/workflows/platform.yml
       - .github/scripts/**
   workflow_dispatch:

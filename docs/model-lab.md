@@ -65,7 +65,7 @@
 
 **لكل ملف نموذج:**
 
-1. **Pod مؤقت** ببطاقة الملف وقرص 200GB (لا يُستعمل Pod الإنتاج):
+1. **Pod مؤقت** ببطاقة الملف وقرص 150GB (لا يُستعمل Pod الإنتاج: الملفان المقيسان معاً نحو 90GB، والمرجع ينزل BF16 نحو 56GB)، و`allowedCudaVersions` ‏12.8 فما فوق:
    - بطاقة 48GB (A40) لكل الملفات عدا `jais-3-mova-36b-a4b`. النموذج المعتمد `qwen3.8-27b-escha-w2` (نحو 10GB) يدخل 24GB أيضاً، ويُقاس على A40 لأنها بطاقة الإنتاج.
    - وذاك يحتاج 96GB (RTX PRO 6000).
 2. **من المستودع إلى `/workspace`:**
@@ -119,8 +119,9 @@
   - المحركات والأوزان أيضاً على القرص.
 - أمر البدء:
   ```bash
-  bash -c "curl -fsSL https://raw.githubusercontent.com/vv707-848/ZON/main/deploy/ai-node/prepare.sh -o /workspace/prepare.sh && for p in qwen3.8-27b-escha-w2 qwen3.8-27b-fp8; do ZON_PROFILE=$p ZON_NO_GPU=1 bash /workspace/prepare.sh; done; runpodctl stop pod $RUNPOD_POD_ID"
+  bash -c 'curl -fsSL --retry 3 https://raw.githubusercontent.com/vv707-848/ZON/main/deploy/ai-node/prepare.sh -o /workspace/prepare.sh && for p in qwen3.8-27b-escha-w2 qwen3.8-27b-fp8; do ZON_PROFILE=$p ZON_NO_GPU=1 bash /workspace/prepare.sh; done; runpodctl pod stop "$RUNPOD_POD_ID" || runpodctl stop pod "$RUNPOD_POD_ID"; sleep infinity'
   ```
+  بين علامتي تنصيص مفردتين: لا يُفك `$p` ولا `$RUNPOD_POD_ID` قبل أن يصلا إلى bash، سواء مرّر RunPod الأمر عبر shell أو لا. والإيقاف بصيغة runpodctl الحالية ثم القديمة، ثم `sleep infinity`: إن تعذر الإيقاف لا ينتهي الأمر فيعيده RunPod (_tools/tests/test_ai_node.py يشغّله بالطريقتين).
 - ثم Pod البطاقة على القرص نفسه بـ `lab-pod.sh`: يجد الملفين مثبّتين، فيبدأ بفحص البطاقة.
 - **فحص البطاقة** (`gpu-check.sh`، عند كل بدء):
   - **مترجم C يترجم فعلاً**، بترويسات Python. بطاقة وقت تشغيل Escha تحذّر: في بعض الصور ينجح `gcc --version` ويفشل بناء رسوم CUDA بعد نحو 40 ثانية لنقص `libisl`. إن فشل الفحص يُثبَّت `build-essential`.
