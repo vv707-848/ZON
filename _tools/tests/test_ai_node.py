@@ -221,7 +221,7 @@ case "$2" in
   *escham*) echo "True True True" ;;
   "import sgl_kernel") [ -f "{w}/cu12" ] && [ "{kernel}" != broken ] && exit 0
     echo "ImportError: libnvrtc.so.13: cannot open shared object file" >&2; exit 1 ;;
-  *sglang-kernel*) [ -f "{w}/cu12" ] && echo 0.4.6+cu129 || echo 0.4.6 ;;
+  *sglang-kernel*) [ -f "{w}/cu12" ] && echo 0.4.1 || echo 0.4.6.post1 ;;
   *) echo 1.2.5 ;;
 esac
 """, True)
@@ -250,13 +250,14 @@ echo "$*" >> "{folder}/pip"; touch "{w}/cu12"
         path = self.folder / "pip"
         return path.read_text().splitlines() if path.exists() else []
 
-    def test_a_cuda_13_kernel_is_replaced_by_the_same_version_s_cuda_12_build(self) -> None:
+    def test_a_kernel_that_does_not_load_is_replaced_by_0_4_1_for_cuda_12(self) -> None:
         result = self.check("13.2", kernel="cu13")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("libnvrtc.so.13", result.stderr)
-        self.assertEqual(self.pip_calls(), ["install -q --no-deps --force-reinstall sglang-kernel==0.4.6 "
+        self.assertEqual(self.pip_calls(), ["install -q --no-deps --force-reinstall sglang-kernel==0.4.1 "
                                             "--index-url https://sgl-project.github.io/whl/cu129/"])
-        self.assertIn("sglang-kernel 0.4.6+cu129 loads", result.stdout)
+        self.assertIn("sglang-kernel 0.4.6.post1 does not load here (libnvrtc.so.13: cannot open shared object file)", result.stderr)
+        self.assertIn("sglang-kernel 0.4.1 loads", result.stdout)
 
     def test_a_kernel_that_loads_is_left_alone(self) -> None:
         result = self.check("13.2")
