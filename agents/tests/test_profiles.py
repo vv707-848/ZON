@@ -46,9 +46,20 @@ def test_a_retry_keeps_the_extras_and_lowers_only_the_temperature() -> None:
 
     first, retry = profile.settings("chat"), profile.settings("chat", temperature=0.1)
 
-    assert first["extra_body"] == {"top_k": 20, "chat_template_kwargs": {"reasoning_effort": "none"}}
+    assert first["extra_body"] == {"top_k": 20, "chat_template_kwargs": {"enable_thinking": False}}
     assert first.get("presence_penalty") == 1.5
     assert {**first, "temperature": 0.1} == retry
+
+
+def test_qwen3_8_turns_thinking_off_with_its_template_s_own_switch() -> None:
+    """Qwen3.8's chat_template.jinja turns thinking off with enable_thinking=false; its reasoning_effort takes only
+    xhigh, medium or low, and raises on anything else: vLLM refused every request of the FP8 round (issue #119)."""
+    for name, profile in load_profiles().items():
+        if "Qwen3.8" not in profile.weights:
+            continue
+        kwargs = profile.request.get("chat_template_kwargs", {})
+        assert kwargs.get("enable_thinking") is False, name
+        assert kwargs.get("reasoning_effort", "xhigh") in ("xhigh", "medium", "low"), name
 
 
 def test_a_profile_without_every_use_or_with_a_greedy_temperature_is_refused(tmp_path: Path) -> None:
