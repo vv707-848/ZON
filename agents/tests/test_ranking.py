@@ -249,7 +249,7 @@ def test_a_request_whose_own_budget_or_rooms_the_offer_breaks_comes_last(
 
     found = call(client, "search_requests", {"need": offer, "candidates": requests})["output"]["results"]
 
-    assert [r["id"] for r in found] == [4, 3, 2, 1], "equal scores: the newest first, then what breaks last"
+    assert [r["id"] for r in found] == [3, 4, 2, 1], "equal scores: the closest budget first, then what breaks last"
 
 
 def test_the_model_reads_at_most_15_search_and_8_matching_candidates_each_cut_at_400(
@@ -340,11 +340,11 @@ def test_the_developer_s_model_reads_15_searchers_and_8_unit_models_cut_at_350(
     assert {len(s["notes"]) for s in sent["searchers"]} == {350} and {len(u["desc"]) for u in sent["units"]} == {350}
     assert len(json_size := __import__("json").dumps(sent, ensure_ascii=False)) < 12000, json_size
     ids = [r["id"] for r in output["results"]]
-    assert ids[:5] == [5, 4, 3, 2, 1] and len(ids) == 10 and set(ids[5:]) <= {s["id"] for s in sent["searchers"]}
+    assert ids[:5] == [1, 2, 3, 4, 5] and len(ids) == 10 and set(ids[5:]) <= {s["id"] for s in sent["searchers"]}
     assert all(r["score"] <= 0.9 and r["unit_id"] is not None for r in output["results"][5:])
 
 
-def test_a_ranking_is_asked_at_temperature_0_and_an_exact_tie_goes_to_the_newest_whatever_the_order(
+def test_a_ranking_is_asked_at_temperature_0_and_an_exact_tie_goes_to_the_closest_budget_whatever_the_order(
     client: TestClient, model: ScriptedModel
 ) -> None:
     """Stability (#119: 0.78 · 0.76 · 0.47 on the A40): the same candidates in the opposite order must give the same
@@ -360,9 +360,10 @@ def test_a_ranking_is_asked_at_temperature_0_and_an_exact_tie_goes_to_the_newest
     pairs = call(client, "matching", {"need": NEED, "matched": _candidates(2, 3, 4, 5)})["output"]
     seekers = call(client, "match_searchers", {"project": {}, "units": units, "searchers": searchers})["output"]
 
+    # equal scores: the price closest to the budget's top (950,000), then the lower id — whatever the order
     assert [r["id"] for r in found["results"]] == [5, 3, 2, 4]
     assert [r["id"] for r in pairs["matched"]] == [5, 3, 2, 4]
-    assert [r["id"] for r in seekers["results"]] == [9, 8, 7]
+    assert [r["id"] for r in seekers["results"]] == [7, 8, 9], "an equal fit: the lower id"
     assert {agent: temperature for agent, _, temperature in model.calls} == {
         "search_listings": 0.0,
         "matching": 0.0,

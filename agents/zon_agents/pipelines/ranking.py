@@ -17,8 +17,9 @@ If the model fails, the answer is `degraded`: the hybrid order with its scores. 
 fails, the call fails (503) and Laravel answers with the SQL order (§7 «سياسة الفشل»).
 """
 
+import math
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from zon_agents.embeddings import Embedding
@@ -102,10 +103,23 @@ def _checked(
     return out
 
 
-def canonical(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """What the model wrote, by its score; an exact tie goes to the newest (the larger id) — the prompts' own rule,
-    so two equal answers never take the order the candidates came in."""
-    return sorted(results, key=lambda r: (-r["score"], -r["id"]))
+def canonical(results: list[dict[str, Any]], gap: Callable[[int], float] = lambda _: 0.0) -> list[dict[str, Any]]:
+    """What the model wrote, by its score; an exact tie goes to the closest to the budget (`gap`), then the lower
+    id — the prompts' own rule and the rule model's, so two equal answers never take the order the candidates came
+    in (#119, stability)."""
+    return sorted(results, key=lambda r: (-r["score"], gap(r["id"]), r["id"]))
+
+
+def budget_gap(need: Need, shortlist: Sequence[tuple[Candidate, float]]) -> Callable[[int], float]:
+    """How far a candidate's price (a request: its budget) is from the top of the budget (the broker's price)."""
+    by_id = {c.id: c for c, _ in shortlist}
+
+    def gap(i: int) -> float:
+        c = by_id.get(i)
+        value = None if c is None else c.budget_max if isinstance(c, RequestCandidate) else c.price
+        return abs(value - need.budget_max) if value is not None and need.budget_max is not None else math.inf
+
+    return gap
 
 
 def _then_retrieval(
@@ -197,7 +211,7 @@ async def _rank_one(
     except ModelFailed as exc:
         plain = conditions_first(_plain(shortlist, limit), need, shortlist)
         return Result({"results": plain}, degraded=True, log={"llm": exc.reason})
-    written = canonical(_checked(answer.output.results, shortlist, asked))
+    written = canonical(_checked(answer.output.results, shortlist, asked), budget_gap(need, shortlist))
     output = {"results": conditions_first(_then_retrieval(written, shortlist, asked, limit), need, shortlist)}
     return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
 
@@ -238,7 +252,12 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
     lists = {"matched": (answer.output.matched, matched), "broaden": (answer.output.broaden, broaden)}
     ranked: dict[str, Any] = {
         name: conditions_first(
-            _then_retrieval(canonical(_checked(given, shortlist, asked)), shortlist, asked, req.limit),
+            _then_retrieval(
+                canonical(_checked(given, shortlist, asked), budget_gap(req.need, shortlist)),
+                shortlist,
+                asked,
+                req.limit,
+            ),
             req.need,
             shortlist,
         )
@@ -310,7 +329,8 @@ async def match_searchers(ctx: Ctx, data: dict[str, Any]) -> Result:
         results.append({"id": item.id, "score": round(item.score, 3), "unit_id": unit})
         if len(results) == asked:
             break
-    results = canonical(results)
+    closeness = {s.id: d for (d, _), s in fits}
+    results = canonical(results, lambda i: closeness.get(i, math.inf))
     if len(results) == asked:  # all it was asked: the rest by closeness, each with its nearest model
         floor = min((r["score"] for r in results), default=1.0)
         for (distance, unit), s in fits:

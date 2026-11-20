@@ -20,6 +20,7 @@ its ceiling is what the right answer scores with the rest in the given order, bu
 """
 
 import asyncio
+import math
 from collections import Counter
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
@@ -134,10 +135,11 @@ def _as_listed(
     keep = {c["id"] for c in base.input.get(name, [])[:size]}
     read = [c for c in case.input.get(name, []) if c["id"] in keep]
     asked = min(limit, writes)
-    answered = _completed(ranking.canonical(build(grades, read, asked)), read, asked, limit)
     kind = RequestCandidate if case.agent == "search_requests" else ListingCandidate
     by_id = {candidate["id"]: kind(**candidate) for candidate in read}
     need = Need(**case.input["need"])
+    gap = ranking.budget_gap(need, [(c, 0.0) for c in by_id.values()])
+    answered = _completed(ranking.canonical(build(grades, read, asked), gap), read, asked, limit)
     listed = conditions_first(answered, need, [(c, 0.0) for c in by_id.values()])
     if name == "broaden":  # what breaks the wish's rooms or budget is not «what the budget buys» at all
         listed = [r for r in listed if not ranking.breaks(need, by_id[r["id"]])]
@@ -183,7 +185,8 @@ def _searchers_listed(case: Case, written: Written) -> dict[str, Any]:
     nearest = Counter(unit for (_, unit), _ in fits if unit is not None)
     shown = {u.id for u in sorted(units, key=lambda u: -nearest[u.id])[: ranking.SEARCHER_UNITS]}
     asked = min(limit, writes)
-    picked = ranking.canonical(written([s for _, s in fits], asked))
+    distance = {s["id"]: d for (d, _), s in fits}
+    picked = ranking.canonical(written([s for _, s in fits], asked), lambda i: distance.get(i, math.inf))
     given = [{**r, "unit_id": r["unit_id"] if r["unit_id"] in shown else None} for r in picked]
     if len(given) < asked:
         return {"results": given}

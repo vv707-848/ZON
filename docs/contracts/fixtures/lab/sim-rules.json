@@ -141,15 +141,15 @@
    },
    "metrics": {
     "inject_top3": 0.0,
-    "ndcg": 0.9483,
+    "ndcg": 0.962,
     "top1": 0.8947,
-    "zero_top3": 0.1053
+    "zero_top3": 0.1316
    },
-   "score": 0.9483,
+   "score": 0.962,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.9361,
+     "score": 0.9499,
      "stability": 1.0
     }
    }
@@ -164,15 +164,15 @@
    },
    "metrics": {
     "inject_top3": 0.0,
-    "ndcg": 0.9601,
+    "ndcg": 0.9619,
     "top1": 0.9286,
     "zero_top3": 0.0714
    },
-   "score": 0.9601,
+   "score": 0.9619,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.976,
+     "score": 0.9777,
      "stability": 1.0
     }
    }
@@ -216,6 +216,6 @@
   "digest": "59dc6ae8a4ef58d1"
  },
  "lab": 1,
- "overall": 0.8218,
+ "overall": 0.8244,
  "simulation": "rules"
 }
