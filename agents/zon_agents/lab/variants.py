@@ -35,6 +35,13 @@ def _digits(case: Case) -> Case:
     return case.model_copy(update={"input": data})
 
 
+def base_order(case: Case) -> dict[int, int]:
+    """Each candidate's place in its list as the case gives it: what retrieval ranks by in the lab. A reversed case
+    keeps it, so its shortlist is the same candidates in the opposite order — in production Qdrant chooses them by
+    the user's text, never by the order Laravel sent (#119: reading 8 of 9, the reversed case read another set)."""
+    return {c["id"]: n for name in _LISTS.get(case.agent, ()) for n, c in enumerate(case.input.get(name, []))}
+
+
 def variants(case: Case) -> list[tuple[str, Case]]:
     if case.agent in _LISTS:
         return [("reversed", _reversed(case))]

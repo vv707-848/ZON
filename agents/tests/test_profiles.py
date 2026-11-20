@@ -38,7 +38,8 @@ def test_a_call_carries_the_profiles_sampling_and_request_extras(client: TestCli
     )
 
     extras = {"top_k": 20, "chat_template_kwargs": {"enable_thinking": False}}  # thinking off in every request
-    assert model.settings[0] == {"temperature": 0.3, "top_p": 0.8, "max_tokens": 700, "extra_body": extras}
+    # a ranking: the json sampling at temperature 0 (#119, stability); the profile's own json stays 0.3
+    assert model.settings[0] == {"temperature": 0.0, "top_p": 0.8, "max_tokens": 700, "extra_body": extras}
 
 
 def test_a_retry_keeps_the_extras_and_lowers_only_the_temperature() -> None:

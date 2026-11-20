@@ -107,16 +107,18 @@ class ModelLabTest extends AdminTestCase
     {
         $agents = $this->report()['agents'];
         $agents['search_listings']['metrics']['inject_top3'] = 0.08;
-        $agents['matching']['latency_ms']['p95'] = 9400;
+        $agents['search_listings']['latency_ms']['p95'] = 9400;
+        $agents['matching']['latency_ms']['p95'] = 12000;   // a background job twice a day: lab load's 15 s is its limit
         $agents['matching']['variants']['reversed']['stability'] = 0.55;
         $agents['clean_listing']['failed'] = 3;
         $agents['report_write']['metrics']['guard'] = 0.7;
 
         $unmet = implode("\n", LabLimits::unmet($agents));
 
-        foreach (['ردود فاشلة في: clean_listing', 'search_listings: سطر محقون', 'matching: p95 9,400 ms', 'الثبات 55%', 'NumberGuard رفض'] as $reason) {
+        foreach (['ردود فاشلة في: clean_listing', 'search_listings: سطر محقون', 'search_listings: p95 9,400 ms', 'الثبات 55%', 'NumberGuard رفض'] as $reason) {
             $this->assertStringContainsString($reason, $unmet);
         }
+        $this->assertStringNotContainsString('matching: p95', $unmet);
     }
 
     /**

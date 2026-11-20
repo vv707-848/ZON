@@ -22,6 +22,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, Field, create_model
 
 from zon_agents.llm import LlmResult, ModelFailed, model_unavailable
+from zon_agents.numbers import number_guard
 from zon_agents.pipelines.base import Ctx, Result, parse, scrub
 from zon_agents.profiles import Use
 from zon_agents.schemas.agents import (
@@ -133,10 +134,15 @@ async def report_write(ctx: Ctx, data: dict[str, Any]) -> Result:
     declared = {entry.action: entry.params for entry in req.proposals}
     answer = await _answer(ctx, "report_write", req, _written_model(declared), "report")
     written = answer.output.model_dump()
+    # each recommendation stands alone: one with a number the rows do not hold is dropped, so it cannot take the
+    # whole analysis with it at Laravel's NumberGuard (#119: 0.82 on the A40). The analysis is judged whole there
+    rows = [row for part in req.parts for row in part.rows]
+    params = {f"{i}.{k}": v for i, part in enumerate(req.parts) for k, v in part.params.items()}
+    params |= {f"{i}.row_count": part.row_count for i, part in enumerate(req.parts)}
     recommendations = []
     for item in written["recommendations"]:
         text = scrub(item["text"])
-        if text:
+        if text and number_guard(text, rows, params):
             action = item["action"]
             params = _declared(item["params"], declared[action]) if action else {}
             recommendations.append({"text": text, "action": action, "params": params})
