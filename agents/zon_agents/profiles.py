@@ -32,7 +32,7 @@ class Serve(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     args: list[str] = []  # engine flags after the model path (deploy/ai-node/serve.py adds host, port, key, name)
-    env: dict[str, str] = {}  # for the provider's own script (runtime "escha")
+    env: dict[str, str] = {}  # for the provider's own script (runtimes "escha" and "escha-moe")
 
 
 class ModelProfile(BaseModel):
@@ -40,9 +40,10 @@ class ModelProfile(BaseModel):
 
     name: str = Field(pattern=r"^[a-z0-9][a-z0-9.\-]{2,63}$")
     weights: str = Field(pattern=r"^[\w.\-]+/[\w.\-]+$")  # Hugging Face repository
-    # "sim": no weights, the simulation (zon_agents/sim) · "hosted": the same weights served by someone else
-    # (`hosted_by`), for the lab only — never a file of `models/`, never what production calls.
-    runtime: Literal["sglang", "vllm", "escha", "sim", "hosted"]
+    # "escha" · "escha-moe": EschaLabs' runtimes for dense and MoE models (escha-runtime-qwen3dense · -qwen3moe), each
+    # in its own environment. "sim": no weights, the simulation (zon_agents/sim) · "hosted": the same weights served by
+    # someone else (`hosted_by`), for the lab only — never a file of `models/`, never what production calls.
+    runtime: Literal["sglang", "vllm", "escha", "escha-moe", "sim", "hosted"]
     licence: str
     sampling: dict[Use, Sampling]
     request: dict[str, Any] = {}

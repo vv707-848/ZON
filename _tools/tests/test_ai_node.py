@@ -32,17 +32,29 @@ def write(path: pathlib.Path, text: str, executable: bool = False) -> None:
 RUNPODCTL = """#!/bin/sh
 echo "$*" >> "$TEST_DIR/stops"
 [ "$1" = pod ] && [ -n "${NEW_SPELLING_FAILS:-}" ] && exit 1
+[ "$2" = remove ] || [ "$1" = remove ] && [ -n "${REMOVE_FAILS:-}" ] && exit 1
 exit 0
 """
 
 
 class GitHub(http.server.BaseHTTPRequestHandler):
+    """GitHub's comments, and the engine's /v1/chat/completions for the smoke request (one local server)."""
+
     comments: list[dict] = []
+    asked: list[dict] = []
     status = 201
+    answer = "شقة من ثلاث غرف في حي النرجس، واسعة ومشمسة."
 
     def do_POST(self) -> None:  # noqa: N802
-        body = self.rfile.read(int(self.headers["Content-Length"]))
-        GitHub.comments.append({"path": self.path, "body": json.loads(body)["body"]})
+        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        if self.path == "/v1/chat/completions":
+            GitHub.asked.append({"auth": self.headers["Authorization"], **body})
+            reply = {"choices": [{"message": {"content": GitHub.answer}}], "usage": {"completion_tokens": 24}}
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps(reply).encode())
+            return
+        GitHub.comments.append({"path": self.path, "body": body["body"]})
         self.send_response(GitHub.status)
         self.end_headers()
         self.wfile.write(b"{}")
@@ -64,7 +76,8 @@ class LabPodTest(unittest.TestCase):
         cls.server.shutdown()
 
     def setUp(self) -> None:
-        GitHub.comments, GitHub.status = [], 201
+        GitHub.comments, GitHub.asked, GitHub.status = [], [], 201
+        GitHub.answer = "شقة من ثلاث غرف في حي النرجس، واسعة ومشمسة."
         self.dir = pathlib.Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.dir, True)
         w, bin_ = self.dir / "w", self.dir / "bin"
@@ -88,13 +101,15 @@ if os.environ.get("ENGINE_DIES"):
 pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
 """)
         write(w / "venv-tools" / "bin" / "uv", "#!/bin/sh\nexit 0\n", True)
-        write(w / "zon" / "agents" / ".venv" / "bin" / "zon-agents", '#!/bin/sh\necho "| table of $1 $2 |"\n', True)
+        write(w / "zon" / "agents" / ".venv" / "bin" / "zon-agents",
+              '#!/bin/sh\necho "$1 $2" >> "$TEST_DIR/lab"\necho "| table of $1 $2 |"\n', True)
         self.env = {
             "PATH": f"{bin_}:{os.environ['PATH']}", "HOME": str(self.dir), "TEST_DIR": str(self.dir),
             "ZON_WORKSPACE": str(w), "ZON_GITHUB_API": f"http://127.0.0.1:{self.server.server_port}",
             "ZON_RAW_URL": "https://raw.example/ZON", "ZON_REF": "0" * 40,
             "LLM_API_KEY": "test-key", "RUNPOD_POD_ID": "pod123", "GH_TOKEN": "test-token", "LAB_ISSUE": "7",
             "ZON_STOP_GRACE": "0", "ZON_KEEP_SECONDS": "0", "ZON_ENGINE_WAIT": "0.1", "ZON_ENGINE_TRIES": "100",
+            "ZON_LLM_URL": f"http://127.0.0.1:{self.server.server_port}",
         }
 
     def run_lab(self, **env: str) -> subprocess.CompletedProcess[str]:
@@ -148,6 +163,42 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         self.assertIn("kept: waiting until the Pod is stopped from the connector", result.stdout)
         self.assertEqual((self.dir / "prepared").read_text().count("prepared"), 1)
 
+    def test_one_quick_arabic_request_is_timed_before_the_lab_and_shown_with_the_tables(self) -> None:
+        result = self.run_lab()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(len(GitHub.asked), 1)
+        self.assertEqual(GitHub.asked[0]["auth"], "Bearer test-key")
+        self.assertEqual(GitHub.asked[0]["model"], "zon-ai")
+        self.assertNotIn("chat_template_kwargs", GitHub.asked[0], "the server's own THINK=0 is what is checked")
+        body = GitHub.comments[0]["body"]
+        self.assertRegex(body, r"smoke: [0-9.]+ s · 24 tokens · [0-9.]+ tok/s · ok")
+        self.assertIn("→ شقة من ثلاث غرف في حي النرجس", body)
+        self.assertLess(body.index("smoke:"), body.index("**lab run**"))
+
+    def test_an_answer_that_thinks_stops_before_the_lab(self) -> None:
+        for answer, problem in (("<think>\nلنفكر</think>\nشقة", "<think> in the answer"), ("", "empty"),
+                                ("A three-room flat.", "no Arabic")):
+            with self.subTest(problem=problem):
+                self.setUp()
+                GitHub.answer = answer
+                result = self.run_lab()
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("stopped at «smoke»", GitHub.comments[0]["body"])
+                self.assertIn(problem, GitHub.comments[0]["body"])
+                self.assertFalse((self.dir / "lab").exists(), "the lab is not run")
+                self.assertEqual(self.stops(), ["pod stop pod123"])
+
+    def test_delete_when_done_removes_the_pod_and_falls_back_to_stopping_it(self) -> None:
+        for env, calls in (({}, ["pod remove pod123"]),
+                           ({"NEW_SPELLING_FAILS": "1"}, ["pod remove pod123", "remove pod pod123"]),
+                           ({"NEW_SPELLING_FAILS": "1", "REMOVE_FAILS": "1"},
+                            ["pod remove pod123", "remove pod pod123", "pod stop pod123", "stop pod pod123"])):
+            with self.subTest(**env):
+                self.setUp()
+                self.run_lab(DELETE_WHEN_DONE="1", **env)
+                self.assertEqual(self.stops(), calls)
+                self.assertEqual(len(GitHub.comments), 1, "posted before the Pod goes")
+
     def test_a_pod_that_cannot_stop_itself_says_so_and_waits(self) -> None:
         (self.dir / "bin" / "runpodctl").write_text("#!/bin/sh\nexit 1\n")
         result = self.run_lab()
@@ -199,14 +250,16 @@ printf 'echo "profile=$ZON_PROFILE no_gpu=$ZON_NO_GPU" >> "%s/prepared"\\n' "$TE
 class GpuCheckTest(unittest.TestCase):
     """deploy/ai-node/gpu-check.sh: a driver that runs CUDA 12.8 or later, and SGLang's kernels as a CUDA-12 build."""
 
-    def check(self, cuda: str | None, kernel: str = "cu12", torch: str = "2.11.0+cu128") -> subprocess.CompletedProcess[str]:
+    def check(self, cuda: str | None, kernel: str = "cu12", torch: str = "2.11.0+cu128", runtime: str = "escha",
+              overcommit: str | None = "0") -> subprocess.CompletedProcess[str]:
         """kernel: «cu12» loads; «cu13» fails until pip reinstalls it; «broken» fails whatever pip does.
         torch: the version found, until pip installs 2.11.0."""
         folder = pathlib.Path(tempfile.mkdtemp())
         self.folder = folder
         self.addCleanup(shutil.rmtree, folder, True)
         w, bin_ = folder / "w", folder / "bin"
-        write(w / "profiles" / "p.toml", 'runtime = "escha"\n')
+        write(w / "profiles" / "p.toml", f'runtime = "{runtime}"\n')
+        op = {"escha": "escham_decode_gemv", "escha-moe": "escham_moe_linear"}[runtime]
         header = f"| NVIDIA-SMI 570.0   Driver Version: 570.0   CUDA Version: {cuda}     |" if cuda else "| NVIDIA-SMI 470.0 |"
         write(bin_ / "nvidia-smi", f"""#!/bin/sh
 case "$1" in --query-gpu*) echo "NVIDIA A40, 46068 MiB, 570.0" ;; *) echo "{header}" ;; esac
@@ -217,22 +270,28 @@ case "$1" in --query-gpu*) echo "NVIDIA A40, 46068 MiB, 570.0" ;; *) echo "{head
         # the CUDA-12 build is in place once pip has reinstalled it (the file «cu12»), or from the start
         if kernel == "cu12":
             write(w / "cu12", "")
-        write(w / "venv-escha" / "bin" / "python", f"""#!/bin/sh
+        # the provider's check is True only for this runtime's own op
+        write(w / f"venv-{runtime}" / "bin" / "python", f"""#!/bin/sh
 case "$2" in
   *torch.__version__*) [ -f "{w}/torch211" ] && echo 2.11.0+cu128 || echo "{torch}" ;;
-  *escham*) echo "True True True" ;;
+  *{op}*) echo "True True True" ;;
+  *escham*) echo "True False True" ;;
   "import sgl_kernel") [ -f "{w}/cu12" ] && [ "{kernel}" != broken ] && exit 0
     echo "ImportError: libnvrtc.so.13: cannot open shared object file" >&2; exit 1 ;;
   *sglang-kernel*) [ -f "{w}/cu12" ] && echo 0.4.4+cu129 || echo 0.4.6.post1 ;;
   *) echo 1.2.5 ;;
 esac
 """, True)
-        write(w / "venv-escha" / "bin" / "pip", f"""#!/bin/sh
+        write(w / f"venv-{runtime}" / "bin" / "pip", f"""#!/bin/sh
 [ "$1" = freeze ] && exit 0
 echo "$*" >> "{folder}/pip"
 case "$*" in *torch==*) touch "{w}/torch211" ;; *sglang-kernel*) touch "{w}/cu12" ;; esac
 """, True)
-        env = {"PATH": f"{bin_}:{os.environ['PATH']}", "ZON_WORKSPACE": str(w), "ZON_PROFILE": "p"}
+        self.overcommit = folder / "overcommit_memory"
+        if overcommit is not None:
+            write(self.overcommit, overcommit)
+        env = {"PATH": f"{bin_}:{os.environ['PATH']}", "ZON_WORKSPACE": str(w), "ZON_PROFILE": "p",
+               "ZON_OVERCOMMIT": str(self.overcommit if overcommit is not None else folder / "no" / "such")}
         return subprocess.run(["bash", str(NODE / "gpu-check.sh")], env=env, capture_output=True, text=True, timeout=60)
 
     def test_a_driver_below_12_8_is_refused_with_what_to_do(self) -> None:
@@ -279,6 +338,21 @@ case "$*" in *torch==*) touch "{w}/torch211" ;; *sglang-kernel*) touch "{w}/cu12
             with self.subTest(torch=found):
                 self.check("13.2", torch=found)
                 self.assertEqual(self.pip_calls(), [])
+
+    def test_the_moe_runtime_is_checked_in_its_own_environment_with_its_own_op(self) -> None:
+        result = self.check("13.2", runtime="escha-moe")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("escha check: True True True", result.stdout)
+        self.assertIn("sglang-kernel 0.4.4+cu129 loads", result.stdout)
+
+    def test_overcommit_is_set_where_the_container_allows_and_reported_where_not(self) -> None:
+        result = self.check("13.2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.overcommit.read_text().strip(), "1")
+        self.assertIn("vm.overcommit_memory 1", result.stdout)
+        result = self.check("13.2", overcommit=None)
+        self.assertEqual(result.returncode, 0, "never a failure: serve.sh says it is otherwise safe to ignore")
+        self.assertIn("vm.overcommit_memory ? — not settable in this container", result.stdout)
 
     def test_a_kernel_that_still_fails_stops_before_the_engine(self) -> None:
         result = self.check("13.2", kernel="broken")

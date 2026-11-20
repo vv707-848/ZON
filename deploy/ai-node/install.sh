@@ -48,28 +48,31 @@ case "$RUNTIME" in
     /workspace/venv-sglang/bin/pip install -U pip "sglang==0.5.23"
     /workspace/venv-sglang/bin/pip freeze > /workspace/venv-sglang.lock
     ;;
-  escha)
-    # torch أولاً: 2.11.0 مع torchvision المبني له، وهو ما تقرنه SGLang 0.5.15.post1 (نسخة العجلة) بـ sglang-kernel 0.4.4.
-    # «torch 2.9.x» في INSTALL.md قديم: كود العجلة نفسه يقول إن وقت التشغيل بواجهة ABI مستقرة، ويطلب نواة 0.4.4 فما فوق،
-    # وكلها مربوطة بـ torch أحدث من 2.9 (القضية #119، gpu-check.sh ④ و⑤)
-    "$PY" -m venv /workspace/venv-escha
-    /workspace/venv-escha/bin/pip install -U pip wheel
-    /workspace/venv-escha/bin/pip install "torch==2.11.0" "torchvision==0.26.0" --index-url https://download.pytorch.org/whl/cu128
-    # وقت تشغيل النماذج الكثيفة (Qwen3.8-27B). لا يُثبَّت معه sglang من PyPI: العجلة تحمل نسختها منه
-    /workspace/venv-tools/bin/hf download EschaLabs/escha-runtime-qwen3dense --include "sglang/*" --local-dir /workspace/escha
-    /workspace/venv-escha/bin/pip install /workspace/escha/sglang/escha-*.whl
+  escha|escha-moe)
+    # وقتا تشغيل Escha، لكلٍّ بيئته ومجلده: escha للنماذج الكثيفة (escha-runtime-qwen3dense، Qwen3.8-27B) وescha-moe
+    # لنماذج الخبراء (escha-runtime-qwen3moe، Qwen3.6-35B-A3B). لا يُثبَّت معهما sglang من PyPI: كل عجلة تحمل نسختها منه
+    VENV=/workspace/venv-$RUNTIME
+    case "$RUNTIME" in escha) RUNTIME_REPO=EschaLabs/escha-runtime-qwen3dense ;; *) RUNTIME_REPO=EschaLabs/escha-runtime-qwen3moe ;; esac
+    # torch أولاً: 2.11.0 مع torchvision المبني له، وهو ما تقرنه SGLang 0.5.15.post1 (نسخة عجلة الكثيف) بـ sglang-kernel
+    # 0.4.4. عجلة الكثيف بواجهة ABI مستقرة وتطلب نواة 0.4.4 فما فوق، وعجلة الخبراء تعمل على أي torch من 2.9 (INSTALL.md
+    # فيها)، فالحزمة نفسها للاثنين (القضية #119، gpu-check.sh ④ و⑤)
+    "$PY" -m venv "$VENV"
+    "$VENV/bin/pip" install -U pip wheel
+    "$VENV/bin/pip" install "torch==2.11.0" "torchvision==0.26.0" --index-url https://download.pytorch.org/whl/cu128
+    /workspace/venv-tools/bin/hf download "$RUNTIME_REPO" --include "sglang/*" --local-dir "/workspace/$RUNTIME"
+    "$VENV/bin/pip" install /workspace/"$RUNTIME"/sglang/escha-*.whl
     # تبعيات العجلة قد تحرّك torch (أخذت 2.10.0 مرة)، فيُثبَّت ثانية
-    /workspace/venv-escha/bin/pip install "torch==2.11.0" "torchvision==0.26.0" --index-url https://download.pytorch.org/whl/cu128
+    "$VENV/bin/pip" install "torch==2.11.0" "torchvision==0.26.0" --index-url https://download.pytorch.org/whl/cu128
     # النواة 0.4.4 لـ CUDA 12: عجلات PyPI منها لـ CUDA 13 (libnvrtc.so.13) فلا تعمل على torch cu128
-    /workspace/venv-escha/bin/pip install --no-deps --force-reinstall "sglang-kernel==0.4.4" --index-url https://sgl-project.github.io/whl/cu129/
+    "$VENV/bin/pip" install --no-deps --force-reinstall "sglang-kernel==0.4.4" --index-url https://sgl-project.github.io/whl/cu129/
     # أقل من 5.8 يعمل النموذج بإعدادات خاطئة: كلام مرتّب ومعنى فاسد وتحذير واحد في السجل
-    /workspace/venv-escha/bin/pip install "transformers>=5.8"
+    "$VENV/bin/pip" install "transformers>=5.8"
     # تحقق المزوّد (True True True) يحتاج البطاقة: يجريه prepare.sh على Pod البطاقة قبل الخدمة (gpu_check)
     # serve.py يسلّم السكربت هذه المتغيرات: إن لم يقرأ أحدها خُدم النموذج باسم أو منفذ أو مفتاح غير المطلوب، فيتوقف التثبيت هنا
     for name in MODEL SERVED_NAME HOST PORT API_KEY; do
-      grep -q "\b$name\b" /workspace/escha/sglang/serve.sh || { echo "serve.sh does not read $name" >&2; exit 1; }
+      grep -q "\b$name\b" "/workspace/$RUNTIME/sglang/serve.sh" || { echo "serve.sh does not read $name" >&2; exit 1; }
     done
-    /workspace/venv-escha/bin/pip freeze > /workspace/venv-escha.lock
+    "$VENV/bin/pip" freeze > "$VENV.lock"
     ;;
 esac
 

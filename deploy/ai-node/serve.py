@@ -78,9 +78,9 @@ def command(profile: dict, key: str) -> tuple[list[str], dict[str, str]]:
             *args,
         ]
         return argv, path
-    if runtime == "escha":
-        # The provider's script (escha-runtime-qwen3dense/sglang/serve.sh) reads only variables. Its python is the
-        # environment's (PATH), whether or not the script reads VENV.
+    if runtime in ("escha", "escha-moe"):
+        # The provider's script (escha-runtime-qwen3dense or -qwen3moe, sglang/serve.sh) reads only variables. Its
+        # python is the environment's (PATH), whether or not the script reads VENV. Each runtime has its own folder.
         env = {
             **path,
             "VENV": str(venv),
@@ -92,7 +92,7 @@ def command(profile: dict, key: str) -> tuple[list[str], dict[str, str]]:
             "TRITON_CACHE_DIR": str(WORKSPACE / "cache/triton"),
             **serve.get("env", {}),
         }
-        return ["bash", str(WORKSPACE / "escha/sglang/serve.sh")], env
+        return ["bash", str(WORKSPACE / runtime / "sglang/serve.sh")], env
     raise SystemExit(f"{name}: unknown runtime {runtime!r}")
 
 

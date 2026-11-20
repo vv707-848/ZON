@@ -1,0 +1,41 @@
+# Qwen3.6-35B-A3B بضغط Escha-W2 (EschaLabs): خبراء (MoE) بدقة 2/3-bit لكل إسقاط وطبقات كثيفة int8، نحو 12.3GB.
+# 35B معاملاً ونحو 3B نشطة لكل توكن: يُقرأ في كل توكن جزء صغير من الأوزان، فيُنتظر أن يسرع على A40 حيث بطؤ
+# Qwen3.8-27B الكثيف (القضية #119). المزوّد قاس 154 توكناً/ث لمستخدم واحد و390 بستة عشر معاً على RTX 3090، ويطابق
+# النموذج الكامل في التوكن الأرجح بنسبة 89.9%؛ ولم يقيّمه على العربية: يقيسها المختبر.
+# يعمل بوقت تشغيل المزوّد للخبراء (EschaLabs/escha-runtime-qwen3moe، مجلد sglang/)، في بيئته المستقلة venv-escha-moe.
+name = "qwen3.6-35b-a3b-escha-w2"
+weights = "EschaLabs/Qwen3.6-35B-A3B-Escha-W2"
+runtime = "escha-moe"
+licence = "Apache-2.0"
+
+# معاملات Qwen لوضع بلا تفكير، كما في ملفي Qwen3.8 كي تُقارن النتائج على شيء واحد.
+[sampling]
+json = { temperature = 0.3, top_p = 0.8, max_tokens = 700 }
+summary = { temperature = 0.4, top_p = 0.8, max_tokens = 600 }
+report = { temperature = 0.4, top_p = 0.8, max_tokens = 900 }
+chat = { temperature = 0.7, top_p = 0.8, max_tokens = 500, presence_penalty = 1.5 }
+
+# التفكير يُطفأ مرتين: في الخادم (THINK=0 أدناه) وفي كل طلب. بطاقة النموذج: الحقل داخل chat_template_kwargs حصراً، و
+# enable_thinking في أعلى الطلب يُهمَل.
+[request]
+top_k = 20
+chat_template_kwargs = { enable_thinking = false }
+
+# serve.sh في escha-runtime-qwen3moe يقرأ هذه المتغيرات، وافتراضاته موزونة لبطاقة 24GB:
+# - CTXLEN و MAXREQ و MAXMAMBA: سياق 32k لثمانية مسارات (= LLM_MAX_CONCURRENCY)؛ افتراض المسارات عنده 0 (يحسبها).
+# - MEM = 0.75: الأوزان 12.3GB من 48GB، والباقي لمخزن KV وحالة الطبقات التكرارية، ويبقى هامش لخادم التضمين.
+# - CUDA_GRAPH_BS يشمل أكبر دفعة (8)، و GRAPHS = 1.
+# - RADIX = 0: توصية المزوّد ما لم تتكرر بدايات الطلبات حرفياً (افتراضه 1).
+# - THINK = 0: يكتب قالب محادثة يطفئ التفكير افتراضياً، ولا يضيف محلل التفكير.
+# - INT8 = on: رأس المخرجات int8 كما خُزّن (الوضع auto يطفئه فوق 24GB).
+# لا TRUNCATE في هذا السكربت: SGLang يرفض افتراضياً الطلب الأطول من السياق، وهو ما نريد.
+[serve.env]
+CTXLEN = "32768"
+MAXREQ = "8"
+MAXMAMBA = "8"
+RADIX = "0"
+GRAPHS = "1"
+CUDA_GRAPH_BS = "1 2 4 8"
+THINK = "0"
+INT8 = "on"
+MEM = "0.75"
