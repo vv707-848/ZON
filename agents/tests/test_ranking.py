@@ -97,7 +97,7 @@ def test_a_broken_answer_is_tried_once_more_at_a_low_temperature(client: TestCli
     body = call(client, "search_listings", {"need": NEED, "candidates": _candidates(1, 2)})
 
     assert [r["id"] for r in body["output"]["results"]] == [2]
-    assert [temperature for *_, temperature in model.calls_of("search_listings")] == [0.3, 0.1]
+    assert [temperature for *_, temperature in model.calls_of("search_listings")] == [0.0, 0.1], "a ranking at 0"
 
 
 def test_when_the_embedding_server_is_down_laravel_takes_its_fallback(
@@ -249,7 +249,7 @@ def test_a_request_whose_own_budget_or_rooms_the_offer_breaks_comes_last(
 
     found = call(client, "search_requests", {"need": offer, "candidates": requests})["output"]["results"]
 
-    assert [r["id"] for r in found] == [3, 4, 1, 2]
+    assert [r["id"] for r in found] == [3, 4, 2, 1], "equal scores: the closest budget first, then what breaks last"
 
 
 def test_the_model_reads_at_most_15_search_and_8_matching_candidates_each_cut_at_400(
@@ -340,5 +340,60 @@ def test_the_developer_s_model_reads_15_searchers_and_8_unit_models_cut_at_350(
     assert {len(s["notes"]) for s in sent["searchers"]} == {350} and {len(u["desc"]) for u in sent["units"]} == {350}
     assert len(json_size := __import__("json").dumps(sent, ensure_ascii=False)) < 12000, json_size
     ids = [r["id"] for r in output["results"]]
-    assert ids[:5] == [5, 3, 4, 1, 2] and len(ids) == 10 and set(ids[5:]) <= {s["id"] for s in sent["searchers"]}
+    assert ids[:5] == [1, 2, 3, 4, 5] and len(ids) == 10 and set(ids[5:]) <= {s["id"] for s in sent["searchers"]}
     assert all(r["score"] <= 0.9 and r["unit_id"] is not None for r in output["results"][5:])
+
+
+def test_a_ranking_is_asked_at_temperature_0_and_an_exact_tie_goes_to_the_closest_budget_whatever_the_order(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """Stability (#119: 0.78 · 0.76 · 0.47 on the A40): the same candidates in the opposite order must give the same
+    first three. A sample drawn at 0.3 differs by itself, and equal scores kept the order the candidates came in."""
+    tied = [{"id": i, "score": 0.9} for i in (2, 5, 3)] + [{"id": 4, "score": 0.7}]
+    model.answers["search_listings"] = {"results": tied}
+    model.answers["matching"] = {"matched": tied, "broaden": []}
+    model.answers["match_searchers"] = {"results": [{"id": i, "score": 0.8, "unit_id": 40} for i in (7, 9, 8)]}
+    units = [{"id": 40, "type": "apartment", "price": 800000}]
+    searchers = [{"id": i, "type": "apartment", "budget_max": 850000} for i in (7, 8, 9)]
+
+    found = call(client, "search_listings", {"need": NEED, "candidates": _candidates(2, 3, 4, 5)})["output"]
+    pairs = call(client, "matching", {"need": NEED, "matched": _candidates(2, 3, 4, 5)})["output"]
+    seekers = call(client, "match_searchers", {"project": {}, "units": units, "searchers": searchers})["output"]
+
+    # equal scores: the price closest to the budget's top (950,000), then the lower id — whatever the order
+    assert [r["id"] for r in found["results"]] == [5, 3, 2, 4]
+    assert [r["id"] for r in pairs["matched"]] == [5, 3, 2, 4]
+    assert [r["id"] for r in seekers["results"]] == [7, 8, 9], "an equal fit: the lower id"
+    assert {agent: temperature for agent, _, temperature in model.calls} == {
+        "search_listings": 0.0,
+        "matching": 0.0,
+        "match_searchers": 0.0,
+    }
+
+
+def test_broaden_shows_no_offer_that_breaks_the_wish_s_rooms_or_budget(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """«توسيع الإدراك» is what the budget buys that serves the wish. The A40 put an offer a room short in its first
+    three in 2 of 12 cases, lists of three (zero_top3_broaden 16.7%): it is no option at all, so it is not shown.
+    «مطابق» keeps it, last — nothing of the seeker's own type and neighbourhood is hidden."""
+    need = {**NEED, "budget_max": 770_000, "bedrooms": 4}
+    floor = {"type": "floor", "neighborhood": "اليرموك", "desc": "دور مستقل"}
+    broaden = [
+        {"id": 31, **floor, "price": 650_000, "bedrooms": 3},  # a room short
+        {"id": 32, **floor, "price": 760_000, "bedrooms": 4},
+        {"id": 33, **floor, "price": 900_000, "bedrooms": 5},  # 17% over the budget
+    ]
+    matched = [{"id": 1, "type": "apartment", "neighborhood": "النرجس", "price": 700_000, "bedrooms": 3, "desc": "شقة"}]
+    model.answers["matching"] = {
+        "matched": [{"id": 1, "score": 0.8}],
+        "broaden": [{"id": i, "score": 0.9} for i in (31, 32, 33)],
+    }
+
+    output = call(client, "matching", {"need": need, "matched": matched, "broaden": broaden})["output"]
+    assert [r["id"] for r in output["broaden"]] == [32]
+    assert [r["id"] for r in output["matched"]] == [1]
+
+    model.answers["matching"] = httpx.ConnectError("down")
+    degraded = call(client, "matching", {"need": need, "matched": matched, "broaden": broaden})["output"]
+    assert [r["id"] for r in degraded["broaden"]] == [32], "with no model too"

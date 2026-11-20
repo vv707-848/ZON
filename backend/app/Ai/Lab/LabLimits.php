@@ -8,7 +8,10 @@ namespace App\Ai\Lab;
  */
 final class LabLimits
 {
-    /** p95 of one search or matching answer the user still does not feel (the hard limit is the 15 s budget). */
+    /**
+     * p95 of one search answer the user still does not feel (the hard limit is the 15 s budget). Matching runs for
+     * saved wishes twice a day in the background: its limit is `lab load`'s 15 s (owner's decision, 20 Nov 2026).
+     */
     public const SEARCH_P95_MS = 6000;
 
     /**
@@ -35,7 +38,7 @@ final class LabLimits
                 $unmet[] = "{$agent}: عرض يكسر الميزانية أو الغرف في الثلاثة الأولى بأكثر من 5% من الحالات";
             }
             $p95 = $agents[$agent]['latency_ms']['p95'] ?? null;
-            if (is_numeric($p95) && (int) $p95 > self::SEARCH_P95_MS) {
+            if ($agent === 'search_listings' && is_numeric($p95) && (int) $p95 > self::SEARCH_P95_MS) {
                 $unmet[] = "{$agent}: p95 ".number_format((int) $p95).' ms فوق '.number_format(self::SEARCH_P95_MS);
             }
             $stability = $agents[$agent]['variants']['reversed']['stability'] ?? null;

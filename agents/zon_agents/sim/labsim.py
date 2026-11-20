@@ -20,6 +20,7 @@ its ceiling is what the right answer scores with the rest in the given order, bu
 """
 
 import asyncio
+import math
 from collections import Counter
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
@@ -104,6 +105,9 @@ def _first_three(case: Case, name: str, answered: list[dict[str, Any]]) -> list[
     return [r["id"] for r in conditions_first(answered, Need(**case.input["need"]), shortlist)][:TOP]
 
 
+_BASE: dict[str, Case] = {}  # each case as given, while a run is verified
+
+
 def _bounds(agent: str) -> tuple[int, int]:
     """What a ranking model reads of a list, and what it writes."""
     if agent == "matching":
@@ -127,12 +131,19 @@ def _as_listed(
     """A list the way the pipeline makes it of an answer built by `build`: read, written, completed, conditions last."""
     size, writes = _bounds(case.agent)
     limit = int(case.input.get("limit", 10))
-    read = case.input.get(name, [])[:size]
+    base = _BASE.get(case.id, case)  # the lab's retrieval keeps the base case's set (variants.base_order)
+    keep = {c["id"] for c in base.input.get(name, [])[:size]}
+    read = [c for c in case.input.get(name, []) if c["id"] in keep]
     asked = min(limit, writes)
-    answered = _completed(build(grades, read, asked), read, asked, limit)
     kind = RequestCandidate if case.agent == "search_requests" else ListingCandidate
-    shortlist = [(kind(**candidate), 0.0) for candidate in read]
-    return conditions_first(answered, Need(**case.input["need"]), shortlist)
+    by_id = {candidate["id"]: kind(**candidate) for candidate in read}
+    need = Need(**case.input["need"])
+    gap = ranking.budget_gap(need, [(c, 0.0) for c in by_id.values()])
+    answered = _completed(ranking.canonical(build(grades, read, asked), gap), read, asked, limit)
+    listed = conditions_first(answered, need, [(c, 0.0) for c in by_id.values()])
+    if name == "broaden":  # what breaks the wish's rooms or budget is not «what the budget buys» at all
+        listed = [r for r in listed if not ranking.breaks(need, by_id[r["id"]])]
+    return listed
 
 
 def _worst_three(case: Case, suffix: str, grades: Grades) -> list[int]:
@@ -174,9 +185,9 @@ def _searchers_listed(case: Case, written: Written) -> dict[str, Any]:
     nearest = Counter(unit for (_, unit), _ in fits if unit is not None)
     shown = {u.id for u in sorted(units, key=lambda u: -nearest[u.id])[: ranking.SEARCHER_UNITS]}
     asked = min(limit, writes)
-    given = [
-        {**r, "unit_id": r["unit_id"] if r["unit_id"] in shown else None} for r in written([s for _, s in fits], asked)
-    ]
+    distance = {s["id"]: d for (d, _), s in fits}
+    picked = ranking.canonical(written([s for _, s in fits], asked), lambda i: distance.get(i, math.inf))
+    given = [{**r, "unit_id": r["unit_id"] if r["unit_id"] in shown else None} for r in picked]
     if len(given) < asked:
         return {"results": given}
     taken = {r["id"] for r in given}
@@ -301,6 +312,8 @@ CHECKS: dict[str, Callable[[Outcome, Case], list[str]]] = {
 def verify(name: str, outcomes: Sequence[Outcome], cases: Sequence[Case]) -> list[str]:
     """Everything that is not as known before the run (empty = every result as known)."""
     by_id = {case.id: case for case in cases}
+    _BASE.clear()
+    _BASE.update(by_id)
 
     def asked(outcome: Outcome) -> Case:  # the variant's own case: its candidates in its own order
         base = by_id[outcome.case]

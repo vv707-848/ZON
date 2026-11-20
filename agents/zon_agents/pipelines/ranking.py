@@ -17,8 +17,9 @@ If the model fails, the answer is `degraded`: the hybrid order with its scores. 
 fails, the call fails (503) and Laravel answers with the SQL order (§7 «سياسة الفشل»).
 """
 
+import math
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from zon_agents.embeddings import Embedding
@@ -102,6 +103,25 @@ def _checked(
     return out
 
 
+def canonical(results: list[dict[str, Any]], gap: Callable[[int], float] = lambda _: 0.0) -> list[dict[str, Any]]:
+    """What the model wrote, by its score; an exact tie goes to the closest to the budget (`gap`), then the lower
+    id — the prompts' own rule and the rule model's, so two equal answers never take the order the candidates came
+    in (#119, stability)."""
+    return sorted(results, key=lambda r: (-r["score"], gap(r["id"]), r["id"]))
+
+
+def budget_gap(need: Need, shortlist: Sequence[tuple[Candidate, float]]) -> Callable[[int], float]:
+    """How far a candidate's price (a request: its budget) is from the top of the budget (the broker's price)."""
+    by_id = {c.id: c for c, _ in shortlist}
+
+    def gap(i: int) -> float:
+        c = by_id.get(i)
+        value = None if c is None else c.budget_max if isinstance(c, RequestCandidate) else c.price
+        return abs(value - need.budget_max) if value is not None and need.budget_max is not None else math.inf
+
+    return gap
+
+
 def _then_retrieval(
     written: list[dict[str, Any]], shortlist: Sequence[tuple[Candidate, float]], asked: int, limit: int
 ) -> list[dict[str, Any]]:
@@ -121,7 +141,7 @@ def _then_retrieval(
     return out
 
 
-def _breaks(need: Need, candidate: Candidate) -> bool:
+def breaks(need: Need, candidate: Candidate) -> bool:
     """The candidate breaks a condition of the need that both state in numbers. A request is read the other way
     round: the need is the broker's offer, and the condition is the request's own budget and rooms."""
     if isinstance(candidate, RequestCandidate):
@@ -135,12 +155,16 @@ def _breaks(need: Need, candidate: Candidate) -> bool:
     return over or few
 
 
+def _broken(need: Need, shortlist: Sequence[tuple[Candidate, float]]) -> set[int]:
+    return {c.id for c, _ in shortlist if breaks(need, c)}
+
+
 def conditions_first(
     results: list[dict[str, Any]], need: Need, shortlist: Sequence[tuple[Candidate, float]]
 ) -> list[dict[str, Any]]:
     """What breaks a condition after what does not, each group in the order it had; a result moved down does not
     keep a score above the ones now before it."""
-    broken = {c.id for c, _ in shortlist if _breaks(need, c)}
+    broken = {c.id for c, _ in shortlist if breaks(need, c)}
     kept = [r for r in results if r["id"] not in broken]
     late = [r for r in results if r["id"] in broken]
     if not kept or not late:
@@ -183,11 +207,11 @@ async def _rank_one(
     asked = min(limit, SEARCH_WRITES)
     payload = {"need": need.model_dump(exclude_none=True), "candidates": _context(shortlist), "limit": asked}
     try:
-        answer = await ctx.llm.run(agent, payload, SearchAnswer, "json")
+        answer = await ctx.llm.run(agent, payload, SearchAnswer, "rank")
     except ModelFailed as exc:
         plain = conditions_first(_plain(shortlist, limit), need, shortlist)
         return Result({"results": plain}, degraded=True, log={"llm": exc.reason})
-    written = _checked(answer.output.results, shortlist, asked)
+    written = canonical(_checked(answer.output.results, shortlist, asked), budget_gap(need, shortlist))
     output = {"results": conditions_first(_then_retrieval(written, shortlist, asked, limit), need, shortlist)}
     return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
 
@@ -216,21 +240,32 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
         "limit": asked,
     }
     try:
-        answer = await ctx.llm.run("matching", payload, MatchingAnswer, "json")
+        answer = await ctx.llm.run("matching", payload, MatchingAnswer, "rank")
     except ModelFailed as exc:
+        broken = _broken(req.need, broaden)
         output = {
             "matched": conditions_first(_plain(matched, req.limit), req.need, matched),
-            "broaden": conditions_first(_plain(broaden, req.limit), req.need, broaden),
+            "broaden": [r for r in _plain(broaden, req.limit) if r["id"] not in broken],
             "units": unit_scores,
         }
         return Result(output, degraded=True, log={"llm": exc.reason})
     lists = {"matched": (answer.output.matched, matched), "broaden": (answer.output.broaden, broaden)}
     ranked: dict[str, Any] = {
         name: conditions_first(
-            _then_retrieval(_checked(given, shortlist, asked), shortlist, asked, req.limit), req.need, shortlist
+            _then_retrieval(
+                canonical(_checked(given, shortlist, asked), budget_gap(req.need, shortlist)),
+                shortlist,
+                asked,
+                req.limit,
+            ),
+            req.need,
+            shortlist,
         )
         for name, (given, shortlist) in lists.items()
     }
+    # «توسيع الإدراك» is what the budget buys that serves the wish: an offer that breaks its stated rooms or budget
+    # is not one (#119: the zero-graded broaden offers were all a room or more short, in lists of three)
+    ranked["broaden"] = [r for r in ranked["broaden"] if r["id"] not in _broken(req.need, broaden)]
     return Result({**ranked, "units": unit_scores}, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
 
 
@@ -276,7 +311,7 @@ async def match_searchers(ctx: Ctx, data: dict[str, Any]) -> Result:
         "limit": asked,
     }
     try:
-        answer = await ctx.llm.run("match_searchers", payload, SearchersAnswer, "json")
+        answer = await ctx.llm.run("match_searchers", payload, SearchersAnswer, "rank")
     except ModelFailed as exc:
         plain = [
             {"id": s.id, "score": round(1 / (1 + distance), 3), "unit_id": unit}
@@ -294,6 +329,8 @@ async def match_searchers(ctx: Ctx, data: dict[str, Any]) -> Result:
         results.append({"id": item.id, "score": round(item.score, 3), "unit_id": unit})
         if len(results) == asked:
             break
+    closeness = {s.id: d for (d, _), s in fits}
+    results = canonical(results, lambda i: closeness.get(i, math.inf))
     if len(results) == asked:  # all it was asked: the rest by closeness, each with its nearest model
         floor = min((r["score"] for r in results), default=1.0)
         for (distance, unit), s in fits:

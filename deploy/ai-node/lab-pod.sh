@@ -172,5 +172,38 @@ STEP="report"
 } > "$W/logs/tables-$STAMP.md"
 post "$W/logs/tables-$STAMP.md"
 
+# ⑥½ what each case that missed wrote, in a second comment: the tables say how many, this says which and why — read
+# without a Pod after the run (#119: the chat's language and «covered» could not be read from the tables)
+python3 - "$W/reports/lab-$PROFILE-$STAMP.json" "$W/logs/missed-$STAMP.md" <<'PY' && post "$W/logs/missed-$STAMP.md" || true
+import json, sys
+try:
+    report = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, ValueError):
+    sys.exit(1)
+lines, top = [], {}
+for o in report.get("outcomes", []):
+    out = o.get("output") or {}
+    for name in ("results", "matched"):
+        if isinstance(out.get(name), list):
+            top[(o["case"], o["variant"])] = {r.get("id") for r in out[name][:3]}
+            break
+    missed = o.get("error") or (o["agent"] in ("chat", "report_write", "clean_listing", "summarize") and o["score"] < 1)
+    if o["variant"] != "base" or not missed:
+        continue
+    said = out.get("answer") or out.get("analysis") or out.get("desc_clean") or out.get("summary") or ""
+    if o["agent"] == "report_write":
+        said = " | ".join([said, *(r.get("text", "") for r in out.get("recommendations", []))])
+    bad = {k: v for k, v in o.get("metrics", {}).items() if v != 1}
+    why = o.get("error") or f"score {o['score']} {json.dumps(bad, ensure_ascii=False)}"
+    lines.append(f"- `{o['case']}` ({o['agent']}): {why}\n  → {' '.join(str(said).split())[:280]}")
+flips = sorted(c for (c, v), ids in top.items() if v == "reversed" and top.get((c, "base")) not in (None, ids))
+if flips:
+    lines.append("- top three changed when reversed: " + ", ".join(f"`{c}`" for c in flips))
+if not lines:
+    sys.exit(1)
+body = "**what the cases that missed wrote** (lab run)\n\n" + "\n".join(lines)
+open(sys.argv[2], "w", encoding="utf-8").write(body[:60000])
+PY
+
 # ⑦ stop the Pod (finish) — billing is by the second; the volume stays until deleted
 STEP="done"

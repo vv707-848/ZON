@@ -17,7 +17,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from zon_agents.lab.scoring import norm
+from zon_agents.numbers import norm
 from zon_agents.pipelines.base import scrub
 from zon_agents.pipelines.ranking import OVER_BUDGET
 

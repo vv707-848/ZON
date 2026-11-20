@@ -13,8 +13,9 @@ from tests.conftest import ScriptedModel
 from zon_agents.lab.cases import EXPECTS, Case, check, load_cases
 from zon_agents.lab.load import FREE_TEXT, SIZES, load, production_size
 from zon_agents.lab.runner import RANKING, Outcome, refused, report, run_cases, sample
-from zon_agents.lab.scoring import ndcg, number_guard, score
+from zon_agents.lab.scoring import ndcg, score
 from zon_agents.llm import LLM, ModelFailed
+from zon_agents.numbers import number_guard
 from zon_agents.profiles import load_profile, load_profiles
 from zon_agents.sim import labsim
 
@@ -367,3 +368,19 @@ def test_a_profile_as_a_host_serves_it_keeps_the_sampling_and_takes_the_hosts_ex
     assert hosted.settings("json")["extra_body"] == {"reasoning": {"effort": "none"}}, "not our engine's switches"
     assert hosted.serve.args == [] and not hosted.simulated
     assert "hosted" not in {p.runtime for p in load_profiles().values()}, "never a file the AI node would serve"
+
+
+def test_a_reversed_case_reads_the_same_shortlist_in_the_opposite_order() -> None:
+    """The lab's retrieval stands in for Qdrant, which chooses the shortlist by the user's text: reversing the list
+    Laravel sent changes the order, never the set (#119: reading 8 of 9, the reversed case read another set, and the
+    right answer itself fell under the stability limit)."""
+    from zon_agents.embeddings import Embedding
+    from zon_agents.lab.runner import FixedRetrieval
+
+    order = {i: n for n, i in enumerate(range(1, 10))}
+    query = Embedding([], [], [], [])
+    base = asyncio.run(FixedRetrieval([], order).rank("listings", query, list(range(1, 10)), 8))
+    flipped = asyncio.run(FixedRetrieval([], order).rank("listings", query, list(range(9, 0, -1)), 8))
+
+    assert [h.id for h in base] == [1, 2, 3, 4, 5, 6, 7, 8]
+    assert [h.id for h in flipped] == [8, 7, 6, 5, 4, 3, 2, 1], "the same eight, the other way round"

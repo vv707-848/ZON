@@ -21,7 +21,7 @@ from zon_agents.embeddings import Embedding
 from zon_agents.errors import DependencyUnavailable
 from zon_agents.lab.cases import Case, digest
 from zon_agents.lab.scoring import ids, score, stability
-from zon_agents.lab.variants import variants
+from zon_agents.lab.variants import base_order, variants
 from zon_agents.llm import LLM, LlmResult, ModelFailed
 from zon_agents.pipelines import PIPELINES
 from zon_agents.pipelines.base import Ctx, Result
@@ -55,15 +55,18 @@ class FixedRetrieval:
     """The shortlist in the order the candidates came (Laravel's: the closest price first), and the case's
     passages for the chat — so the model alone decides the answer."""
 
-    def __init__(self, passages: Sequence[KnowledgeChunk]) -> None:
+    def __init__(self, passages: Sequence[KnowledgeChunk], order: dict[int, int] | None = None) -> None:
         self._passages = list(passages)
+        self._order = order or {}
 
     async def query(self, text: str, terms: Sequence[str] = ()) -> Embedding:
         return Embedding([], [], [], [])
 
     async def rank(self, collection: str, query: Embedding, ids: Sequence[int], limit: int) -> list[Hit]:
         size = max(len(ids), 1)
-        return [Hit(i, round(1 - position / (2 * size), 3)) for position, i in enumerate(list(ids)[:limit])]
+        chosen = set(sorted(ids, key=lambda i: self._order.get(i, len(self._order)))[:limit])  # the same set
+        given = [i for i in ids if i in chosen]  # in the order it came
+        return [Hit(i, round(1 - position / (2 * size), 3)) for position, i in enumerate(given)]
 
     async def knowledge(self, question: str, today: date) -> list[KnowledgeChunk]:
         return list(self._passages)
@@ -144,9 +147,15 @@ class Pace:
 
 
 async def _one(
-    llm: LLM, case: Case, variant: str, round_: int, slots: asyncio.Semaphore, pace: Pace | None = None
+    llm: LLM,
+    case: Case,
+    variant: str,
+    round_: int,
+    slots: asyncio.Semaphore,
+    pace: Pace | None = None,
+    order: dict[int, int] | None = None,
 ) -> Outcome:
-    ctx = Ctx(llm, FixedRetrieval(_passages(case)), today=lambda: TODAY)
+    ctx = Ctx(llm, FixedRetrieval(_passages(case), order), today=lambda: TODAY)
 
     def outcome(
         error: str | None, elapsed: int, result: Result | None = None, value: float = 0.0, metrics: Any = None
@@ -207,7 +216,7 @@ async def floors(llm: LLM, cases: Sequence[Case]) -> dict[str, float]:
     scores: dict[str, list[float]] = defaultdict(list)
     for case in cases:
         if case.agent in RANKING:
-            ctx = Ctx(silent, FixedRetrieval(_passages(case)), today=lambda: TODAY)
+            ctx = Ctx(silent, FixedRetrieval(_passages(case), base_order(case)), today=lambda: TODAY)
             result = await PIPELINES[case.agent](ctx, dict(case.input))
             scores[case.agent].append(score(case, result.output).value)
     return {agent: _mean(values) for agent, values in sorted(scores.items())}
@@ -234,18 +243,19 @@ async def run_cases(
     refusal would otherwise be scored as the model's failure."""
     pace = Pace(per_minute, tokens_per_minute) if per_minute or tokens_per_minute else None
     slots = asyncio.Semaphore(1 if pace else concurrency)
-    jobs: list[tuple[Case, str, int]] = []
+    jobs: list[tuple[Case, str, int, dict[int, int]]] = []
     for round_ in range(1, repeat + 1):
         for case in cases:
-            jobs.append((case, "base", round_))
+            order = base_order(case)
+            jobs.append((case, "base", round_, order))
             if with_variants:
-                jobs += [(changed, name, round_) for name, changed in variants(case)]
+                jobs += [(changed, name, round_, order) for name, changed in variants(case)]
 
-    async def tracked(case: Case, variant: str, round_: int) -> Outcome:
-        result = await _one(llm, case, variant, round_, slots, pace)
+    async def tracked(case: Case, variant: str, round_: int, order: dict[int, int]) -> Outcome:
+        result = await _one(llm, case, variant, round_, slots, pace, order)
         if pace is not None and refused(result.error):
             await asyncio.sleep(wait_when_refused)
-            result = await _one(llm, case, variant, round_, slots, pace)
+            result = await _one(llm, case, variant, round_, slots, pace, order)
         if progress is not None:
             progress(result)
         return result

@@ -160,6 +160,9 @@ def test_the_analysis_covers_every_part_and_a_proposal_is_only_one_of_the_catalo
             },
             {"text": "متابعة الأسعار", "action": None, "params": {"days": 30}},
             {"text": " 0551234567 ", "action": None, "params": {}},
+            # a number the rows do not hold: Laravel's NumberGuard would drop the whole analysis for it (#119)
+            {"text": "رفع العروض 15% في النرجس", "action": None, "params": {}},
+            {"text": "تمييز عروض النرجس حيث 38 طلباً", "action": None, "params": {}},
         ],
     }
 
@@ -170,6 +173,7 @@ def test_the_analysis_covers_every_part_and_a_proposal_is_only_one_of_the_catalo
         "recommendations": [
             {"text": "دعوة وسطاء الرياض", "action": "announce", "params": {"audience": "broker", "city": "الرياض"}},
             {"text": "متابعة الأسعار", "action": None, "params": {}},
+            {"text": "تمييز عروض النرجس حيث 38 طلباً", "action": None, "params": {}},
         ],
     }
     assert [p["report"] for p in model.calls_of("report_write")[0][1]["parts"]] == [

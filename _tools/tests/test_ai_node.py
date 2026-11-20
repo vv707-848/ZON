@@ -103,7 +103,10 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         write(w / "venv-tools" / "bin" / "uv", "#!/bin/sh\nexit 0\n", True)
         write(w / "zon" / "agents" / ".venv" / "bin" / "zon-agents",
               '#!/bin/sh\necho "$*" >> "$TEST_DIR/lab"\necho "| table of $1 $2 |"\n'
-              'case "$*" in *--sample*) echo "overall 0.5 → warm" ;; esac\n', True)
+              'case "$*" in *--sample*) echo "overall 0.5 → warm" ;; esac\n'
+              'if [ "$1 $2" = "lab run" ] && [ -n "${FAKE_REPORT:-}" ]; then prev=""; for a in "$@"; do\n'
+              '  [ "$prev" = "--out" ] && out="$a"; prev="$a"; done\n'
+              '  case "$*" in *--sample*) ;; *) cp "$FAKE_REPORT" "$out" ;; esac; fi\n', True)
         self.env = {
             "PATH": f"{bin_}:{os.environ['PATH']}", "HOME": str(self.dir), "TEST_DIR": str(self.dir),
             "ZON_WORKSPACE": str(w), "ZON_GITHUB_API": f"http://127.0.0.1:{self.server.server_port}",
@@ -144,6 +147,29 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         self.assertIn("overall 0.5 → warm", body)
         self.assertLess(body.index("**warm-up**"), body.index("**lab run**"))
         self.assertEqual(body.count("| table of lab run |"), 1, "the warm-up's own table is not the lab's")
+
+    def test_what_the_missed_cases_wrote_is_posted_after_the_tables(self) -> None:
+        report = self.dir / "report.json"
+        outcomes = [
+            {"case": "chat-018", "agent": "chat", "variant": "base", "score": 0.0, "error": None,
+             "metrics": {"covered": 1.0, "lang": 0.0}, "output": {"answer": "باقة الباحث بـ 199 ريال"}},
+            {"case": "chat-001", "agent": "chat", "variant": "base", "score": 1.0, "error": None, "metrics": {},
+             "output": {"answer": "right"}},
+            {"case": "search-004", "agent": "search_listings", "variant": "base", "score": 0.9, "error": None,
+             "metrics": {}, "output": {"results": [{"id": 1}, {"id": 2}, {"id": 3}]}},
+            {"case": "search-004", "agent": "search_listings", "variant": "reversed", "score": 0.9, "error": None,
+             "metrics": {}, "output": {"results": [{"id": 1}, {"id": 2}, {"id": 9}]}},
+        ]
+        report.write_text(json.dumps({"outcomes": outcomes}, ensure_ascii=False), encoding="utf-8")
+        result = self.run_lab(FAKE_REPORT=str(report))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(len(GitHub.comments), 2, "the tables, then what missed")
+        missed = GitHub.comments[1]["body"]
+        self.assertIn("`chat-018` (chat)", missed)
+        self.assertIn('"lang": 0.0', missed)
+        self.assertIn("→ باقة الباحث بـ 199 ريال", missed)
+        self.assertNotIn("chat-001", missed, "a case that scored 1 is not listed")
+        self.assertIn("top three changed when reversed: `search-004`", missed)
 
     def test_an_engine_that_dies_is_reported_with_its_step_and_the_pod_stops(self) -> None:
         result = self.run_lab(ENGINE_DIES="1")

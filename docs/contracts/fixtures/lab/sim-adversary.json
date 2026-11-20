@@ -76,15 +76,15 @@
     "ndcg_matched": 0.6528,
     "top1_broaden": 0.0833,
     "top1_matched": 0.0,
-    "zero_top3_broaden": 0.1667,
+    "zero_top3_broaden": 0.0,
     "zero_top3_matched": 0.0
    },
    "score": 0.7146,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.6969,
-     "stability": 0.8056
+     "score": 0.7185,
+     "stability": 1.0
     }
    }
   },

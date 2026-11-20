@@ -15,7 +15,7 @@ from pydantic_ai.settings import ModelSettings
 
 PROFILES_DIR = Path(__file__).parent / "models"
 
-Use = Literal["json", "summary", "report", "chat"]
+Use = Literal["json", "summary", "report", "chat", "rank"]
 USES: tuple[Use, ...] = ("json", "summary", "report", "chat")
 
 
@@ -65,9 +65,12 @@ class ModelProfile(BaseModel):
 
     def settings(self, use: Use, *, temperature: float | None = None) -> ModelSettings:
         """The settings of one call: the use's sampling, the request extras, and a temperature for a retry."""
-        sampling = self.sampling[use]
+        # a ranking is the json sampling at temperature 0: the same candidates, the same answer — what the lab's
+        # `stability` reads is then the order they came in, not the sample drawn (#119)
+        sampling = self.sampling["json" if use == "rank" else use]
+        fixed = 0.0 if use == "rank" else sampling.temperature
         settings = ModelSettings(
-            temperature=sampling.temperature if temperature is None else temperature,
+            temperature=fixed if temperature is None else temperature,
             top_p=sampling.top_p,
             max_tokens=sampling.max_tokens,
             extra_body=dict(self.request),
