@@ -41,7 +41,13 @@ from zon_agents.schemas.agents import (
 )
 from zon_agents.store import LISTINGS, PROJECT_UNITS, REQUESTS
 
-SHORTLIST = 30  # candidates the model reads after the hybrid query (§10.1 step 8 → 9)
+# What the model reads after the hybrid query (§10.1 step 8 → 9): a shortlist, each description cut. The owner's
+# bounds (20 Nov 2026, issue #119): at production's 30 candidates of 600 characters, eight users at once ran past the
+# 15-second budget on the A40, and a listing's facts are fields while its description is a short note.
+SEARCH_SHORTLIST = 15  # search_listings · search_requests
+MATCHING_SHORTLIST = 17  # matching: «مطابق» and «توسيع الإدراك», each
+DESC_CHARS = 400  # a candidate's description as the ranking model reads it (clean_listing reads a listing whole)
+SHORTLIST = 30  # unit models (scored by retrieval, not shown to the model) · match_searchers' unit models
 OVER_BUDGET = 1.10  # a price above the top of the budget by more than this breaks it (docs/model-lab.md)
 
 Candidate = ListingCandidate | UnitCandidate | RequestCandidate
@@ -121,18 +127,23 @@ def _plain(shortlist: Sequence[tuple[Candidate, float]], limit: int) -> list[dic
 
 
 def _context(shortlist: Sequence[tuple[Candidate, float]]) -> list[dict[str, Any]]:
-    return [c.model_dump(exclude_none=True) for c, _ in shortlist]
+    """The candidates as the model reads them: their fields, and the description cut at DESC_CHARS."""
+    return [{**c.model_dump(exclude_none=True), "desc": c.desc[:DESC_CHARS]} for c, _ in shortlist]
 
 
 async def search_listings(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(SearchListingsInput, data)
-    shortlist = await _shortlist(ctx, LISTINGS, await _query(ctx, req.need, req.terms), req.candidates)
+    shortlist = await _shortlist(
+        ctx, LISTINGS, await _query(ctx, req.need, req.terms), req.candidates, SEARCH_SHORTLIST
+    )
     return await _rank_one(ctx, "search_listings", req.need, shortlist, req.limit)
 
 
 async def search_requests(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(SearchRequestsInput, data)
-    shortlist = await _shortlist(ctx, REQUESTS, await _query(ctx, req.need, req.terms), req.candidates)
+    shortlist = await _shortlist(
+        ctx, REQUESTS, await _query(ctx, req.need, req.terms), req.candidates, SEARCH_SHORTLIST
+    )
     return await _rank_one(ctx, "search_requests", req.need, shortlist, req.limit)
 
 
@@ -158,8 +169,10 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(MatchingInput, data)
     query = await _query(ctx, req.need, req.terms)
     matched_ids = {c.id for c in req.matched}
-    matched = await _shortlist(ctx, LISTINGS, query, req.matched)
-    broaden = await _shortlist(ctx, LISTINGS, query, [c for c in req.broaden if c.id not in matched_ids])
+    matched = await _shortlist(ctx, LISTINGS, query, req.matched, MATCHING_SHORTLIST)
+    broaden = await _shortlist(
+        ctx, LISTINGS, query, [c for c in req.broaden if c.id not in matched_ids], MATCHING_SHORTLIST
+    )
     units = await _shortlist(ctx, PROJECT_UNITS, query, req.units)
     unit_scores = [{"id": c.id, "score": score} for c, score in units[: req.limit]]
     if not matched and not broaden:

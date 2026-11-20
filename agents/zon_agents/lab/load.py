@@ -1,9 +1,10 @@
 """«lab load»: the ranking cases at the sizes production sends, several at once, on the node itself.
 
 What the golden cases cannot say: their inputs are a few candidates with short descriptions (search: under 4,000
-characters), while production sends up to 30 candidates of 600 characters each — two lists of 30 in matching, and up
-to 100 unit models and 60 seekers to the project's searchers. That is what decides whether the context (CTXLEN) is
-enough, and whether a prompt read on the card fits the time budget when users ask at the same time.
+characters), while Laravel sends candidates of up to 600 characters each, of which the model reads a shortlist — 15
+in search, 17 per list in matching, each description cut at 400 (pipelines/ranking.py, issue #119) — and up to 100
+unit models and 60 seekers to the project's searchers. That is what decides whether the context (CTXLEN) is enough,
+and whether a prompt read on the card fits the time budget when users ask at the same time.
 
 Each agent's first case is filled to those sizes (its own candidates repeated under new ids, its own texts repeated
 to the limit Laravel cuts them at), then asked [at_once] at a time for [rounds] rounds. Per agent: the input tokens
@@ -24,9 +25,10 @@ from zon_agents.llm import LLM
 from zon_agents.pipelines import PIPELINES
 from zon_agents.pipelines.base import Ctx
 
-# list field → (items, characters of its text): Laravel's bounds (ListingCandidates · RequestCandidates · UnitCandidates
-# cut a description at 600, DeveloperMatching a unit's at 400, ProjectAudience a seeker's notes at 500), and the
-# agents' own (a shortlist of 30 per list; the project's searchers are cut to 60 after the fit, from up to 200).
+# list field → (items, characters of its text) as Laravel sends them (ListingCandidates · RequestCandidates ·
+# UnitCandidates cut a description at 600, DeveloperMatching a unit's at 400, ProjectAudience a seeker's notes at 500).
+# The pipelines then cut what the model reads, as in production: the ranking shortlists (15 · 17 per list, each
+# description at 400) and the project's searchers (60 after the fit, from up to 200).
 SIZES: dict[str, dict[str, tuple[int, int]]] = {
     "search_listings": {"candidates": (30, 600)},
     "search_requests": {"candidates": (30, 600)},
