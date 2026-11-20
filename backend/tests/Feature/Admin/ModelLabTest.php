@@ -43,6 +43,12 @@ class ModelLabTest extends AdminTestCase
                 'search_listings' => $agent(0.88, ['ndcg' => 0.88, 'zero_top3' => 0.03, 'inject_top3' => 0.0], variants: ['reversed' => ['score' => 0.87, 'failed' => 0, 'stability' => 0.9]]),
                 'clean_listing' => $agent(0.83, ['invented' => 0.98]),
                 'report_write' => $agent(0.9, ['guard' => 1.0]),
+                'search_requests' => $agent(0.86, ['ndcg' => 0.86, 'inject_top3' => 0.0]),
+                'match_searchers' => $agent(0.93),
+                'chat' => $agent(0.95),
+                'report_explore' => $agent(0.8),
+                'report_select' => $agent(0.9),
+                'summarize' => $agent(0.92),
             ],
             'throughput' => ['calls' => 308, 'tokens_in' => 400000, 'tokens_out' => 60000, 'tokens_out_per_s' => 73.9],
             'outcomes' => [
@@ -119,6 +125,14 @@ class ModelLabTest extends AdminTestCase
             $this->assertStringContainsString($reason, $unmet);
         }
         $this->assertStringNotContainsString('matching: p95', $unmet);
+
+        $agents['search_requests']['latency_ms']['p95'] = 9000;   // review of 21 Nov: it passed at 9 s
+        $agents['matching']['latency_ms']['p95'] = 16000;
+        $partial = array_diff_key($agents, ['summarize' => true]);
+        $unmet = implode(' | ', LabLimits::unmet($partial));
+        foreach (['search_requests: p95 9,000 ms فوق 6,000', 'matching: p95 16,000 ms فوق 15,000', 'قياس ناقص، لا نتائج لـ: summarize'] as $reason) {
+            $this->assertStringContainsString($reason, $unmet);
+        }
     }
 
     /**
@@ -133,8 +147,8 @@ class ModelLabTest extends AdminTestCase
         $this->assertSame([], LabLimits::unmet($run('oracle')), 'the right answer on every case passes every limit');
 
         $adversary = implode("\n", LabLimits::unmet($run('adversary')));
-        foreach (['search_listings: عرض يكسر', 'clean_listing: أضاف ما لم يقله', 'report_write: NumberGuard', 'search_listings: درجته 0.571 لا تتجاوز الترتيب بلا نموذج (0.803)',
-            'search_requests: درجته 0.598 لا تتجاوز', 'matching: درجته 0.715 لا تتجاوز'] as $reason) {
+        foreach (['search_listings: عرض يكسر', 'clean_listing: أضاف ما لم يقله', 'report_write: NumberGuard', 'search_listings: درجته 0.571 لا تتجاوز الترتيب بلا نموذج (0.804)',
+            'search_requests: درجته 0.598 لا تتجاوز', 'matching: درجته 0.716 لا تتجاوز'] as $reason) {
             $this->assertStringContainsString($reason, $adversary);
         }
         // the service itself puts what breaks a stated budget or room count last (agents: pipelines/ranking.py), so the
@@ -143,7 +157,7 @@ class ModelLabTest extends AdminTestCase
             $this->assertStringNotContainsString($kept_out, $adversary);
         }
         $positional = implode("\n", LabLimits::unmet($run('positional')));
-        foreach (['search_listings: يتغير ترتيبه إذا انعكس ترتيب المرشحين (الثبات 2%)', 'matching: يتغير ترتيبه', 'search_listings: درجته 0.803 لا تتجاوز الترتيب بلا نموذج (0.803)'] as $reason) {
+        foreach (['search_listings: يتغير ترتيبه إذا انعكس ترتيب المرشحين (الثبات 2%)', 'matching: يتغير ترتيبه', 'search_listings: درجته 0.804 لا تتجاوز الترتيب بلا نموذج (0.804)'] as $reason) {
             $this->assertStringContainsString($reason, $positional);
         }
         $this->assertStringContainsString('ردود فاشلة في: chat، clean_listing', implode("\n", LabLimits::unmet($run('broken'))));

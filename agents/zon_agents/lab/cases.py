@@ -79,6 +79,7 @@ class CleanExpect(_Strict):
 class SummaryExpect(_Strict):
     signals: Terms = []
     keep: Terms = []
+    avoid: list[str] = []  # what turns a note into its opposite: «يرفض 2800» of an owner who would come down to it
     confidence: list[Literal["high", "medium", "low"]]
 
 

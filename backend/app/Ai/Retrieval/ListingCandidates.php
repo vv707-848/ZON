@@ -41,6 +41,9 @@ final class ListingCandidates
         return $this->base($need, $viewer, wholeCity: true)
             ->where('price', '<=', $need->budgetMax)->whereKeyNot($except)
             ->when($need->area !== null, fn (Builder $q) => $q->whereRaw('COALESCE(area_built, area_land) >= ?', [$need->area * (float) config('zon.ai.broaden_area_share')]))
+            // an offer short of the wish's rooms serves no one as an alternative (agents: ranking.matching), and with
+            // the agents down these rows are the list itself (review of 21 Nov)
+            ->when($need->bedrooms !== null, fn (Builder $q) => $q->where('bedrooms', '>=', $need->bedrooms))
             ->limit((int) config('zon.ai.candidates_limit'))->get();
     }
 

@@ -5,7 +5,11 @@ namespace App\Http\Controllers\Api\V1;
 use App\Ai\Capture\TrainingCapture;
 use App\Ai\Masking\AiMasking;
 use App\Enums\NoteCategory;
+use App\Enums\TextReview;
 use App\Http\Controllers\Controller;
+use App\Indexing\IndexSync;
+use App\Jobs\CleanListingText;
+use App\Models\Listing;
 use App\Models\OwnerNote;
 use App\Models\PropertyOwner;
 use App\Support\Api;
@@ -26,6 +30,7 @@ class PropertyOwnerController extends Controller
     public function store(Request $request): JsonResponse
     {
         $owner = $request->user('api')->propertyOwners()->create($this->validated($request, null));
+        $this->namedOn($owner);
 
         return Api::created($this->present($owner));
     }
@@ -41,8 +46,25 @@ class PropertyOwnerController extends Controller
     {
         Ownership::assert($owner, $request->user('api'));
         $owner->fill($this->validated($request, $owner))->save();
+        $this->namedOn($owner);
 
         return Api::ok($this->present($owner));
+    }
+
+    /**
+     * The app saves a broker's owner card after the listing it belongs to (listing_form.dart): the wording may have
+     * gone out without the owner's name to mask. A listing still in review is asked again, and reindexed, with it.
+     */
+    private function namedOn(PropertyOwner $owner): void
+    {
+        $listing = $owner->listing_id === null ? null : Listing::query()->find($owner->listing_id);
+        if ($listing === null || ! ($owner->wasRecentlyCreated || $owner->wasChanged(['name', 'listing_id']))) {
+            return;
+        }
+        if ($listing->text_review === TextReview::Pending) {
+            CleanListingText::sendFor($listing->id);
+        }
+        app(IndexSync::class)->listing($listing);
     }
 
     public function destroy(Request $request, PropertyOwner $owner): JsonResponse

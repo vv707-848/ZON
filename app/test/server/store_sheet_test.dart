@@ -154,6 +154,16 @@ void main() {
       expect(sheet.finished, <String>['play-token-0001']);
     });
 
+    testWidgets('charged but not applied: not finished, so the store refunds what nobody acknowledged (R-01)', (tester) async {
+      final (server, sheet) = await _plans(tester);
+      sheet.next = const SheetBought(_bought);
+      server.on('POST', 'store/purchases', 200, recorded('store_purchase_unapplied'));
+      await tapText(tester, 'اشترك: الباحث — شهري');
+      await _settle(tester);
+      expect(server.sent('POST', 'store/purchases'), hasLength(1));
+      expect(sheet.finished, isEmpty, reason: 'finishing it would acknowledge a purchase that bought nothing');
+    });
+
     testWidgets('the server\'s answer lost: not finished; the store\'s next delivery sends the same purchase', (tester) async {
       final (server, sheet) = await _plans(tester);
       ServerStore.listen();

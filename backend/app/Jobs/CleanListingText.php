@@ -58,7 +58,7 @@ class CleanListingText implements ShouldBeUniqueUntilProcessing, ShouldQueue
                 $features = array_values(array_filter((array) ($output['features'] ?? []), 'is_string'));
 
                 return $text === '' ? null : ['desc_clean' => $text, 'features' => self::said($features, (string) $listing->desc_raw)];
-            }, customer: $listing->customer, cache: false);
+            }, customer: $listing->customer, cache: false, known: $listing->knownNames());
 
         DB::transaction(function () use ($sent, $result, $publish, $status, $index) {
             // the listing again, held: an edit while the AI answered makes this answer another text's — its own
@@ -105,12 +105,22 @@ class CleanListingText implements ShouldBeUniqueUntilProcessing, ShouldQueue
 
         return array_values(array_filter($features, function (string $feature) use ($bare, $words, $negated) {
             $wanted = array_map($bare, array_filter(explode(' ', ArabicText::normalize((string) preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $feature)))));
+            $wanted = array_values($wanted);
             if ($wanted === [] || array_diff($wanted, $words) !== []) {
                 return false;
             }
-            $at = array_search($wanted[array_key_first($wanted)], $words, true);
+            // every place the feature is said — its first word with the rest within three words — and one said
+            // without a negation before it: «مجلس رجال ولا يوجد مجلس نساء» says the first and denies the second
+            // (review of 21 Nov: the first «مجلس» was read for both)
+            foreach (array_keys($words, $wanted[0], true) as $at) {
+                $near = array_slice($words, $at + 1, 3);
+                if (array_diff(array_slice($wanted, 1), $near) === []
+                    && preg_match($negated, implode(' ', array_slice($words, max(0, $at - 3), min(3, $at))).' ') !== 1) {
+                    return true;
+                }
+            }
 
-            return preg_match($negated, implode(' ', array_slice($words, max(0, (int) $at - 3), min(3, (int) $at))).' ') !== 1;
+            return false;
         }));
     }
 

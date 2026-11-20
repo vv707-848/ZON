@@ -192,7 +192,10 @@ def score_summarize(case: Case, output: dict[str, Any]) -> Score:
         keep=recall(text, expect.keep),
         numbers=float(numbers_ok(text, allowed([f"{n.get('date', '')} {n['text']}" for n in notes]))),
         confidence=float(output.get("confidence") in expect.confidence),
+        avoid=float(not any(norm(term) in norm(text) for term in expect.avoid)) if expect.avoid else None,
     )
+    if metrics.get("avoid") == 0.0:  # a condition said the other way round, or an open task said done: wrong whole
+        return Score(0.0, metrics)
     return Score(_mean(metrics), metrics)
 
 
@@ -261,8 +264,15 @@ def _same(given: Any, wanted: Any) -> bool:
     return norm(str(given)) == norm(str(wanted))
 
 
-def _params_exact(params: dict[str, Any], wanted: dict[str, Any]) -> bool:
-    return all(
+_NARROWING = ("city", "region", "neighborhood", "property_type", "purpose")  # each shrinks what a report counts
+
+
+def _params_exact(params: dict[str, Any], wanted: dict[str, Any], *, asked: bool = False) -> bool:
+    """The parameters wanted. And for a question asked (`asked`, report_select), no filter it did not ask: «أسعار
+    الشقق في الرياض كلها» with neighbourhood=النرجس answers another question (review of 21 Nov). An exploration
+    step narrows on purpose (report_explore deepens what was found)."""
+    extra = asked and any(params.get(name) not in (None, "") for name in _NARROWING if name not in wanted)
+    return not extra and all(
         params.get(name) is None if value is None else name in params and _same(params[name], value)
         for name, value in wanted.items()
     )
@@ -272,7 +282,7 @@ def _chosen(item: Chosen, given: dict[str, Any]) -> float:
     """1 · the right report with the right parameters, 0.5 · the right report, 0 · another."""
     if given.get("report") not in item.reports:
         return 0.0
-    return 1.0 if _params_exact(given.get("params", {}), item.params) else 0.5
+    return 1.0 if _params_exact(given.get("params", {}), item.params, asked=True) else 0.5
 
 
 def score_report_select(case: Case, output: dict[str, Any]) -> Score:

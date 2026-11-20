@@ -68,23 +68,34 @@ async def _query(ctx: Ctx, need: Need, terms: Sequence[str]) -> Embedding | None
 
 
 async def _shortlist[C: Candidate](
-    ctx: Ctx, collection: str, query: Embedding | None, candidates: Sequence[C], size: int = SHORTLIST
+    ctx: Ctx,
+    collection: str,
+    query: Embedding | None,
+    candidates: Sequence[C],
+    size: int = SHORTLIST,
+    need: Need | None = None,
 ) -> list[tuple[C, float]]:
-    """The candidates in hybrid order, then — up to `size` — those not indexed yet in Laravel's (budget) order, each
-    scored below every hybrid hit (a score is never above one placed before it). Without free text there is nothing
-    to embed: Laravel's order is kept."""
+    """The candidates in hybrid order, then those not indexed yet in Laravel's (budget) order, each scored below
+    every hybrid hit (a score is never above one placed before it); without free text there is nothing to embed and
+    Laravel's order is kept. With a `need`, what keeps its rooms and budget comes first, each part in that order,
+    BEFORE the cut to `size`: a list cut first can keep ten that break the wish and drop the one that fits it
+    (review of 21 Nov: ten two-room flats and one of four rooms for a four-room wish)."""
     if not candidates:
         return []
     by_id = {c.id: c for c in candidates}
     ranked: list[tuple[C, float]] = []
     if query is not None:
-        hits = await ctx.retrieval.rank(collection, query, list(by_id), size)
+        hits = await ctx.retrieval.rank(collection, query, list(by_id), len(by_id) if need else size)
         ranked = [(by_id[h.id], h.score) for h in hits if h.id in by_id]
     seen = {c.id for c, _ in ranked}
-    rest = [c for c in candidates if c.id not in seen]
     top = min([0.5, *(score for _, score in ranked)])
-    for position, candidate in enumerate(rest[: max(0, size - len(ranked))]):
-        ranked.append((candidate, round(max(0.0, top * (1 - (position + 1) / (2 * size))), 3)))
+    rest = [c for c in candidates if c.id not in seen]
+    whole = len(rest) if need else max(0, size - len(ranked))
+    for position, candidate in enumerate(rest[:whole]):
+        ranked.append((candidate, round(max(0.0, top * (1 - (position + 1) / (2 * max(size, len(rest))))), 3)))
+    if need is not None:  # the best `size` by (keeps the wish, score), shown in the order they came
+        best = set(sorted(range(len(ranked)), key=lambda k: (breaks(need, ranked[k][0]), -ranked[k][1], k))[:size])
+        ranked = [ranked[k] for k in sorted(best, key=lambda k: (breaks(need, ranked[k][0]), k))]
     return ranked
 
 
@@ -174,8 +185,12 @@ def conditions_first(
 
 
 def _plain(shortlist: Sequence[tuple[Candidate, float]], limit: int) -> list[dict[str, Any]]:
-    """The degraded answer: hybrid order and scores."""
-    return [{"id": c.id, "score": score} for c, score in shortlist[:limit]]
+    """The degraded answer: the shortlist's order and scores, none above the one before it."""
+    floor, out = 1.0, []
+    for c, score in shortlist[:limit]:
+        floor = min(floor, score)
+        out.append({"id": c.id, "score": floor})
+    return out
 
 
 def _context(shortlist: Sequence[tuple[Candidate, float]]) -> list[dict[str, Any]]:
@@ -186,7 +201,7 @@ def _context(shortlist: Sequence[tuple[Candidate, float]]) -> list[dict[str, Any
 async def search_listings(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(SearchListingsInput, data)
     shortlist = await _shortlist(
-        ctx, LISTINGS, await _query(ctx, req.need, req.terms), req.candidates, SEARCH_SHORTLIST
+        ctx, LISTINGS, await _query(ctx, req.need, req.terms), req.candidates, SEARCH_SHORTLIST, req.need
     )
     return await _rank_one(ctx, "search_listings", req.need, shortlist, req.limit)
 
@@ -194,7 +209,7 @@ async def search_listings(ctx: Ctx, data: dict[str, Any]) -> Result:
 async def search_requests(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(SearchRequestsInput, data)
     shortlist = await _shortlist(
-        ctx, REQUESTS, await _query(ctx, req.need, req.terms), req.candidates, SEARCH_SHORTLIST
+        ctx, REQUESTS, await _query(ctx, req.need, req.terms), req.candidates, SEARCH_SHORTLIST, req.need
     )
     return await _rank_one(ctx, "search_requests", req.need, shortlist, req.limit)
 
@@ -223,9 +238,9 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(MatchingInput, data)
     query = await _query(ctx, req.need, req.terms)
     matched_ids = {c.id for c in req.matched}
-    matched = await _shortlist(ctx, LISTINGS, query, req.matched, MATCHING_SHORTLIST)
+    matched = await _shortlist(ctx, LISTINGS, query, req.matched, MATCHING_SHORTLIST, req.need)
     broaden = await _shortlist(
-        ctx, LISTINGS, query, [c for c in req.broaden if c.id not in matched_ids], MATCHING_SHORTLIST
+        ctx, LISTINGS, query, [c for c in req.broaden if c.id not in matched_ids], MATCHING_SHORTLIST, req.need
     )
     units = await _shortlist(ctx, PROJECT_UNITS, query, req.units)
     unit_scores = [{"id": c.id, "score": score} for c, score in units[: req.limit]]
@@ -249,23 +264,23 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
             "units": unit_scores,
         }
         return Result(output, degraded=True, log={"llm": exc.reason})
-    lists = {"matched": (answer.output.matched, matched), "broaden": (answer.output.broaden, broaden)}
+    gap = budget_gap(req.need, [*matched, *broaden])
+    mine = canonical(_checked(answer.output.matched, matched, asked), gap)
     ranked: dict[str, Any] = {
-        name: conditions_first(
-            _then_retrieval(
-                canonical(_checked(given, shortlist, asked), budget_gap(req.need, shortlist)),
-                shortlist,
-                asked,
-                req.limit,
-            ),
-            req.need,
-            shortlist,
-        )
-        for name, (given, shortlist) in lists.items()
+        "matched": conditions_first(_then_retrieval(mine, matched, asked, req.limit), req.need, matched)
     }
     # «توسيع الإدراك» is what the budget buys that serves the wish: an offer that breaks its stated rooms or budget
-    # is not one (#119: the zero-graded broaden offers were all a room or more short, in lists of three)
-    ranked["broaden"] = [r for r in ranked["broaden"] if r["id"] not in _broken(req.need, broaden)]
+    # is not one (#119: the zero-graded broaden offers were all a room or more short, in lists of three). What the
+    # model wrote of those is dropped, and then it has not said that no more fit: the list goes on with what keeps them
+    broken = _broken(req.need, broaden)
+    written = canonical(_checked(answer.output.broaden, broaden, asked), gap)
+    kept = [r for r in written if r["id"] not in broken]
+    serving = [pair for pair in broaden if pair[0].id not in broken]
+    ranked["broaden"] = (
+        _then_retrieval(kept, serving, len(kept), req.limit)
+        if len(written) == asked or len(kept) < len(written)
+        else kept
+    )
     return Result({**ranked, "units": unit_scores}, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
 
 

@@ -397,6 +397,23 @@ class AiTest extends TestCase
         Http::assertSent(fn (Sent $r) => ! str_contains($r->body(), $wish->customer->name) && ! str_contains($r->body(), $wish->customer->phone));
     }
 
+    public function test_with_the_agents_down_the_one_offer_that_fits_is_not_cut_for_ten_that_break_the_wish(): void
+    {
+        $two = Listing::factory()->published()->count(10)->create(['price' => 1000000, 'bedrooms' => 2]);
+        $four = Listing::factory()->published()->create(['price' => 990000, 'bedrooms' => 4]);
+        $short = Listing::factory()->published()->create(['property_type' => 'villa', 'neighborhood' => 'الملقا', 'price' => 900000, 'bedrooms' => 2]);
+        $this->agent([], 503);
+        $this->seeker();
+
+        $found = $this->postJson('/api/v1/ai/search', ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 1000000, 'bedrooms' => 4])
+            ->assertOk()->json('data.results');
+
+        $this->assertSame($four->id, $found[0]['listing']['id'], 'review of 21 Nov: it was the eleventh, and cut');
+        $this->assertCount(10, $found);
+        $this->assertNotContains($short->id, array_column(array_column($found, 'listing'), 'id'));
+        $this->assertNotEmpty($two);
+    }
+
     public function test_each_run_shows_the_developer_seekers_he_has_not_seen_and_never_one_who_rents(): void
     {
         $developer = $this->signIn(Customer::factory()->developer()->create());

@@ -57,9 +57,47 @@ final class NumberGuard
             return false;
         }
 
+        if (! $this->scaled($words, $rows)) {
+            return false;
+        }
+
         preg_match_all('/\d[\d,٬]*(?:\.\d+)?/u', ArabicText::asciiDigits($text), $matches);
         foreach ($matches[0] as $number) {
             if (! isset($allowed[$this->plain($number)])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * A figure said in thousands, millions or billions is the data's value at that scale: «12 مليون» is 12,000,000,
+     * never a value of 12 (review of 21 Nov). agents: numbers.scaled, line for line.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     */
+    private function scaled(string $words, array $rows): bool
+    {
+        $scale = ['الف' => 1e3, 'الاف' => 1e3, 'الفين' => 1e3, 'مليون' => 1e6, 'ملايين' => 1e6, 'مليونين' => 1e6, 'مليار' => 1e9, 'مليارات' => 1e9];
+        $values = [];
+        foreach ($rows as $row) {
+            foreach ($row as $value) {
+                if (is_numeric($value)) {
+                    $values[] = abs((float) $value);
+                }
+            }
+        }
+        preg_match_all('/(\d[\d,٬]*(?:\.\d+)?)\s*('.implode('|', array_keys($scale)).')(?![\p{L}])/u', ArabicText::asciiDigits($words), $found, PREG_SET_ORDER);
+        foreach ($found as [, $figure, $word]) {
+            $unit = $scale[$word];
+            $allowed = [];
+            foreach ($values as $value) {
+                if ($value >= $unit) {
+                    $allowed[$this->plain((string) round($value / $unit))] = $allowed[$this->plain((string) round($value / $unit, 1))] = true;
+                }
+            }
+            if (! isset($allowed[$this->plain($figure)])) {
                 return false;
             }
         }

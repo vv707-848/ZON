@@ -8,7 +8,7 @@
 #   bash -c "curl -fsSL https://raw.githubusercontent.com/vv707-848/ZON/<commit>/deploy/ai-node/lab-pod.sh -o /workspace/lab-pod.sh && bash /workspace/lab-pod.sh"
 # Pod settings (environment):
 #   LLM_API_KEY      required — any random string; the engine and the lab share it inside the Pod
-#   ZON_PROFILE      the profile to measure (default qwen3.8-27b-escha-w2)
+#   ZON_PROFILE      the profile to measure — required: a Pod never measures a model it was not asked for
 #   GPU_NAME         the card, for the report (default A40)
 #   ZON_REF          the repository's branch or full commit (default main)
 #   GH_TOKEN         optional — a fine-grained token with «Issues: read and write» on vv707-848/ZON only
@@ -24,11 +24,10 @@
 # command again when it exits, which would repeat the run and the bill. Kept (STOP_WHEN_DONE=0) or not stoppable, it
 # waits until someone stops it from the connector.
 set -euo pipefail
-: "${LLM_API_KEY:?set LLM_API_KEY in the Pod settings}"
 W=${ZON_WORKSPACE:-/workspace}                       # another folder for the tests only (_tools/tests/test_ai_node.py)
 API=${ZON_GITHUB_API:-https://api.github.com}
 RAW=${ZON_RAW_URL:-https://raw.githubusercontent.com/vv707-848/ZON}
-PROFILE=${ZON_PROFILE:-qwen3.8-27b-escha-w2}
+PROFILE=${ZON_PROFILE:-unset}
 GPU=${GPU_NAME:-A40}
 REF=${ZON_REF:-main}
 STAMP=$(date -u +%Y%m%d-%H%M)
@@ -93,6 +92,11 @@ finish() {
   exit "$code"
 }
 trap finish EXIT
+# the settings are checked with the exit in place: a Pod missing one posts why and goes, it never just ends (RunPod
+# would start the command again)
+STEP="settings"
+: "${LLM_API_KEY:?set LLM_API_KEY in the Pod settings}"
+[ "$PROFILE" != "unset" ] || { echo "set ZON_PROFILE in the Pod settings: the profile to measure" >&2; exit 1; }
 
 # ①–③ the repository at ZON_REF, the node's files, the profile installed once (prepare.sh — production's too).
 # Downloaded to a file first: a script read from a failed or cut download would run empty, or half

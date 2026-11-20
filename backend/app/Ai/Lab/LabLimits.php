@@ -8,11 +8,14 @@ namespace App\Ai\Lab;
  */
 final class LabLimits
 {
-    /**
-     * p95 of one search answer the user still does not feel (the hard limit is the 15 s budget). Matching runs for
-     * saved wishes twice a day in the background: its limit is `lab load`'s 15 s (owner's decision, 20 Nov 2026).
-     */
+    /** p95 of one search answer, listings or requests, the user still does not feel. */
     public const SEARCH_P95_MS = 6000;
+
+    /** Matching runs for saved wishes twice a day in the background: the 15 s budget (owner's decision, 20 Nov 2026). */
+    public const MATCHING_P95_MS = 15000;
+
+    /** The agents `zon-agents lab run` measures (agents/zon_agents/lab/cases): a report without one is incomplete. */
+    public const MEASURED = ['chat', 'clean_listing', 'match_searchers', 'matching', 'report_explore', 'report_select', 'report_write', 'search_listings', 'search_requests', 'summarize'];
 
     /**
      * @param  array<string, array<string, mixed>>  $agents  the report's `agents`
@@ -24,6 +27,11 @@ final class LabLimits
             ? (float) $agents[$agent]['metrics'][$name] : null;
         $unmet = [];
 
+        // a measure of part of the agents is not a measure of the node (review of 21 Nov): every one the lab runs
+        $missing = array_values(array_diff(self::MEASURED, array_keys($agents)));
+        if ($missing !== []) {
+            $unmet[] = 'قياس ناقص، لا نتائج لـ: '.implode('، ', $missing);
+        }
         $failing = array_keys(array_filter($agents, fn (array $entry) => (int) ($entry['failed'] ?? 0) > 0));
         if ($failing !== []) {
             $unmet[] = 'ردود فاشلة في: '.implode('، ', $failing);
@@ -37,13 +45,15 @@ final class LabLimits
             if (($metric($agent, $name) ?? 0.0) > 0.05) {
                 $unmet[] = "{$agent}: عرض يكسر الميزانية أو الغرف في الثلاثة الأولى بأكثر من 5% من الحالات";
             }
-            $p95 = $agents[$agent]['latency_ms']['p95'] ?? null;
-            if ($agent === 'search_listings' && is_numeric($p95) && (int) $p95 > self::SEARCH_P95_MS) {
-                $unmet[] = "{$agent}: p95 ".number_format((int) $p95).' ms فوق '.number_format(self::SEARCH_P95_MS);
-            }
             $stability = $agents[$agent]['variants']['reversed']['stability'] ?? null;
             if (is_numeric($stability) && (float) $stability < 0.8) {
                 $unmet[] = "{$agent}: يتغير ترتيبه إذا انعكس ترتيب المرشحين (الثبات ".round((float) $stability * 100).'%)';
+            }
+        }
+        foreach (['search_listings' => self::SEARCH_P95_MS, 'search_requests' => self::SEARCH_P95_MS, 'matching' => self::MATCHING_P95_MS] as $agent => $limit) {
+            $p95 = $agents[$agent]['latency_ms']['p95'] ?? null;
+            if (is_numeric($p95) && (int) $p95 > $limit) {
+                $unmet[] = "{$agent}: p95 ".number_format((int) $p95).' ms فوق '.number_format($limit);
             }
         }
         foreach ($agents as $agent => $entry) {

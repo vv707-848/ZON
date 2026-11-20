@@ -80,6 +80,30 @@ _UNIT = r"(?:الف|الاف|الفين|مليون|ملايين|مليونين|�
 _UNIT_AFTER_FIGURE = re.compile(rf"\d[\d,٬.]*\s*{_UNIT}")
 
 
+_SCALE = {
+    "الف": 1e3,
+    "الاف": 1e3,
+    "الفين": 1e3,
+    "مليون": 1e6,
+    "ملايين": 1e6,
+    "مليونين": 1e6,
+    "مليار": 1e9,
+    "مليارات": 1e9,
+}
+_SCALED = re.compile(rf"(\d[\d,٬]*(?:\.\d+)?)\s*({'|'.join(_SCALE)})(?!{_LETTER})")
+
+
+def scaled(text: str, values: Sequence[float]) -> bool:
+    """A figure said in thousands, millions or billions is the data's value at that scale: «12 مليون» is 12,000,000,
+    never a value of 12 (review of 21 Nov). NumberGuard::scaled, line for line."""
+    for figure, word in _SCALED.findall(norm(text)):
+        unit = _SCALE[word]
+        allowed = {f for v in values if abs(v) >= unit for f in (_round(abs(v) / unit), _round(abs(v) / unit, 1))}
+        if plain(figure) not in allowed:
+            return False
+    return True
+
+
 _UNIT_ALONE = re.compile(rf"(?<!{_LETTER}){_UNIT}(?!{_LETTER})")
 
 
@@ -101,4 +125,5 @@ def number_guard(text: str, rows: Sequence[dict[str, Any]], params: dict[str, An
     for value in params.values():
         if _numeric(value) is not None:
             permitted.add(plain(str(value)))
-    return all(n in permitted for n in numbers(text))
+    values = [n for row in rows for v in row.values() if (n := _numeric(v)) is not None]
+    return scaled(text, values) and all(n in permitted for n in numbers(text))

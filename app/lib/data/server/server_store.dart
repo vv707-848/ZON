@@ -297,6 +297,9 @@ abstract final class ServerStore {
       StoreOrder(store: platformStore, productId: receipt.productId, reference: receipt.reference, target: target),
       epoch: epoch,
     );
+    // finished only once it bought what it was for (R-01, review of 21 Nov): an unapplied purchase is left to the
+    // store, which refunds what nobody acknowledged; the server answers its next delivery with the same record
+    if (status != 'paid') return status;
     try {
       await sheet?.finish(receipt);
       _forget(receipt.productId); // after the store was told: a purchase it delivers again is still known here

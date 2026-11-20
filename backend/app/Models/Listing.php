@@ -127,6 +127,19 @@ class Listing extends Model
         return $this->hasMany(ListingHistory::class)->orderByDesc('changed_at');
     }
 
+    /**
+     * The names this listing's text must never carry to the AI or the index: its advertiser's, and the owner card a
+     * broker keeps for it (R-03, review of 21 Nov — «أنا فهد السالمي» stayed whole when the name was not given).
+     *
+     * @return list<string>
+     */
+    public function knownNames(): array
+    {
+        $owners = PropertyOwner::query()->where('listing_id', $this->id)->pluck('name')->all();
+
+        return array_values(array_filter(array_unique([(string) $this->customer?->name, ...$owners]), fn (string $n) => trim($n) !== ''));
+    }
+
     /** @return HasOne<OwnerCase, $this> the owner's path that produced this listing */
     public function ownerCase(): HasOne
     {

@@ -131,7 +131,11 @@ def _lab_load(args: argparse.Namespace) -> int:
             print(f"   ×{count}: {reason}")
     out = args.out or Path(f"load-{args.profile}-{datetime.now(UTC):%Y%m%d-%H%M}.json")
     out.write_text(json.dumps(found, ensure_ascii=False, indent=1), encoding="utf-8")
-    return 0
+    # the gate (docs/deploy-runbook.md 2.4): no failure, and p95 within the budget — a run that misses it says so
+    missed = [a for a, row in found.items() if row["failed"] or row["p95_ms"] > args.budget * 1000]
+    if missed:
+        print(f"lab load misses the gate: {', '.join(missed)}")
+    return 1 if missed else 0
 
 
 def _lab_plan(args: argparse.Namespace) -> int:
