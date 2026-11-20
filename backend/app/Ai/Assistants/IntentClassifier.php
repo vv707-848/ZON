@@ -35,6 +35,18 @@ final class IntentClassifier
         return ChatIntent::OutOfScope;
     }
 
+    /** What a greeting is made of (ar · en · ur): a message of these words alone is welcomed, not «out of scope». */
+    private const GREETING = ['السلام', 'سلام', 'عليكم', 'ورحمه', 'الله', 'وبركاته', 'هلا', 'هلا والله', 'والله', 'وغلا', 'هلابك', 'مرحبا', 'اهلا', 'اهلين', 'هاي', 'حياك', 'حيالله',
+        'صباح', 'مساء', 'الخير', 'النور', 'يا', 'زون', 'hi', 'hello', 'hey', 'salam', 'good', 'morning', 'evening', 'there', 'zon', 'سلام علیکم', 'علیکم'];
+
+    public static function isGreeting(string $message): bool
+    {
+        $known = array_map(ArabicText::normalize(...), self::GREETING);
+        $words = preg_split('/[^\p{L}]+/u', mb_strtolower(ArabicText::normalize($message)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return $words !== [] && count($words) <= 8 && array_diff($words, $known) === [];
+    }
+
     /** Words English uses in almost any sentence and the other Latin-script languages do not. */
     private const ENGLISH = ['the', 'a', 'an', 'is', 'are', 'i', 'my', 'me', 'you', 'your', 'what', 'how', 'can', 'do', 'does', 'for', 'to', 'in', 'of', 'with', 'and', 'about', 'need', 'want', 'much', 'there', 'this', 'which', 'where', 'when', 'why', 'it'];
 

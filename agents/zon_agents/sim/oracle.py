@@ -53,7 +53,7 @@ def _words(groups: Terms, lang: str | None = None) -> list[str]:
     return [group[0] for group in groups]
 
 
-def _best_first(grades: Grades, offered: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+def best_first(grades: Grades, offered: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
     """The offered candidates that fit, the best first; one that breaks a condition is not offered at all."""
     ids = sorted((c["id"] for c in offered if grades.grades.get(c["id"], 0) > 0), key=lambda i: (-grades.grades[i], i))
     return [{"id": i, "score": round(grades.grades[i] / 3, 3)} for i in ids[:limit]]
@@ -76,14 +76,14 @@ def perfect(case: Case, payload: dict[str, Any]) -> dict[str, Any]:
     limit = int(payload.get("limit", 10))
     match case.agent:
         case "search_listings" | "search_requests":
-            return {"results": _best_first(case.expected(Grades), payload["candidates"], limit)}
+            return {"results": best_first(case.expected(Grades), payload["candidates"], limit)}
         case "matching":
             matching = case.expected(MatchingExpect)
-            broaden = _best_first(matching.broaden, payload["broaden"], limit) if matching.broaden else []
-            return {"matched": _best_first(matching.matched, payload["matched"], limit), "broaden": broaden}
+            broaden = best_first(matching.broaden, payload["broaden"], limit) if matching.broaden else []
+            return {"matched": best_first(matching.matched, payload["matched"], limit), "broaden": broaden}
         case "match_searchers":
             searchers = case.expected(SearchersExpect)
-            ranked = _best_first(searchers, payload["searchers"], limit)
+            ranked = best_first(searchers, payload["searchers"], limit)
             return {"results": [{**r, "unit_id": next(iter(searchers.units.get(r["id"], [])), None)} for r in ranked]}
         case "clean_listing":
             clean = case.expected(CleanExpect)

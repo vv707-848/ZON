@@ -216,10 +216,14 @@ def test_the_load_check_asks_at_productions_sizes_and_counts_what_fails(model: S
     # Laravel's sizes go in (30 of 600 above); the model reads the shortlist, each description cut (issue #119)
     sent = [payload for agent, payload, _ in model.calls if agent == "search_listings"]
     assert len(sent[-1]["candidates"]) == 15, "search's shortlist"
+    assert sent[-1]["limit"] == 5, "it writes its best five"
     pairs = [payload for agent, payload, _ in model.calls if agent == "matching"]
-    assert (len(pairs[-1]["matched"]), len(pairs[-1]["broaden"])) == (17, 17), "matching's, per list"
+    assert (len(pairs[-1]["matched"]), len(pairs[-1]["broaden"])) == (8, 8), "matching's, per list"
     shown = [*sent[-1]["candidates"], *pairs[-1]["matched"], *pairs[-1]["broaden"]]
     assert {len(c["desc"]) for c in shown} == {400}, "each description as the model reads it"
+    developer = [payload for agent, payload, _ in model.calls if agent == "match_searchers"][-1]
+    assert (len(developer["searchers"]), len(developer["units"])) == (15, 8), "one project: the closest searchers"
+    assert {len(s["notes"]) for s in developer["searchers"]} | {len(u["desc"]) for u in developer["units"]} == {350}
 
 
 def test_a_run_measures_every_agent_end_to_end_and_writes_the_report(model: ScriptedModel) -> None:

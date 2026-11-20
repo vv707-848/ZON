@@ -3,7 +3,7 @@ every known result checked — before a GPU is paid for.
 
 | run | what answers | what is known before it runs |
 |---|---|---|
-| `oracle` | the right answer | every case and every variant scores 1, no limit is touched |
+| `oracle` | the right answer | every case and every variant scores its ceiling (below), no limit is touched |
 | `adversary` | what each limit exists to catch | each limit trips on every case that can trip it |
 | `positional` | the candidates as they came | the top three do not survive the opposite order |
 | `broken` | never an answer of the schema | every call the model takes fails, and is recorded as failed |
@@ -13,9 +13,14 @@ In a search or a matching the pipeline itself puts what breaks a numeric conditi
 model answered: what is known of `adversary` and `positional` there is what that leaves in the first three.
 
 `rules` is also the floor: its scores are what the documented rules reach with no model at all.
+
+A ranking model writes only its best few of what it reads (ranking.py: `SEARCH_WRITES` …), and the list goes on in
+the retrieval's order — the order given, in the lab. A case with more fitting candidates than that cannot score 1:
+its ceiling is what the right answer scores with the rest in the given order, built here without the pipeline.
 """
 
 import asyncio
+from collections import Counter
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -24,11 +29,13 @@ from pydantic_ai.exceptions import UnexpectedModelBehavior
 
 from zon_agents.lab.cases import Case, ChatExpect, Grades, MatchingExpect, SearchersExpect
 from zon_agents.lab.runner import CURRENT, RANKING, Outcome, report, run_cases
-from zon_agents.lab.scoring import TOP
+from zon_agents.lab.scoring import TOP, score
+from zon_agents.lab.variants import variants
 from zon_agents.llm import LLM, load_prompts
+from zon_agents.pipelines import ranking
 from zon_agents.pipelines.ranking import conditions_first
 from zon_agents.profiles import SIMULATED
-from zon_agents.schemas.agents import ListingCandidate, Need, RequestCandidate
+from zon_agents.schemas.agents import ListingCandidate, Need, RequestCandidate, Searcher, UnitBrief
 from zon_agents.sim import oracle, rules
 from zon_agents.sim.model import Answerer, function_model
 
@@ -97,10 +104,94 @@ def _first_three(case: Case, name: str, answered: list[dict[str, Any]]) -> list[
     return [r["id"] for r in conditions_first(answered, Need(**case.input["need"]), shortlist)][:TOP]
 
 
+def _bounds(agent: str) -> tuple[int, int]:
+    """What a ranking model reads of a list, and what it writes."""
+    if agent == "matching":
+        return ranking.MATCHING_SHORTLIST, ranking.MATCHING_WRITES
+    if agent == "match_searchers":
+        return ranking.SEARCHERS, ranking.SEARCHERS_WRITES
+    return ranking.SEARCH_SHORTLIST, ranking.SEARCH_WRITES
+
+
+def _completed(written: list[dict[str, Any]], read: list[dict[str, Any]], asked: int, limit: int) -> list[Any]:
+    """What the model wrote; when it wrote all it was asked, the rest of what it read in the order given."""
+    if len(written) < asked:
+        return written
+    taken = {r["id"] for r in written}
+    return [*written, *({"id": c["id"], "score": 0.0} for c in read if c["id"] not in taken)][:limit]
+
+
+def _as_listed(
+    case: Case, name: str, grades: Grades, build: Callable[[Grades, list[dict[str, Any]], int], list[dict[str, Any]]]
+) -> list[dict[str, Any]]:
+    """A list the way the pipeline makes it of an answer built by `build`: read, written, completed, conditions last."""
+    size, writes = _bounds(case.agent)
+    limit = int(case.input.get("limit", 10))
+    read = case.input.get(name, [])[:size]
+    asked = min(limit, writes)
+    answered = _completed(build(grades, read, asked), read, asked, limit)
+    kind = RequestCandidate if case.agent == "search_requests" else ListingCandidate
+    shortlist = [(kind(**candidate), 0.0) for candidate in read]
+    return conditions_first(answered, Need(**case.input["need"]), shortlist)
+
+
 def _worst_three(case: Case, suffix: str, grades: Grades) -> list[int]:
     """The worst a model can make a search or a matching show."""
     name = {"": "candidates", "_matched": "matched", "_broaden": "broaden"}[suffix]
-    return _first_three(case, name, oracle.worst_first(grades, case.input[name], int(case.input.get("limit", 10))))
+    return [r["id"] for r in _as_listed(case, name, grades, oracle.worst_first)][:TOP]
+
+
+def _ceiling(case: Case) -> float:
+    """What the right answer scores through the pipeline: 1 when the model writes every fitting candidate."""
+    if case.agent in ("search_listings", "search_requests"):
+        return score(case, {"results": _as_listed(case, "candidates", case.expected(Grades), oracle.best_first)}).value
+    if case.agent == "matching":
+        lists = dict(_lists(case))
+        out = {
+            name: _as_listed(case, name, lists[f"_{name}"], oracle.best_first) if f"_{name}" in lists else []
+            for name in ("matched", "broaden")
+        }
+        return score(case, out).value
+    searchers = case.expected(SearchersExpect)
+
+    def right(read: list[dict[str, Any]], asked: int) -> list[dict[str, Any]]:
+        best = oracle.best_first(searchers, read, asked)
+        return [{**r, "unit_id": next(iter(searchers.units.get(r["id"], [])), None)} for r in best]
+
+    return score(case, _searchers_listed(case, right)).value
+
+
+Written = Callable[[list[dict[str, Any]], int], list[dict[str, Any]]]
+
+
+def _searchers_listed(case: Case, written: Written) -> dict[str, Any]:
+    """A developer's list the way the pipeline makes it: the closest searchers read, the model's few written (a unit
+    model it was not shown becomes none), then the rest by closeness, each with its nearest model."""
+    size, writes = _bounds(case.agent)
+    limit, units = int(case.input.get("limit", 10)), [UnitBrief(**u) for u in case.input["units"]]
+    pairs = ((ranking.fit(Searcher(**s), units), s) for s in case.input["searchers"])
+    fits = sorted(pairs, key=lambda f: f[0][0])[:size]
+    nearest = Counter(unit for (_, unit), _ in fits if unit is not None)
+    shown = {u.id for u in sorted(units, key=lambda u: -nearest[u.id])[: ranking.SEARCHER_UNITS]}
+    asked = min(limit, writes)
+    given = [
+        {**r, "unit_id": r["unit_id"] if r["unit_id"] in shown else None} for r in written([s for _, s in fits], asked)
+    ]
+    if len(given) < asked:
+        return {"results": given}
+    taken = {r["id"] for r in given}
+    rest = [{"id": s["id"], "score": 0.0, "unit_id": unit} for (_, unit), s in fits if s["id"] not in taken]
+    return {"results": [*given, *rest][:limit]}
+
+
+def _worst_units(case: Case) -> float:
+    """The unit models of the worst answer, every one invented (none), once the rest of the list follows them."""
+    searchers = case.expected(SearchersExpect)
+
+    def worst(read: list[dict[str, Any]], asked: int) -> list[dict[str, Any]]:
+        return [{**r, "unit_id": None} for r in oracle.worst_first(searchers, read, asked)]
+
+    return score(case, _searchers_listed(case, worst)).metrics["unit"]
 
 
 def _wrong(outcome: Outcome, why: str) -> str:
@@ -108,8 +199,9 @@ def _wrong(outcome: Outcome, why: str) -> str:
 
 
 def _oracle(outcome: Outcome, case: Case) -> list[str]:
-    if outcome.error is not None or outcome.score != 1.0:
-        return [_wrong(outcome, f"the right answer does not score 1 ({outcome.error or 'scored'})")]
+    known = round(_ceiling(case), 4) if case.agent in RANKING else 1.0
+    if outcome.error is not None or outcome.score != known:
+        return [_wrong(outcome, f"the right answer does not score {known} ({outcome.error or 'scored'})")]
     touched = [m for m, v in outcome.metrics.items() if m.startswith(("zero_top3", "inject_top3")) and v != 0.0]
     return [_wrong(outcome, f"the right answer touches {touched}")] if touched else []
 
@@ -135,8 +227,8 @@ def _adversary(outcome: Outcome, case: Case) -> list[str]:
             if grades.inject is not None:
                 must(f"inject_top3{suffix}", float(grades.inject in first))
             must(f"zero_top3{suffix}", float(any(grades.grades.get(i, 0) == 0 for i in first)))
-        if "unit" in metrics:
-            must("unit", 0.0)
+        if "unit" in metrics:  # 0 for what it wrote; the rest of the list has each searcher's nearest model
+            must("unit", round(_worst_units(case), 4))
     elif case.agent == "clean_listing":
         must("numbers", 0.0)
         if "invented" in metrics:
@@ -209,7 +301,12 @@ CHECKS: dict[str, Callable[[Outcome, Case], list[str]]] = {
 def verify(name: str, outcomes: Sequence[Outcome], cases: Sequence[Case]) -> list[str]:
     """Everything that is not as known before the run (empty = every result as known)."""
     by_id = {case.id: case for case in cases}
-    problems = [problem for outcome in outcomes for problem in CHECKS[name](outcome, by_id[outcome.case])]
+
+    def asked(outcome: Outcome) -> Case:  # the variant's own case: its candidates in its own order
+        base = by_id[outcome.case]
+        return dict(variants(base)).get(outcome.variant, base)
+
+    problems = [problem for outcome in outcomes for problem in CHECKS[name](outcome, asked(outcome))]
     if name == "positional":
         problems += _positional(outcomes, cases)
     return problems

@@ -50,16 +50,16 @@
     "p95": 0
    },
    "metrics": {
-    "ndcg": 1.0,
+    "ndcg": 0.9911,
     "top1": 1.0,
     "unit": 1.0,
     "zero_top3": 0.0
    },
-   "score": 1.0,
+   "score": 0.9955,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 1.0,
+     "score": 0.9955,
      "stability": 1.0
     }
    }
@@ -67,25 +67,25 @@
   "matching": {
    "cases": 12,
    "failed": 0,
-   "floor": 0.8559,
+   "floor": 0.8482,
    "latency_ms": {
     "p50": 0,
     "p95": 0
    },
    "metrics": {
     "ndcg_broaden": 1.0,
-    "ndcg_matched": 1.0,
+    "ndcg_matched": 0.975,
     "top1_broaden": 1.0,
     "top1_matched": 1.0,
     "zero_top3_broaden": 0.1667,
     "zero_top3_matched": 0.0
    },
-   "score": 1.0,
+   "score": 0.9875,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 1.0,
-     "stability": 1.0
+     "score": 0.9655,
+     "stability": 0.75
     }
    }
   },
@@ -141,15 +141,15 @@
    },
    "metrics": {
     "inject_top3": 0.0,
-    "ndcg": 0.9644,
+    "ndcg": 0.962,
     "top1": 0.8947,
     "zero_top3": 0.1316
    },
-   "score": 0.9644,
+   "score": 0.962,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.9644,
+     "score": 0.9499,
      "stability": 1.0
     }
    }
@@ -164,11 +164,11 @@
    },
    "metrics": {
     "inject_top3": 0.0,
-    "ndcg": 0.9866,
+    "ndcg": 0.9708,
     "top1": 1.0,
     "zero_top3": 0.0714
    },
-   "score": 0.9866,
+   "score": 0.9708,
    "variants": {
     "reversed": {
      "failed": 0,
@@ -216,6 +216,6 @@
   "digest": "59dc6ae8a4ef58d1"
  },
  "lab": 1,
- "overall": 0.8302,
+ "overall": 0.8255,
  "simulation": "rules"
 }

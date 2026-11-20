@@ -32,6 +32,7 @@ final class ChatAssistant
 {
     private const FIXED = [
         'blocked' => ['ar' => 'لا أستطيع المساعدة في هذا. اسألني عن العقار والباقات والخدمات في زون.', 'en' => 'I can’t help with that. Ask me about property, plans and Zon’s services.', 'xx' => 'I can’t help with that. Ask me about property, plans and Zon’s services.', 'ur' => 'میں اس میں مدد نہیں کر سکتا۔ جائیداد اور زون کی خدمات کے بارے میں پوچھیں۔'],
+        'greeting' => ['ar' => 'هلا وغلا، يالله حيه! أنا مساعد زون العقاري: أساعدك في البحث عن عقار، والمطابقة، والباقات، والتراخيص، والنشر. اكتب لي وش تحتاج وأبشر.', 'en' => 'Hello and welcome! I’m Zon’s property assistant: search, matching, plans, licences and publishing — tell me what you need.', 'xx' => 'Hello and welcome! I’m Zon’s property assistant: search, matching, plans, licences and publishing — tell me what you need.', 'ur' => 'خوش آمدید! میں زون کا پراپرٹی اسسٹنٹ ہوں: تلاش، پیکجز، لائسنس اور اشاعت میں مدد کرتا ہوں۔'],
         'out_of_scope' => ['ar' => 'أنا مساعد زون العقاري: أجيب عن الباقات والتراخيص والنشر والبحث والمطابقة.', 'en' => 'I’m Zon’s property assistant: plans, licences, publishing, search and matching.', 'xx' => 'I’m Zon’s property assistant: plans, licences, publishing, search and matching.', 'ur' => 'میں زون کا اسسٹنٹ ہوں: پیکجز، لائسنس، اشاعت، تلاش۔'],
         'unavailable' => ['ar' => 'تعذّر الرد الآن، حاول بعد قليل أو تواصل مع الدعم من الإعدادات.', 'en' => 'I can’t answer right now — try again shortly or contact support from Settings.', 'xx' => 'I can’t answer right now — try again shortly or contact support from Settings.', 'ur' => 'ابھی جواب ممکن نہیں، تھوڑی دیر بعد کوشش کریں۔'],
         'not_covered' => ['ar' => 'لا أملك معلومة موثقة عن هذا. راجع الجهة الرسمية المختصة.', 'en' => 'I don’t have verified information on this. Please check with the official authority.', 'xx' => 'I don’t have verified information on this. Please check with the official authority.', 'ur' => 'اس بارے میں مصدقہ معلومات نہیں ہیں۔'],
@@ -56,8 +57,10 @@ final class ChatAssistant
         }
         $auto = $lang === 'xx';
         $intent = $auto ? null : $this->classifier->classify($message);
-        if ($intent === ChatIntent::OutOfScope) {
-            return $this->answer($customer, $message, $lang, $intent, self::FIXED['out_of_scope'][$lang], false, [], 'passed', null);
+        if ($intent === ChatIntent::OutOfScope) {       // a greeting alone is welcomed, warmly, and still «out of scope»
+            $fixed = IntentClassifier::isGreeting($message) ? 'greeting' : 'out_of_scope';
+
+            return $this->answer($customer, $message, $lang, $intent, self::FIXED[$fixed][$lang], false, [], 'passed', null);
         }
 
         [$packages, $amounts] = $this->packageFacts();
