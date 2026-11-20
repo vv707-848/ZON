@@ -7,6 +7,7 @@ use App\Actions\Admin\RefundPayment;
 use App\Enums\ContractStatus;
 use App\Enums\IndexEntity;
 use App\Enums\OwnerCaseStage;
+use App\Enums\PaymentStatus;
 use App\Integrations\Payments\MoyasarGateway;
 use App\Integrations\Payments\PaymentGateway;
 use App\Jobs\Scheduled\RemindSubscriptionRenewals;
@@ -46,6 +47,24 @@ class PaymentsTest extends TestCase
         $this->postJson("/api/v1/payments/{$payment}/confirm", ['reference' => "fake_{$payment}"])->assertJsonPath('data.status', 'paid');
 
         return $payment;
+    }
+
+    public function test_a_second_charge_for_a_paid_payment_is_recorded_for_a_refund_not_lost(): void
+    {
+        // R-02, review of 21 Nov: a second reference after the payment closed got the first record back, and the
+        // second charge was on no record. Moyasar's form takes no given_id (docs.moyasar.com form configuration)
+        $this->seeker();
+        $first = $this->pay(['purpose' => 'subscription', 'package' => 'seeker']);
+
+        foreach ([1, 2] as $_) {      // the same second charge, told twice
+            $this->postJson("/api/v1/payments/{$first}/confirm", ['reference' => "fake_{$first}_2"])->assertJsonPath('data.status', 'paid');
+        }
+
+        $twice = Payment::query()->where('provider_ref', "fake_{$first}_2")->sole();
+        $this->assertSame([PaymentStatus::Unapplied, 'charged_twice', $first], [$twice->status, $twice->failure_reason, $twice->meta['charged_twice_of']]);
+        $this->assertSame(2, Payment::query()->count(), 'one record per charge');
+        $this->postJson("/api/v1/payments/{$first}/confirm", ['reference' => "fake_{$first}_fail"]);
+        $this->assertSame(2, Payment::query()->count(), 'a declined attempt is no charge');
     }
 
     private function seeker(): Customer

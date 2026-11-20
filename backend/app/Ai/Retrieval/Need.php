@@ -76,6 +76,16 @@ final readonly class Need
     }
 
     /** The price the candidates are ordered by: the top of the budget, else its bottom. */
+    /** Whether an offer keeps the stated rooms and the budget's top by no more than 10% (agents: ranking.breaks). */
+    public function keptBy(?int $bedrooms, ?float $price): bool
+    {
+        if ($this->bedrooms !== null && ($bedrooms === null || $bedrooms < $this->bedrooms)) {
+            return false;
+        }
+
+        return $this->budgetMax === null || $price === null || $price <= (float) $this->budgetMax * 1.10;
+    }
+
     public function target(): ?string
     {
         return $this->budgetMax ?? $this->budgetMin;

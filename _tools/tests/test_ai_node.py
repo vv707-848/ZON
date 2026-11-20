@@ -112,6 +112,7 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
             "ZON_WORKSPACE": str(w), "ZON_GITHUB_API": f"http://127.0.0.1:{self.server.server_port}",
             "ZON_RAW_URL": "https://raw.example/ZON", "ZON_REF": "0" * 40,
             "LLM_API_KEY": "test-key", "RUNPOD_POD_ID": "pod123", "GH_TOKEN": "test-token", "LAB_ISSUE": "7",
+            "ZON_PROFILE": "qwen3.6-35b-a3b-escha-w2",
             "ZON_STOP_GRACE": "0", "ZON_KEEP_SECONDS": "0", "ZON_ENGINE_WAIT": "0.1", "ZON_ENGINE_TRIES": "100",
             "ZON_LLM_URL": f"http://127.0.0.1:{self.server.server_port}",
         }
@@ -124,11 +125,26 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         path = self.dir / "stops"
         return path.read_text().splitlines() if path.exists() else []
 
+    def test_a_missing_setting_is_posted_and_the_pod_still_goes(self) -> None:
+        """A Pod without its key or its profile ended before the exit was in place: nothing posted, nothing stopped,
+        and RunPod starts the command again (review of 21 Nov). And no profile is never the 27B by default."""
+        for missing, says in (("LLM_API_KEY", "set LLM_API_KEY"), ("ZON_PROFILE", "set ZON_PROFILE")):
+            with self.subTest(missing=missing):
+                self.setUp()
+                env = {k: v for k, v in self.env.items() if k != missing}
+                result = subprocess.run(["bash", str(NODE / "lab-pod.sh")], env={**env, "DELETE_WHEN_DONE": "1"},
+                                        capture_output=True, text=True, timeout=60)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("stopped at «settings»", GitHub.comments[0]["body"])
+                self.assertIn(says, GitHub.comments[0]["body"])
+                self.assertEqual(self.stops(), ["pod remove pod123"])
+                self.assertFalse((self.dir / "prepared").exists(), "nothing installed or measured")
+
     def test_done_posts_the_tables_and_stops(self) -> None:
         result = self.run_lab()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((self.dir / "downloads").read_text().strip(), f"https://raw.example/ZON/{'0' * 40}/deploy/ai-node/prepare.sh")
-        self.assertEqual((self.dir / "prepared").read_text().strip(), "prepared qwen3.8-27b-escha-w2")
+        self.assertEqual((self.dir / "prepared").read_text().strip(), "prepared qwen3.6-35b-a3b-escha-w2")
         self.assertEqual(len(GitHub.comments), 1)
         self.assertEqual(GitHub.comments[0]["path"], "/repos/vv707-848/ZON/issues/7/comments")
         self.assertIn("| table of lab run |", GitHub.comments[0]["body"])

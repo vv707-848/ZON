@@ -34,7 +34,7 @@ final class IndexPayloads
             'age' => $listing->age,
             'deed' => $listing->has_deed,
             'bank' => $listing->bank_accepted,
-            'desc_clean' => AiMasking::text($listing->publicDescription()),
+            'desc_clean' => AiMasking::text($listing->publicDescription(), $listing->knownNames()),
             'status' => $listing->status->value,
         ];
     }

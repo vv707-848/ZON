@@ -28,14 +28,15 @@ class FakePaymentGateway implements PaymentGateway
 
     public function fetch(string $reference): GatewayPayment
     {
-        if (preg_match('/^fake_([0-9A-Za-z]{26})(_fail)?$/', $reference, $m) !== 1) {
+        // `fake_<payment>_fail` is declined; `fake_<payment>_<n>` is another charge for the same payment
+        if (preg_match('/^fake_([0-9A-Za-z]{26})(_fail|_[0-9]+)?$/', $reference, $m) !== 1) {
             return new GatewayPayment($reference, GatewayPayment::FAILED, 0, 'SAR', null, 'unknown reference');
         }
         $payment = Payment::query()->where('public_id', $m[1])->first();
         if ($payment === null) {
             return new GatewayPayment($reference, GatewayPayment::FAILED, 0, 'SAR', null, 'unknown payment');
         }
-        $declined = ($m[2] ?? '') !== '';
+        $declined = ($m[2] ?? '') === '_fail';
 
         return new GatewayPayment(
             $reference,

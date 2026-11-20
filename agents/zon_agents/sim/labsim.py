@@ -131,19 +131,30 @@ def _as_listed(
     """A list the way the pipeline makes it of an answer built by `build`: read, written, completed, conditions last."""
     size, writes = _bounds(case.agent)
     limit = int(case.input.get("limit", 10))
-    base = _BASE.get(case.id, case)  # the lab's retrieval keeps the base case's set (variants.base_order)
-    keep = {c["id"] for c in base.input.get(name, [])[:size]}
-    read = [c for c in case.input.get(name, []) if c["id"] in keep]
-    asked = min(limit, writes)
     kind = RequestCandidate if case.agent == "search_requests" else ListingCandidate
-    by_id = {candidate["id"]: kind(**candidate) for candidate in read}
     need = Need(**case.input["need"])
+
+    def breaks(c: dict[str, Any]) -> bool:
+        return ranking.breaks(need, kind(**c))
+
+    # the shortlist (ranking._shortlist): the best `size` by keeping the wish, then the base order (the lab's retrieval
+    # scores by it: variants.base_order), shown in the case's own order with what keeps the wish first
+    base = _BASE.get(case.id, case).input.get(name, [])
+    keep = {c["id"] for c in sorted(base, key=lambda c: (breaks(c), base.index(c)))[:size]}
+    given = [c for c in case.input.get(name, []) if c["id"] in keep]
+    read = [c for c in given if not breaks(c)] + [c for c in given if breaks(c)]
+    asked = min(limit, writes)
+    by_id = {candidate["id"]: kind(**candidate) for candidate in read}
     gap = ranking.budget_gap(need, [(c, 0.0) for c in by_id.values()])
-    answered = _completed(ranking.canonical(build(grades, read, asked), gap), read, asked, limit)
-    listed = conditions_first(answered, need, [(c, 0.0) for c in by_id.values()])
-    if name == "broaden":  # what breaks the wish's rooms or budget is not «what the budget buys» at all
-        listed = [r for r in listed if not ranking.breaks(need, by_id[r["id"]])]
-    return listed
+    written = ranking.canonical(build(grades, read, asked), gap)
+    if name == "broaden":  # what breaks the wish's rooms or budget is not «what the budget buys» at all, and once
+        # the model's own of those are dropped the list goes on with what keeps them (ranking.matching)
+        serving = [c for c in read if not ranking.breaks(need, by_id[c["id"]])]
+        kept = [r for r in written if not ranking.breaks(need, by_id[r["id"]])]
+        go_on = len(written) == asked or len(kept) < len(written)
+        return _completed(kept, serving, len(kept), limit) if go_on else kept
+    answered = _completed(written, read, asked, limit)
+    return conditions_first(answered, need, [(c, 0.0) for c in by_id.values()])
 
 
 def _worst_three(case: Case, suffix: str, grades: Grades) -> list[int]:

@@ -81,17 +81,18 @@ async def _timed(llm: LLM, case: Case) -> tuple[int, int, str | None]:
 
 
 async def load(llm: LLM, cases: Sequence[Case], *, at_once: int = 8, rounds: int = 3) -> dict[str, dict[str, Any]]:
-    """Per agent of [SIZES] present in [cases]: its first case at production's size, [at_once] together, [rounds]
-    times over."""
+    """Per agent of [SIZES] present in [cases]: [at_once] different cases together, each at production's size,
+    [rounds] times over — eight users ask eight things, not one prompt eight times (review of 21 Nov)."""
     report: dict[str, dict[str, Any]] = {}
     for agent in SIZES:
-        first = next((c for c in cases if c.agent == agent), None)
-        if first is None:
+        own = [c for c in cases if c.agent == agent]
+        if not own:
             continue
-        big = production_size(first)
+        first = own[0]
+        bigs = [production_size(own[n % len(own)]) for n in range(at_once)]
         runs: list[tuple[int, int, str | None]] = []
         for _ in range(rounds):
-            runs += await asyncio.gather(*(_timed(llm, big) for _ in range(at_once)))
+            runs += await asyncio.gather(*(_timed(llm, big) for big in bigs))
         latencies = [ms for ms, _, _ in runs]
         failures: dict[str, int] = {}
         for _, _, error in runs:
@@ -99,6 +100,7 @@ async def load(llm: LLM, cases: Sequence[Case], *, at_once: int = 8, rounds: int
                 failures[error] = failures.get(error, 0) + 1
         report[agent] = {
             "case": first.id,
+            "cases": sorted({c.id for c in own[:at_once]}),
             "asked": len(runs),
             "at_once": at_once,
             "failed": sum(failures.values()),

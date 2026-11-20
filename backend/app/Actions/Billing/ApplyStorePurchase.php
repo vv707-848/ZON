@@ -179,7 +179,9 @@ final class ApplyStorePurchase
             return $payment;
         });
         $payment ??= self::payment($tx->store, $tx->reference) ?? throw self::refused('unknown');
-        if (! $tx->settled) {
+        // settled only once applied (R-01, review of 21 Nov): Google refunds by itself a purchase nobody acknowledges
+        // within three days, and an acknowledged one that bought nothing stays charged
+        if (! $tx->settled && $payment->status === PaymentStatus::Paid) {
             SettleStorePurchase::dispatch($tx->store, $tx->productId, $tx->chain, $subscription);
         }
 

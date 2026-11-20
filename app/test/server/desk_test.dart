@@ -329,6 +329,7 @@ void main() {
       expect(FakeServer.body(server.sent('POST', 'ai/summaries').single), <String, Object?>{'scope': 'client', 'id': cid});
       expect(find.textContaining(_one('ai_summary')['summary']! as String), findsOneWidget);
       expect(find.textContaining('الخطوة التالية: ${_one('ai_summary')['recommended_action']}'), findsOneWidget);
+      expect(find.textContaining('المؤشرات: ${(_one('ai_summary')['signals']! as List).join('، ')}'), findsOneWidget);
 
       server.on('POST', 'ai/summaries', 402, recorded('ai_summary_needs_plan'));
       await tapText(tester, 'حدّث');

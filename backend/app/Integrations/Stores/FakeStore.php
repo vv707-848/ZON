@@ -59,7 +59,7 @@ final class FakeStore implements StoreGateway
             amount: $price,
             currency: 'SAR',
             pending: in_array('pending', $flags, true),
-            settled: true,
+            settled: ! in_array('unsettled', $flags, true),   // `:unsettled`: as Google answers before the acknowledgement
         );
     }
 

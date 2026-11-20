@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Actions\Admin\RefundPayment;
 use App\Enums\BoostVia;
 use App\Jobs\Scheduled\RemindSubscriptionRenewals;
+use App\Jobs\SettleStorePurchase;
 use App\Models\BoostUsage;
 use App\Models\BuyerPreference;
 use App\Models\Customer;
@@ -15,6 +16,7 @@ use App\Models\Project;
 use App\Models\Subscription;
 use App\Support\Settings\Setting;
 use App\Support\Settings\Settings;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use InvalidArgumentException;
@@ -121,6 +123,21 @@ class StorePurchasesTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         app(RefundPayment::class)(Payment::query()->where('status', 'unapplied')->sole(), 'من اللوحة');   // the store refunds its own sales
+    }
+
+    public function test_an_unapplied_purchase_is_never_acknowledged_so_the_store_refunds_it(): void
+    {
+        // R-01, review of 21 Nov: it was settled with the store like a paid one, so Google kept the charge
+        $broker = $this->signIn(Customer::factory()->broker()->create());
+        $listing = Listing::factory()->published()->create(['customer_id' => $broker->id]);
+        $target = ['type' => 'listing', 'id' => $listing->id];
+        Queue::fake([SettleStorePurchase::class]);
+
+        $this->buy('google', 'com.zon.app.featured', "sim:{$broker->storeToken()}:feat11:unsettled", $target)->assertOk()->assertJsonPath('data.status', 'paid');
+        Queue::assertPushed(SettleStorePurchase::class, 1);
+        $this->buy('google', 'com.zon.app.featured', "sim:{$broker->storeToken()}:feat12:unsettled", $target)->assertOk()->assertJsonPath('data.status', 'unapplied');
+        $this->buy('google', 'com.zon.app.featured', "sim:{$broker->storeToken()}:feat12:unsettled", $target)->assertOk()->assertJsonPath('data.status', 'unapplied');
+        Queue::assertPushed(SettleStorePurchase::class, 1);
     }
 
     public function test_a_developers_project_is_featured_through_the_store_and_takes_no_free_place(): void

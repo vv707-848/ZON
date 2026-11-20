@@ -159,6 +159,10 @@ class SuperAgentTest extends AdminTestCase
         $this->assertTrue($guard->passes('من 905 ألف في مايو 2026 (2026-05) إلى 952,000 في شهر 10.', $trend, []), 'the year and the month of a row\'s month are data');
         $this->assertFalse($guard->passes('ارتفع السعر منذ 2025.', $trend, []), 'a year no row holds');
         $this->assertFalse($guard->passes('الفجوة 13.', $gap, []));
+        // review of 21 Nov: a figure said in millions is the value at that scale (agents: numbers.scaled)
+        $this->assertFalse($guard->passes('الإيراد 12 مليون ريال', [['revenue' => 12]], []));
+        $this->assertTrue($guard->passes('الإيراد 12 مليون ريال', [['revenue' => 12000000]], []));
+        $this->assertFalse($guard->passes('متوسط الميزانية 1150 ألف', [['budget' => 1150]], []));
 
         // a quantity said without digits cannot be read against the rows
         $demand = [['neighborhood' => 'النرجس', 'requests' => 42, 'avg_price' => 905000]];

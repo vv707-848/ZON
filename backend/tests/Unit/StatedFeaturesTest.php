@@ -16,4 +16,13 @@ class StatedFeaturesTest extends TestCase
         $this->assertSame(['مطبخ راكب', 'مصعد', 'موقف خاص', 'قريبة من المسجد'], CleanListingText::said($suggested, $text));
         $this->assertSame([], CleanListingText::said(['مصعد'], ''));
     }
+
+    public function test_a_feature_said_once_and_denied_once_is_read_where_each_is_said(): void
+    {
+        // review of 21 Nov: the first «مجلس» was read for both features
+        $text = 'فيلا فيها مجلس رجال ولا يوجد مجلس نساء، بدون مصعد لكن فيها مصعد للأكل';
+
+        $this->assertSame(['مجلس رجال', 'مصعد'], CleanListingText::said(['مجلس رجال', 'مجلس نساء', 'مصعد'], $text));
+        $this->assertSame([], CleanListingText::said(['مجلس نساء'], 'فيها مجلس رجال، ولا يوجد مجلس نساء'));
+    }
 }

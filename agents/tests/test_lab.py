@@ -10,7 +10,7 @@ from typing import Any
 from pydantic_ai.models.function import FunctionModel
 
 from tests.conftest import ScriptedModel
-from zon_agents.lab.cases import EXPECTS, Case, check, load_cases
+from zon_agents.lab.cases import EXPECTS, Case, SelectExpect, check, load_cases
 from zon_agents.lab.load import FREE_TEXT, SIZES, load, production_size
 from zon_agents.lab.runner import RANKING, Outcome, refused, report, run_cases, sample
 from zon_agents.lab.scoring import ndcg, score
@@ -53,6 +53,10 @@ def test_the_number_guard_is_laravels() -> None:
     assert number_guard("النرجس الأعلى بـ38 طلباً ومتوسط ميزانية 1150 ألف، ونسبة مطابق 71%", rows, {})
     assert number_guard("ثلاثة أحياء، والثاني منها", rows, {}), "counts and ordinals in words are not numbers"
     assert not number_guard("الإيراد 12 مليون ريال", [{"revenue": 280}], {}), "a small number the data does not hold"
+    # review of 21 Nov: a value of 12 is not «12 مليون»; 12,000,000 is
+    assert not number_guard("الإيراد 12 مليون ريال", [{"revenue": 12}], {})
+    assert number_guard("الإيراد 12 مليون ريال", [{"revenue": 12000000}], {})
+    assert not number_guard("متوسط الميزانية 1150 ألف", [{"budget": 1150}], {})
     assert number_guard("أعلى 3 أحياء", rows, {"row_count": 3}), "how many rows the report has"
     assert not number_guard("زادت الطلبات 45%", rows, {}), "a percentage the rows do not hold"
     assert not number_guard("متوسط الميزانية 1.15 مليون", rows, {}), "PHP rounds 1.15 to 1.2: NumberGuard refuses it"
@@ -214,6 +218,9 @@ def test_the_load_check_asks_at_productions_sizes_and_counts_what_fails(model: S
     assert set(found) == set(SIZES)
     assert found["matching"]["asked"] == 8 and found["matching"]["failed"] == 0
     assert found["search_requests"]["failed"] == 8, "a prompt the engine refuses is a failure, as in production"
+    assert len(found["matching"]["cases"]) == 4, "four users, four different wishes"
+    asked = {json.dumps(p["need"], sort_keys=True) for a, p, _ in model.calls if a == "matching"}
+    assert len(asked) == 4
     # Laravel's sizes go in (30 of 600 above); the model reads the shortlist, each description cut (issue #119)
     sent = [payload for agent, payload, _ in model.calls if agent == "search_listings"]
     assert len(sent[-1]["candidates"]) == 15, "search's shortlist"
@@ -384,3 +391,77 @@ def test_a_reversed_case_reads_the_same_shortlist_in_the_opposite_order() -> Non
 
     assert [h.id for h in base] == [1, 2, 3, 4, 5, 6, 7, 8]
     assert [h.id for h in flipped] == [8, 7, 6, 5, 4, 3, 2, 1], "the same eight, the other way round"
+
+
+def test_lab_load_exits_failing_when_it_misses_the_gate(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """It wrote its table and exited 0 whatever the table said (review of 21 Nov): a run that misses the gate (a
+    failure, or p95 past the 15-second budget) now exits 1, so nothing reads it as passed."""
+    import argparse
+
+    from zon_agents import cli
+
+    row = {
+        "case": "x",
+        "cases": ["x"],
+        "asked": 8,
+        "at_once": 8,
+        "failed": 0,
+        "failures": {},
+        "tokens_in_max": 1,
+        "p50_ms": 9000,
+        "p95_ms": 10700,
+    }
+
+    async def fake(*_: object, **__: object) -> dict[str, dict[str, object]]:
+        return {"matching": dict(row), "search_listings": {**row, "p95_ms": int(next(iter(seen)))}}
+
+    args = argparse.Namespace(
+        base_url="http://x/v1",
+        model="zon-ai",
+        budget=15.0,
+        profile="qwen3.8-27b-fp8",
+        at_once=8,
+        rounds=1,
+        out=tmp_path / "load.json",
+    )
+    monkeypatch.setattr(cli, "load", fake)
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    for p95, code in ((7600, 0), (16000, 1)):
+        seen = [p95]
+        assert cli._lab_load(args) == code, p95
+
+
+def test_a_summary_that_turns_a_condition_around_or_closes_an_open_task_scores_0() -> None:
+    """Review of 21 Nov: «قد يقبل المالك 2800 كاش» and «يرفض 2800 حتى لو كان الدفع كاش» both scored 1, and so did two
+    open tasks said done. The terms are still found; the meaning is what the case's `avoid` reads."""
+    owner = next(c for c in load_cases() if c.id == "summary-003")
+    tasks = next(c for c in load_cases() if c.id == "summary-004")
+    right = {"summary": "المالك في العارض قد يقبل 2800 كاش", "signals": ["كاش", "2800"], "confidence": "high"}
+    wrong = {**right, "summary": "المالك في العارض يرفض 2800 حتى لو كان الدفع كاش"}
+    done = {
+        "summary": "تم الاتصال بخصوص معاينة الملقا وتم تجديد الترخيص",
+        "signals": ["معاينة", "ترخيص"],
+        "confidence": "high",
+    }
+
+    assert score(owner, right).value == 1.0
+    assert score(owner, wrong).value == 0.0
+    assert score(tasks, done).value == 0.0
+
+
+def test_a_report_chosen_with_a_filter_the_question_did_not_ask_is_not_exact() -> None:
+    """Review of 21 Nov: a question on flat prices in the whole of Riyadh, answered with neighbourhood=النرجس, scored
+    1. The right report with a narrower question is half right."""
+    case = next(
+        c
+        for c in load_cases()
+        if c.agent == "report_select"
+        and c.expected(SelectExpect).reports
+        and not any("neighborhood" in item.params for item in c.expected(SelectExpect).reports)
+    )
+    item = case.expected(SelectExpect).reports[0]
+    right = {"report": item.reports[0], "params": {k: v for k, v in item.params.items() if v is not None}}
+    narrower = {**right, "params": {**right["params"], "neighborhood": "النرجس"}}
+
+    assert score(case, {"reports": [right]}).metrics["params"] == 1.0
+    assert score(case, {"reports": [narrower]}).metrics["params"] == 0.0

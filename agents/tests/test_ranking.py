@@ -3,6 +3,7 @@
 from typing import Any
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import FakeEmbedder, ScriptedModel, call, index, listing
@@ -397,3 +398,40 @@ def test_broaden_shows_no_offer_that_breaks_the_wish_s_rooms_or_budget(
     model.answers["matching"] = httpx.ConnectError("down")
     degraded = call(client, "matching", {"need": need, "matched": matched, "broaden": broaden})["output"]
     assert [r["id"] for r in degraded["broaden"]] == [32], "with no model too"
+
+
+@pytest.mark.parametrize("model_down", [False, True])
+def test_the_one_offer_that_fits_is_never_cut_for_ten_that_break_the_wish(
+    client: TestClient, model: ScriptedModel, model_down: bool
+) -> None:
+    """Review of 21 Nov: a four-room wish at a million, ten flats of two rooms and one of four at 990,000 — the list
+    was cut to ten before what breaks the rooms went last, so the one that fits was dropped, with the model and
+    without. What keeps the rooms and the budget is now first before any cut."""
+    need = {**NEED, "budget_max": 1_000_000, "bedrooms": 4}
+    two = [
+        {"id": i, "type": "apartment", "neighborhood": "النرجس", "price": 1_000_000, "bedrooms": 2, "desc": "شقة"}
+        for i in range(1, 11)
+    ]
+    four = {"id": 99, "type": "apartment", "neighborhood": "النرجس", "price": 990_000, "bedrooms": 4, "desc": "شقة"}
+    bad = {"results": [{"id": i, "score": 0.9} for i in range(1, 6)]}
+    model.answers["search_listings"] = httpx.ConnectError("down") if model_down else bad
+    model.answers["matching"] = (
+        httpx.ConnectError("down")
+        if model_down
+        else {"matched": bad["results"], "broaden": [{"id": i, "score": 0.9} for i in (51, 52, 53)]}
+    )
+
+    found = call(client, "search_listings", {"need": need, "candidates": [*two, four]})["output"]["results"]
+    pairs = call(
+        client,
+        "matching",
+        {
+            "need": need,
+            "matched": [*two, four],
+            "broaden": [*({**f, "id": 50 + n} for n, f in enumerate(two[:3], 1)), {**four, "id": 98}],
+        },
+    )
+
+    assert found[0]["id"] == 99 and len(found) == 10
+    assert pairs["output"]["matched"][0]["id"] == 99, "read among matching's eight"
+    assert [r["id"] for r in pairs["output"]["broaden"]] == [98]

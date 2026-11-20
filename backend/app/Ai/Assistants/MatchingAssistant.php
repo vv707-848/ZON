@@ -57,12 +57,16 @@ final class MatchingAssistant
             'units' => AiGateway::ranked($out['units'] ?? [], $units->modelKeys(), 30),
         ], customer: $customer, known: [$customer->name]);
 
-        $pick = function (string $list, $models) use ($result, $limit): array {
+        $pick = function (string $list, $models) use ($result, $limit, $need): array {
             $byId = $models->keyBy('id');
             $ranked = $result->output[$list] ?? null;
 
+            // with no ranking, what keeps the wish's rooms and budget comes first before the cut, as the agents order it
+            // (ranking._shortlist): ten that break it never push out the one that fits (review of 21 Nov)
+            $keeps = fn ($m): bool => $list === 'units' || $need->keptBy($m->bedrooms, (float) $m->price);
+
             return $ranked === null
-                ? $models->take($list === 'units' ? 30 : $limit)->map(fn ($m) => ['model' => $m, 'score' => null])->values()->all()
+                ? $models->sortBy(fn ($m) => $keeps($m) ? 0 : 1)->take($list === 'units' ? 30 : $limit)->map(fn ($m) => ['model' => $m, 'score' => null])->values()->all()
                 : array_map(fn (array $r) => ['model' => $byId[$r['id']], 'score' => $r['score']], $ranked);
         };
 

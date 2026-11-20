@@ -66,7 +66,10 @@ class FixedRetrieval:
         size = max(len(ids), 1)
         chosen = set(sorted(ids, key=lambda i: self._order.get(i, len(self._order)))[:limit])  # the same set
         given = [i for i in ids if i in chosen]  # in the order it came
-        return [Hit(i, round(1 - position / (2 * size), 3)) for position, i in enumerate(given)]
+        if not self._order:
+            return [Hit(i, round(1 - position / (2 * size), 3)) for position, i in enumerate(given)]
+        # scored by the base order, as Qdrant scores by the text: the same candidates score the same however they come
+        return [Hit(i, round(1 - self._order.get(i, size) / (2 * size), 3)) for i in given]
 
     async def knowledge(self, question: str, today: date) -> list[KnowledgeChunk]:
         return list(self._passages)
@@ -218,7 +221,7 @@ async def floors(llm: LLM, cases: Sequence[Case]) -> dict[str, float]:
         if case.agent in RANKING:
             ctx = Ctx(silent, FixedRetrieval(_passages(case), base_order(case)), today=lambda: TODAY)
             result = await PIPELINES[case.agent](ctx, dict(case.input))
-            scores[case.agent].append(score(case, result.output).value)
+            scores[case.agent].append(round(score(case, result.output).value, 4))  # as an outcome's
     return {agent: _mean(values) for agent, values in sorted(scores.items())}
 
 

@@ -199,7 +199,14 @@ abstract final class ServerSummaries {
     try {
       final r = (await Api.client!.post('ai/summaries', <String, Object?>{'scope': scope, if (id != null) 'id': _raw(id)})).map;
       final action = '${r['recommended_action'] ?? ''}'.trim();
-      return <String>['${r['summary'] ?? ''}'.trim(), if (action.isNotEmpty) 'الخطوة التالية: $action'].where((x) => x.isNotEmpty).join('\n');
+      // the conditions the model read in his notes (cash, the price he would take, what he refuses): a condition
+      // said in `signals` alone was lost under the summary (review of 21 Nov)
+      final signals = [for (final s in (r['signals'] as List? ?? const <Object?>[])) '$s'.trim()].where((s) => s.isNotEmpty);
+      return <String>[
+        '${r['summary'] ?? ''}'.trim(),
+        if (signals.isNotEmpty) 'المؤشرات: ${signals.join('، ')}',
+        if (action.isNotEmpty) 'الخطوة التالية: $action',
+      ].where((x) => x.isNotEmpty).join('\n');
     } on ApiError catch (e) {
       if (e.status == 402) throw const NeedsPlan();
       rethrow;

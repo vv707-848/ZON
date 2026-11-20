@@ -40,6 +40,10 @@ final class ConfirmPayment
     public function __invoke(Payment $payment, string $reference): Payment
     {
         if (! self::open($payment)) {
+            if ($payment->provider_ref !== null && $reference !== $payment->provider_ref) {
+                $this->again($payment, $reference);
+            }
+
             return $payment;
         }
         $remote = $this->gateway->fetch($reference);
@@ -93,6 +97,35 @@ final class ConfirmPayment
     private static function open(Payment $payment): bool
     {
         return $payment->status === PaymentStatus::Pending || $payment->status === PaymentStatus::Failed;
+    }
+
+    /**
+     * A second charge for a payment already paid (R-02, review of 21 Nov): Moyasar's form sends no `given_id`, so a
+     * second tab or a retry after a lost answer can charge again. It was answered with the first record and left
+     * with no record at all; it is now its own payment, «unapplied», which staff refund from the panel.
+     */
+    private function again(Payment $payment, string $reference): void
+    {
+        if (Payment::query()->where('provider', $payment->provider)->where('provider_ref', $reference)->exists()) {
+            return;
+        }
+        $remote = $this->gateway->fetch($reference);
+        if ($remote->status !== GatewayPayment::PAID || $remote->paymentPublicId !== $payment->public_id) {
+            return;                                                   // not a charge, or not for this payment
+        }
+        try {
+            $twice = Payment::query()->create([
+                'customer_id' => $payment->customer_id, 'purpose' => $payment->purpose,
+                'target_type' => $payment->target_type, 'target_id' => $payment->target_id,
+                'amount_halalas' => $remote->amountHalalas, 'currency' => $remote->currency,
+                'provider' => $payment->provider, 'provider_ref' => $reference,
+                'status' => PaymentStatus::Unapplied, 'failure_reason' => 'charged_twice', 'paid_at' => now(),
+                'meta' => ['charged_twice_of' => $payment->public_id],
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            return;                                                   // recorded a moment ago
+        }
+        Log::warning('payment.charged_twice', ['payment' => $payment->public_id, 'again' => $twice->public_id]);
     }
 
     private function apply(Payment $payment): bool
