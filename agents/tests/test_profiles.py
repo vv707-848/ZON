@@ -51,12 +51,13 @@ def test_a_retry_keeps_the_extras_and_lowers_only_the_temperature() -> None:
     assert {**first, "temperature": 0.1} == retry
 
 
-def test_qwen3_8_turns_thinking_off_with_its_template_s_own_switch() -> None:
+def test_qwen_turns_thinking_off_with_its_template_s_own_switch() -> None:
     """Qwen3.8's chat_template.jinja turns thinking off with enable_thinking=false; its reasoning_effort takes only
-    xhigh, medium or low, and raises on anything else: vLLM refused every request of the FP8 round (issue #119)."""
-    for name, profile in load_profiles().items():
-        if "Qwen3.8" not in profile.weights:
-            continue
+    xhigh, medium or low, and raises on anything else: vLLM refused every request of the FP8 round (issue #119).
+    Qwen3.6's card says the same switch, inside chat_template_kwargs."""
+    qwen = {name: p for name, p in load_profiles().items() if "Qwen3.8" in p.weights or "Qwen3.6" in p.weights}
+    assert "qwen3.6-35b-a3b-escha-w2" in qwen
+    for name, profile in qwen.items():
         kwargs = profile.request.get("chat_template_kwargs", {})
         assert kwargs.get("enable_thinking") is False, name
         assert kwargs.get("reasoning_effort", "xhigh") in ("xhigh", "medium", "low"), name
@@ -99,8 +100,9 @@ def test_the_ai_node_serves_every_profile_as_zon_ai_on_the_loopback(name: str, t
     assert "secret-key" not in printed, "a printed command never shows the key"
     # every engine finds its environment's tools first: FlashInfer's first request builds a kernel with ninja (#119)
     assert printed.startswith(f"PATH={tmp_path}/venv-{profile.runtime}/bin:"), "the environment's tools come first"
-    if profile.runtime == "escha":
-        assert "SERVED_NAME=zon-ai HOST=127.0.0.1 PORT=30000" in printed and printed.rstrip().endswith("serve.sh")
+    if profile.runtime in ("escha", "escha-moe"):  # each Escha runtime runs its own folder's script
+        assert "SERVED_NAME=zon-ai HOST=127.0.0.1 PORT=30000" in printed
+        assert printed.rstrip().endswith(f"{tmp_path}/{profile.runtime}/sglang/serve.sh")
     else:
         assert "--served-model-name zon-ai --host 127.0.0.1 --port 30000" in printed
         assert printed.rstrip().endswith(" ".join(profile.serve.args))

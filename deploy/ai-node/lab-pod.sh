@@ -14,6 +14,10 @@
 #   GH_TOKEN         optional — a fine-grained token with «Issues: read and write» on vv707-848/ZON only
 #   LAB_ISSUE        optional — the issue the tables are posted to (with GH_TOKEN)
 #   STOP_WHEN_DONE   1 (default) stops the Pod at the end; 0 keeps it for a look at /workspace/logs
+#   DELETE_WHEN_DONE 1 deletes the Pod instead of stopping it (the network volume stays); a delete that fails stops it
+#
+# Before the lab, one quick request (smoke): Arabic, the seconds it takes, and no <think> in the answer — the
+# server is started with thinking off (THINK=0 for Escha). An answer that fails it is posted, and the lab is not run.
 #
 # However it ends — done, or failed at any step — the same exit (finish) runs: a failure is posted to the issue with
 # the step and the log's last lines, then the Pod is stopped. It never just ends: RunPod is reported to start the
@@ -31,6 +35,7 @@ STAMP=$(date -u +%Y%m%d-%H%M)
 LOG="$W/logs/lab-$PROFILE-$STAMP.log"
 STEP="start"
 ENGINE=""
+LLM_URL=${ZON_LLM_URL:-http://127.0.0.1:30000}       # the engine, as serve.py serves it
 mkdir -p "$W/logs" "$W/reports"
 exec > >(tee -a "$LOG") 2>&1
 
@@ -47,6 +52,11 @@ request = urllib.request.Request(
     headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Accept": "application/vnd.github+json"})
 print("posted:", urllib.request.urlopen(request, timeout=30).status)
 PY
+}
+
+delete_pod() {
+  command -v runpodctl >/dev/null && [ -n "${RUNPOD_POD_ID:-}" ] || return 1
+  runpodctl pod remove "$RUNPOD_POD_ID" || runpodctl remove pod "$RUNPOD_POD_ID"
 }
 
 stop_pod() {
@@ -71,7 +81,7 @@ finish() {
     post "$note"
   fi
   if [ "${STOP_WHEN_DONE:-1}" = "1" ]; then
-    if stop_pod; then
+    if { [ "${DELETE_WHEN_DONE:-0}" = "1" ] && delete_pod; } || stop_pod; then
       sleep "${ZON_STOP_GRACE:-300}"                 # the stop takes the container down meanwhile
       exit "$code"
     fi
@@ -95,7 +105,7 @@ ZON_PROFILE="$PROFILE" bash "$W/prepare.sh"
 STEP="engine"
 python3 "$W/serve.py" "$PROFILE" > "$W/logs/engine-$PROFILE-$STAMP.log" 2>&1 &
 ENGINE=$!
-ready() { curl -sf --max-time 10 -H "Authorization: Bearer $LLM_API_KEY" http://127.0.0.1:30000/v1/models | grep -q zon-ai; }
+ready() { curl -sf --max-time 10 -H "Authorization: Bearer $LLM_API_KEY" "$LLM_URL/v1/models" | grep -q zon-ai; }
 for _ in $(seq 1 "${ZON_ENGINE_TRIES:-360}"); do
   ready && break
   kill -0 "$ENGINE" 2>/dev/null || { echo "the engine stopped — see engine-$PROFILE-$STAMP.log" >&2; tail -50 "$W/logs/engine-$PROFILE-$STAMP.log"; exit 1; }
@@ -103,6 +113,31 @@ for _ in $(seq 1 "${ZON_ENGINE_TRIES:-360}"); do
 done
 ready || { echo "the engine did not answer in time" >&2; tail -50 "$W/logs/engine-$PROFILE-$STAMP.log"; exit 1; }
 grep -m1 -o "max_total_num_tokens=[0-9]*" "$W/logs/engine-$PROFILE-$STAMP.log" || true
+
+# ④½ one quick request before the lab: an Arabic answer, its seconds and tokens per second, and no <think> in it
+STEP="smoke"
+python3 - "$LLM_URL" "$W/logs/smoke-$STAMP.txt" <<'PY'
+import json, os, re, sys, time, urllib.request
+url, out = sys.argv[1], sys.argv[2]
+ask = "اكتب جملتين قصيرتين تصف شقة من ثلاث غرف في حي النرجس بالرياض."
+body = {"model": "zon-ai", "messages": [{"role": "user", "content": ask}], "max_tokens": 160, "temperature": 0.3}
+request = urllib.request.Request(f"{url}/v1/chat/completions", data=json.dumps(body).encode(), method="POST",
+                                 headers={"Authorization": f"Bearer {os.environ['LLM_API_KEY']}", "Content-Type": "application/json"})
+started = time.monotonic()
+answer = json.load(urllib.request.urlopen(request, timeout=120))
+seconds = time.monotonic() - started
+message = answer["choices"][0]["message"]
+text = (message.get("content") or "").strip()
+tokens = (answer.get("usage") or {}).get("completion_tokens") or 0
+problems = [name for name, bad in (("empty", not text),
+                                   ("<think> in the answer", "<think>" in text or bool(message.get("reasoning_content"))),
+                                   ("no Arabic", not re.search("[؀-ۿ]", text))) if bad]
+line = f"smoke: {seconds:.1f} s · {tokens} tokens · {tokens / seconds:.1f} tok/s · {'; '.join(problems) or 'ok'}"
+open(out, "w", encoding="utf-8").write(f"{line}\n{ask}\n→ {text[:600]}\n")
+print(line)
+print(text[:600])
+sys.exit(1 if problems else 0)
+PY
 
 # ⑤ the model lab, then production's sizes — the same commands as at the terminal (docs/model-lab.md, step 5)
 STEP="lab"
@@ -118,7 +153,9 @@ cd "$W/zon/agents"
 # on /workspace/reports, for the panel's «مختبر النماذج»
 STEP="report"
 {
-  printf '**%s** on **%s** · %s\n\n**lab run**\n```\n' "$PROFILE" "$GPU" "$STAMP"
+  printf '**%s** on **%s** · %s\n\n**smoke** (one request before the lab)\n```\n' "$PROFILE" "$GPU" "$STAMP"
+  cat "$W/logs/smoke-$STAMP.txt"
+  printf '```\n**lab run**\n```\n'
   tail -c 30000 "$W/logs/lab-table-$STAMP.txt"
   printf '\n```\n**lab load** (production sizes, 8 at once)\n```\n'
   tail -c 30000 "$W/logs/load-table-$STAMP.txt"

@@ -171,6 +171,17 @@ class ModelLabTest extends AdminTestCase
         Livewire::test(ListModelEvaluations::class)->assertSee('hosted · hosted: OpenRouter');
     }
 
+    public function test_a_run_on_the_moe_runtime_is_imported_with_its_runtime(): void
+    {
+        $this->signInSuperadmin();
+
+        // Qwen3.6-35B-A3B on EschaLabs' MoE runtime (agents/zon_agents/models, runtime "escha-moe"; issue #119)
+        $this->upload($this->report(['profile' => ['name' => 'qwen3.6-35b-a3b-escha-w2', 'weights' => 'EschaLabs/Qwen3.6-35B-A3B-Escha-W2', 'runtime' => 'escha-moe']]))
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(['qwen3.6-35b-a3b-escha-w2', 'escha-moe'], [ModelEvaluation::query()->sole()->profile, ModelEvaluation::query()->sole()->runtime]);
+    }
+
     public function test_only_the_superadmin_sees_the_lab(): void
     {
         $this->signInStaff(Permission::ViewAi);
