@@ -102,7 +102,8 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
 """)
         write(w / "venv-tools" / "bin" / "uv", "#!/bin/sh\nexit 0\n", True)
         write(w / "zon" / "agents" / ".venv" / "bin" / "zon-agents",
-              '#!/bin/sh\necho "$1 $2" >> "$TEST_DIR/lab"\necho "| table of $1 $2 |"\n', True)
+              '#!/bin/sh\necho "$*" >> "$TEST_DIR/lab"\necho "| table of $1 $2 |"\n'
+              'case "$*" in *--sample*) echo "overall 0.5 → warm" ;; esac\n', True)
         self.env = {
             "PATH": f"{bin_}:{os.environ['PATH']}", "HOME": str(self.dir), "TEST_DIR": str(self.dir),
             "ZON_WORKSPACE": str(w), "ZON_GITHUB_API": f"http://127.0.0.1:{self.server.server_port}",
@@ -130,6 +131,19 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         self.assertIn("| table of lab run |", GitHub.comments[0]["body"])
         self.assertIn("| table of lab load |", GitHub.comments[0]["body"])
         self.assertEqual(self.stops(), ["pod stop pod123"])
+
+    def test_a_warm_up_runs_before_the_lab_and_only_its_summary_is_posted(self) -> None:
+        result = self.run_lab()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        runs = (self.dir / "lab").read_text().splitlines()
+        self.assertEqual([line.split()[:2] for line in runs], [["lab", "run"], ["lab", "run"], ["lab", "load"]])
+        self.assertIn("--sample 2 --no-variants", runs[0])
+        self.assertNotIn("--sample", runs[1], "the lab itself is every case, with its variants")
+        body = GitHub.comments[0]["body"]
+        self.assertIn("**warm-up** (two cases of every agent, not scored)", body)
+        self.assertIn("overall 0.5 → warm", body)
+        self.assertLess(body.index("**warm-up**"), body.index("**lab run**"))
+        self.assertEqual(body.count("| table of lab run |"), 1, "the warm-up's own table is not the lab's")
 
     def test_an_engine_that_dies_is_reported_with_its_step_and_the_pod_stops(self) -> None:
         result = self.run_lab(ENGINE_DIES="1")

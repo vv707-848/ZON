@@ -349,6 +349,21 @@ class AiTest extends TestCase
         $this->assertSame('decision', (new IntentClassifier)->classify('يا الغالي هل السعر مناسب؟')->value);   // «يا الغالي» is a greeting, not a price
     }
 
+    public function test_a_greeting_alone_is_welcomed_warmly_with_no_ai_call(): void
+    {
+        $this->seeker();
+        Http::fake();
+        foreach (['السلام عليكم ورحمة الله', 'هلا والله', 'مرحباً يا زون!', 'Hello there'] as $hello) {
+            $this->postJson('/api/v1/ai/chat', ['message' => $hello])->assertOk()->assertJsonPath('data.intent', 'out_of_scope')
+                ->assertJsonPath('data.covered', false)->assertJsonPath('meta.ai.status', 'skipped')
+                ->assertJsonPath('data.answer', fn (string $said) => str_starts_with($said, 'هلا وغلا، يالله حيه!') || str_starts_with($said, 'Hello and welcome!'));
+        }
+        $this->postJson('/api/v1/ai/chat', ['message' => 'وش رأيك بالمباراة؟'])
+            ->assertJsonPath('data.answer', 'أنا مساعد زون العقاري: أجيب عن الباقات والتراخيص والنشر والبحث والمطابقة.');
+        Http::assertNothingSent();
+        $this->assertFalse(IntentClassifier::isGreeting('السلام عليكم ابي شقة'), 'a greeting with a question is the question');
+    }
+
     public function test_a_client_summary_is_masked_stored_and_reused_while_the_notes_are_unchanged(): void
     {
         $broker = $this->signIn(Customer::factory()->broker()->create());
@@ -380,6 +395,33 @@ class AiTest extends TestCase
             ->assertJsonPath('data.0.seeker.username', $wish->customer->username)->assertJsonPath('data.0.unit', null)
             ->assertJsonPath('data.1.unit.id', $villa->id);
         Http::assertSent(fn (Sent $r) => ! str_contains($r->body(), $wish->customer->name) && ! str_contains($r->body(), $wish->customer->phone));
+    }
+
+    public function test_each_run_shows_the_developer_seekers_he_has_not_seen_and_never_one_who_rents(): void
+    {
+        $developer = $this->signIn(Customer::factory()->developer()->create());
+        $project = Project::factory()->published()->create(['developer_id' => $developer->id, 'neighborhood' => 'النرجس']);
+        ProjectUnit::factory()->create(['project_id' => $project->id, 'property_type' => 'villa']);
+        $buyers = BuyerPreference::factory()->count(5)->create(['neighborhoods' => ['النرجس'], 'property_types' => ['villa']]);
+        $renter = BuyerPreference::factory()->create(['neighborhoods' => ['النرجس'], 'property_types' => ['villa'], 'purpose' => 'rent']);
+        // the agent answers the first two it is sent
+        Http::fake(['agents.test/agents/*' => fn (Sent $r) => Http::response(['output' => ['results' => array_map(
+            fn (array $s) => ['id' => $s['id'], 'score' => 0.8, 'unit_id' => null], array_slice($r['searchers'], 0, 2))],
+            'degraded' => false, 'usage' => ['tokens_in' => 900, 'tokens_out' => 60], 'latency_ms' => 900])]);
+
+        $runs = [];
+        foreach (range(1, 4) as $_) {
+            /** @var list<array<string, mixed>> $shown */
+            $shown = $this->postJson("/api/v1/ai/matching/projects/{$project->id}/searchers")->assertOk()->json('data');
+            $runs[] = collect($shown)->pluck('seeker.username')->all();
+        }
+
+        $everyone = $buyers->map(fn (BuyerPreference $w) => $w->customer->username)->sort()->values()->all();
+        $this->assertSame([2, 2, 1], array_map('count', array_slice($runs, 0, 3)), 'each run: those not shown yet');
+        $this->assertSame($everyone, collect(array_merge(...array_slice($runs, 0, 3)))->sort()->values()->all(), 'all five, each once');
+        $this->assertCount(2, $runs[3], 'every one was shown: a new round');
+        $this->assertNotContains($renter->customer->username, array_merge(...$runs), 'a project is sold: no wish to rent');
+        Http::assertSent(fn (Sent $r) => ! in_array($renter->id, array_column($r['searchers'], 'id'), true));
     }
 
     public function test_a_broker_searches_requests_only_on_a_plan_that_includes_it(): void

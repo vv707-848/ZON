@@ -8,9 +8,13 @@
     "p95": 0
    },
    "metrics": {
-    "covered": 0.16,
+    "asks": 1.0,
+    "avoid": 1.0,
+    "covered": 0.56,
     "intent": 0.0,
-    "lang": 0.0
+    "lang": 0.0,
+    "mention": 0.0,
+    "numbers": 1.0
    },
    "score": 0.12,
    "variants": {}
@@ -45,16 +49,16 @@
     "p95": 0
    },
    "metrics": {
-    "ndcg": 0.1959,
+    "ndcg": 0.3604,
     "top1": 0.0,
-    "unit": 0.0,
+    "unit": 1.0,
     "zero_top3": 1.0
    },
-   "score": 0.098,
+   "score": 0.6802,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.098,
+     "score": 0.6796,
      "stability": 1.0
     }
    }
@@ -62,25 +66,25 @@
   "matching": {
    "cases": 12,
    "failed": 0,
-   "floor": 0.8559,
+   "floor": 0.8482,
    "latency_ms": {
     "p50": 0,
     "p95": 0
    },
    "metrics": {
     "ndcg_broaden": 0.7763,
-    "ndcg_matched": 0.6551,
+    "ndcg_matched": 0.6528,
     "top1_broaden": 0.0833,
     "top1_matched": 0.0,
     "zero_top3_broaden": 0.1667,
     "zero_top3_matched": 0.0
    },
-   "score": 0.7157,
+   "score": 0.7146,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.7157,
-     "stability": 1.0
+     "score": 0.6969,
+     "stability": 0.8056
     }
    }
   },
@@ -134,16 +138,16 @@
    },
    "metrics": {
     "inject_top3": 0.0,
-    "ndcg": 0.53,
+    "ndcg": 0.5706,
     "top1": 0.0,
     "zero_top3": 0.2895
    },
-   "score": 0.53,
+   "score": 0.5706,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.53,
-     "stability": 1.0
+     "score": 0.6261,
+     "stability": 0.7368
     }
    }
   },
@@ -157,16 +161,16 @@
    },
    "metrics": {
     "inject_top3": 0.0,
-    "ndcg": 0.5505,
+    "ndcg": 0.598,
     "top1": 0.0,
     "zero_top3": 0.0714
    },
-   "score": 0.5505,
+   "score": 0.598,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.5505,
-     "stability": 1.0
+     "score": 0.7036,
+     "stability": 0.4048
     }
    }
   },
@@ -209,6 +213,6 @@
   "digest": "59dc6ae8a4ef58d1"
  },
  "lab": 1,
- "overall": 0.3045,
+ "overall": 0.3513,
  "simulation": "adversary"
 }

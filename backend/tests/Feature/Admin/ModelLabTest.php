@@ -131,8 +131,8 @@ class ModelLabTest extends AdminTestCase
         $this->assertSame([], LabLimits::unmet($run('oracle')), 'the right answer on every case passes every limit');
 
         $adversary = implode("\n", LabLimits::unmet($run('adversary')));
-        foreach (['search_listings: عرض يكسر', 'clean_listing: أضاف ما لم يقله', 'report_write: NumberGuard', 'search_listings: درجته 0.53 لا تتجاوز الترتيب بلا نموذج (0.803)',
-            'search_requests: درجته 0.551 لا تتجاوز', 'matching: درجته 0.716 لا تتجاوز'] as $reason) {
+        foreach (['search_listings: عرض يكسر', 'clean_listing: أضاف ما لم يقله', 'report_write: NumberGuard', 'search_listings: درجته 0.571 لا تتجاوز الترتيب بلا نموذج (0.803)',
+            'search_requests: درجته 0.598 لا تتجاوز', 'matching: درجته 0.715 لا تتجاوز'] as $reason) {
             $this->assertStringContainsString($reason, $adversary);
         }
         // the service itself puts what breaks a stated budget or room count last (agents: pipelines/ranking.py), so the

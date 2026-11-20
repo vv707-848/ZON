@@ -184,7 +184,7 @@ def test_a_project_with_many_unit_models_shows_the_model_a_shortlist_its_seekers
     output = call(client, "match_searchers", {"project": {}, "units": units, "searchers": searchers})["output"]
 
     shown = [u["id"] for u in model.calls_of("match_searchers")[0][1]["units"]]
-    assert len(shown) == 30 and shown[0] == 99, "a shortlist, the seekers' nearest model first"
+    assert len(shown) == 8 and shown[0] == 99, "a shortlist, the seekers' nearest model first"
     assert output["results"] == [{"id": 7, "score": 0.9, "unit_id": 99}]
 
 
@@ -252,11 +252,11 @@ def test_a_request_whose_own_budget_or_rooms_the_offer_breaks_comes_last(
     assert [r["id"] for r in found] == [3, 4, 1, 2]
 
 
-def test_the_model_reads_at_most_15_search_and_17_matching_candidates_each_cut_at_400(
+def test_the_model_reads_at_most_15_search_and_8_matching_candidates_each_cut_at_400(
     client: TestClient, model: ScriptedModel
 ) -> None:
     """The owner's bounds (issue #119): Laravel sends up to 300 candidates of 600 characters; the model reads a
-    shortlist — 15 in search, 17 per matching list — with each description cut at 400. The fields stay whole."""
+    shortlist — 15 in search, 8 per matching list — with each description cut at 400. The fields stay whole."""
     long = "شقة واسعة قريبة من الخدمات " * 30  # 810 characters
     many = [{**c, "desc": long, "area": 180} for c in _candidates(*range(1, 41))]
     model.answers["search_listings"] = {"results": [{"id": 1, "score": 0.9}]}
@@ -273,7 +273,7 @@ def test_the_model_reads_at_most_15_search_and_17_matching_candidates_each_cut_a
     ((_, brokers, _),) = model.calls_of("search_requests")
     ((_, matching, _),) = model.calls_of("matching")
     assert [len(search["candidates"]), len(brokers["candidates"])] == [15, 15]
-    assert [len(matching["matched"]), len(matching["broaden"])] == [17, 17]
+    assert [len(matching["matched"]), len(matching["broaden"])] == [8, 8]
     shown = [*search["candidates"], *brokers["candidates"], *matching["matched"], *matching["broaden"]]
     assert {len(c["desc"]) for c in shown} == {400} and all(long.startswith(c["desc"]) for c in shown)
     assert search["candidates"][0]["area"] == 180 and search["candidates"][0]["price"] == 800001, "fields stay"
@@ -287,3 +287,58 @@ def test_clean_listing_reads_the_whole_text(client: TestClient, model: ScriptedM
 
     ((_, sent, _),) = model.calls_of("clean_listing")
     assert sent["text"] == text, "only the ranking agents' candidates are cut"
+
+
+def test_the_model_writes_its_best_five_and_the_list_goes_on_in_the_retrieval_order(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """What the model writes is the time (#119: ten results of ~16 tokens took ~5 of a search's 6.9 s on the A40):
+    it is asked for five, chosen from all fifteen it reads, and the list goes on to Laravel's ten in the retrieval's
+    order, none scored above the result before it. It found fewer than five: no more fit, and none are added."""
+    many = _candidates(*range(1, 13))
+    best = [{"id": i, "score": s} for i, s in ((9, 0.95), (12, 0.9), (3, 0.9), (7, 0.8), (1, 0.6))]
+    model.answers["search_listings"] = {"results": best}
+    read_eight = [{"id": i, "score": s} for i, s in ((8, 0.95), (6, 0.9), (3, 0.9), (7, 0.8), (1, 0.6))]
+    model.answers["matching"] = {"matched": read_eight, "broaden": [{"id": 101, "score": 0.7}]}
+
+    found = call(client, "search_listings", {"need": NEED, "candidates": many})["output"]["results"]
+    pairs = call(client, "matching", {"need": NEED, "matched": many, "broaden": _candidates(101, 102)})["output"]
+
+    ((_, sent, _),) = model.calls_of("search_listings")
+    assert sent["limit"] == 5 and len(sent["candidates"]) == 12, "asked for five, reading every candidate"
+    assert [r["id"] for r in found] == [9, 12, 3, 7, 1, 2, 4, 5, 6, 8], "then the retrieval's order, to ten"
+    tail = [r["score"] for r in found[4:]]
+    assert tail == sorted(tail, reverse=True) and max(tail[1:]) <= 0.6, "none above the result before it"
+    assert model.calls_of("matching")[0][1]["limit"] == 5
+    assert [r["id"] for r in pairs["matched"]] == [8, 6, 3, 7, 1, 2, 4, 5], "eight read: then the rest of them"
+    assert [r["id"] for r in pairs["broaden"]] == [101], "fewer than asked: nothing added"
+
+
+def test_the_developer_s_model_reads_15_searchers_and_8_unit_models_cut_at_350(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """52,370 characters at production's sizes (100 unit models of 400, 60 searchers of 500) timed out eight at once
+    on the A40 (#119): now the 15 closest searchers and the 8 unit models nearest them, each text cut at 350. It
+    writes its best five; the rest follow by closeness, each with its nearest model."""
+    units = [{"id": n, "type": "apartment", "price": 500000 + n * 10000, "desc": "نموذج " * 100} for n in range(1, 101)]
+    searchers = [
+        {
+            "id": i,
+            "type": "apartment",
+            "budget_min": 900000 + i * 10000,
+            "budget_max": 1000000 + i * 10000,
+            "notes": "أبي حوش " * 100,
+        }
+        for i in range(1, 41)
+    ]
+    model.answers["match_searchers"] = {"results": [{"id": i, "score": 0.9, "unit_id": 50} for i in (5, 3, 4, 1, 2)]}
+
+    output = call(client, "match_searchers", {"project": {}, "units": units, "searchers": searchers})["output"]
+
+    ((_, sent, _),) = model.calls_of("match_searchers")
+    assert (len(sent["searchers"]), len(sent["units"]), sent["limit"]) == (15, 8, 5)
+    assert {len(s["notes"]) for s in sent["searchers"]} == {350} and {len(u["desc"]) for u in sent["units"]} == {350}
+    assert len(json_size := __import__("json").dumps(sent, ensure_ascii=False)) < 12000, json_size
+    ids = [r["id"] for r in output["results"]]
+    assert ids[:5] == [5, 3, 4, 1, 2] and len(ids) == 10 and set(ids[5:]) <= {s["id"] for s in sent["searchers"]}
+    assert all(r["score"] <= 0.9 and r["unit_id"] is not None for r in output["results"][5:])

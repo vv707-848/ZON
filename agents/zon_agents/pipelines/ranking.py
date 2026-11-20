@@ -3,9 +3,10 @@
 Laravel builds the candidates in SQL (mandatory city · neighbourhood · type; the budget only orders), and reads
 into the need a budget and a room count that only the free text states (StatedNumbers). Here:
 1. **Shortlist:** Qdrant ranks the candidates against the user's free text, never the whole collection.
-2. **Rank:** the model orders the shortlist and scores it, judging the wishes (budget, rooms, area, age, deed,
-   bank) from the fields and the cleaned descriptions. It writes nothing else: the app shows no explanation under
-   a result, so the model's whole answer is ids and scores.
+2. **Rank:** the model reads the shortlist and writes its best few, ordered and scored, judging the wishes (budget,
+   rooms, area, age, deed, bank) from the fields and the cleaned descriptions. It writes nothing else: the app shows
+   no explanation under a result, so the model's whole answer is ids and scores. When it wrote as many as it was
+   asked, the list goes on to Laravel's `limit` in the retrieval's order; fewer means it found no more that fit.
 3. **Check:** every id must be a candidate; anything else is dropped silently.
 4. **Conditions:** a result that breaks a condition the need states in numbers — its price more than a tenth over
    the top of the budget, or fewer rooms than asked — goes after every result that does not. Nothing is removed.
@@ -41,13 +42,21 @@ from zon_agents.schemas.agents import (
 )
 from zon_agents.store import LISTINGS, PROJECT_UNITS, REQUESTS
 
-# What the model reads after the hybrid query (§10.1 step 8 → 9): a shortlist, each description cut. The owner's
-# bounds (20 Nov 2026, issue #119): at production's 30 candidates of 600 characters, eight users at once ran past the
-# 15-second budget on the A40, and a listing's facts are fields while its description is a short note.
-SEARCH_SHORTLIST = 15  # search_listings · search_requests
-MATCHING_SHORTLIST = 17  # matching: «مطابق» and «توسيع الإدراك», each
+# What the model reads after the hybrid query (§10.1 step 8 → 9), and what it writes. The owner's bounds (issue #119):
+# at production's 30 candidates of 600 characters, eight users at once ran past the 15-second budget on the A40, and
+# a listing's facts are fields while its description is a short note. What it writes is the time: on the A40 a
+# search read in under a second and wrote its ten results (~16 tokens each) in about five; the five it now writes
+# are those a user sees first, chosen from all it reads.
+SEARCH_SHORTLIST = 15  # search_listings · search_requests: what the model reads
+SEARCH_WRITES = 5  # ... and writes: its best, ordered; the rest of the list in the retrieval's order
+MATCHING_SHORTLIST = 8  # matching: «مطابق» and «توسيع الإدراك», each — it runs for saved wishes twice a day
+MATCHING_WRITES = 5  # each list
 DESC_CHARS = 400  # a candidate's description as the ranking model reads it (clean_listing reads a listing whole)
-SHORTLIST = 30  # unit models (scored by retrieval, not shown to the model) · match_searchers' unit models
+SEARCHERS = 15  # match_searchers: the searchers the model reads, the closest to a unit model by budget and rooms
+SEARCHER_UNITS = 8  # ... and the unit models, the nearest to those searchers first
+SEARCHER_CHARS = 350  # a searcher's notes and a unit model's description as the model reads them
+SEARCHERS_WRITES = 5  # its best searchers, each with a unit model; the rest by that closeness
+SHORTLIST = 30  # unit models in matching: scored by retrieval, not shown to the model
 OVER_BUDGET = 1.10  # a price above the top of the budget by more than this breaks it (docs/model-lab.md)
 
 Candidate = ListingCandidate | UnitCandidate | RequestCandidate
@@ -90,6 +99,25 @@ def _checked(
             allowed.discard(item.id)
         if len(out) == limit:
             break
+    return out
+
+
+def _then_retrieval(
+    written: list[dict[str, Any]], shortlist: Sequence[tuple[Candidate, float]], asked: int, limit: int
+) -> list[dict[str, Any]]:
+    """The model's results; when it wrote as many as it was asked, then the rest of the shortlist in the retrieval's
+    order up to `limit`, none scored above the result before it. Fewer than asked: it found no more that fit."""
+    if len(written) < asked:
+        return written
+    out = list(written)
+    taken = {r["id"] for r in out}
+    floor = min((r["score"] for r in out), default=1.0)
+    for candidate, score in shortlist:
+        if len(out) >= limit:
+            break
+        if candidate.id not in taken:
+            floor = min(floor, score)
+            out.append({"id": candidate.id, "score": round(floor, 3)})
     return out
 
 
@@ -152,13 +180,15 @@ async def _rank_one(
 ) -> Result:
     if not shortlist:
         return Result({"results": []})
-    payload = {"need": need.model_dump(exclude_none=True), "candidates": _context(shortlist), "limit": limit}
+    asked = min(limit, SEARCH_WRITES)
+    payload = {"need": need.model_dump(exclude_none=True), "candidates": _context(shortlist), "limit": asked}
     try:
         answer = await ctx.llm.run(agent, payload, SearchAnswer, "json")
     except ModelFailed as exc:
         plain = conditions_first(_plain(shortlist, limit), need, shortlist)
         return Result({"results": plain}, degraded=True, log={"llm": exc.reason})
-    output = {"results": conditions_first(_checked(answer.output.results, shortlist, limit), need, shortlist)}
+    written = _checked(answer.output.results, shortlist, asked)
+    output = {"results": conditions_first(_then_retrieval(written, shortlist, asked, limit), need, shortlist)}
     return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
 
 
@@ -178,11 +208,12 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
     if not matched and not broaden:
         return Result({"matched": [], "broaden": [], "units": unit_scores})
 
+    asked = min(req.limit, MATCHING_WRITES)
     payload = {
         "need": req.need.model_dump(exclude_none=True),
         "matched": _context(matched),
         "broaden": _context(broaden),
-        "limit": req.limit,
+        "limit": asked,
     }
     try:
         answer = await ctx.llm.run("matching", payload, MatchingAnswer, "json")
@@ -193,15 +224,17 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
             "units": unit_scores,
         }
         return Result(output, degraded=True, log={"llm": exc.reason})
-    output = {
-        "matched": conditions_first(_checked(answer.output.matched, matched, req.limit), req.need, matched),
-        "broaden": conditions_first(_checked(answer.output.broaden, broaden, req.limit), req.need, broaden),
-        "units": unit_scores,
+    lists = {"matched": (answer.output.matched, matched), "broaden": (answer.output.broaden, broaden)}
+    ranked: dict[str, Any] = {
+        name: conditions_first(
+            _then_retrieval(_checked(given, shortlist, asked), shortlist, asked, req.limit), req.need, shortlist
+        )
+        for name, (given, shortlist) in lists.items()
     }
-    return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
+    return Result({**ranked, "units": unit_scores}, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
 
 
-def _fit(searcher: Searcher, units: Sequence[UnitBrief]) -> tuple[float, int | None]:
+def fit(searcher: Searcher, units: Sequence[UnitBrief]) -> tuple[float, int | None]:
     """How far a searcher's budget and rooms are from the nearest unit model (0 = exact), and that model."""
     target = None
     if searcher.budget_min is not None or searcher.budget_max is not None:
@@ -222,23 +255,25 @@ def _fit(searcher: Searcher, units: Sequence[UnitBrief]) -> tuple[float, int | N
 
 
 async def match_searchers(ctx: Ctx, data: dict[str, Any]) -> Result:
-    """The developer's first tab (§10.3 path ب): searchers whose wish fits the project's available unit models.
-    Wishes are not indexed — SQL lists the newest; a budget/rooms fit keeps the closest 60 for the model, which
-    reads what each searcher wrote and names the nearest unit model."""
+    """The developer's first tab (§10.3 path ب): one project, and the searchers whose wish fits its available unit
+    models. Laravel sends the live wishes of the project's city, neighbourhood and types (and turns them over from
+    one run to the next: ProjectAudience); wishes are not indexed, so a budget/rooms fit keeps the closest 15 for the
+    model, which reads what each searcher wrote and names the nearest unit model."""
     req = parse(MatchSearchersInput, data)
     if not req.searchers:
         return Result({"results": []})
-    fits = sorted(((_fit(s, req.units), s) for s in req.searchers), key=lambda pair: pair[0][0])[: SHORTLIST * 2]
-    # at most a shortlist of unit models, the seekers' nearest first: 100 models of 400 characters with 60 seekers
-    # come near the node's 32k context, and a prompt past it is no answer (lab load)
+    fits = sorted(((fit(s, req.units), s) for s in req.searchers), key=lambda pair: pair[0][0])[:SEARCHERS]
+    # the unit models those searchers are nearest to first: 100 models of 400 characters with 60 searchers of 500
+    # were 52,370 characters, and eight such prompts at once ran past the 15-second budget (lab load, #119)
     nearest = Counter(unit for (_, unit), _ in fits if unit is not None)
-    units = sorted(req.units, key=lambda u: -nearest[u.id])[:SHORTLIST]
+    units = sorted(req.units, key=lambda u: -nearest[u.id])[:SEARCHER_UNITS]
     unit_ids = {u.id for u in units}
+    asked = min(req.limit, SEARCHERS_WRITES)
     payload = {
         "project": req.project.model_dump(exclude_none=True),
-        "units": [u.model_dump(exclude_none=True) for u in units],
-        "searchers": [s.model_dump(exclude_none=True) for _, s in fits],
-        "limit": req.limit,
+        "units": [{**u.model_dump(exclude_none=True), "desc": u.desc[:SEARCHER_CHARS]} for u in units],
+        "searchers": [{**s.model_dump(exclude_none=True), "notes": s.notes[:SEARCHER_CHARS]} for _, s in fits],
+        "limit": asked,
     }
     try:
         answer = await ctx.llm.run("match_searchers", payload, SearchersAnswer, "json")
@@ -257,6 +292,14 @@ async def match_searchers(ctx: Ctx, data: dict[str, Any]) -> Result:
         allowed.discard(item.id)
         unit = item.unit_id if item.unit_id in unit_ids else None
         results.append({"id": item.id, "score": round(item.score, 3), "unit_id": unit})
-        if len(results) == req.limit:
+        if len(results) == asked:
             break
+    if len(results) == asked:  # all it was asked: the rest by closeness, each with its nearest model
+        floor = min((r["score"] for r in results), default=1.0)
+        for (distance, unit), s in fits:
+            if len(results) >= req.limit:
+                break
+            if s.id in allowed:
+                floor = min(floor, round(1 / (1 + distance), 3))
+                results.append({"id": s.id, "score": floor, "unit_id": unit})  # one of the project's own
     return Result({"results": results}, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)

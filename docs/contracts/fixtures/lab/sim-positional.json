@@ -52,14 +52,14 @@
    "metrics": {
     "ndcg": 0.8057,
     "top1": 0.375,
-    "unit": 0.0,
+    "unit": 0.4554,
     "zero_top3": 0.0
    },
-   "score": 0.4029,
+   "score": 0.6306,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.3916,
+     "score": 0.6193,
      "stability": 0.9167
     }
    }
@@ -67,24 +67,24 @@
   "matching": {
    "cases": 12,
    "failed": 0,
-   "floor": 0.8559,
+   "floor": 0.8482,
    "latency_ms": {
     "p50": 0,
     "p95": 0
    },
    "metrics": {
     "ndcg_broaden": 0.9176,
-    "ndcg_matched": 0.7942,
+    "ndcg_matched": 0.7788,
     "top1_broaden": 0.5833,
     "top1_matched": 0.0833,
     "zero_top3_broaden": 0.1667,
     "zero_top3_matched": 0.0
    },
-   "score": 0.8559,
+   "score": 0.8482,
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.8221,
+     "score": 0.7928,
      "stability": 0.0
     }
    }
@@ -217,6 +217,6 @@
   "digest": "59dc6ae8a4ef58d1"
  },
  "lab": 1,
- "overall": 0.8693,
+ "overall": 0.8813,
  "simulation": "positional"
 }

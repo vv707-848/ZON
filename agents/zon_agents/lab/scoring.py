@@ -297,6 +297,8 @@ def score_chat(case: Case, output: dict[str, Any]) -> Score:
         avoid=float(not any(norm(word) in norm(answer) for word in expect.avoid)) if expect.avoid else None,
         asks=None if expect.asks is None else float(answer.count("؟") + answer.count("?") <= expect.asks),
     )
+    if metrics.get("mention") == 0.0:  # none of what it had to say: wrong, whatever else it got right
+        return Score(0.0, metrics)
     return Score(_mean(metrics), metrics)
 
 

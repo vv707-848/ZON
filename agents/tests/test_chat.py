@@ -106,6 +106,18 @@ def test_covered_without_any_source_is_not_trusted(client: TestClient, model: Sc
     assert "مطلقاً" not in output["answer"]
 
 
+@pytest.mark.parametrize("intent", ["semantic_search", "matching", "search_request", "decision", "packages"])
+def test_only_a_knowledge_answer_can_be_not_covered(client: TestClient, model: ScriptedModel, intent: str) -> None:
+    """With no passage to quote, a 2-bit model says `covered: false` for a service it rightly points to (#119: four
+    of the chat's eighteen answers): the pipeline then put «not in the library» over the right answer."""
+    said = "هلا والله، أبشر بسعدك. عندك طريقتين: «البحث الدلالي» و«مساعد المطابقة»."
+    model.answers["chat"] = {"answer": said, "covered": False, "citations": []}
+
+    output = call(client, "chat", {"intent": intent, "role": "seeker", "message": "ابي شقة في جدة"})["output"]
+
+    assert output == {"answer": said, "covered": True, "sources": [], "intent": intent}
+
+
 def test_package_questions_get_the_platforms_own_figures(client: TestClient, model: ScriptedModel) -> None:
     model.answers["chat"] = {"answer": "باقة الوسيط السنوية بـ 2300 ريال.", "covered": True}
     packages = [{"name": "الوسيط السنوية", "price": 2300, "period": "سنوي", "features": ["15 تمييزاً"]}]

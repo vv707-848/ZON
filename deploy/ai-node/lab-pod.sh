@@ -139,10 +139,17 @@ print(text[:600])
 sys.exit(1 if problems else 0)
 PY
 
-# ⑤ the model lab, then production's sizes — the same commands as at the terminal (docs/model-lab.md, step 5)
-STEP="lab"
+# ④¾ a warm-up, not scored: the first requests after a start compile the engine's kernels for shapes it has not run
+# and each answer schema's grammar. On the A40 the smoke took 16.5 s for 52 tokens, and the lab's first eight (all
+# chat) timed out in both runs (#119) — the engine's start, not the model. Two cases of every agent, eight at once
+STEP="warm-up"
 cd "$W/zon/agents"
 "$W/venv-tools/bin/uv" sync --locked --no-dev
+.venv/bin/zon-agents lab run --profile "$PROFILE" --sample 2 --no-variants --notes "warm-up $STAMP, not scored" \
+  --out "$W/reports/warmup-$PROFILE-$STAMP.json" > "$W/logs/warmup-$STAMP.txt" 2>&1 || true
+
+# ⑤ the model lab, then production's sizes — the same commands as at the terminal (docs/model-lab.md, step 5)
+STEP="lab"
 # a failed run is still posted: its table says what failed
 .venv/bin/zon-agents lab run --profile "$PROFILE" --gpu "$GPU" --notes "lab-pod $STAMP · $(git rev-parse --short HEAD)" \
   --out "$W/reports/lab-$PROFILE-$STAMP.json" 2>&1 | tee "$W/logs/lab-table-$STAMP.txt" || true
@@ -155,6 +162,8 @@ STEP="report"
 {
   printf '**%s** on **%s** · %s\n\n**smoke** (one request before the lab)\n```\n' "$PROFILE" "$GPU" "$STAMP"
   cat "$W/logs/smoke-$STAMP.txt"
+  printf '```\n**warm-up** (two cases of every agent, not scored)\n```\n'
+  grep -E "^overall|^errors|cases ·" "$W/logs/warmup-$STAMP.txt" || tail -3 "$W/logs/warmup-$STAMP.txt"
   printf '```\n**lab run**\n```\n'
   tail -c 30000 "$W/logs/lab-table-$STAMP.txt"
   printf '\n```\n**lab load** (production sizes, 8 at once)\n```\n'

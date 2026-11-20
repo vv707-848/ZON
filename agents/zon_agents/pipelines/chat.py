@@ -93,7 +93,9 @@ async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
     if intent == "out_of_scope":  # its one sentence on what it answers, in his language
         covered, text = False, scrub(answer.output.answer)
     else:
-        covered = answer.output.covered and (intent != "knowledge" or bool(sources))
+        # only a knowledge answer is «not covered» (by the passages it quotes): any other intent's answer is the
+        # service it points to, and a model that said otherwise would put «not in the library» over a right answer
+        covered = intent != "knowledge" or (answer.output.covered and bool(sources))
         text = scrub(answer.output.answer) if covered else NOT_COVERED[req.lang]
     return Result(
         {"answer": text, "covered": covered, "sources": sources if covered else [], "intent": intent},

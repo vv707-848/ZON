@@ -5,6 +5,7 @@ namespace App\Ai\Retrieval;
 use App\Enums\AccountStatus;
 use App\Enums\ClientStatus;
 use App\Enums\CustomerRole;
+use App\Enums\Purpose;
 use App\Models\BuyerPreference;
 use App\Models\Customer;
 use App\Models\Project;
@@ -16,8 +17,9 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Who a developer's project could interest: seekers through their live wishes (city + neighbourhood + one of the
- * project's types, or no type), and brokers by the NUMBER of their matching clients only — never the clients.
+ * Who a developer's project could interest: seekers through their live wishes to buy (a project's units are sold;
+ * city + neighbourhood + one of the project's types, or no type), and brokers by the NUMBER of their matching
+ * clients only — never the clients.
  */
 final class ProjectAudience
 {
@@ -26,7 +28,7 @@ final class ProjectAudience
     {
         $types = $project->units()->reorder()->distinct()->pluck('property_type')->map(fn ($t) => $t instanceof \BackedEnum ? $t->value : $t)->all();
 
-        return BuyerPreference::query()->with('customer')->where('is_active', true)->where('city', $project->city)
+        return BuyerPreference::query()->with('customer')->where('is_active', true)->where('purpose', Purpose::Sale)->where('city', $project->city)
             ->whereJsonContains('neighborhoods', $project->neighborhood)
             ->where('updated_at', '>', now()->subDays(Settings::int(Setting::PreferenceActiveDays)))
             ->where(function (Builder $q) use ($types) {

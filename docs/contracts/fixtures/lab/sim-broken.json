@@ -48,7 +48,7 @@
   "matching": {
    "cases": 12,
    "failed": 12,
-   "floor": 0.8559,
+   "floor": 0.8482,
    "latency_ms": {
     "p50": 0,
     "p95": 0
