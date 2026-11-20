@@ -250,3 +250,40 @@ def test_a_request_whose_own_budget_or_rooms_the_offer_breaks_comes_last(
     found = call(client, "search_requests", {"need": offer, "candidates": requests})["output"]["results"]
 
     assert [r["id"] for r in found] == [3, 4, 1, 2]
+
+
+def test_the_model_reads_at_most_15_search_and_17_matching_candidates_each_cut_at_400(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """The owner's bounds (issue #119): Laravel sends up to 300 candidates of 600 characters; the model reads a
+    shortlist — 15 in search, 17 per matching list — with each description cut at 400. The fields stay whole."""
+    long = "شقة واسعة قريبة من الخدمات " * 30  # 810 characters
+    many = [{**c, "desc": long, "area": 180} for c in _candidates(*range(1, 41))]
+    model.answers["search_listings"] = {"results": [{"id": 1, "score": 0.9}]}
+    model.answers["search_requests"] = {"results": [{"id": 1, "score": 0.9}]}
+    model.answers["matching"] = {"matched": [{"id": 1, "score": 0.9}], "broaden": [{"id": 101, "score": 0.8}]}
+
+    call(client, "search_listings", {"need": NEED, "candidates": many})
+    requests = [{"id": i, "types": ["apartment"], "budget_max": 900000, "desc": long} for i in range(1, 41)]
+    call(client, "search_requests", {"need": NEED, "candidates": requests})
+    broaden = [{**c, "id": c["id"] + 100} for c in many]
+    call(client, "matching", {"need": NEED, "matched": many, "broaden": broaden})
+
+    ((_, search, _),) = model.calls_of("search_listings")
+    ((_, brokers, _),) = model.calls_of("search_requests")
+    ((_, matching, _),) = model.calls_of("matching")
+    assert [len(search["candidates"]), len(brokers["candidates"])] == [15, 15]
+    assert [len(matching["matched"]), len(matching["broaden"])] == [17, 17]
+    shown = [*search["candidates"], *brokers["candidates"], *matching["matched"], *matching["broaden"]]
+    assert {len(c["desc"]) for c in shown} == {400} and all(long.startswith(c["desc"]) for c in shown)
+    assert search["candidates"][0]["area"] == 180 and search["candidates"][0]["price"] == 800001, "fields stay"
+
+
+def test_clean_listing_reads_the_whole_text(client: TestClient, model: ScriptedModel) -> None:
+    text = "شقة دور أرضي بمدخلين وحوش واسع ومطبخ راكب " * 25  # 1,075 characters
+    model.answers["clean_listing"] = {"desc_clean": "شقة دور أرضي بمدخلين", "features": []}
+
+    call(client, "clean_listing", {"type": "apartment", "city": "الرياض", "text": text})
+
+    ((_, sent, _),) = model.calls_of("clean_listing")
+    assert sent["text"] == text, "only the ranking agents' candidates are cut"
