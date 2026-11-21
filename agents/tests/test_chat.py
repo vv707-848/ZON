@@ -197,3 +197,38 @@ def test_when_the_model_is_down_laravel_answers_on_its_own(client: TestClient, m
     response = client.post("/agents/chat", json={"intent": "packages", "message": "كم الاشتراك؟"})
 
     assert response.status_code == 503
+
+
+def test_an_answer_in_another_script_than_the_message_is_asked_once_more_in_its_language(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """A40, 21 Nov: English, Turkish and Russian questions answered in Arabic. The model is told the language
+    (`reply_in`), and an answer in another script is asked once more; one in the right script is kept as it is."""
+    arabic = {"answer": "باقة الباحث بـ 199 ريال شهرياً.", "covered": True}
+    english = {"answer": "The seeker plan is 199 riyals a month.", "covered": True}
+    model.answers["chat"] = [arabic, english]
+    asked = {"lang": "en", "intent": "packages", "message": "How much is the seeker plan?"}
+
+    output = call(client, "chat", {**asked, "packages": [{"name": "الباحث", "price": 199}]})["output"]
+
+    assert output["answer"] == english["answer"]
+    first, second = (c[1] for c in model.calls_of("chat"))
+    assert first["reply_in"] == "English" and "another language" in second["reply_in"]
+
+    model.answers["chat"] = [{"answer": "Тариф стоит 199 риалов.", "covered": True, "intent": "packages"}]
+    russian = {
+        "lang": "xx",
+        "intent": "auto",
+        "message": "Сколько стоит тариф?",
+        "packages": [{"name": "x", "price": 199}],
+    }
+    assert call(client, "chat", russian)["output"]["answer"].startswith("Тариф"), "the right script: one call"
+    assert model.calls_of("chat")[-1][1]["reply_in"] == "русский" and len(model.calls_of("chat")) == 3
+
+
+def test_not_covered_in_a_language_no_rule_reads_is_said_in_its_script_when_known(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    model.answers["chat"] = {"answer": "Да", "covered": False, "citations": [], "intent": "knowledge"}
+    output = call(client, "chat", {"lang": "xx", "intent": "auto", "message": "Можно ли удалить аккаунт?"})["output"]
+    assert output["covered"] is False and output["answer"].startswith("Библиотека Zon")

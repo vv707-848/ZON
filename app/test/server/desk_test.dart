@@ -531,7 +531,7 @@ void main() {
       await tapText(tester, 'نشر كإعلان');
       await _settle(tester);
       expect(find.text('السعر (ريال)'), findsOneWidget);
-      expect(find.text('الوصف (10 أحرف فأكثر)'), findsOneWidget);
+      expect(find.text('الوصف (10 إلى 300 حرف)'), findsOneWidget);
       final fields = find.byType(EditableText);
       await tester.enterText(fields.at(0), '7200111222');
       await tester.pump();

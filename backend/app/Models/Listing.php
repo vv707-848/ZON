@@ -29,6 +29,13 @@ class Listing extends Model
     /** @use HasFactory<ListingFactory> */
     use HasDescriptionReview, HasFactory, SoftDeletes;
 
+    /**
+     * The advertiser's free text, at most (owner's decision, 21 Nov 2026): the price, the areas, the rooms and the deed
+     * have their own fields, so the text says what they cannot — and a short text is what the AI cleans within its
+     * budget (the market texts: over 500 letters, 45 of 67 were not cleaned on A40). The app counts it live.
+     */
+    public const DESC_MAX = 300;
+
     protected $guarded = ['id'];
 
     protected $attributes = ['status' => 'draft'];

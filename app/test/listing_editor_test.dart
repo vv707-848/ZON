@@ -105,6 +105,30 @@ void main() {
     expect(l.images, <String>['/listings/villa-1.jpg']);
   });
 
+  testWidgets('the description is counted live and refused over 300 letters, never cut', (tester) async {
+    await freshDevice();
+    signUp('e01.desc', role: 'broker');
+    publishTestListing('ed-4', images: const <String>['/listings/villa-1.jpg']);
+    await pumpApp(tester, '/account/listings/ed-4');
+    final desc = _numberField('الوصف');
+    final long = '${'ب' * 300} لا يقبل البنك';
+    await tester.ensureVisible(desc.first);
+    await tester.enterText(desc.first, long);
+    await tester.pump();
+    expect(find.text('${long.runes.length}/300'), findsOneWidget, reason: 'the counter follows what he types');
+    await tapText(tester, 'حفظ وتحديث العرض');
+    expect(find.text('اختصر الوصف إلى 300 حرف (الآن ${long.runes.length})'), findsOneWidget);
+    expect(store.listingById('ed-4')!.description, isNot(contains('لا يقبل البنك')), reason: 'not saved');
+    expect(tester.widget<EditableText>(desc.first).controller.text, long, reason: 'nothing he wrote is cut');
+
+    await tester.enterText(desc.first, '${'ب' * 286} لا يقبل البنك');
+    await tester.pump();
+    expect(find.text('300/300'), findsOneWidget);
+    await tapText(tester, 'حفظ وتحديث العرض');
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(store.listingById('ed-4')!.description, endsWith('لا يقبل البنك'));
+  });
+
   testWidgets('the last photo cannot be deleted; permission refused / closed picker / missing file', (tester) async {
     await freshDevice();
     signUp('e01.edge', role: 'broker');

@@ -108,6 +108,7 @@ class ProjField extends StatelessWidget {
     required this.child,
     this.hint,
     this.count,
+    this.countOver = false,
     this.textarea = false,
     this.twoRows = false,
   });
@@ -120,6 +121,9 @@ class ProjField extends StatelessWidget {
 
   /// Character counter ("n/500") shown inside the text area's bottom corner.
   final String? count;
+
+  /// The counter in the danger colour: the text is over its limit.
+  final bool countOver;
   final bool textarea;
 
   /// Compact field without the hint row (used in three-column rows).
@@ -150,6 +154,7 @@ class ProjField extends StatelessWidget {
             hint!,
             style: textarea ? ts(12, w: 500, lh: 17, c: kAddHintTa) : ts(13, w: 500, lh: 18, c: kAddPh),
           );
+    final countStyle = countOver ? ts(12, w: 700, lh: 18, c: AppColors.danger) : ts(12, w: 500, lh: 18, c: kAddPh);
     final control = count == null
         ? child
         : Stack(
@@ -158,9 +163,7 @@ class ProjField extends StatelessWidget {
               PositionedDirectional(
                 end: 14,
                 bottom: 8,
-                child: IgnorePointer(
-                  child: Tx(count!, style: ts(12, w: 500, lh: 18, c: kAddPh), softWrap: false),
-                ),
+                child: IgnorePointer(child: Tx(count!, style: countStyle, softWrap: false)),
               ),
             ],
           );

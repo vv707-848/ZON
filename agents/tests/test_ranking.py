@@ -93,12 +93,14 @@ def test_without_the_model_the_hybrid_order_answers_without_reasons(client: Test
 
 def test_a_broken_answer_is_tried_once_more_at_a_low_temperature(client: TestClient, model: ScriptedModel) -> None:
     _indexed(client)
-    model.answers["search_listings"] = [{"results": "not a list"}, {"results": [{"id": 2, "score": 0.5}]}]
+    broken, right = {"results": "not a list"}, {"results": [{"id": 2, "score": 0.5}]}
+    model.answers["search_listings"] = [broken, broken, right, right]  # both orders, each tried once more
 
     body = call(client, "search_listings", {"need": NEED, "candidates": _candidates(1, 2)})
 
     assert [r["id"] for r in body["output"]["results"]] == [2]
-    assert [temperature for *_, temperature in model.calls_of("search_listings")] == [0.0, 0.1], "a ranking at 0"
+    temperatures = sorted(t for *_, t in model.calls_of("search_listings"))
+    assert temperatures == [0.0, 0.0, 0.1, 0.1], "a ranking at 0, in both orders"
 
 
 def test_when_the_embedding_server_is_down_laravel_takes_its_fallback(
@@ -270,9 +272,9 @@ def test_the_model_reads_at_most_15_search_and_8_matching_candidates_each_cut_at
     broaden = [{**c, "id": c["id"] + 100} for c in many]
     call(client, "matching", {"need": NEED, "matched": many, "broaden": broaden})
 
-    ((_, search, _),) = model.calls_of("search_listings")
-    ((_, brokers, _),) = model.calls_of("search_requests")
-    ((_, matching, _),) = model.calls_of("matching")
+    (_, search, _), _ = model.calls_of("search_listings")  # and the same shortlist the other way round
+    (_, brokers, _), _ = model.calls_of("search_requests")
+    (_, matching, _), _ = model.calls_of("matching")
     assert [len(search["candidates"]), len(brokers["candidates"])] == [15, 15]
     assert [len(matching["matched"]), len(matching["broaden"])] == [8, 8]
     shown = [*search["candidates"], *brokers["candidates"], *matching["matched"], *matching["broaden"]]
@@ -305,7 +307,7 @@ def test_the_model_writes_its_best_five_and_the_list_goes_on_in_the_retrieval_or
     found = call(client, "search_listings", {"need": NEED, "candidates": many})["output"]["results"]
     pairs = call(client, "matching", {"need": NEED, "matched": many, "broaden": _candidates(101, 102)})["output"]
 
-    ((_, sent, _),) = model.calls_of("search_listings")
+    (_, sent, _), _ = model.calls_of("search_listings")
     assert sent["limit"] == 5 and len(sent["candidates"]) == 12, "asked for five, reading every candidate"
     assert [r["id"] for r in found] == [9, 12, 3, 7, 1, 2, 4, 5, 6, 8], "then the retrieval's order, to ten"
     tail = [r["score"] for r in found[4:]]
@@ -435,3 +437,35 @@ def test_the_one_offer_that_fits_is_never_cut_for_ten_that_break_the_wish(
     assert found[0]["id"] == 99 and len(found) == 10
     assert pairs["output"]["matched"][0]["id"] == 99, "read among matching's eight"
     assert [r["id"] for r in pairs["output"]["broaden"]] == [98]
+
+
+def test_a_model_that_ranks_positions_gives_the_same_list_whichever_order_came(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """A40, 21 Nov: at temperature 0 the first three survived a reversed shortlist in 0.70 · 0.71 · 0.61 of the cases.
+    Asked in both orders at once, each candidate at its mean score, a model that ranks positions cannot carry the
+    order into the answer. The other order keeps what breaks the wish last (1,200,000 is over a 950,000 budget)."""
+
+    def first_come(payload: dict[str, object]) -> dict[str, object]:
+        shown = payload["candidates"]
+        assert isinstance(shown, list)
+        return {"results": [{"id": c["id"], "score": round(1 - n / 10, 3)} for n, c in enumerate(shown[:5])]}
+
+    model.answers["search_listings"] = first_come
+    over = {**_candidates(9)[0], "price": 1_200_000}
+    given = [*_candidates(1, 2, 3, 4, 5, 6, 7), over]
+    ahead = call(client, "search_listings", {"need": NEED, "candidates": given})["output"]["results"]
+    back = call(client, "search_listings", {"need": NEED, "candidates": [*given[-2::-1], over]})["output"]["results"]
+
+    assert [r["id"] for r in ahead[:3]] == [r["id"] for r in back[:3]]
+    (_, first, _), (_, other, _) = model.calls_of("search_listings")[:2]
+    assert [c["id"] for c in other["candidates"]] == [7, 6, 5, 4, 3, 2, 1, 9], "reversed, what breaks it still last"
+    assert [c["id"] for c in first["candidates"]] == [1, 2, 3, 4, 5, 6, 7, 9]
+
+
+def test_one_order_failing_leaves_the_other_to_answer_alone(client: TestClient, model: ScriptedModel) -> None:
+    model.answers["search_listings"] = [httpx.ConnectError("down"), {"results": [{"id": 2, "score": 0.9}]}]
+
+    body = call(client, "search_listings", {"need": NEED, "candidates": _candidates(1, 2)})
+
+    assert body["degraded"] is False and [r["id"] for r in body["output"]["results"]] == [2]

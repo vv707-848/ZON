@@ -132,6 +132,11 @@ class LLM:
         # a run, so «unavailable» has a reason
         self.refusals: Counter[str] = Counter()
 
+    @property
+    def budget_seconds(self) -> float:
+        """The seconds one call has, both attempts included."""
+        return self._budget
+
     async def run[T: BaseModel](
         self, agent: str, payload: BaseModel | dict[str, Any], output: type[T], use: Use
     ) -> LlmResult[T]:

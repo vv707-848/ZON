@@ -179,7 +179,9 @@ class Citation(BaseModel):
 
 
 class ChatAnswer(BaseModel):
-    answer: Annotated[str, Field(min_length=1, max_length=1500)]
+    # five short sentences at most (the prompt): 900 letters bound the time it can take to write one under load —
+    # the two chat timeouts of 21 Nov (A40) were knowledge answers
+    answer: Annotated[str, Field(min_length=1, max_length=900)]
     covered: bool
     citations: list[Citation] = []
     # One enum, not ChatIntent | Literal["out_of_scope"]: that union is a «const», which a host's strict mode

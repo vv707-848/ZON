@@ -36,6 +36,7 @@ import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/widgets/service_form.dart';
 import 'package:zon/features/add/add_helpers.dart';
 import 'package:zon/features/add/widgets/add_kit.dart';
+import 'package:zon/features/add/widgets/desc_counter.dart';
 
 /// The listing editor.
 class ListingEditor extends StatefulWidget {
@@ -161,6 +162,8 @@ class _ListingEditorState extends State<ListingEditor> {
     if (p == null) return 'أدخل السعر بالأرقام';
     if (p < 0) return 'السعر لا يكون سالبًا';
     if (_desc.text.trim().isEmpty) return 'اكتب وصف العرض';
+    final long = descTooLong(_desc.text);
+    if (long != null) return long;
     if (photos.isEmpty) return 'أضف صورة واحدة على الأقل';
     return null;
   }
@@ -419,6 +422,7 @@ class _ListingEditorState extends State<ListingEditor> {
           multiline: true,
         ),
       ),
+      DescCounter(_desc),
       if (error.isNotEmpty) FormError(error),
       AppButton(label: _sending ? 'جارٍ الحفظ…' : 'حفظ وتحديث العرض', onTap: _sending ? null : _save),
       AppButton(label: 'إلغاء', tone: ButtonTone.ghost, onTap: _leave),

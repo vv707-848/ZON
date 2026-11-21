@@ -65,7 +65,7 @@ def worst_first(grades: Grades, offered: list[dict[str, Any]], limit: int) -> li
     return [{"id": i, "score": round(1 - n / 100, 3)} for n, i in enumerate(ids[:limit])]
 
 
-def _as_given(offered: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+def as_given(offered: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
     return [{"id": c["id"], "score": round(1 - n / 100, 3)} for n, c in enumerate(offered[:limit])]
 
 
@@ -188,10 +188,10 @@ def positional(case: Case, payload: dict[str, Any]) -> dict[str, Any]:
     limit = int(payload.get("limit", 10))
     match case.agent:
         case "search_listings" | "search_requests":
-            return {"results": _as_given(payload["candidates"], limit)}
+            return {"results": as_given(payload["candidates"], limit)}
         case "matching":
-            return {"matched": _as_given(payload["matched"], limit), "broaden": _as_given(payload["broaden"], limit)}
+            return {"matched": as_given(payload["matched"], limit), "broaden": as_given(payload["broaden"], limit)}
         case "match_searchers":
-            return {"results": [{**r, "unit_id": None} for r in _as_given(payload["searchers"], limit)]}
+            return {"results": [{**r, "unit_id": None} for r in as_given(payload["searchers"], limit)]}
         case _:
             return perfect(case, payload)

@@ -13,17 +13,26 @@ into the need a budget and a room count that only the free text states (StatedNu
    The model orders by what the texts say and lets a close wording outrank a broken budget (measured: a request
    whose budget the offer broke was in the first three in 5 cases of 6, twice); arithmetic is the code's.
 
+5. **Both orders:** search and matching ask the model twice at once, the shortlist as it came and reversed (what
+   keeps the wish still first, each part reversed: `flipped`), and
+   keep each candidate's mean score of the two (absent from one answer: 0 there). A model that prefers what comes
+   first cannot carry that into the answer (A40, 21 Nov: the first three survived the reversal in 0.70 · 0.71 · 0.61
+   of the cases at temperature 0). If one of the two fails, the other answers alone.
+
 If the model fails, the answer is `degraded`: the hybrid order with its scores. If the embedding server or Qdrant
 fails, the call fails (503) and Laravel answers with the SQL order (§7 «سياسة الفشل»).
 """
 
+import asyncio
 import math
 from collections import Counter
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from pydantic import BaseModel
+
 from zon_agents.embeddings import Embedding
-from zon_agents.llm import ModelFailed
+from zon_agents.llm import LlmResult, ModelFailed
 from zon_agents.pipelines.base import Ctx, Result, parse
 from zon_agents.schemas.agents import (
     ListingCandidate,
@@ -112,6 +121,41 @@ def _checked(
         if len(out) == limit:
             break
     return out
+
+
+def flipped(need: Need, shortlist: Sequence[tuple[Candidate, float]]) -> list[dict[str, Any]]:
+    """The shortlist the other way round as the model reads it: what keeps the wish still first, each part reversed
+    — so a list and its reversal are read as the same two orders, and what breaks the wish is never read first."""
+    keep = [pair for pair in shortlist if not breaks(need, pair[0])]
+    late = [pair for pair in shortlist if breaks(need, pair[0])]
+    return _context([*keep[::-1], *late[::-1]])
+
+
+async def both_orders[T: BaseModel](
+    ctx: Ctx, agent: str, payload: dict[str, Any], other: dict[str, Any], schema: type[T]
+) -> list[LlmResult[T]]:
+    """The model's answers to [payload] and to [other] (its lists the other way round), asked at once; one that
+    failed is left out, and both failing is the first one's failure."""
+    found = await asyncio.gather(
+        ctx.llm.run(agent, payload, schema, "rank"), ctx.llm.run(agent, other, schema, "rank"), return_exceptions=True
+    )
+    answers = [a for a in found if not isinstance(a, BaseException)]
+    if answers:
+        return answers
+    for failure in found:
+        if not isinstance(failure, ModelFailed):
+            raise failure  # type: ignore[misc]
+    raise found[0]  # type: ignore[misc]
+
+
+def mean_of(lists: Sequence[list[dict[str, Any]]]) -> list[dict[str, Any]]:
+    """Each candidate written in any of [lists] (checked: candidates, once each), with its mean score over all of
+    them — 0 in a list that left it out."""
+    scores: dict[int, float] = {}
+    for written in lists:
+        for r in written:
+            scores[r["id"]] = scores.get(r["id"], 0.0) + r["score"]
+    return [{"id": i, "score": round(total / len(lists), 3)} for i, total in scores.items()]
 
 
 def canonical(results: list[dict[str, Any]], gap: Callable[[int], float] = lambda _: 0.0) -> list[dict[str, Any]]:
@@ -222,13 +266,15 @@ async def _rank_one(
     asked = min(limit, SEARCH_WRITES)
     payload = {"need": need.model_dump(exclude_none=True), "candidates": _context(shortlist), "limit": asked}
     try:
-        answer = await ctx.llm.run(agent, payload, SearchAnswer, "rank")
+        other = {**payload, "candidates": flipped(need, shortlist)}
+        answers = await both_orders(ctx, agent, payload, other, SearchAnswer)
     except ModelFailed as exc:
         plain = conditions_first(_plain(shortlist, limit), need, shortlist)
         return Result({"results": plain}, degraded=True, log={"llm": exc.reason})
-    written = canonical(_checked(answer.output.results, shortlist, asked), budget_gap(need, shortlist))
+    each = [_checked(a.output.results, shortlist, asked) for a in answers]
+    written = canonical(mean_of(each), budget_gap(need, shortlist))[: max(len(w) for w in each)]
     output = {"results": conditions_first(_then_retrieval(written, shortlist, asked, limit), need, shortlist)}
-    return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
+    return Result(output, tokens_in=_sum(answers, "in"), tokens_out=_sum(answers, "out"), log={"orders": len(answers)})
 
 
 async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
@@ -255,7 +301,8 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
         "limit": asked,
     }
     try:
-        answer = await ctx.llm.run("matching", payload, MatchingAnswer, "rank")
+        other = {**payload, "matched": flipped(req.need, matched), "broaden": flipped(req.need, broaden)}
+        answers = await both_orders(ctx, "matching", payload, other, MatchingAnswer)
     except ModelFailed as exc:
         broken = _broken(req.need, broaden)
         output = {
@@ -265,7 +312,8 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
         }
         return Result(output, degraded=True, log={"llm": exc.reason})
     gap = budget_gap(req.need, [*matched, *broaden])
-    mine = canonical(_checked(answer.output.matched, matched, asked), gap)
+    each = [_checked(a.output.matched, matched, asked) for a in answers]
+    mine = canonical(mean_of(each), gap)[: max(len(w) for w in each)]
     ranked: dict[str, Any] = {
         "matched": conditions_first(_then_retrieval(mine, matched, asked, req.limit), req.need, matched)
     }
@@ -273,7 +321,8 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
     # is not one (#119: the zero-graded broaden offers were all a room or more short, in lists of three). What the
     # model wrote of those is dropped, and then it has not said that no more fit: the list goes on with what keeps them
     broken = _broken(req.need, broaden)
-    written = canonical(_checked(answer.output.broaden, broaden, asked), gap)
+    each = [_checked(a.output.broaden, broaden, asked) for a in answers]
+    written = canonical(mean_of(each), gap)[: max(len(w) for w in each)]
     kept = [r for r in written if r["id"] not in broken]
     serving = [pair for pair in broaden if pair[0].id not in broken]
     ranked["broaden"] = (
@@ -281,7 +330,16 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
         if len(written) == asked or len(kept) < len(written)
         else kept
     )
-    return Result({**ranked, "units": unit_scores}, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
+    return Result(
+        {**ranked, "units": unit_scores},
+        tokens_in=_sum(answers, "in"),
+        tokens_out=_sum(answers, "out"),
+        log={"orders": len(answers)},
+    )
+
+
+def _sum(answers: Sequence[LlmResult[Any]], side: str) -> int:
+    return sum(a.tokens_in if side == "in" else a.tokens_out for a in answers)
 
 
 def fit(searcher: Searcher, units: Sequence[UnitBrief]) -> tuple[float, int | None]:

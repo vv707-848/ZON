@@ -8,6 +8,7 @@ These have no degraded answer: when the model fails the call fails (503) and Lar
 from typing import Any
 
 from zon_agents.llm import ModelFailed, model_unavailable
+from zon_agents.numbers import grounded_amounts
 from zon_agents.pipelines.base import Ctx, Result, parse, scrub
 from zon_agents.schemas.agents import (
     CleanListingAnswer,
@@ -45,7 +46,12 @@ async def clean_listing(ctx: Ctx, data: dict[str, Any]) -> Result:
     except ModelFailed as exc:
         raise model_unavailable(exc) from exc
     features = [scrub(f) for f in answer.output.features if scrub(f)]
-    output = {"desc_clean": scrub(answer.output.desc_clean), "features": features}
+    desc = scrub(answer.output.desc_clean)
+    output = {"desc_clean": desc, "features": features}
+    # a wording that changes an amount is no wording: «2 مليون و200 الف» written 2200200 (A40, 21 Nov). Laravel then
+    # publishes his text as he wrote it, so no amount he did not write reaches a buyer
+    if not grounded_amounts(desc, req.text, req.fields):
+        raise model_unavailable(ModelFailed("amount"))
     return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
 
 

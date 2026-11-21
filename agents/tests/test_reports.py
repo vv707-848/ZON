@@ -190,3 +190,25 @@ def test_an_empty_batch_costs_no_call(client: TestClient, model: ScriptedModel) 
 
     assert output == {"summary": "", "themes": []}
     assert model.calls == []
+
+
+def test_a_sentence_the_model_worked_out_is_dropped_alone_and_the_rest_stands(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """A40, 21 Nov: a sum («إجمالي … 110») or a difference («بزيادة 47000») the rows do not hold made Laravel's
+    NumberGuard drop the whole analysis. Each sentence is judged alone now; Laravel judges what is left as strictly.
+    And a recommendation after one with a proposal is judged by the parts' parameters still («30 يوماً»)."""
+    second = {**DEMAND, "rows": [{"neighborhood": "الملقا", "requests": 31}]}
+    payload = {"question": "الطلب", "parts": [DEMAND, second], "proposals": PROPOSALS}
+    model.answers["report_write"] = {
+        "analysis": "النرجس الأعلى طلباً بـ38 طلباً. يليه الملقا بـ31. إجمالي الطلبات 69 طلباً.\nبزيادة 7 عن الملقا!",
+        "recommendations": [
+            {"text": "دعوة وسطاء الرياض", "action": "announce", "params": {"audience": "broker", "city": "الرياض"}},
+            {"text": "مراجعة الطلب بعد 30 يوماً", "action": None, "params": {}},
+        ],
+    }
+
+    output = call(client, "report_write", payload)["output"]
+
+    assert output["analysis"] == "النرجس الأعلى طلباً بـ38 طلباً. يليه الملقا بـ31."
+    assert [r["text"] for r in output["recommendations"]] == ["دعوة وسطاء الرياض", "مراجعة الطلب بعد 30 يوماً"]

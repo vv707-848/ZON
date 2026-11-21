@@ -71,7 +71,7 @@ class ListingRequest extends ApiRequest
             'annual_income' => $spec('annual_income', ['numeric', 'gte:0', 'max:999999999999']),
             'has_deed' => ['sometimes', 'boolean'],
             'bank_accepted' => ['sometimes', 'boolean'],
-            'description' => [$need, 'string', 'min:10', 'max:3000'],
+            'description' => [$need, 'string', 'min:10', 'max:'.Listing::DESC_MAX],
             'features' => ['sometimes', 'array', 'max:20'],
             'features.*' => ['string', 'max:60'],
             'lat' => ['nullable', 'numeric', 'between:16,33'],

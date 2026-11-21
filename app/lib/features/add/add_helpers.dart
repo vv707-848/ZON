@@ -11,6 +11,25 @@ import 'package:zon/data/catalog/catalog.dart';
 
 export 'package:zon/core/utils/input.dart' show digitsOnly, normalizeSaudiMobile, parseUserNumber, toAsciiDigits;
 
+// ------------------------------------------------------------------ description
+
+/// The advertiser's free text, at most — the server's `Listing::DESC_MAX` (owner's decision, 21 Nov 2026): the
+/// price, areas, rooms and deed have their own fields. Counted as the server counts (letters, not UTF-16 units),
+/// and never cut: a text over it is refused with its count, so he shortens it himself and keeps «لا يقبل البنك».
+const int kListingDescMax = 300;
+
+/// The letters of [text] as the server counts them (`mb_strlen`).
+int descLetters(String text) => text.trim().runes.length;
+
+/// «اختصر الوصف…» when [text] is over [kListingDescMax], else null.
+String? descTooLong(String text) {
+  final n = descLetters(text);
+  return n > kListingDescMax ? 'اختصر الوصف إلى $kListingDescMax حرف (الآن $n)' : null;
+}
+
+/// The live counter under a description: «n/300».
+String descCount(String text) => '${descLetters(text)}/$kListingDescMax';
+
 // ------------------------------------------------------------------ numbers
 
 /// The number typed in a field (Arabic digits accepted), or 0 when it is

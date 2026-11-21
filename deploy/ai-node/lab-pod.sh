@@ -159,6 +159,9 @@ STEP="lab"
   --out "$W/reports/lab-$PROFILE-$STAMP.json" 2>&1 | tee "$W/logs/lab-table-$STAMP.txt" || true
 .venv/bin/zon-agents lab load --profile "$PROFILE" --out "$W/reports/load-$PROFILE-$STAMP.json" 2>&1 \
   | tee "$W/logs/load-table-$STAMP.txt" || true
+# texts from the market as the owner collected them, with no expected answer: measured, never a gate (lab/market.py)
+.venv/bin/zon-agents lab market --profile "$PROFILE" --out "$W/reports/market-$PROFILE-$STAMP.json" 2>&1 \
+  | tee "$W/logs/market-table-$STAMP.txt" || true
 
 # ⑥ the two tables to the issue: what the connector cannot read from the Pod, GitHub shows. The JSON reports stay
 # on /workspace/reports, for the panel's «مختبر النماذج»
@@ -172,7 +175,9 @@ STEP="report"
   tail -c 30000 "$W/logs/lab-table-$STAMP.txt"
   printf '\n```\n**lab load** (production sizes, 8 at once)\n```\n'
   tail -c 30000 "$W/logs/load-table-$STAMP.txt"
-  printf '\n```\nReports on the volume: `/workspace/reports/lab-%s-%s.json` · `load-%s-%s.json`\n' "$PROFILE" "$STAMP" "$PROFILE" "$STAMP"
+  printf '\n```\n**lab market** (texts from the market, no expected answer: not a gate)\n```\n'
+  tail -c 3000 "$W/logs/market-table-$STAMP.txt"
+  printf '\n```\nReports on the volume: `/workspace/reports/lab-%s-%s.json` · `load-%s-%s.json` · `market-%s-%s.json`\n' "$PROFILE" "$STAMP" "$PROFILE" "$STAMP" "$PROFILE" "$STAMP"
 } > "$W/logs/tables-$STAMP.md"
 post "$W/logs/tables-$STAMP.md"
 
@@ -206,6 +211,28 @@ if flips:
 if not lines:
     sys.exit(1)
 body = "**what the cases that missed wrote** (lab run)\n\n" + "\n".join(lines)
+open(sys.argv[2], "w", encoding="utf-8").write(body[:60000])
+PY
+
+# ⑥¾ what the market texts that missed wrote, in a third comment (21 Nov: it took a second Pod to read them)
+python3 - "$W/reports/market-$PROFILE-$STAMP.json" "$W/logs/market-missed-$STAMP.md" <<'PY' && post "$W/logs/market-missed-$STAMP.md" || true
+import json, sys
+try:
+    report = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, ValueError):
+    sys.exit(1)
+lines = []
+for agent, row in report.items():
+    for m in row.get("missed", []):
+        out = m.get("output") or {}
+        said = out.get("desc_clean") or out.get("answer") or ""
+        if out.get("features"):
+            said = f"{said} | features: {' · '.join(out['features'])}"
+        why = m.get("error") or json.dumps({k: v for k, v in m.get("checks", {}).items() if v != 1})
+        lines.append(f"- `{m['id']}` ({agent}): {why}\n  → {' '.join(str(said).split())[:280]}")
+if not lines:
+    sys.exit(1)
+body = "**what the market texts that missed wrote** (lab market)\n\n" + "\n".join(lines)
 open(sys.argv[2], "w", encoding="utf-8").write(body[:60000])
 PY
 
