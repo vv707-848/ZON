@@ -116,3 +116,26 @@ def test_a_deed_the_advertiser_did_not_state_is_refused(client: TestClient, mode
     model.answers["clean_listing"] = {"desc_clean": "شقة 3 غرف بدون صك", "features": []}
     said = {**sent, "text": "شقة للبيع 3 غرف بدون صك"}
     assert call(client, "clean_listing", said)["output"]["desc_clean"] == "شقة 3 غرف بدون صك", "as he wrote it"
+
+
+def test_a_deed_he_said_is_not_there_is_never_written_as_there(client: TestClient, model: ScriptedModel) -> None:
+    """«بدون صك» is the opposite claim: a wording or a feature that says there is a deed is refused, and so is one
+    that says there is none when he said there is (or the field does)."""
+    none = {"type": "land", "text": "أرض للبيع بدون صك في الدرعية 600 م"}
+    for answer in (
+        {"desc_clean": "أرض بالدرعية 600 م، الصك جاهز", "features": []},
+        {"desc_clean": "أرض بالدرعية 600 م", "features": ["صك"]},
+    ):
+        model.answers["clean_listing"] = answer
+        refused = client.post("/agents/clean_listing", json=none)
+        assert refused.status_code == 503 and "deed" in refused.text, answer
+    model.answers["clean_listing"] = {"desc_clean": "أرض بالدرعية 600 م بدون صك", "features": []}
+    assert call(client, "clean_listing", none)["output"]["desc_clean"].endswith("بدون صك"), "as he said it"
+
+    model.answers["clean_listing"] = {"desc_clean": "شقة بالنرجس، لا يوجد صك", "features": []}
+    deed = {"type": "apartment", "text": "شقة بالنرجس صك الكتروني جاهز"}
+    refused = client.post("/agents/clean_listing", json=deed)
+    assert refused.status_code == 503 and "deed" in refused.text, "none where he said there is one"
+    field_no = {"type": "apartment", "text": "شقة بالنرجس 3 غرف", "fields": {"deed": False}}
+    model.answers["clean_listing"] = {"desc_clean": "شقة بالنرجس 3 غرف، الصك غير جاهز", "features": []}
+    assert call(client, "clean_listing", field_no)["output"]["desc_clean"].endswith("غير جاهز"), "the field says it"

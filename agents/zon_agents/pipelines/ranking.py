@@ -91,12 +91,16 @@ async def _shortlist[C: Candidate](
     candidates: Sequence[C],
     size: int = SHORTLIST,
     need: Need | None = None,
+    keep: Callable[[Need, Candidate], bool] | None = None,
 ) -> list[tuple[C, float]]:
-    """The candidates in hybrid order, then those not indexed yet in Laravel's (budget) order, each scored below
-    every hybrid hit (a score is never above one placed before it); without free text there is nothing to embed and
-    Laravel's order is kept. With a `need`, what keeps its rooms and budget comes first, each part in that order,
-    BEFORE the cut to `size`: a list cut first can keep ten that break the wish and drop the one that fits it
-    (review of 21 Nov: ten two-room flats and one of four rooms for a four-room wish)."""
+    """The candidates in hybrid order, then those not indexed yet, each scored below every hybrid hit (a score is
+    never above one placed before it); without free text there is nothing to embed.
+
+    With a `need` (owner's decision, 21 Nov 2026), only what keeps it is a candidate at all: its budget and rooms
+    (`fits`) for a result, or what «عروض أخرى» asks (`fits_broaden`). Two that keep it are two results, never
+    filled with what breaks it — after the model, without it, or when it times out. And the order the model reads
+    is fixed by the candidates themselves, never by the order they came in: Qdrant's score, then the id; without
+    retrieval (no free text, or not indexed yet), the price's distance from the top of the budget, then the id."""
     if not candidates:
         return []
     by_id = {c.id: c for c in candidates}
@@ -107,12 +111,15 @@ async def _shortlist[C: Candidate](
     seen = {c.id for c, _ in ranked}
     top = min([0.5, *(score for _, score in ranked)])
     rest = [c for c in candidates if c.id not in seen]
+    if need is not None:
+        gap = budget_gap(need, [(c, 0.0) for c in rest])
+        rest.sort(key=lambda c: (gap(c.id), c.id))
     whole = len(rest) if need else max(0, size - len(ranked))
     for position, candidate in enumerate(rest[:whole]):
         ranked.append((candidate, round(max(0.0, top * (1 - (position + 1) / (2 * max(size, len(rest))))), 3)))
-    if need is not None:  # the best `size` by (keeps the wish, score), shown in the order they came
-        best = set(sorted(range(len(ranked)), key=lambda k: (breaks(need, ranked[k][0]), -ranked[k][1], k))[:size])
-        ranked = [ranked[k] for k in sorted(best, key=lambda k: (breaks(need, ranked[k][0]), k))]
+    if need is not None:
+        rule = keep or fits
+        ranked = sorted((p for p in ranked if rule(need, p[0])), key=lambda p: (-p[1], p[0].id))[:size]
     return ranked
 
 
@@ -186,11 +193,17 @@ def budget_gap(need: Need, shortlist: Sequence[tuple[Candidate, float]]) -> Call
 
 
 def _then_retrieval(
-    written: list[dict[str, Any]], shortlist: Sequence[tuple[Candidate, float]], asked: int, limit: int
+    written: list[dict[str, Any]],
+    shortlist: Sequence[tuple[Candidate, float]],
+    asked: int,
+    limit: int,
+    wrote: int | None = None,
 ) -> list[dict[str, Any]]:
-    """The model's results; when it wrote as many as it was asked, then the rest of the shortlist in the retrieval's
-    order up to `limit`, none scored above the result before it. Fewer than asked: it found no more that fit."""
-    if len(written) < asked:
+    """The model's results; when it wrote as many as it was asked (or as it read, if fewer), then the rest of the
+    shortlist in its order up to `limit`, none scored above the result before it. Fewer than asked: it found no
+    more that fit. An answer of which nothing is a candidate (`wrote` something, none of it read) is no answer:
+    the shortlist's own order."""
+    if (wrote if not written and wrote else len(written)) < min(asked, len(shortlist)):
         return written
     out = list(written)
     taken = {r["id"] for r in out}
@@ -216,6 +229,21 @@ def breaks(need: Need, candidate: Candidate) -> bool:
     over = bool(top) and price is not None and price > (top or 0) * OVER_BUDGET
     few = bool(asked) and rooms is not None and rooms < (asked or 0)
     return over or few
+
+
+def fits(need: Need, candidate: Candidate) -> bool:
+    """A result of the need: within its budget (with OVER_BUDGET's margin) and its rooms."""
+    return not breaks(need, candidate)
+
+
+def fits_broaden(need: Need, candidate: Candidate) -> bool:
+    """«عروض أخرى» (Laravel's ListingCandidates::broaden, whose area it checks): within the top of the budget, no
+    margin, and not fewer rooms than asked — an offer that does not state its price or rooms is not shown to."""
+    if isinstance(candidate, RequestCandidate):
+        return fits(need, candidate)
+    if need.budget_max is None or candidate.price is None or candidate.price > need.budget_max:
+        return False
+    return not need.bedrooms or (candidate.bedrooms is not None and candidate.bedrooms >= need.bedrooms)
 
 
 def _broken(need: Need, shortlist: Sequence[tuple[Candidate, float]]) -> set[int]:
@@ -295,12 +323,12 @@ async def _rank_one(
     asked = min(limit, SEARCH_WRITES)
     try:
         answers = await _ask(ctx, agent, need, {"candidates": shortlist}, {"limit": asked}, SearchAnswer)
-    except ModelFailed as exc:
-        plain = conditions_first(_plain(shortlist, limit), need, shortlist)
-        return Result({"results": plain}, degraded=True, log={"llm": exc.reason})
+    except ModelFailed as exc:  # timed out or failed: the same rule, the shortlist's own order
+        return Result({"results": _plain(shortlist, limit)}, degraded=True, log={"llm": exc.reason})
     each = [_checked(a.output.results, shortlist, asked) for a in answers]
     written = canonical(mean_of(each), budget_gap(need, shortlist))[: max(len(w) for w in each)]
-    output = {"results": conditions_first(_then_retrieval(written, shortlist, asked, limit), need, shortlist)}
+    wrote = max(len(a.output.results) for a in answers)
+    output = {"results": _then_retrieval(written, shortlist, asked, limit, wrote)}
     return Result(output, tokens_in=_sum(answers, "in"), tokens_out=_sum(answers, "out"), log={"orders": len(answers)})
 
 
@@ -312,9 +340,8 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
     query = await _query(ctx, req.need, req.terms)
     matched_ids = {c.id for c in req.matched}
     matched = await _shortlist(ctx, LISTINGS, query, req.matched, MATCHING_SHORTLIST, req.need)
-    broaden = await _shortlist(
-        ctx, LISTINGS, query, [c for c in req.broaden if c.id not in matched_ids], MATCHING_SHORTLIST, req.need
-    )
+    others = [c for c in req.broaden if c.id not in matched_ids]
+    broaden = await _shortlist(ctx, LISTINGS, query, others, MATCHING_SHORTLIST, req.need, fits_broaden)
     units = await _shortlist(ctx, PROJECT_UNITS, query, req.units)
     unit_scores = [{"id": c.id, "score": score} for c, score in units[: req.limit]]
     if not matched and not broaden:
@@ -324,33 +351,16 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
     try:
         lists = {"matched": matched, "broaden": broaden}
         answers = await _ask(ctx, "matching", req.need, lists, {"limit": asked}, MatchingAnswer)
-    except ModelFailed as exc:
-        broken = _broken(req.need, broaden)
-        output = {
-            "matched": conditions_first(_plain(matched, req.limit), req.need, matched),
-            "broaden": [r for r in _plain(broaden, req.limit) if r["id"] not in broken],
-            "units": unit_scores,
-        }
+    except ModelFailed as exc:  # timed out or failed: the same rules, each shortlist's own order
+        output = {"matched": _plain(matched, req.limit), "broaden": _plain(broaden, req.limit), "units": unit_scores}
         return Result(output, degraded=True, log={"llm": exc.reason})
     gap = budget_gap(req.need, [*matched, *broaden])
-    each = [_checked(a.output.matched, matched, asked) for a in answers]
-    mine = canonical(mean_of(each), gap)[: max(len(w) for w in each)]
-    ranked: dict[str, Any] = {
-        "matched": conditions_first(_then_retrieval(mine, matched, asked, req.limit), req.need, matched)
-    }
-    # «توسيع الإدراك» is what the budget buys that serves the wish: an offer that breaks its stated rooms or budget
-    # is not one (#119: the zero-graded broaden offers were all a room or more short, in lists of three). What the
-    # model wrote of those is dropped, and then it has not said that no more fit: the list goes on with what keeps them
-    broken = _broken(req.need, broaden)
-    each = [_checked(a.output.broaden, broaden, asked) for a in answers]
-    written = canonical(mean_of(each), gap)[: max(len(w) for w in each)]
-    kept = [r for r in written if r["id"] not in broken]
-    serving = [pair for pair in broaden if pair[0].id not in broken]
-    ranked["broaden"] = (
-        _then_retrieval(kept, serving, len(kept), req.limit)
-        if len(written) == asked or len(kept) < len(written)
-        else kept
-    )
+    ranked: dict[str, Any] = {}
+    for name, shortlist in (("matched", matched), ("broaden", broaden)):
+        each = [_checked(getattr(a.output, name), shortlist, asked) for a in answers]
+        written = canonical(mean_of(each), gap)[: max(len(w) for w in each)]
+        wrote = max(len(getattr(a.output, name)) for a in answers)
+        ranked[name] = _then_retrieval(written, shortlist, asked, req.limit, wrote)
     return Result(
         {**ranked, "units": unit_scores},
         tokens_in=_sum(answers, "in"),

@@ -99,11 +99,11 @@
      "failed": 0,
      "metrics": {
       "ndcg_broaden": 1.0,
-      "ndcg_matched": 0.9961,
+      "ndcg_matched": 0.9989,
       "top1_broaden": 1.0,
       "top1_matched": 1.0
      },
-     "score": 0.9981,
+     "score": 0.9995,
      "stability": 1.0,
      "stability_broaden": 1.0
     },
@@ -111,11 +111,11 @@
      "failed": 0,
      "metrics": {
       "ndcg_broaden": 1.0,
-      "ndcg_matched": 0.9973,
+      "ndcg_matched": 0.9989,
       "top1_broaden": 1.0,
       "top1_matched": 1.0
      },
-     "score": 0.9987,
+     "score": 0.9995,
      "stability": 1.0,
      "stability_broaden": 1.0
     }
@@ -183,19 +183,19 @@
     "reversed": {
      "failed": 0,
      "metrics": {
-      "ndcg": 0.9981,
+      "ndcg": 0.9985,
       "top1": 1.0
      },
-     "score": 0.9981,
+     "score": 0.9985,
      "stability": 1.0
     },
     "shuffled": {
      "failed": 0,
      "metrics": {
-      "ndcg": 0.9984,
+      "ndcg": 0.9985,
       "top1": 1.0
      },
-     "score": 0.9984,
+     "score": 0.9985,
      "stability": 1.0
     }
    }

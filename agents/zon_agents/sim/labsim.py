@@ -134,33 +134,24 @@ def _as_listed(
     kind = RequestCandidate if case.agent == "search_requests" else ListingCandidate
     need = Need(**case.input["need"])
 
-    def breaks(c: dict[str, Any]) -> bool:
-        return ranking.breaks(need, kind(**c))
-
-    # the shortlist (ranking._shortlist): the best `size` by keeping the wish, then the base order (the lab's retrieval
-    # scores by it: variants.base_order), shown in the case's own order with what keeps the wish first
+    rule = ranking.fits_broaden if name == "broaden" else ranking.fits
+    # the shortlist (ranking._shortlist): only what keeps the wish (or what «عروض أخرى» asks), in an order fixed by
+    # the candidates — the lab's retrieval scores by the base order (variants.base_order) when there is free text,
+    # else the price's distance from the top of the budget; then the id
     base = _BASE.get(case.id, case).input.get(name, [])
-    keep = {c["id"] for c in sorted(base, key=lambda c: (breaks(c), base.index(c)))[:size]}
-    given = [c for c in case.input.get(name, []) if c["id"] in keep]
-    read = [c for c in given if not breaks(c)] + [c for c in given if breaks(c)]
+    given = [c for c in case.input.get(name, []) if rule(need, kind(**c))]
+    gap = ranking.budget_gap(need, [(kind(**c), 0.0) for c in given])
+    if need.free_text.strip():
+        index = {c["id"]: n for n, c in enumerate(base)}
+        read = sorted(given, key=lambda c: (index.get(c["id"], len(base)), c["id"]))[:size]
+    else:
+        read = sorted(given, key=lambda c: (gap(c["id"]), c["id"]))[:size]
     asked = min(limit, writes)
-    by_id = {candidate["id"]: kind(**candidate) for candidate in read}
-    gap = ranking.budget_gap(need, [(c, 0.0) for c in by_id.values()])
-    # asked in both orders, each candidate at its mean score (ranking.both_orders · mean_of)
-    keepers = [c for c in read if not breaks(c)]
-    other = [*keepers[::-1], *[c for c in read if breaks(c)][::-1]]  # ranking.flipped
     each = [build(grades, read, asked)]
-    if ranking.RANK_MODE == "both":
-        each.append(build(grades, other, asked))
+    if ranking.RANK_MODE == "both":  # asked in both orders (ranking.both_orders · flipped · mean_of)
+        each.append(build(grades, read[::-1], asked))
     written = ranking.canonical(ranking.mean_of(each), gap)[: max(len(w) for w in each)]
-    if name == "broaden":  # what breaks the wish's rooms or budget is not «what the budget buys» at all, and once
-        # the model's own of those are dropped the list goes on with what keeps them (ranking.matching)
-        serving = [c for c in read if not ranking.breaks(need, by_id[c["id"]])]
-        kept = [r for r in written if not ranking.breaks(need, by_id[r["id"]])]
-        go_on = len(written) == asked or len(kept) < len(written)
-        return _completed(kept, serving, len(kept), limit) if go_on else kept
-    answered = _completed(written, read, asked, limit)
-    return conditions_first(answered, need, [(c, 0.0) for c in by_id.values()])
+    return _completed(written, read, asked, limit)
 
 
 def _worst_three(case: Case, suffix: str, grades: Grades) -> list[int]:
