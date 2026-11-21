@@ -93,8 +93,16 @@ def test_without_the_model_the_hybrid_order_answers_without_reasons(client: Test
 
 def test_a_broken_answer_is_tried_once_more_at_a_low_temperature(client: TestClient, model: ScriptedModel) -> None:
     _indexed(client)
-    broken, right = {"results": "not a list"}, {"results": [{"id": 2, "score": 0.5}]}
-    model.answers["search_listings"] = [broken, broken, right, right]  # both orders, each tried once more
+    seen: set[str] = set()
+
+    def broken_first(payload: dict[str, Any]) -> dict[str, Any]:  # each order's first attempt breaks the schema
+        order = str([c["id"] for c in payload["candidates"]])
+        if order in seen:
+            return {"results": [{"id": 2, "score": 0.5}]}
+        seen.add(order)
+        return {"results": "not a list"}
+
+    model.answers["search_listings"] = broken_first  # both orders, each tried once more
 
     body = call(client, "search_listings", {"need": NEED, "candidates": _candidates(1, 2)})
 
@@ -279,7 +287,8 @@ def test_the_model_reads_at_most_15_search_and_8_matching_candidates_each_cut_at
     assert [len(matching["matched"]), len(matching["broaden"])] == [8, 8]
     shown = [*search["candidates"], *brokers["candidates"], *matching["matched"], *matching["broaden"]]
     assert {len(c["desc"]) for c in shown} == {400} and all(long.startswith(c["desc"]) for c in shown)
-    assert search["candidates"][0]["area"] == 180 and search["candidates"][0]["price"] == 800001, "fields stay"
+    first = next(c for c in search["candidates"] if c["id"] == 1)
+    assert first["area"] == 180 and first["price"] == 800001, "fields stay"
 
 
 def test_clean_listing_reads_the_whole_text(client: TestClient, model: ScriptedModel) -> None:
@@ -458,7 +467,8 @@ def test_a_model_that_ranks_positions_gives_the_same_list_whichever_order_came(
     back = call(client, "search_listings", {"need": NEED, "candidates": [*given[-2::-1], over]})["output"]["results"]
 
     assert [r["id"] for r in ahead[:3]] == [r["id"] for r in back[:3]]
-    (_, first, _), (_, other, _) = model.calls_of("search_listings")[:2]
+    # the two calls of the first search, as they reached the model (in either order: they are asked at once)
+    first, other = sorted((c[1] for c in model.calls_of("search_listings")[:2]), key=lambda p: p["candidates"][0]["id"])
     assert [c["id"] for c in other["candidates"]] == [7, 6, 5, 4, 3, 2, 1, 9], "reversed, what breaks it still last"
     assert [c["id"] for c in first["candidates"]] == [1, 2, 3, 4, 5, 6, 7, 9]
 
