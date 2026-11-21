@@ -98,3 +98,16 @@ def test_an_offer_longer_than_the_app_accepts_is_not_asked_and_amounts_are_read_
     offer = {"kind": "offer", "text": "للبيع فيلا المطلوب 2 مليون و 200 الف والمساحه 39 الف و 412"}
     assert market.checks(offer, {"desc_clean": "فيلا بسعر 2.2 مليون ومساحة 39412", "features": []})["numbers"] == 1.0
     assert market.checks(offer, {"desc_clean": "فيلا بسعر 2200200", "features": []})["numbers"] == 0.0
+
+
+def test_the_amounts_the_market_writes_are_read_as_it_means_them() -> None:
+    """A40, 21 Nov: six short offers were refused for amounts their wording stated rightly — the guard did not read
+    «مليون 200» (no «و»), «ميتين الف», «مليون 50» or «حمامين». And «60 و20» are two widths, never 80."""
+    from zon_agents.numbers import grounded_amounts, stated
+
+    assert 1_200_000 in stated("السوم مليون 200 والبيع قريب") and 1_300_000 in stated("الايجار مليون 300 مباشر")
+    assert 2_200_000 in stated("المطلوب 2 مليون و ميتين الف") and 1_050_000 in stated("ثالث 5 سنوات مليون 50")
+    assert 1_650_000 in stated("بمليون وست ميه وخمسين") and 2 in stated("خمس غرف وحمامين")
+    assert stated("بعرض 60 و20 متراً", figures=False) == {60, 20}
+    assert grounded_amounts("كل دور 5 غرف و2 حمام، السوم 1.2 مليون", "كل دور في خمس غرف وحمامين السوم مليون 200")
+    assert not grounded_amounts("السوم 1,200,200", "السوم مليون 200"), "a value it cannot mean is still refused"
