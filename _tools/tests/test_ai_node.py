@@ -155,7 +155,9 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         result = self.run_lab()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         runs = (self.dir / "lab").read_text().splitlines()
-        self.assertEqual([line.split()[:2] for line in runs], [["lab", "run"], ["lab", "run"], ["lab", "load"]])
+        self.assertEqual([line.split()[:2] for line in runs],
+                         [["lab", "run"], ["lab", "run"], ["lab", "load"], ["lab", "market"]])
+        self.assertIn("**lab market** (texts from the market, no expected answer: not a gate)", GitHub.comments[0]["body"])
         self.assertIn("--sample 2 --no-variants", runs[0])
         self.assertNotIn("--sample", runs[1], "the lab itself is every case, with its variants")
         body = GitHub.comments[0]["body"]
