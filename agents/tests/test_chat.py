@@ -246,3 +246,19 @@ def test_a_knowledge_answer_cites_two_passages_at_most_each_with_a_short_quote(
         else (citations["items"]["properties"]["quote_ar"])
     )
     assert quote["maxLength"] == 200
+
+
+def test_a_knowledge_question_out_of_time_is_answered_by_the_documented_excerpt_and_counted_as_failed(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """The owner (21 Nov): the documented excerpt is the basis of the answer. With the model out of time, the
+    closest passage's first sentence word for word with its source — degraded, so the lab counts it a failure."""
+    _document(client)
+    model.answers["chat"] = httpx.ReadTimeout("slow")
+    body = call(client, "chat", {"lang": "ar", "intent": "knowledge", "message": "يحق لغير السعودي تملك عقار؟"})
+
+    assert body["degraded"] is True
+    output = body["output"]
+    quote = output["sources"][0]["quote_ar"]
+    assert output["covered"] is True and output["answer"].startswith("بحسب «") and output["answer"].endswith(quote)
+    assert quote and quote in " ".join(OWNERSHIP.split()), "word for word"

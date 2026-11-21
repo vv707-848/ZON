@@ -41,6 +41,9 @@ class GitHub(http.server.BaseHTTPRequestHandler):
     """GitHub's comments, and the engine's /v1/chat/completions for the smoke request (one local server)."""
 
     comments: list[dict] = []
+    started: list[dict] = []   # «started at `<sha>`»: one per run, kept apart so the stage comments keep their places
+    reports: list[dict] = []   # reports.py put: «report `<name>` · part i/n · sha256 …»
+    issues: list[dict] = []    # reports.py open
     asked: list[dict] = []
     status = 201
     answer = "شقة من ثلاث غرف في حي النرجس، واسعة ومشمسة."
@@ -54,10 +57,25 @@ class GitHub(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(reply).encode())
             return
-        GitHub.comments.append({"path": self.path, "body": body["body"]})
+        if self.path.endswith("/issues"):
+            GitHub.issues.append(body)
+            self.send_response(201)
+            self.end_headers()
+            self.wfile.write(json.dumps({"number": 99}).encode())
+            return
+        text = body["body"]
+        into = GitHub.reports if text.startswith("report `") else GitHub.started if "— started at `" in text else GitHub.comments
+        into.append({"path": self.path, "body": text})
         self.send_response(GitHub.status)
         self.end_headers()
         self.wfile.write(b"{}")
+
+    def do_GET(self) -> None:  # noqa: N802
+        page = int(re.search(r"[?&]page=(\d+)", self.path)[1]) if "&page=" in self.path or "?page=" in self.path else 1
+        own = [r for r in GitHub.reports if r["path"] == self.path.split("?")[0]][(page - 1) * 100 : page * 100]
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(json.dumps([{"body": r["body"]} for r in own]).encode())
 
     def log_message(self, *_: object) -> None:
         pass
@@ -77,6 +95,7 @@ class LabPodTest(unittest.TestCase):
 
     def setUp(self) -> None:
         GitHub.comments, GitHub.asked, GitHub.status = [], [], 201
+        GitHub.started, GitHub.reports, GitHub.issues = [], [], []
         GitHub.answer = "شقة من ثلاث غرف في حي النرجس، واسعة ومشمسة."
         self.dir = pathlib.Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.dir, True)
@@ -98,6 +117,8 @@ exit 7
         write(w / "serve.py", """import os, pathlib, sys, time
 if os.environ.get("ENGINE_DIES"):
     print("engine: out of memory"); sys.exit(1)
+if os.environ.get("ENGINE_HANGS"):
+    time.sleep(60); sys.exit(0)
 pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
 """)
         write(w / "venv-tools" / "bin" / "uv", "#!/bin/sh\nexit 0\n", True)
@@ -218,6 +239,72 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         self.assertIn("`market-009` (clean_listing): DependencyUnavailable: llm (amount) unavailable", body)
         self.assertIn('{"grounded": 0.0}', body)
         self.assertIn("→ أرض للبيع | features: مساحة 6200 متر", body)
+
+    def with_reports_and_e2e(self, e2e_exit: int = 0) -> None:
+        """The real reports.py where lab-pod.sh looks for it, and an e2e.sh that writes a report and a table."""
+        node = self.dir / "w" / "zon" / "deploy" / "ai-node"
+        node.mkdir(parents=True, exist_ok=True)
+        shutil.copy(NODE / "reports.py", node / "reports.py")
+        write(node / "e2e.sh", 'echo "rank $ZON_RANK_MODE" >> "$TEST_DIR/e2e"\n'
+              'printf \'{"passes": true, "endpoints": {"search": {"p95_ms": 900}}}\\n\' > "$1"\n'
+              'echo "| search | 24 | 0 | 24 | 0 | 700 | 900 | 950 |"\n'
+              f'echo "within the limits"\nexit {e2e_exit}\n')
+
+    def test_each_stage_s_reports_leave_the_pod_and_read_back_whole(self) -> None:
+        """21 Nov: the reports are kept off the Pod, stage by stage, and `reports.py get` reads them back checked."""
+        self.with_reports_and_e2e()
+        report, market = self.dir / "report.json", self.dir / "market.json"
+        report.write_text(json.dumps({"outcomes": [], "note": "ل" * 70000}, ensure_ascii=False), encoding="utf-8")
+        market.write_text(json.dumps({"clean_listing": {"missed": []}}), encoding="utf-8")
+        result = self.run_lab(FAKE_REPORT=str(report), FAKE_MARKET=str(market), ZON_E2E="1", ZON_RANK_MODE="compact",
+                              DELETE_WHEN_DONE="1")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(len(GitHub.issues), 1)
+        self.assertEqual(len(GitHub.started), 1)
+        self.assertIn("started at `abc1234`", GitHub.started[0]["body"])
+        self.assertIn("e2e 1; reports in #99", GitHub.started[0]["body"])
+        self.assertEqual((self.dir / "e2e").read_text().strip(), "rank compact")
+        self.assertIn("**e2e** (Laravel → agents → Qdrant → the model, 8 at once, rank compact)", GitHub.comments[0]["body"])
+        self.assertIn("| search | 24 | 0 | 24 |", GitHub.comments[0]["body"])
+        names = [re.match(r"report `([^`]+)` · part (\d+)/(\d+)", r["body"]).group(1, 2, 3) for r in GitHub.reports]
+        self.assertEqual(len({n for n, _, _ in names}), len([1 for _, i, _ in names if i == "1"]), "each report once")
+        out = self.dir / "back"
+        got = subprocess.run(["python3", "-I", str(NODE / "reports.py"), "get", "99", str(out)],
+                             env={**self.env}, capture_output=True, text=True, timeout=30)
+        self.assertEqual(got.returncode, 0, got.stderr)
+        read = sorted(p.name for p in out.iterdir())
+        self.assertEqual([n.split("-")[0] for n in read], ["e2e", "lab", "market"])
+        lab = next(p for p in out.iterdir() if p.name.startswith("lab-"))
+        self.assertEqual(lab.read_bytes(), report.read_bytes())
+        self.assertEqual(self.stops(), ["pod remove pod123"])
+
+    def test_a_report_changed_on_the_way_is_refused(self) -> None:
+        self.with_reports_and_e2e()
+        self.run_lab(ZON_E2E="1")
+        self.assertTrue(GitHub.reports)
+        head, _, text = GitHub.reports[0]["body"].partition("\n")
+        GitHub.reports[0]["body"] = f"{head}\n{'A' + text[1:]}"
+        got = subprocess.run(["python3", "-I", str(NODE / "reports.py"), "get", "99", str(self.dir / "back")],
+                             env={**self.env}, capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(got.returncode, 0)
+        self.assertIn("sha256 does not match", got.stderr)
+
+    def test_a_failed_e2e_is_recorded_and_the_run_goes_on(self) -> None:
+        self.with_reports_and_e2e(e2e_exit=3)
+        result = self.run_lab(ZON_E2E="1")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("e2e: stopped", GitHub.comments[0]["body"])
+        self.assertIn("lab market", (self.dir / "lab").read_text(), "the market texts still ran")
+        self.assertEqual(self.stops(), ["pod stop pod123"])
+
+    def test_a_run_past_its_time_posts_what_it_has_and_deletes_the_pod(self) -> None:
+        """ZON_MAX_SECONDS: a step that never ends (here the engine) is stopped, the failure posted, the Pod deleted."""
+        self.with_reports_and_e2e()
+        result = self.run_lab(ENGINE_HANGS="1", ZON_ENGINE_TRIES="100000", ZON_MAX_SECONDS="2", DELETE_WHEN_DONE="1")
+        self.assertEqual(result.returncode, 124, result.stdout + result.stderr)
+        self.assertIn("stopped at «engine»", GitHub.comments[-1]["body"])
+        self.assertIn("the run passed ZON_MAX_SECONDS", GitHub.comments[-1]["body"])
+        self.assertEqual(self.stops(), ["pod remove pod123"])
 
     def test_an_engine_that_dies_is_reported_with_its_step_and_the_pod_stops(self) -> None:
         result = self.run_lab(ENGINE_DIES="1")

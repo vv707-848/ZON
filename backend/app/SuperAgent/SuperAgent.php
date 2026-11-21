@@ -172,7 +172,8 @@ final class SuperAgent
             'rows' => array_slice($part['rows'], 0, $share),
             'row_count' => $part['row_count'],
         ], $parts);
-        $rows = array_merge(...array_column($shown, 'rows'));
+        // the rows, and what the code works out from each report's (NumberGuard::derived: the agents send the model the same)
+        $rows = array_merge(...array_map(fn (array $part) => [...$part['rows'], ...NumberGuard::derived($part['rows'])], $shown));
         $params = [...array_merge(...array_map(fn (array $part) => array_values($part['params']), $shown)), ...array_column($shown, 'row_count')];
 
         $written = $this->ai->call(AiAgent::ReportWrite, ['question' => self::asked($report), 'parts' => $shown, 'proposals' => Proposal::catalog()],

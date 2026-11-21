@@ -25,6 +25,41 @@ final class NumberGuard
     private const UNIT = '(?:الف|الاف|الفين|مليون|ملايين|مليونين|مليار|مليارات|%|٪|بالميه|بالمايه|في الميه|في المايه)';
 
     /**
+     * The values an analysis may say beyond its rows, worked out here from them (agents: numbers.derived, the
+     * same): per numeric column (numeric in two rows or more), its total and the difference between each row and the
+     * next (A40, 21 Nov: «إجمالي الطلبات 110»، «بزيادة 47000» worked out by the model were refused). As rows.
+     *
+     * @param  list<array<string, mixed>>  $rows  of one report
+     * @return list<array{derived: float}>
+     */
+    public static function derived(array $rows): array
+    {
+        $keys = [];
+        foreach ($rows as $row) {
+            foreach (array_keys($row) as $key) {
+                $keys[$key] = true;
+            }
+        }
+        $out = [];
+        $steps = [];
+        foreach (array_keys($keys) as $key) {
+            $values = array_map(fn (array $row) => isset($row[$key]) && is_numeric($row[$key]) && ! is_bool($row[$key]) ? (float) $row[$key] : null, $rows);
+            $known = array_values(array_filter($values, fn ($v) => $v !== null));
+            if (count($known) < 2) {
+                continue;
+            }
+            $out[] = ['derived' => round(array_sum($known), 2)];
+            for ($i = 0; $i + 1 < count($values); $i++) {
+                if ($values[$i] !== null && $values[$i + 1] !== null) {
+                    $steps[] = ['derived' => round(abs($values[$i] - $values[$i + 1]), 2)];
+                }
+            }
+        }
+
+        return [...$out, ...$steps];
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $rows  of every report the analysis covers
      * @param  array<mixed>  $params  the values of their parameters, and their row counts
      */

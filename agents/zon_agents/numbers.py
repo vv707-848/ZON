@@ -4,6 +4,7 @@ data it was written from. The lab scores reports with it, and report_write keeps
 import re
 from collections.abc import Sequence
 from decimal import ROUND_HALF_UP, Decimal
+from itertools import pairwise
 from typing import Any
 
 _MARKS = re.compile(r"[ً-ْٰـ]")  # short vowels, shadda, sukun, dagger alef, tatweel
@@ -350,3 +351,35 @@ def swapped(desc: str, text: str, fields: dict[str, Any] | None = None) -> bool:
         if role is not None and known and None not in known and role not in known:
             return True
     return False
+
+
+# ------------------------------------------------------------------ values worked out from the rows, by code
+# A report's analysis may say a total or a difference (A40, 21 Nov: «إجمالي الطلبات 110»، «بزيادة 47000») — not as
+# the model works it out, but as this code does from the rows it read: App\SuperAgent\NumberGuard::derived, the same.
+
+
+def derived(rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Per numeric column of [rows] (numeric in two rows or more): its total, and the difference between each row
+    and the next — what an analysis may cite, and the guard then allows."""
+    columns: dict[str, list[float | None]] = {}
+    for row in rows:
+        for key in row:
+            columns.setdefault(key, [])
+    for key in columns:
+        columns[key] = [_numeric(row.get(key)) for row in rows]
+    totals: dict[str, float] = {}
+    steps: dict[str, list[float]] = {}
+    for key, values in columns.items():
+        known = [v for v in values if v is not None]
+        if len(known) < 2:
+            continue
+        totals[key] = round(sum(known), 2)
+        steps[key] = [round(abs(a - b), 2) for a, b in pairwise(values) if a is not None and b is not None]
+    return {"totals": totals, "differences": steps}
+
+
+def derived_rows(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """[derived] as rows the guard reads: one value each."""
+    found = derived(rows)
+    values = [*found["totals"].values(), *(d for steps in found["differences"].values() for d in steps)]
+    return [{"derived": v} for v in values]

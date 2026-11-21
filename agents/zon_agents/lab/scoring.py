@@ -108,6 +108,9 @@ def ndcg(ranked: Sequence[int], grades: dict[int, int], k: int) -> float:
 
 
 def _ranking(ranked: Sequence[int], expect: Grades, k: int) -> dict[str, float]:
+    if expect.empty:  # right is nothing: every measure is whether nothing was shown
+        none = float(not ranked)
+        return {"ndcg": none, "top1": none, "zero_top3": 1 - none}
     best = max(expect.grades.values())
     top = ranked[:TOP]
     metrics = {

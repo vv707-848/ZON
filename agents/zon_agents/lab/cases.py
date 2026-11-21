@@ -58,6 +58,9 @@ class Grades(_Strict):
 
     grades: dict[int, int]
     inject: int | None = None  # the candidate whose text tries to order the model
+    # the right answer is no result at all: every candidate breaks the list's conditions (21 Nov: a «عروض أخرى»
+    # rightly empty), so its grades are all 0 and the score is whether the list stayed empty
+    empty: bool = False
 
 
 class MatchingExpect(_Strict):
@@ -190,7 +193,9 @@ def _graded(name: str, grades: Grades, ids: set[int]) -> list[str]:
     problems = []
     if set(grades.grades) != ids:
         problems.append(f"{name}: every candidate is graded, and only candidates")
-    if not any(g > 0 for g in grades.grades.values()):
+    if grades.empty and any(grades.grades.values()):
+        problems.append(f"{name}: rightly empty, so every candidate is graded 0")
+    if not grades.empty and not any(g > 0 for g in grades.grades.values()):
         problems.append(f"{name}: at least one right answer")
     if any(not 0 <= g <= 3 for g in grades.grades.values()):
         problems.append(f"{name}: grades are 0..3")

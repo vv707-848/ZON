@@ -3,6 +3,7 @@
 namespace App\Ai\Retrieval;
 
 use App\Models\BuyerPreference;
+use Illuminate\Support\Collection;
 
 /**
  * What someone looks for (§10 «الاسترجاع»). City, neighbourhood(s) and type(s) are hard filters in SQL; the
@@ -91,18 +92,16 @@ final readonly class Need
      * what keeps the wish (owner's rule, 21 Nov: two that keep it are two results), nearest the top of the budget
      * first, then the lower id — never the order the database happened to return.
      *
-     * @template T of \Illuminate\Database\Eloquent\Model
-     *
-     * @param  \Illuminate\Support\Collection<int, T>  $models
-     * @param  callable(T): bool  $keeps
-     * @param  callable(T): ?float  $price  what is compared with the top of the budget
-     * @return \Illuminate\Support\Collection<int, T>
+     * @param  Collection<array-key, mixed>  $models
+     * @param  callable(mixed): bool  $keeps
+     * @param  callable(mixed): ?float  $price  what is compared with the top of the budget
+     * @return Collection<int, mixed>
      */
-    public function fallback(\Illuminate\Support\Collection $models, callable $keeps, callable $price, ?float $top): \Illuminate\Support\Collection
+    public function fallback(Collection $models, callable $keeps, callable $price, ?float $top): Collection
     {
         $gap = fn ($m): float => ($p = $price($m)) !== null && $top !== null ? abs($p - $top) : INF;
 
-        return $models->filter($keeps)->sortBy([fn ($a, $b) => $gap($a) <=> $gap($b), fn ($a, $b) => $a->getKey() <=> $b->getKey()])->values();
+        return $models->filter($keeps)->sort(fn ($a, $b) => [$gap($a), data_get($a, 'id')] <=> [$gap($b), data_get($b, 'id')])->values();
     }
 
     public function target(): ?string

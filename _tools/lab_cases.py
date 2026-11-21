@@ -648,8 +648,11 @@ def fresh() -> None:
     rng = random.Random(FRESH_SEED)
     made = {"search_listings": search_listings_cases(rng), "matching": matching_cases(rng),
             "search_requests": search_requests_cases(rng)}  # fmt: skip
-    # a matching case whose «عروض أخرى» holds no right answer at all cannot be scored there: left out, not mended
-    made["matching"] = [c for c in made["matching"] if any(c["expect"]["broaden"]["grades"].values())]
+    # a matching case whose «عروض أخرى» holds no right answer at all is rightly empty there: kept, its ids in order
+    # (21 Nov: leaving it out left fresh-matching-007 a gap), and scored on showing nothing
+    for case in made["matching"]:
+        if not any(case["expect"]["broaden"]["grades"].values()):
+            case["expect"]["broaden"]["empty"] = True
     FRESH_OUT.mkdir(parents=True, exist_ok=True)
     for agent, cases in sorted(made.items()):
         lines = [json.dumps({**case, "id": f"fresh-{case['id']}"}, ensure_ascii=False, separators=(",", ":")) for case in cases]
