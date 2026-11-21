@@ -306,6 +306,15 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         self.assertIn("the run passed ZON_MAX_SECONDS", GitHub.comments[-1]["body"])
         self.assertEqual(self.stops(), ["pod remove pod123"])
 
+    def test_e2e_serves_with_its_workers_and_refuses_a_single_one(self) -> None:
+        """21 Nov: without --no-reload `artisan serve` ignores PHP_CLI_SERVER_WORKERS (one request at a time)."""
+        e2e = (NODE / "e2e.sh").read_text(encoding="utf-8")
+        serve = next(line for line in e2e.splitlines() if "artisan serve" in line and not line.startswith("#"))
+        self.assertIn("--no-reload", serve)
+        self.assertIn("PHP_CLI_SERVER_WORKERS=$WORKERS", serve)
+        self.assertIn('[ "$SERVING" -ge "$WORKERS" ] ||', e2e, "fewer workers than asked: not measured")
+        self.assertIn('--workers="$SERVING"', e2e)
+
     def test_an_engine_that_dies_is_reported_with_its_step_and_the_pod_stops(self) -> None:
         result = self.run_lab(ENGINE_DIES="1")
         self.assertEqual(result.returncode, 1)

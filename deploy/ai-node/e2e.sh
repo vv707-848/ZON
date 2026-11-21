@@ -95,9 +95,16 @@ cat "$LOGS/e2e.env" >> .env
 composer install --no-interaction --no-progress --prefer-dist --quiet
 php artisan key:generate --force --no-interaction >/dev/null
 php artisan migrate --seed --force --no-interaction >/dev/null
-(PHP_CLI_SERVER_WORKERS=16 php artisan serve --host=127.0.0.1 --port=8000 > "$LOGS/laravel.log" 2>&1 &)
+# --no-reload: without it `artisan serve` ignores PHP_CLI_SERVER_WORKERS and serves ONE request at a time (Laravel's
+# ServeCommand warns «Only creating a single server») — eight at once would be measured as eight in a queue
+WORKERS=${ZON_E2E_WORKERS:-16}
+(PHP_CLI_SERVER_WORKERS=$WORKERS php artisan serve --no-reload --host=127.0.0.1 --port=8000 > "$LOGS/laravel.log" 2>&1 &)
 wait_for "Laravel's API" 60 curl -sf -o /dev/null http://127.0.0.1:8000/up
+# the workers PHP's own server runs: its processes on 8000 less the one that hands the requests out
+SERVING=$(( $(pgrep -fc -- "-S 127.0.0.1:8000") - 1 ))
+say "php workers: $SERVING of $WORKERS"
+[ "$SERVING" -ge "$WORKERS" ] || { echo "php serves with $SERVING worker(s), not $WORKERS: not measured" >&2; exit 1; }
 
 say "the measurement"
 php artisan zon:lab-e2e --base=http://127.0.0.1:8000 --listings="${ZON_E2E_LISTINGS:-300}" --at-once=8 \
-  --rounds="${ZON_E2E_ROUNDS:-3}" --qdrant=http://127.0.0.1:6333 --out="$OUT"
+  --rounds="${ZON_E2E_ROUNDS:-3}" --qdrant=http://127.0.0.1:6333 --workers="$SERVING" --out="$OUT"

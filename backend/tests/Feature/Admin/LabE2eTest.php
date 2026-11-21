@@ -30,7 +30,7 @@ class LabE2eTest extends AdminTestCase
                 ->whenEmpty(Http::response(['data' => ['matched' => [['score' => 0.7]]], 'meta' => ['ai' => ['status' => 'ok']]])),
         ]);
 
-        $code = $this->artisan('zon:lab-e2e', ['--base' => 'http://api.test', '--listings' => 12, '--at-once' => 4, '--rounds' => 2, '--out' => $out])->run();
+        $code = $this->artisan('zon:lab-e2e', ['--base' => 'http://api.test', '--listings' => 12, '--at-once' => 4, '--rounds' => 2, '--workers' => 16, '--out' => $out])->run();
 
         $report = json_decode((string) file_get_contents($out), true);
         $this->assertSame(1, $code, 'a degraded answer misses the limits');
@@ -38,6 +38,7 @@ class LabE2eTest extends AdminTestCase
         $this->assertSame(1, $report['endpoints']['matching']['failed'], 'the second matching (the first measured) was degraded');
         $this->assertSame(['matching'], $report['misses']);
         $this->assertCount(16, $report['requests']);
+        $this->assertSame(16, $report['php_workers'], 'the workers that served the eight at once are in the report');
 
         $measured = Http::recorded(fn (Sent $r) => str_starts_with($r->url(), 'http://api.test/'))->map(fn (array $pair) => $pair[0])->values();
         $this->assertCount(18, $measured, 'one warm-up per endpoint, then 2 × 4 each');

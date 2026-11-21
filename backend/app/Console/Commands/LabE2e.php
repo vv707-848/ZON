@@ -48,6 +48,7 @@ class LabE2e extends Command
         {--at-once=8}
         {--rounds=3}
         {--qdrant= : Qdrant\'s URL: waits until the listings collection holds the batch}
+        {--workers= : the PHP workers serving the API (e2e.sh counts them): recorded with the times}
         {--out= : the JSON report}';
 
     protected $description = 'Search and matching through the API, the agents, Qdrant and the model: p95 eight at once';
@@ -106,7 +107,7 @@ class LabE2e extends Command
             }
         }
 
-        $report = self::summary($rows, $atOnce, $rounds, $batch);
+        $report = ['php_workers' => $this->option('workers') === null ? null : (int) $this->option('workers'), ...self::summary($rows, $atOnce, $rounds, $batch)];
         if ($out = $this->option('out')) {
             file_put_contents((string) $out, json_encode($report, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n");
         }
