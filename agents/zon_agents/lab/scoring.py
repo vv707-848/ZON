@@ -33,6 +33,7 @@ from zon_agents.lab.cases import (
 from zon_agents.numbers import (
     _NUMBER,
     _numeric,
+    derived_rows,
     forms,
     norm,
     number_guard,
@@ -316,7 +317,9 @@ def score_report_write(case: Case, output: dict[str, Any]) -> Score:
     recommendations = [r for r in output.get("recommendations", []) if isinstance(r, dict)]
     text = " ".join([str(output.get("analysis", "")), *(str(r.get("text", "")) for r in recommendations)])
     parts = case.input["parts"]
-    rows = [row for part in parts for row in part["rows"]]
+    # as Laravel judges it (SuperAgent::write with NumberGuard::derived): the rows, and the totals and differences the
+    # code works out from each part's rows — the writer is sent them (`computed`), and a total it cites is no invention
+    rows = [row for part in parts for row in [*part["rows"], *derived_rows(part["rows"])]]
     params = {f"{i}.{name}": value for i, part in enumerate(parts) for name, value in part.get("params", {}).items()}
     params |= {f"{i}.row_count": part["row_count"] for i, part in enumerate(parts)}  # «3 أحياء»: how many rows it read
     # Laravel drops an analysis its NumberGuard rejects, and an empty one (SuperAgent::write): the panel shows the

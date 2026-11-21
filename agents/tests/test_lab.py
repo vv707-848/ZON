@@ -171,6 +171,17 @@ def test_the_writer_is_scored_on_every_parts_rows_and_on_the_screen_it_proposes(
     )
 
 
+def test_the_writer_may_cite_a_total_the_code_works_out_as_laravel_lets_it() -> None:
+    """A40 21 Nov: «263 عرضاً» is 214 + 19 + 23 + 7, sent to the writer as `computed` and allowed by Laravel's
+    NumberGuard (derived) — the scorer judged it on the rows alone and gave the right answer 0."""
+    funnel = _case("write-003")
+    right = "في آخر 30 يوماً انضاف 263 عرضاً، نُشر منها 214 وانباع 23."
+    assert score(funnel, {"analysis": right, "recommendations": []}).metrics["guard"] == 1.0
+    assert score(funnel, {"analysis": "انضاف 270 عرضاً، وانباع 23.", "recommendations": []}).value == 0.0, (
+        "a total that is not the rows' is still refused"
+    )
+
+
 def _answers(model: ScriptedModel) -> None:
     """A plausible model for every agent: candidates as they came, short texts, the first report, no further step."""
 
