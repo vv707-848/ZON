@@ -20,11 +20,12 @@ import uvicorn
 from zon_agents import logs, monitoring
 from zon_agents.config import Settings
 from zon_agents.lab import hosted
-from zon_agents.lab.cases import check, load_cases
+from zon_agents.lab.cases import Case, check, load_cases
 from zon_agents.lab.load import load
 from zon_agents.lab.runner import Outcome, floors, refused, report, run_cases, sample
 from zon_agents.llm import LLM, load_prompts, openai_model
 from zon_agents.main import create_app
+from zon_agents.pipelines import ranking
 from zon_agents.profiles import load_profile
 from zon_agents.services import build_store
 from zon_agents.sim import labsim
@@ -53,8 +54,20 @@ def _lab_check() -> int:
     return 1 if problems else 0
 
 
+def _rank_mode(args: argparse.Namespace) -> str:
+    """How search and matching ask the model in this run (ranking.RANK_MODE), said in the report's notes."""
+    ranking.RANK_MODE = getattr(args, "rank_mode", None) or ranking.RANK_MODE
+    return f"rank {ranking.RANK_MODE}"
+
+
+def _cases(args: argparse.Namespace) -> list[Case]:
+    folder = getattr(args, "cases", None)
+    return load_cases(folder) if folder else load_cases()
+
+
 def _lab_run(args: argparse.Namespace) -> int:
-    cases = load_cases()
+    mode = _rank_mode(args)
+    cases = _cases(args)
     problems = check(cases)
     if problems:
         print("\n".join(problems), file=sys.stderr)
@@ -102,7 +115,8 @@ def _lab_run(args: argparse.Namespace) -> int:
     seconds = time.monotonic() - clock
     floor = asyncio.run(floors(llm, cases))  # the same cases with no model: no call to the engine
     gpu = f"hosted: {args.hosted}" if args.hosted else args.gpu
-    result = report(outcomes, cases, llm, started=started, seconds=seconds, gpu=gpu, notes=args.notes, floor=floor)
+    notes = " · ".join(n for n in (args.notes, mode) if n)
+    result = report(outcomes, cases, llm, started=started, seconds=seconds, gpu=gpu, notes=notes, floor=floor)
     out = args.out or Path(f"lab-{args.profile}-{started:%Y%m%d-%H%M}.json")
     out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
     print(file=sys.stderr)
@@ -138,6 +152,7 @@ def _lab_market(args: argparse.Namespace) -> int:
 
 
 def _lab_load(args: argparse.Namespace) -> int:
+    _rank_mode(args)
     key = os.environ.get("LLM_API_KEY", "")
     model = openai_model(args.base_url, key, args.model, args.budget)
     llm = LLM(
@@ -147,7 +162,7 @@ def _lab_load(args: argparse.Namespace) -> int:
         max_concurrency=args.at_once,
         budget_seconds=args.budget,
     )
-    found = asyncio.run(load(llm, load_cases(), at_once=args.at_once, rounds=args.rounds))
+    found = asyncio.run(load(llm, _cases(args), at_once=args.at_once, rounds=args.rounds))
     print(f"{'agent':16} {'asked':>5} {'failed':>6} {'tokens_in':>9} {'p50 ms':>7} {'p95 ms':>7}")
     for agent, row in found.items():
         counts = f"{row['asked']:5} {row['failed']:6} {row['tokens_in_max']:9}"
@@ -228,6 +243,13 @@ def _print_summary(result: dict[str, Any], out: Path) -> None:
         stable = entry["variants"].get("reversed", {}).get("stability")
         if stable is not None:
             metrics += f" · stability {stable}"
+        if "stability_broaden" in entry["variants"].get("reversed", {}):
+            metrics += f" · stability_broaden {entry['variants']['reversed']['stability_broaden']}"
+        shuffled = entry["variants"].get("shuffled", {})
+        if "metrics" in shuffled:  # an order no one chose: what its first result and each list keep
+            moved = {k: v for k, v in shuffled["metrics"].items() if k.startswith(("top1", "ndcg"))}
+            moved |= {k: v for k, v in shuffled.items() if k.startswith("stability")}
+            metrics += " · shuffled: " + " ".join(f"{k} {v}" for k, v in moved.items())
         if "floor" in entry:
             metrics += f" · floor {entry['floor']}"
         print(
@@ -275,12 +297,20 @@ def main() -> None:
     run.add_argument("--gpu", help="the card it ran on, for the report (A40, L40S, RTX PRO 6000…)")
     run.add_argument("--notes", help="anything a reader of the report should know")
     run.add_argument("--out", type=Path, help="the report file (default lab-<profile>-<time>.json)")
+    heavy = lab_commands.add_parser("load", help="ranking at production's sizes, several at once (key in LLM_API_KEY)")
+    for ranked in (run, heavy):
+        ranked.add_argument(
+            "--rank-mode",
+            choices=ranking.RANK_MODES,
+            default=ranking.RANK_MODE,
+            help="search and matching: both orders, or one compact call (ranking.py)",
+        )
+        ranked.add_argument("--cases", type=Path, help="another folder of cases (lab/cases_fresh: never tuned on)")
     plan = lab_commands.add_parser("plan", help="before a hosted run: the host of the key in LLM_API_KEY, probed")
     plan.add_argument("--model", default="", help="another model id at the host (default: its Qwen3.8-27B)")
     plan.add_argument("--agents", default="", help="only these agents, comma-separated")
     plan.add_argument("--sample", type=int, help="cases of each agent (0: all; default: what the daily limit allows)")
     plan.add_argument("--sample-shift", type=int, default=0, help="another day's sample: every pick moved this many on")
-    heavy = lab_commands.add_parser("load", help="ranking at production's sizes, several at once (key in LLM_API_KEY)")
     heavy.add_argument("--profile", required=True, help="zon_agents/models/<profile>.toml: the model it serves")
     heavy.add_argument("--base-url", default=DEFAULTS["llm_base_url"].default)
     heavy.add_argument("--model", default=DEFAULTS["llm_model"].default, help="the name the engine serves it under")

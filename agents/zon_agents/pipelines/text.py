@@ -5,10 +5,11 @@ These have no degraded answer: when the model fails the call fails (503) and Lar
 - a cleaning job waits in its queue and runs again when the AI node is back, so no listing is lost.
 """
 
+import re
 from typing import Any
 
 from zon_agents.llm import ModelFailed, model_unavailable
-from zon_agents.numbers import grounded_amounts
+from zon_agents.numbers import grounded_amounts, norm, swapped
 from zon_agents.pipelines.base import Ctx, Result, parse, scrub
 from zon_agents.schemas.agents import (
     CleanListingAnswer,
@@ -52,7 +53,19 @@ async def clean_listing(ctx: Ctx, data: dict[str, Any]) -> Result:
     # publishes his text as he wrote it, so no amount he did not write reaches a buyer
     if not grounded_amounts(desc, req.text, req.fields):
         raise model_unavailable(ModelFailed("amount"))
+    # …or puts an amount in another's place (the price as the area), or a deed he did not state: a buyer relies on both
+    if swapped(desc, req.text, req.fields):
+        raise model_unavailable(ModelFailed("role"))
+    if _deed(" ".join([desc, *features])) and not (_deed(req.text) or req.fields.get("deed") is True):
+        raise model_unavailable(ModelFailed("deed"))
     return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
+
+
+_DEED = re.compile(r"(?<!\w)(?:و|ب|وب|ل|فب)?(?:ال)?صك(?:وك)?(?!\w)")
+
+
+def _deed(text: str) -> bool:
+    return bool(_DEED.search(norm(text)))
 
 
 async def clean_project(ctx: Ctx, data: dict[str, Any]) -> Result:

@@ -12,6 +12,10 @@ Payloads have the exact shape Laravel sends (App\\Ai\\Retrieval\\*::toAgent, Nee
 order too — listings by the closest price first, requests urgent first then newest.
 
     python3 _tools/lab_cases.py      # then: cd agents && .venv/bin/zon-agents lab check
+    python3 _tools/lab_cases.py --fresh   # lab/cases_fresh: the same rules, another seed — cases never tuned on
+
+The fresh cases (21 Nov 2026) are written once, before any run on them, to compare two ways of asking the model
+(ranking.RANK_MODE) on cases neither was shaped by. They are not edited after a run: a new comparison gets a new seed.
 """
 
 import json
@@ -26,6 +30,8 @@ from lab_cases_text import TEXT_CASES
 
 OUT = Path(__file__).resolve().parents[1] / "agents" / "zon_agents" / "lab" / "cases"
 SEED = 20261105
+FRESH_SEED = 20261121
+FRESH_OUT = OUT.parent / "cases_fresh"
 
 # The reference of app 3.1.2 (backend/database/seeders/ReferenceSeeder.php) and a price level per city.
 CITIES = {
@@ -637,7 +643,24 @@ def match_searchers_cases(rng: random.Random) -> list[dict[str, Any]]:
     return cases
 
 
+def fresh() -> None:
+    """Search (listings · requests) and matching only, from FRESH_SEED, each id marked «fresh-»."""
+    rng = random.Random(FRESH_SEED)
+    made = {"search_listings": search_listings_cases(rng), "matching": matching_cases(rng),
+            "search_requests": search_requests_cases(rng)}  # fmt: skip
+    # a matching case whose «عروض أخرى» holds no right answer at all cannot be scored there: left out, not mended
+    made["matching"] = [c for c in made["matching"] if any(c["expect"]["broaden"]["grades"].values())]
+    FRESH_OUT.mkdir(parents=True, exist_ok=True)
+    for agent, cases in sorted(made.items()):
+        lines = [json.dumps({**case, "id": f"fresh-{case['id']}"}, ensure_ascii=False, separators=(",", ":")) for case in cases]
+        (FRESH_OUT / f"{agent}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        print(f"fresh {agent}: {len(cases)}")
+
+
 def main() -> None:
+    if "--fresh" in sys.argv:
+        fresh()
+        return
     rng = random.Random(SEED)
     generated = {
         "search_listings": search_listings_cases(rng),

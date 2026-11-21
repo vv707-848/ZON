@@ -15,6 +15,7 @@
 #   LAB_ISSUE        optional — the issue the tables are posted to (with GH_TOKEN)
 #   STOP_WHEN_DONE   1 (default) stops the Pod at the end; 0 keeps it for a look at /workspace/logs
 #   DELETE_WHEN_DONE 1 deletes the Pod instead of stopping it (the network volume stays); a delete that fails stops it
+#   ZON_RANK_MODES   optional — "both compact": the lab, the fresh cases and lab load once per ranking mode
 #
 # Before the lab, one quick request (smoke): Arabic, the seconds it takes, and no <think> in the answer — the
 # server is started with thinking off (THINK=0 for Escha). An answer that fails it is posted, and the lab is not run.
@@ -155,10 +156,30 @@ cd "$W/zon/agents"
 # ⑤ the model lab, then production's sizes — the same commands as at the terminal (docs/model-lab.md, step 5)
 STEP="lab"
 # a failed run is still posted: its table says what failed
-.venv/bin/zon-agents lab run --profile "$PROFILE" --gpu "$GPU" --notes "lab-pod $STAMP · $(git rev-parse --short HEAD)" \
-  --out "$W/reports/lab-$PROFILE-$STAMP.json" 2>&1 | tee "$W/logs/lab-table-$STAMP.txt" || true
-.venv/bin/zon-agents lab load --profile "$PROFILE" --out "$W/reports/load-$PROFILE-$STAMP.json" 2>&1 \
-  | tee "$W/logs/load-table-$STAMP.txt" || true
+if [ -z "${ZON_RANK_MODES:-}" ]; then
+  .venv/bin/zon-agents lab run --profile "$PROFILE" --gpu "$GPU" --notes "lab-pod $STAMP · $(git rev-parse --short HEAD)" \
+    --out "$W/reports/lab-$PROFILE-$STAMP.json" 2>&1 | tee "$W/logs/lab-table-$STAMP.txt" || true
+  .venv/bin/zon-agents lab load --profile "$PROFILE" --out "$W/reports/load-$PROFILE-$STAMP.json" 2>&1 \
+    | tee "$W/logs/load-table-$STAMP.txt" || true
+else
+  # two ways of asking the ranking model, on the same card one after the other (ranking.RANK_MODE): every case,
+  # the fresh cases no one tuned on (lab/cases_fresh), and production's sizes — each mode's own tables
+  for MODE in $ZON_RANK_MODES; do
+    {
+      printf '### rank %s — the cases\n' "$MODE"
+      .venv/bin/zon-agents lab run --profile "$PROFILE" --gpu "$GPU" --rank-mode "$MODE" \
+        --notes "lab-pod $STAMP · $(git rev-parse --short HEAD)" --out "$W/reports/lab-$PROFILE-$STAMP-$MODE.json" 2>&1 || true
+      printf '### rank %s — the fresh cases\n' "$MODE"
+      .venv/bin/zon-agents lab run --profile "$PROFILE" --gpu "$GPU" --rank-mode "$MODE" --cases zon_agents/lab/cases_fresh \
+        --notes "lab-pod $STAMP fresh" --out "$W/reports/fresh-$PROFILE-$STAMP-$MODE.json" 2>&1 || true
+    } | tee -a "$W/logs/lab-table-$STAMP.txt"
+    { printf '### rank %s\n' "$MODE"
+      .venv/bin/zon-agents lab load --profile "$PROFILE" --rank-mode "$MODE" --out "$W/reports/load-$PROFILE-$STAMP-$MODE.json" 2>&1 || true
+    } | tee -a "$W/logs/load-table-$STAMP.txt"
+  done
+  # what missed is read from the first mode's run of every case
+  cp "$W/reports/lab-$PROFILE-$STAMP-${ZON_RANK_MODES%% *}.json" "$W/reports/lab-$PROFILE-$STAMP.json" 2>/dev/null || true
+fi
 # texts from the market as the owner collected them, with no expected answer: measured, never a gate (lab/market.py)
 .venv/bin/zon-agents lab market --profile "$PROFILE" --out "$W/reports/market-$PROFILE-$STAMP.json" 2>&1 \
   | tee "$W/logs/market-table-$STAMP.txt" || true

@@ -2,9 +2,13 @@
 
 - `reversed` (ranking agents): the candidates in the opposite order. A model that prefers whatever comes first is
   ranking positions, not offers; `stability` in the report is how much of its top three survives.
+- `shuffled` (ranking agents): the candidates in an order no one chose (seeded by the case): what a list that came
+  in at random keeps — its first result's correctness (`top1`) and each list's own scores, «مطابق» and
+  «عروض أخرى» apart.
 - `digits` (cleaning, summaries): Arabic-Indic digits instead of Western ones, as many phones type them.
 """
 
+import random
 from typing import Any
 
 from zon_agents.lab.cases import Case
@@ -26,6 +30,15 @@ def _reversed(case: Case) -> Case:
     return case.model_copy(update={"input": data})
 
 
+def _shuffled(case: Case) -> Case:
+    data: dict[str, Any] = dict(case.input)
+    rng = random.Random(f"{case.id}:shuffled")
+    for name in _LISTS[case.agent]:
+        if name in data:
+            data[name] = rng.sample(list(data[name]), len(data[name]))
+    return case.model_copy(update={"input": data})
+
+
 def _digits(case: Case) -> Case:
     data: dict[str, Any] = dict(case.input)
     if case.agent == "clean_listing":
@@ -44,7 +57,7 @@ def base_order(case: Case) -> dict[int, int]:
 
 def variants(case: Case) -> list[tuple[str, Case]]:
     if case.agent in _LISTS:
-        return [("reversed", _reversed(case))]
+        return [("reversed", _reversed(case)), ("shuffled", _shuffled(case))]
     if case.agent in ("clean_listing", "summarize"):
         return [("digits", _digits(case))]
     return []

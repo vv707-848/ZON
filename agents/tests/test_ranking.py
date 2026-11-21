@@ -469,3 +469,26 @@ def test_one_order_failing_leaves_the_other_to_answer_alone(client: TestClient, 
     body = call(client, "search_listings", {"need": NEED, "candidates": _candidates(1, 2)})
 
     assert body["degraded"] is False and [r["id"] for r in body["output"]["results"]] == [2]
+
+
+def test_the_compact_mode_asks_once_with_short_descriptions_and_the_whole_need(
+    client: TestClient, model: ScriptedModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ZON_RANK_MODE=compact (A40, 21 Nov: both orders doubled the calls, search p95 10.2 s): one call per search
+    and per matching, each description cut at 160 — and the searcher's conditions sent whole, free text included."""
+    from zon_agents.pipelines import ranking
+
+    monkeypatch.setattr(ranking, "RANK_MODE", "compact")
+    long = "شقة واسعة قريبة من الخدمات " * 30
+    need = {**NEED, "bedrooms": 3, "purpose": "sale", "free_text": "أبي " + "مدخل خاص وحوش " * 40}
+    many = [{**c, "desc": long} for c in _candidates(*range(1, 9))]
+    model.answers["search_listings"] = {"results": [{"id": 2, "score": 0.9}]}
+    model.answers["matching"] = {"matched": [{"id": 2, "score": 0.9}], "broaden": []}
+
+    call(client, "search_listings", {"need": need, "candidates": many})
+    call(client, "matching", {"need": need, "matched": many, "broaden": []})
+
+    ((_, search, _),) = model.calls_of("search_listings")
+    ((_, matching, _),) = model.calls_of("matching")
+    assert {len(c["desc"]) for c in [*search["candidates"], *matching["matched"]]} == {160}
+    assert search["need"] == need and matching["need"] == need, "the conditions whole"

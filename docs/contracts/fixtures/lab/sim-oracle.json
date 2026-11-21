@@ -59,7 +59,20 @@
    "variants": {
     "reversed": {
      "failed": 0,
+     "metrics": {
+      "ndcg": 0.9911,
+      "top1": 1.0
+     },
      "score": 0.9955,
+     "stability": 1.0
+    },
+    "shuffled": {
+     "failed": 0,
+     "metrics": {
+      "ndcg": 0.9913,
+      "top1": 1.0
+     },
+     "score": 0.9956,
      "stability": 1.0
     }
    }
@@ -84,8 +97,27 @@
    "variants": {
     "reversed": {
      "failed": 0,
+     "metrics": {
+      "ndcg_broaden": 1.0,
+      "ndcg_matched": 0.9961,
+      "top1_broaden": 1.0,
+      "top1_matched": 1.0
+     },
      "score": 0.9981,
-     "stability": 1.0
+     "stability": 1.0,
+     "stability_broaden": 1.0
+    },
+    "shuffled": {
+     "failed": 0,
+     "metrics": {
+      "ndcg_broaden": 1.0,
+      "ndcg_matched": 0.9973,
+      "top1_broaden": 1.0,
+      "top1_matched": 1.0
+     },
+     "score": 0.9987,
+     "stability": 1.0,
+     "stability_broaden": 1.0
     }
    }
   },
@@ -150,7 +182,20 @@
    "variants": {
     "reversed": {
      "failed": 0,
+     "metrics": {
+      "ndcg": 0.9981,
+      "top1": 1.0
+     },
      "score": 0.9981,
+     "stability": 1.0
+    },
+    "shuffled": {
+     "failed": 0,
+     "metrics": {
+      "ndcg": 0.9984,
+      "top1": 1.0
+     },
+     "score": 0.9984,
      "stability": 1.0
     }
    }
@@ -173,6 +218,19 @@
    "variants": {
     "reversed": {
      "failed": 0,
+     "metrics": {
+      "ndcg": 1.0,
+      "top1": 1.0
+     },
+     "score": 1.0,
+     "stability": 1.0
+    },
+    "shuffled": {
+     "failed": 0,
+     "metrics": {
+      "ndcg": 1.0,
+      "top1": 1.0
+     },
      "score": 1.0,
      "stability": 1.0
     }

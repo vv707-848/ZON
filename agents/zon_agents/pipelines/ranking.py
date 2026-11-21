@@ -25,8 +25,9 @@ fails, the call fails (503) and Laravel answers with the SQL order (§7 «سيا
 
 import asyncio
 import math
+import os
 from collections import Counter
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from pydantic import BaseModel
@@ -62,6 +63,13 @@ SEARCH_WRITES = 5  # ... and writes: its best, ordered; the rest of the list in 
 MATCHING_SHORTLIST = 8  # matching: «مطابق» and «توسيع الإدراك», each — it runs for saved wishes twice a day
 MATCHING_WRITES = 5  # each list
 DESC_CHARS = 400  # a candidate's description as the ranking model reads it (clean_listing reads a listing whole)
+# How search and matching ask the model (ZON_RANK_MODE; the lab's --rank-mode), until the A40 decides between them:
+# - "both": twice at once, the shortlist and its reversal, each candidate at its mean score (step 5 above);
+# - "compact": once, each candidate's description cut at COMPACT_DESC_CHARS — the need, the searcher's conditions,
+#   always whole. Half the calls and a shorter read, at the price of the order the candidates came in.
+RANK_MODES = ("both", "compact")
+RANK_MODE = os.environ.get("ZON_RANK_MODE", "both")
+COMPACT_DESC_CHARS = 160
 SEARCHERS = 15  # match_searchers: the searchers the model reads, the closest to a unit model by budget and rooms
 SEARCHER_UNITS = 8  # ... and the unit models, the nearest to those searchers first
 SEARCHER_CHARS = 350  # a searcher's notes and a unit model's description as the model reads them
@@ -123,12 +131,12 @@ def _checked(
     return out
 
 
-def flipped(need: Need, shortlist: Sequence[tuple[Candidate, float]]) -> list[dict[str, Any]]:
+def flipped(need: Need, shortlist: Sequence[tuple[Candidate, float]], chars: int = DESC_CHARS) -> list[dict[str, Any]]:
     """The shortlist the other way round as the model reads it: what keeps the wish still first, each part reversed
     — so a list and its reversal are read as the same two orders, and what breaks the wish is never read first."""
     keep = [pair for pair in shortlist if not breaks(need, pair[0])]
     late = [pair for pair in shortlist if breaks(need, pair[0])]
-    return _context([*keep[::-1], *late[::-1]])
+    return _context([*keep[::-1], *late[::-1]], chars)
 
 
 async def both_orders[T: BaseModel](
@@ -237,9 +245,30 @@ def _plain(shortlist: Sequence[tuple[Candidate, float]], limit: int) -> list[dic
     return out
 
 
-def _context(shortlist: Sequence[tuple[Candidate, float]]) -> list[dict[str, Any]]:
-    """The candidates as the model reads them: their fields, and the description cut at DESC_CHARS."""
-    return [{**c.model_dump(exclude_none=True), "desc": c.desc[:DESC_CHARS]} for c, _ in shortlist]
+def _context(shortlist: Sequence[tuple[Candidate, float]], chars: int = DESC_CHARS) -> list[dict[str, Any]]:
+    """The candidates as the model reads them: their fields, and the description cut at [chars]."""
+    return [{**c.model_dump(exclude_none=True), "desc": c.desc[:chars]} for c, _ in shortlist]
+
+
+async def _ask[T: BaseModel](
+    ctx: Ctx,
+    agent: str,
+    need: Need,
+    lists: Mapping[str, Sequence[tuple[Candidate, float]]],
+    rest: dict[str, Any],
+    schema: type[T],
+) -> list[LlmResult[T]]:
+    """The model's answers by RANK_MODE: both orders at full descriptions, or one call at compact ones."""
+    if RANK_MODE == "compact":
+        payload = {
+            "need": need.model_dump(exclude_none=True),
+            **{n: _context(s, COMPACT_DESC_CHARS) for n, s in lists.items()},
+            **rest,
+        }
+        return [await ctx.llm.run(agent, payload, schema, "rank")]
+    payload = {"need": need.model_dump(exclude_none=True), **{n: _context(s) for n, s in lists.items()}, **rest}
+    other = {**payload, **{n: flipped(need, s) for n, s in lists.items()}}
+    return await both_orders(ctx, agent, payload, other, schema)
 
 
 async def search_listings(ctx: Ctx, data: dict[str, Any]) -> Result:
@@ -264,10 +293,8 @@ async def _rank_one(
     if not shortlist:
         return Result({"results": []})
     asked = min(limit, SEARCH_WRITES)
-    payload = {"need": need.model_dump(exclude_none=True), "candidates": _context(shortlist), "limit": asked}
     try:
-        other = {**payload, "candidates": flipped(need, shortlist)}
-        answers = await both_orders(ctx, agent, payload, other, SearchAnswer)
+        answers = await _ask(ctx, agent, need, {"candidates": shortlist}, {"limit": asked}, SearchAnswer)
     except ModelFailed as exc:
         plain = conditions_first(_plain(shortlist, limit), need, shortlist)
         return Result({"results": plain}, degraded=True, log={"llm": exc.reason})
@@ -294,15 +321,9 @@ async def matching(ctx: Ctx, data: dict[str, Any]) -> Result:
         return Result({"matched": [], "broaden": [], "units": unit_scores})
 
     asked = min(req.limit, MATCHING_WRITES)
-    payload = {
-        "need": req.need.model_dump(exclude_none=True),
-        "matched": _context(matched),
-        "broaden": _context(broaden),
-        "limit": asked,
-    }
     try:
-        other = {**payload, "matched": flipped(req.need, matched), "broaden": flipped(req.need, broaden)}
-        answers = await both_orders(ctx, "matching", payload, other, MatchingAnswer)
+        lists = {"matched": matched, "broaden": broaden}
+        answers = await _ask(ctx, "matching", req.need, lists, {"limit": asked}, MatchingAnswer)
     except ModelFailed as exc:
         broken = _broken(req.need, broaden)
         output = {

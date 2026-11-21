@@ -275,9 +275,9 @@ def _percentile(values: Sequence[int], p: int) -> int:
     return ordered[max(0, -(-p * len(ordered) // 100) - 1)] if ordered else 0
 
 
-def _top(outcome: Outcome) -> list[int]:
+def _top(outcome: Outcome, name: str | None = None) -> list[int]:
     output = outcome.output or {}
-    return ids(output.get("matched" if outcome.agent == "matching" else "results", []))
+    return ids(output.get(name or ("matched" if outcome.agent == "matching" else "results"), []))
 
 
 def _agent_entry(agent: str, outcomes: Sequence[Outcome]) -> dict[str, Any]:
@@ -298,14 +298,20 @@ def _agent_entry(agent: str, outcomes: Sequence[Outcome]) -> dict[str, Any]:
             "score": _mean([o.score for o in changed]),
             "failed": sum(o.error is not None for o in changed),
         }
-        if variant == "reversed" and agent in RANKING:
+        if variant in ("reversed", "shuffled") and agent in RANKING:
             pairs = {(o.case, o.round): o for o in base if o.error is None}
-            kept = [
-                stability(_top(pairs[(o.case, o.round)]), _top(o))
-                for o in changed
-                if (o.case, o.round) in pairs and o.error is None
-            ]
-            entry["variants"][variant]["stability"] = _mean(kept)
+            answered = [o for o in changed if (o.case, o.round) in pairs and o.error is None]
+            entry["variants"][variant]["stability"] = _mean(
+                [stability(_top(pairs[(o.case, o.round)]), _top(o)) for o in answered]
+            )
+            if agent == "matching":  # «عروض أخرى» apart from «مطابق»
+                entry["variants"][variant]["stability_broaden"] = _mean(
+                    [stability(_top(pairs[(o.case, o.round)], "broaden"), _top(o, "broaden")) for o in answered]
+                )
+            measured = sorted({name for o in answered for name in o.metrics if name.startswith(("top1", "ndcg"))})
+            entry["variants"][variant]["metrics"] = {
+                name: _mean([o.metrics[name] for o in answered if name in o.metrics]) for name in measured
+            }
     return entry
 
 

@@ -168,6 +168,19 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         self.assertLess(body.index("**warm-up**"), body.index("**lab run**"))
         self.assertEqual(body.count("| table of lab run |"), 1, "the warm-up's own table is not the lab's")
 
+    def test_two_ranking_modes_run_one_after_the_other_on_the_same_pod(self) -> None:
+        """ZON_RANK_MODES: every case, the fresh cases and production's sizes once per mode, each table headed by it."""
+        result = self.run_lab(ZON_RANK_MODES="both compact")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        runs = [line for line in (self.dir / "lab").read_text().splitlines() if "--sample" not in line]
+        modes = [(line.split()[1], line.split("--rank-mode ")[1].split()[0], "cases_fresh" in line)
+                 for line in runs if "--rank-mode" in line]
+        self.assertEqual(modes, [("run", "both", False), ("run", "both", True), ("load", "both", False),
+                                 ("run", "compact", False), ("run", "compact", True), ("load", "compact", False)])
+        body = GitHub.comments[0]["body"]
+        for header in ("### rank both — the cases", "### rank both — the fresh cases", "### rank compact — the cases"):
+            self.assertIn(header, body)
+
     def test_what_the_missed_cases_wrote_is_posted_after_the_tables(self) -> None:
         report = self.dir / "report.json"
         outcomes = [

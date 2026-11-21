@@ -175,7 +175,8 @@ class ChatInput(Payload):
 
 class Citation(BaseModel):
     passage: Annotated[int, Field(ge=1, description="number of the cited passage, as given in the context")]
-    quote_ar: Annotated[str, Field(max_length=400)] = ""
+    # one sentence (the prompt): 200 letters, a prefix of a longer one still being in the passage word for word
+    quote_ar: Annotated[str, Field(max_length=200)] = ""
 
 
 class ChatAnswer(BaseModel):
@@ -183,7 +184,9 @@ class ChatAnswer(BaseModel):
     # the two chat timeouts of 21 Nov (A40) were knowledge answers
     answer: Annotated[str, Field(min_length=1, max_length=900)]
     covered: bool
-    citations: list[Citation] = []
+    # two passages at most: each cited one is a quote the model copies letter by letter, the slowest part of a
+    # knowledge answer (both chat timeouts of 21 Nov, A40, were knowledge answers)
+    citations: Annotated[list[Citation], Field(max_length=2)] = []
     # One enum, not ChatIntent | Literal["out_of_scope"]: that union is a «const», which a host's strict mode
     # refuses (Groq takes enum, not const) — every chat answer failed there after «auto» came in (#100).
     intent: Annotated[

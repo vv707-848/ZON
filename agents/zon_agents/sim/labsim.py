@@ -149,7 +149,9 @@ def _as_listed(
     # asked in both orders, each candidate at its mean score (ranking.both_orders · mean_of)
     keepers = [c for c in read if not breaks(c)]
     other = [*keepers[::-1], *[c for c in read if breaks(c)][::-1]]  # ranking.flipped
-    each = [build(grades, read, asked), build(grades, other, asked)]
+    each = [build(grades, read, asked)]
+    if ranking.RANK_MODE == "both":
+        each.append(build(grades, other, asked))
     written = ranking.canonical(ranking.mean_of(each), gap)[: max(len(w) for w in each)]
     if name == "broaden":  # what breaks the wish's rooms or budget is not «what the budget buys» at all, and once
         # the model's own of those are dropped the list goes on with what keeps them (ranking.matching)
