@@ -84,7 +84,7 @@ jobs:
           answer = json.load(urllib.request.urlopen(request, timeout=20))
           print(answer)
           assert answer["simulated"] is True and answer["degraded"] is False, answer
-          assert [(r["id"], r["score"]) for r in answer["output"]["results"]] == [(1, 0.95), (3, 0.45), (2, 0.05)], answer
+          assert [(r["id"], r["score"]) for r in answer["output"]["results"]] == [(1, 0.95), (3, 0.45)], answer  # 2 is far over the budget: not shown (owner, 21 Nov)
           PY
 
       - name: zon:doctor on the stack
