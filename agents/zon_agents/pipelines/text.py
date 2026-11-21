@@ -6,11 +6,12 @@ These have no degraded answer: when the model fails the call fails (503) and Lar
 """
 
 import re
+from contextvars import ContextVar
 from typing import Any
 
 from zon_agents.llm import ModelFailed, model_unavailable
 from zon_agents.numbers import grounded_amounts, norm, swapped
-from zon_agents.pipelines.base import Ctx, Result, parse, scrub
+from zon_agents.pipelines.base import _EMAIL, _PHONE, _URL, Ctx, Result, parse, scrub
 from zon_agents.schemas.agents import (
     CleanListingAnswer,
     CleanListingInput,
@@ -57,6 +58,8 @@ async def clean_listing(ctx: Ctx, data: dict[str, Any]) -> Result:
     if swapped(desc, req.text, req.fields):
         raise model_unavailable(ModelFailed("role"))
     if not _deed_kept(desc, features, req.text, req.fields.get("deed")):
+        if (kept := DEED_REFUSALS.get()) is not None:  # the lab's record of why (never set in production)
+            kept.append(deed_refusal(desc, features, req.text, req.fields.get("deed")))
         raise model_unavailable(ModelFailed("deed"))
     return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
 
@@ -108,6 +111,60 @@ def _deed_kept(desc: str, features: list[str], text: str, field: object) -> bool
     claims |= {False for f in features if False in _deeds(f)}
     stated = _deeds(text) | ({field} if isinstance(field, bool) else set())
     return claims <= stated
+
+
+# ── why a wording was refused for its deed: the lab's record only (owner, 21 Nov 2026) ───────────────
+# The lab sets DEED_REFUSALS for the case it runs; production never does, so nothing of a refused wording is kept
+# there. The reports go to a public repository: the excerpt is the fewest words that show what was said of the deed,
+# with names, contacts and document numbers taken out first (redact).
+DEED_REFUSALS: ContextVar[list[dict[str, str]] | None] = ContextVar("deed_refusals", default=None)
+
+_AROUND = 2  # words on each side of «صك»: its negation is the word next to it (_deeds)
+_NAME_AFTER = re.compile(
+    r"(?<!\w)(?:الاسم|اسمي|اسم|المالك|المسوق|الوسيط|الوكيل|المكتب|مكتب|مؤسسة|شركة|أبو|ابو|أم|ام|أخوك|اخوك|معك)"
+    r"[\s:：-]+(?:[^\s\d،,.؛]+)(?:\s+(?!صك|الصك)[^\s\d،,.؛]+)?"
+)
+_HANDLE = re.compile(r"@\w+")
+_DOCUMENT = re.compile(r"\d[\d\s\-/]{4,}\d|\d{5,}")  # a deed, licence or ID number: five digits or more
+
+
+def redact(text: str) -> str:
+    """Names, contacts and document numbers out of a text the lab keeps: «[اسم]» · «[رابط]» · «[بريد]» · «[حساب]» ·
+    «[رقم]»."""
+    for pattern, mark in (
+        (_URL, "[رابط]"),
+        (_EMAIL, "[بريد]"),
+        (_HANDLE, "[حساب]"),
+        (_PHONE, "[رقم]"),
+        (_DOCUMENT, "[رقم]"),
+    ):
+        text = pattern.sub(mark, text)
+    text = _NAME_AFTER.sub(lambda m: m.group(0).split()[0].rstrip(":：-") + " [اسم]", text)
+    return " ".join(text.split())
+
+
+def _deed_excerpt(text: str) -> str:
+    """The fewest words of [text] around its first «صك»: what was said of the deed."""
+    words = text.split()
+    for n, word in enumerate(words):
+        if _DEED.fullmatch(re.sub(r"[^\w]", "", norm(word))):
+            return " ".join(words[max(0, n - _AROUND) : n + _AROUND + 1])
+    return " ".join(words[: 2 * _AROUND + 1])
+
+
+def deed_refusal(desc: str, features: list[str], text: str, field: object) -> dict[str, str]:
+    """Why a wording was refused for its deed: where («desc» or «features»), what it claimed against what the text
+    and the field say, and the excerpt — redacted."""
+    stated = _deeds(text) | ({field} if isinstance(field, bool) else set())
+    said = [("desc", desc, _deeds(desc))] + [
+        ("features", f, {False} if False in _deeds(f) else {True}) for f in features if _DEED.search(norm(f))
+    ]
+    for source, where, claims in said:
+        for claim in sorted(claims - stated):
+            against = "the text says the opposite" if (not claim) in stated else "the text says nothing of a deed"
+            reason = f"{'a deed' if claim else 'no deed'} where {against}"
+            return {"reason": reason, "source": source, "excerpt": redact(_deed_excerpt(where))}
+    return {"reason": "deed", "source": "desc", "excerpt": redact(_deed_excerpt(desc))}
 
 
 async def clean_project(ctx: Ctx, data: dict[str, Any]) -> Result:

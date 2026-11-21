@@ -1,5 +1,7 @@
 """Ranking agents: candidates only, an id and a score each — nothing written — and the degraded answer."""
 
+import json
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -7,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import FakeEmbedder, ScriptedModel, call, index, listing
+from zon_agents.conditions import contradicts
 
 NEED = {"city": "الرياض", "neighborhood": "النرجس", "property_type": "apartment", "budget_max": 950000}
 
@@ -263,6 +266,67 @@ def test_a_request_whose_own_budget_or_rooms_the_offer_breaks_is_not_shown(
     found = call(client, "search_requests", {"need": offer, "candidates": requests})["output"]["results"]
 
     assert [r["id"] for r in found] == [3, 4], "equal scores: the closest budget first; what breaks it is not shown"
+
+
+def test_an_offer_that_says_the_opposite_of_a_stated_condition_is_taken_out_before_the_model_and_without_it(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """Owner, 21 Nov 2026: «دور أرضي أو بيت» — a whole house of two floors keeps it, an apartment on the second floor
+    does not; «أفضّل» only prefers. Taken out before the model reads the list, and on the fallback; two that keep the
+    wish are two results. (A40 21 Nov: «عوائل فقط» in the first three for singles, real-search-003.)"""
+    need = {**NEED, "free_text": "ابي دور أرضي أو بيت، وأفضل يكون فيه مصعد"}
+    candidates = [
+        {
+            "id": 1,
+            "type": "apartment",
+            "neighborhood": "النرجس",
+            "price": 800_000,
+            "desc": "شقة في الدور الثاني مع مصعد",
+        },
+        {"id": 2, "type": "house", "neighborhood": "النرجس", "price": 900_000, "desc": "بيت كامل من دورين بدون مصعد"},
+        {"id": 3, "type": "apartment", "neighborhood": "النرجس", "price": 850_000, "desc": "شقة أرضية بمدخل خاص"},
+    ]
+    model.answers["search_listings"] = {"results": [{"id": i, "score": 0.9} for i in (1, 2, 3)]}
+    model.answers["matching"] = {"matched": [{"id": i, "score": 0.9} for i in (1, 2, 3)], "broaden": []}
+
+    found = call(client, "search_listings", {"need": need, "candidates": candidates})["output"]["results"]
+    matched = call(client, "matching", {"need": need, "matched": candidates})["output"]["matched"]
+
+    assert sorted(r["id"] for r in found) == [2, 3], "the second floor goes; the house and the ground floor stay"
+    assert sorted(r["id"] for r in matched) == [2, 3]
+    assert all(c["id"] != 1 for c in model.calls_of("search_listings")[0][1]["candidates"]), "the model never read it"
+
+    model.answers["search_listings"] = httpx.ConnectError("tunnel down")
+    plain = call(client, "search_listings", {"need": need, "candidates": candidates})
+    assert plain["degraded"] is True and sorted(r["id"] for r in plain["output"]["results"]) == [2, 3]
+
+    singles = {**NEED, "free_text": "ابغى شقة عزاب"}
+    for_families = [{**candidates[0], "desc": "شقة عوائل فقط"}, {**candidates[2], "desc": "شقة عزاب نظيفة"}]
+    model.answers["search_listings"] = {"results": [{"id": 1, "score": 0.9}, {"id": 3, "score": 0.8}]}
+    kept = call(client, "search_listings", {"need": singles, "candidates": for_families})["output"]["results"]
+    assert [r["id"] for r in kept] == [3]
+
+
+def test_a_request_s_own_condition_against_the_brokers_offer(client: TestClient, model: ScriptedModel) -> None:
+    offer = {**NEED, "free_text": "شقة عوائل فقط بالدور الثاني"}
+    requests = [
+        {"id": 1, "types": ["apartment"], "neighborhoods": ["النرجس"], "desc": "ابغى شقة عزاب"},
+        {"id": 2, "types": ["apartment"], "neighborhoods": ["النرجس"], "desc": "شقة لعائلتي"},
+    ]
+    model.answers["search_requests"] = {"results": [{"id": 1, "score": 0.9}, {"id": 2, "score": 0.9}]}
+
+    found = call(client, "search_requests", {"need": offer, "candidates": requests})["output"]["results"]
+
+    assert [r["id"] for r in found] == [2]
+
+
+def test_the_conditions_read_as_laravel_reads_them() -> None:
+    """docs/contracts/fixtures/conditions.json: the cases App\\Ai\\Retrieval\\Conditions is held to as well."""
+    cases = json.loads(
+        (Path(__file__).resolve().parents[2] / "docs/contracts/fixtures/conditions.json").read_text("utf-8")
+    )
+    wrong = [c for c in cases if contradicts(c["wish"], c["offer"], c["type"]) != c["contradicts"]]
+    assert wrong == []
 
 
 def test_the_model_reads_at_most_15_search_and_8_matching_candidates_each_cut_at_400(

@@ -2,6 +2,7 @@
 
 namespace Tests\Chain;
 
+use App\Ai\Assistants\ChatAssistant;
 use App\Enums\TextReview;
 use App\Indexing\IndexSync;
 use App\Jobs\CleanListingText;
@@ -147,7 +148,7 @@ class AiChainTest extends TestCase
 
         $this->assertSame([
             [$o['all']->id, 0.95],       // both wishes, within the budget
-            [$o['half']->id, 0.7],       // «بدون مصعد» is no lift: one wish of two
+            // «بدون مصعد» says the opposite of the lift he asked for: not shown (Conditions, owner 21 Nov 2026)
             [$o['over']->id, 0.7],       // both wishes, over the budget within 10%: one step down
             [$o['none']->id, 0.45],
             // fewer rooms than asked, or over the budget by more than 10%: not shown (owner, 21 Nov 2026)
@@ -171,8 +172,8 @@ class AiChainTest extends TestCase
         foreach (['invalid', 'down'] as $failure) {
             Http::post("{$this->sim}/sim/mode", ['llm' => $failure])->throw();
             $response = $this->postJson('/api/v1/ai/search', $search)->assertOk()->assertJsonPath('meta.ai.status', 'degraded')->assertHeader('X-AI-Remaining', '30');
-            $kept = array_map(fn (Listing $l) => $l->id, array_values(array_diff_key($o, ['far' => true])));
-            $this->assertEqualsCanonicalizing($kept, $ids($response), "{$failure}: every offer that keeps the budget still shown, the one far over it not");
+            $kept = array_map(fn (Listing $l) => $l->id, array_values(array_diff_key($o, ['far' => true, 'half' => true])));
+            $this->assertEqualsCanonicalizing($kept, $ids($response), "{$failure}: every offer that keeps the budget and the lift still shown, the one far over it and the one «بدون مصعد» not");
             $this->assertNotSame($o['all']->id, $ids($response)[0], "{$failure}: not the model's order");
         }
 
@@ -193,8 +194,8 @@ class AiChainTest extends TestCase
             ->assertJsonPath('data.suggest_request', false)->assertHeader('X-AI-Remaining', '29');
         $this->apiContract('ai_matching', $response);
 
-        $this->assertSame([[$o['all']->id, 0.95], [$o['half']->id, 0.7], [$o['over']->id, 0.7], [$o['none']->id, 0.45]],
-            $this->ranked($response, 'data.matched', 'listing'), 'fewer rooms or far over the budget: not shown');
+        $this->assertSame([[$o['all']->id, 0.95], [$o['over']->id, 0.7], [$o['none']->id, 0.45]],
+            $this->ranked($response, 'data.matched', 'listing'), 'fewer rooms, far over the budget, or «بدون مصعد» to a lift asked: not shown');
         $this->assertSame([[$villa->id, 0.95]], $this->ranked($response, 'data.broaden', 'listing'), 'another type that meets the wish, within the budget');
         $this->assertSame([$project->id, $unit->id], [$response->json('data.projects.0.project.id'), $response->json('data.projects.0.units.0.unit.id')]);
         $this->assertStringNotContainsString(self::PHONE, json_encode($this->seen(), JSON_UNESCAPED_UNICODE));
@@ -255,7 +256,7 @@ class AiChainTest extends TestCase
         $this->assertStringNotContainsString('خالد', json_encode($this->seen(), JSON_UNESCAPED_UNICODE));
     }
 
-    public function test_the_chat_answers_from_the_library_and_from_the_plans_and_nothing_else(): void
+    public function test_the_chat_answers_from_the_library_points_to_the_plans_and_nothing_else(): void
     {
         $document = KbDocument::query()->create(['title' => 'الترخيص الإعلاني', 'category' => 'rega', 'lang' => 'ar', 'version' => '1', 'effective_date' => now()->subMonth(),
             'source' => 'الهيئة العامة للعقار', 'review_owner' => 'فريق زون', 'next_review' => now()->addYear(), 'is_active' => true,
@@ -268,12 +269,12 @@ class AiChainTest extends TestCase
         $this->apiContract('ai_chat', $knowledge);
         $this->assertSame([$document->body, $document->id], [$knowledge->json('data.answer'), $knowledge->json('data.sources.0.doc_id')]);
 
-        $plans = $this->postJson('/api/v1/ai/chat', ['message' => 'كم سعر الباقة؟'])->assertOk()->assertJsonPath('data.intent', 'packages')->assertJsonPath('data.action', '/account/plans');
-        $this->assertStringStartsWith('باقات زون الحالية: ', $plans->json('data.answer'));
-        $this->assertStringContainsString('199 ريال', $plans->json('data.answer'));
+        // a plan question: the pointer to the plans page and its button, no price, and no call (owner, 21 Nov 2026)
+        $this->postJson('/api/v1/ai/chat', ['message' => 'كم سعر الباقة؟'])->assertOk()->assertJsonPath('data.intent', 'packages')
+            ->assertJsonPath('data.action', '/account/plans')->assertJsonPath('data.answer', ChatAssistant::PLANS_GUIDANCE['ar'])->assertJsonPath('meta.ai.status', 'skipped');
 
         $this->postJson('/api/v1/ai/chat', ['message' => 'وش رأيك بالمباراة؟'])->assertOk()->assertJsonPath('data.intent', 'out_of_scope')->assertJsonPath('meta.ai.status', 'skipped');
-        $this->assertSame(2, count($this->seen()['llm']), 'out of scope never reaches the node');
+        $this->assertSame(1, count($this->seen()['llm']), 'neither a plan question nor one out of scope reaches the node');
         $this->apiContract('ai_chat_history', $this->getJson('/api/v1/ai/chat')->assertOk()->assertJsonCount(3, 'data'));
     }
 

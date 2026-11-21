@@ -75,7 +75,8 @@ final class SemanticSearch
                 ->keptBy($need->bedrooms ?? $m->rooms_min, $need->budgetMax === null ? null : (float) $need->budgetMax)
             : $need->keptBy($m->bedrooms, $m->price === null ? null : (float) $m->price);
         $rows = $ranked === null
-            ? $need->fallback($candidates, $keeps, fn ($m) => $m instanceof SearchRequest ? ($m->budget_max === null ? null : (float) $m->budget_max) : ($m->price === null ? null : (float) $m->price), $need->budgetMax === null ? null : (float) $need->budgetMax)
+            ? $need->fallback($candidates, $keeps, fn ($m) => $m instanceof SearchRequest ? ($m->budget_max === null ? null : (float) $m->budget_max) : ($m->price === null ? null : (float) $m->price), $need->budgetMax === null ? null : (float) $need->budgetMax,
+                fn ($m) => $m instanceof SearchRequest ? $need->againstRequest($m) : $need->againstListing($m))
                 ->take((int) config('zon.ai.results'))->map(fn ($m) => ['model' => $m, 'score' => null])->values()->all()
             : array_map(fn (array $r) => ['model' => $byId[$r['id']], 'score' => $r['score']], $ranked);
 

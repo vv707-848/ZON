@@ -22,8 +22,9 @@ from zon_agents.errors import DependencyUnavailable
 from zon_agents.lab.cases import Case
 from zon_agents.lab.runner import CURRENT, TODAY, FixedRetrieval, _percentile
 from zon_agents.llm import LLM
-from zon_agents.pipelines import PIPELINES
+from zon_agents.pipelines import PIPELINES, ranking
 from zon_agents.pipelines.base import Ctx
+from zon_agents.schemas.agents import ListingCandidate, Need, RequestCandidate
 
 # list field → (items, characters of its text) as Laravel sends them (ListingCandidates · RequestCandidates ·
 # UnitCandidates cut a description at 600, DeveloperMatching a unit's at 400, ProjectAudience a seeker's notes at 500).
@@ -49,7 +50,7 @@ def production_size(case: Case) -> Case:
     data = copy.deepcopy(dict(case.input))
     next_id = 1_000_000
     for field, (count, chars) in SIZES[case.agent].items():
-        given = data.get(field) or []
+        given = _keepers(case.agent, field, data.get("need"), data.get(field) or [])
         if not given:
             continue
         text = _TEXT.get(field, "desc")
@@ -64,6 +65,23 @@ def production_size(case: Case) -> Case:
     if isinstance(data.get("need"), dict):
         data["need"]["free_text"] = _long(str(data["need"].get("free_text", "")), FREE_TEXT)
     return case.model_copy(update={"id": f"{case.id}-production", "input": data})
+
+
+def _keepers(agent: str, field: str, need: Any, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The items the shortlist keeps (ranking._shortlist: budget, rooms, stated conditions): repeated, they make a
+    full list for the model to read — production's 30 are what SQL let through, not what the rules then take out.
+    All of them when none would be kept (the case is about something else)."""
+    if (
+        agent not in ("search_listings", "search_requests", "matching")
+        or not isinstance(need, dict)
+        or field == "units"
+    ):
+        return items
+    wish = Need(**need)
+    kind = RequestCandidate if agent == "search_requests" else ListingCandidate
+    rule = ranking.fits_broaden if field == "broaden" else ranking.fits
+    kept = [c for c in items if rule(wish, kind(**c)) and not ranking.contradicted(wish, kind(**c))]
+    return kept or items
 
 
 async def _timed(llm: LLM, case: Case) -> tuple[int, int, str | None]:

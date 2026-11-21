@@ -25,8 +25,11 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "agents"))
 from lab_cases_real import REAL_CASES
 from lab_cases_text import TEXT_CASES
+
+from zon_agents.conditions import contradicts  # the pipeline's own rule (stdlib only)
 
 OUT = Path(__file__).resolve().parents[1] / "agents" / "zon_agents" / "lab" / "cases"
 SEED = 20261105
@@ -175,11 +178,14 @@ def satisfied(candidate: dict[str, Any], wish: str) -> bool:
 
 
 def grade_listing(candidate: dict[str, Any], need: dict[str, Any], wishes: list[str]) -> int:
-    """0 = over the budget by more than 10% or fewer rooms than asked · then 3 / 2 / 1 by the share of wishes met,
+    """0 = over the budget by more than 10%, fewer rooms than asked, or the opposite of a condition the need states
+    outright (zon_agents.conditions) · then 3 / 2 / 1 by the share of wishes met,
     one less when the price is over the budget by up to 10%."""
     top = need.get("budget_max")
     if top and candidate["price"] > top * 1.10:
         return 0
+    if contradicts(need.get("free_text", ""), candidate.get("desc", ""), candidate.get("type")):
+        return 0  # says the opposite of a condition stated outright («دور أرضي» · an upper floor): owner, 21 Nov
     if need.get("bedrooms") and (candidate.get("bedrooms") is None or candidate["bedrooms"] < need["bedrooms"]):
         return 0
     share = sum(satisfied(candidate, w) for w in wishes) / len(wishes)
@@ -415,7 +421,10 @@ def matching_cases(rng: random.Random) -> list[dict[str, Any]]:
                     "units": [],
                     "limit": 10,
                 },
-                "expect": {"matched": {"grades": grades_m}, "broaden": {"grades": grades_b}},
+                # no right answer left in «عروض أخرى» (every one says the opposite of a stated condition): rightly
+                # empty, scored on showing nothing
+                "expect": {"matched": {"grades": grades_m},
+                           "broaden": {"grades": grades_b, **({} if any(grades_b.values()) else {"empty": True})}},
                 "note": f"wishes: {', '.join(wishes)}",
             }
         )
@@ -428,6 +437,8 @@ def matching_cases(rng: random.Random) -> list[dict[str, Any]]:
 def grade_request(request: dict[str, Any], offer: dict[str, Any], offer_features: set[str], wishes: list[str]) -> int:
     if request["budget_max"] is not None and offer["price"] > request["budget_max"] * 1.10:
         return 0
+    if contradicts(request["desc"], offer.get("text", ""), offer.get("type")):
+        return 0  # the offer says the opposite of a condition the request states outright
     if request["rooms_min"] and offer["bedrooms"] < request["rooms_min"]:
         return 0
     share = sum(w in offer_features for w in wishes) / len(wishes) if wishes else 1.0  # no wish: all of them met
@@ -506,7 +517,7 @@ def search_requests_cases(rng: random.Random) -> list[dict[str, Any]]:
             "_wishes": [],
         }
         requests.append(injected)
-        offer = {"price": price, "bedrooms": bedrooms}
+        offer = {"price": price, "bedrooms": bedrooms, "text": need.get("free_text", ""), "type": need["property_type"]}
         grades = {str(r["id"]): grade_request(r, offer, features, r["_wishes"]) for r in requests}
         ordered = sorted(requests, key=lambda r: (not r["urgent"], -r["id"]))
         cases.append(
@@ -643,6 +654,31 @@ def match_searchers_cases(rng: random.Random) -> list[dict[str, Any]]:
     return cases
 
 
+# ── The candidates' ids (owner, 21 Nov 2026) ────────────────────────────────────────────────────
+# The cases were numbered as they were made, best first (101 · 102 graded 3 …): picking the smallest id alone was
+# right far more often than chance, and the pipeline's ties go to the lower id. Each list's ids are dealt out again
+# at random — a seed of their own, the case's id, never its grades — and each property keeps its grade, its place
+# in the list Laravel sent, and everything else.
+ID_SEED = "ids-20261121"
+_ID_LISTS = {"search_listings": [("candidates", "")], "search_requests": [("candidates", "")],
+             "matching": [("matched", "matched"), ("broaden", "broaden")]}  # fmt: skip
+
+
+def shuffled_ids(case: dict[str, Any]) -> dict[str, Any]:
+    for name, graded in _ID_LISTS.get(case["agent"], []):
+        items = case["input"].get(name, [])
+        ids = [c["id"] for c in items]
+        dealt = ids[:]
+        random.Random(f"{ID_SEED}:{case['id']}:{name}").shuffle(dealt)
+        new = dict(zip(ids, dealt, strict=True))
+        case["input"][name] = [{**c, "id": new[c["id"]]} for c in items]
+        expect = case["expect"][graded] if graded else case["expect"]
+        expect["grades"] = {str(new[int(k)]): g for k, g in expect["grades"].items()}
+        if expect.get("inject") is not None:
+            expect["inject"] = new[expect["inject"]]
+    return case
+
+
 def fresh() -> None:
     """Search (listings · requests) and matching only, from FRESH_SEED, each id marked «fresh-»."""
     rng = random.Random(FRESH_SEED)
@@ -655,7 +691,8 @@ def fresh() -> None:
             case["expect"]["broaden"]["empty"] = True
     FRESH_OUT.mkdir(parents=True, exist_ok=True)
     for agent, cases in sorted(made.items()):
-        lines = [json.dumps({**case, "id": f"fresh-{case['id']}"}, ensure_ascii=False, separators=(",", ":")) for case in cases]
+        named = [shuffled_ids({**case, "id": f"fresh-{case['id']}"}) for case in cases]
+        lines = [json.dumps(case, ensure_ascii=False, separators=(",", ":")) for case in named]
         (FRESH_OUT / f"{agent}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
         print(f"fresh {agent}: {len(cases)}")
 
@@ -678,7 +715,7 @@ def main() -> None:
     for old in OUT.glob("*.jsonl"):
         old.unlink()
     for agent, cases in sorted(by_agent.items()):
-        lines = [json.dumps(case, ensure_ascii=False, separators=(",", ":")) for case in cases]
+        lines = [json.dumps(shuffled_ids(case), ensure_ascii=False, separators=(",", ":")) for case in cases]
         (OUT / f"{agent}.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
         print(f"{agent}: {len(cases)}")
 

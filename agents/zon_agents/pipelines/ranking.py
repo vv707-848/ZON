@@ -32,6 +32,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from zon_agents.conditions import contradicts
 from zon_agents.embeddings import Embedding
 from zon_agents.llm import LlmResult, ModelFailed
 from zon_agents.pipelines.base import Ctx, Result, parse
@@ -97,7 +98,8 @@ async def _shortlist[C: Candidate](
     never above one placed before it); without free text there is nothing to embed.
 
     With a `need` (owner's decision, 21 Nov 2026), only what keeps it is a candidate at all: its budget and rooms
-    (`fits`) for a result, or what «عروض أخرى» asks (`fits_broaden`). Two that keep it are two results, never
+    (`fits`) for a result, or what «عروض أخرى» asks (`fits_broaden`), and no condition it states outright said
+    the opposite of (`contradicted`). Two that keep it are two results, never
     filled with what breaks it — after the model, without it, or when it times out. And the order the model reads
     is fixed by the candidates themselves, never by the order they came in: Qdrant's score, then the id; without
     retrieval (no free text, or not indexed yet), the price's distance from the top of the budget, then the id."""
@@ -119,8 +121,17 @@ async def _shortlist[C: Candidate](
         ranked.append((candidate, round(max(0.0, top * (1 - (position + 1) / (2 * max(size, len(rest))))), 3)))
     if need is not None:
         rule = keep or fits
-        ranked = sorted((p for p in ranked if rule(need, p[0])), key=lambda p: (-p[1], p[0].id))[:size]
+        kept = (p for p in ranked if rule(need, p[0]) and not contradicted(need, p[0]))
+        ranked = sorted(kept, key=lambda p: (-p[1], p[0].id))[:size]
     return ranked
+
+
+def contradicted(need: Need, candidate: Candidate) -> bool:
+    """The candidate says the opposite of a condition stated outright (conditions.py: «دور أرضي» to an upper floor,
+    «عوائل فقط» to singles…). A request is read the other way round: its own conditions, against the broker's offer."""
+    if isinstance(candidate, RequestCandidate):
+        return contradicts(candidate.desc, need.free_text, need.property_type)
+    return contradicts(need.free_text, candidate.desc, candidate.type)
 
 
 def _checked(

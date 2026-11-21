@@ -153,13 +153,6 @@ class Exchange(Payload):
     a: Annotated[str, Field(max_length=2000)]
 
 
-class PackageFact(Payload):
-    name: str
-    price: float | None = None
-    period: str | None = None
-    features: list[str] = []
-
-
 class ChatInput(Payload):
     # Laravel's guess, for its fixed texts: Arabic, English, Urdu, or another language ("xx"). The answer is in the
     # language of the message whatever it is.
@@ -170,7 +163,7 @@ class ChatInput(Payload):
     role: Literal["seeker", "broker", "owner", "developer"] | None = None
     message: Annotated[str, Field(min_length=1, max_length=1000)]
     history: Annotated[list[Exchange], Field(max_length=1)] = []
-    packages: list[PackageFact] = []
+    # no `packages` (owner, 21 Nov 2026): no plan price reaches the model; a plan question is a pointer to the page
 
 
 class Citation(BaseModel):

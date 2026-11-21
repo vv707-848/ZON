@@ -148,9 +148,10 @@ class ModelLabTest extends AdminTestCase
 
         $adversary = implode("\n", LabLimits::unmet($run('adversary')));
         // its invented price is refused by the cleaning pipeline itself (agents: numbers.grounded_amounts): failed; its
-        // scores rose with the shortlist that holds only what keeps the wish (21 Nov), still under the plain order
-        foreach (['search_listings: عرض يكسر', 'ردود فاشلة في: clean_listing', 'report_write: NumberGuard', 'search_listings: درجته 0.636 لا تتجاوز الترتيب بلا نموذج (0.804)',
-            'search_requests: درجته 0.661 لا تتجاوز', 'matching: درجته 0.716 لا تتجاوز'] as $reason) {
+        // scores rose with the shortlist that holds only what keeps the wish and its stated conditions (21 Nov), and
+        // the ids dealt at random; still under the plain order
+        foreach (['search_listings: عرض يكسر', 'ردود فاشلة في: clean_listing', 'report_write: NumberGuard', 'search_listings: درجته 0.659 لا تتجاوز الترتيب بلا نموذج (0.814)',
+            'search_requests: درجته 0.671 لا تتجاوز', 'matching: درجته 0.726 لا تتجاوز'] as $reason) {
             $this->assertStringContainsString($reason, $adversary);
         }
         // the service itself puts what breaks a stated budget or room count last (agents: pipelines/ranking.py), so the
@@ -162,7 +163,7 @@ class ModelLabTest extends AdminTestCase
         // list and its reversal: the stability limit no longer names it, its score does where it is low
         $positional = implode("\n", LabLimits::unmet($run('positional')));
         $this->assertStringNotContainsString('يتغير ترتيبه', $positional);
-        $this->assertStringContainsString('search_requests: درجته 0.72 لا تتجاوز الترتيب بلا نموذج (0.81)', $positional);
+        $this->assertStringContainsString('search_requests: درجته 0.737 لا تتجاوز الترتيب بلا نموذج (0.818)', $positional);
         $this->assertStringContainsString('ردود فاشلة في: chat، clean_listing', implode("\n", LabLimits::unmet($run('broken'))));
     }
 

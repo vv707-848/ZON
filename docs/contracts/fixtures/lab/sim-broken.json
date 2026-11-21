@@ -2,13 +2,20 @@
  "agents": {
   "chat": {
    "cases": 25,
-   "failed": 25,
+   "failed": 22,
    "latency_ms": {
     "p50": 0,
     "p95": 0
    },
-   "metrics": {},
-   "score": 0.0,
+   "metrics": {
+    "asks": 1.0,
+    "avoid": 1.0,
+    "covered": 1.0,
+    "lang": 1.0,
+    "mention": 1.0,
+    "numbers": 1.0
+   },
+   "score": 0.12,
    "variants": {}
   },
   "clean_listing": {
@@ -55,7 +62,7 @@
   "matching": {
    "cases": 12,
    "failed": 12,
-   "floor": 0.8559,
+   "floor": 0.8563,
    "latency_ms": {
     "p50": 0,
     "p95": 0
@@ -115,7 +122,7 @@
   "search_listings": {
    "cases": 38,
    "failed": 38,
-   "floor": 0.8037,
+   "floor": 0.8138,
    "latency_ms": {
     "p50": 0,
     "p95": 0
@@ -140,7 +147,7 @@
   "search_requests": {
    "cases": 14,
    "failed": 14,
-   "floor": 0.8095,
+   "floor": 0.8175,
    "latency_ms": {
     "p50": 0,
     "p95": 0
@@ -193,9 +200,9 @@
    "summarize": 10
   },
   "cases": 209,
-  "digest": "1c563ad5d73c3723"
+  "digest": "238005f077db2d85"
  },
  "lab": 1,
- "overall": 0.0,
+ "overall": 0.0141,
  "simulation": "broken"
 }

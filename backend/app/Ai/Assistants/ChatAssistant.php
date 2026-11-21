@@ -2,17 +2,14 @@
 
 namespace App\Ai\Assistants;
 
-use App\Actions\Billing\ApplyBoost;
 use App\Ai\AiGateway;
 use App\Ai\AiResult;
 use App\Ai\Capture\TrainingCapture;
 use App\Ai\Masking\AiMasking;
 use App\Enums\AiAgent;
-use App\Enums\BoostKind;
 use App\Enums\ChatIntent;
 use App\Models\ChatMessage;
 use App\Models\Customer;
-use App\Models\Package;
 use App\Support\ArabicText;
 use App\Support\Settings\Setting;
 use App\Support\Settings\Settings;
@@ -21,10 +18,11 @@ use App\Support\Trace;
 /**
  * «زون» — the chat (barq_chat_screen.dart), in this order:
  *   1 blocked words → a fixed answer · 2 language (ar · en · ur · xx) · 3 intent by rules; out of scope → a fixed
- *   answer, no call — in any other language (xx) the rules are skipped and the model names the intent («auto»:
- *   the passages and the packages are both its context; «out of scope» is its own sentence in that language) ·
- *   4 the call with a closed context (knowledge passages, or the packages' exact numbers) ·
- *   5 ChatGuard · 6 packages answered from the table itself when the AI is down · 7 saved (masked) in chat_messages.
+ *   answer, no call — in any other language (xx) the rules are skipped, but for the plans' own words, and the model
+ *   names the intent («auto»; «out of scope» is its own sentence in that language) · 4 a plan question → the pointer
+ *   to the plans page (PLANS_GUIDANCE) and its button, no call: no plan price reaches a model (owner, 21 Nov 2026) ·
+ *   5 the call with a closed context (knowledge passages) · 6 ChatGuard; a plan answer — named by the model, refused,
+ *   or with the AI down — is the pointer too · 7 saved (masked) in chat_messages.
  * The account's own name is masked with the rest («أنا خالد…» reaches no model, no row, no training sample).
  * The answer is in the message's language; a fixed text is in ar · en · ur, and in English for any other.
  */
@@ -36,6 +34,19 @@ final class ChatAssistant
         'out_of_scope' => ['ar' => 'أنا مساعد زون العقاري: أجيب عن الباقات والتراخيص والنشر والبحث والمطابقة.', 'en' => 'I’m Zon’s property assistant: plans, licences, publishing, search and matching.', 'xx' => 'I’m Zon’s property assistant: plans, licences, publishing, search and matching.', 'ur' => 'میں زون کا اسسٹنٹ ہوں: پیکجز، لائسنس، اشاعت، تلاش۔'],
         'unavailable' => ['ar' => 'تعذّر الرد الآن، حاول بعد قليل أو تواصل مع الدعم من الإعدادات.', 'en' => 'I can’t answer right now — try again shortly or contact support from Settings.', 'xx' => 'I can’t answer right now — try again shortly or contact support from Settings.', 'ur' => 'ابھی جواب ممکن نہیں، تھوڑی دیر بعد کوشش کریں۔'],
         'not_covered' => ['ar' => 'لا أملك معلومة موثقة عن هذا. راجع الجهة الرسمية المختصة.', 'en' => 'I don’t have verified information on this. Please check with the official authority.', 'xx' => 'I don’t have verified information on this. Please check with the official authority.', 'ur' => 'اس بارے میں مصدقہ معلومات نہیں ہیں۔'],
+    ];
+
+    /**
+     * The pointer to the plans page, in the asker's language (the agents' own: zon_agents/pipelines/chat.py, both
+     * kept equal to docs/contracts/fixtures/chat/plans_guidance.json). The page shows the prices as they are today.
+     */
+    public const PLANS_GUIDANCE = [
+        'ar' => 'أسعار الباقات وتفاصيلها في صفحة «الباقات»: اضغط الزر تحت هذه الرسالة وتشوفها محدّثة.',
+        'en' => 'Plan prices and details are on the Plans page: tap the button below this message to see them up to date.',
+        'ur' => 'پیکجز کی قیمتیں اور تفصیل «پیکجز» کے صفحے پر ہیں: تازہ ترین دیکھنے کے لیے اس پیغام کے نیچے بٹن دبائیں۔',
+        'tr' => 'Paketlerin fiyatları ve ayrıntıları «Paketler» sayfasında: güncel hâlini görmek için bu mesajın altındaki düğmeye dokunun.',
+        'ru' => 'Цены и условия тарифов — на странице «Тарифы»: нажмите кнопку под этим сообщением, чтобы увидеть актуальные.',
+        'hi' => 'पैकेज की कीमतें और विवरण «पैकेज» पेज पर हैं: ताज़ा जानकारी के लिए इस संदेश के नीचे दिया बटन दबाएँ।',
     ];
 
     /** Where the app should take the user for the services the chat only points to. */
@@ -63,7 +74,11 @@ final class ChatAssistant
             return $this->answer($customer, $message, $lang, $intent, self::FIXED[$fixed][$lang], false, [], 'passed', null);
         }
 
-        [$packages, $amounts] = $this->packageFacts();
+        if ($intent === ChatIntent::Packages || ($auto && IntentClassifier::asksPlans($message))) {
+            return $this->plans($customer, $message, $lang, 'passed', null);
+        }
+
+        $amounts = $this->amounts();
         $last = ChatMessage::query()->where('customer_id', $customer->id)->latest('id')->first();
         $result = $this->ai->call(AiAgent::Chat, [
             'lang' => $lang,
@@ -71,7 +86,6 @@ final class ChatAssistant
             'intent' => $intent->value ?? 'auto',
             'message' => $message,
             'history' => $last === null ? [] : [['q' => mb_substr($last->question, 0, 1000), 'a' => mb_substr($last->answer, 0, 2000)]],
-            'packages' => $auto || $intent === ChatIntent::Packages ? $packages : [],
         ], check: fn (array $out) => trim((string) ($out['answer'] ?? '')) === '' ? null : [
             'answer' => trim((string) $out['answer']),
             'covered' => (bool) ($out['covered'] ?? false),
@@ -80,13 +94,14 @@ final class ChatAssistant
         ], customer: $customer, cache: false, known: [$customer->name]);
 
         if (! $result->usable()) {
-            $fallback = $intent === ChatIntent::Packages ? $this->packagesText($packages, $lang) : self::FIXED['unavailable'][$lang];
-
-            return $this->answer($customer, $message, $lang, $intent ?? ChatIntent::OutOfScope, $fallback, $intent === ChatIntent::Packages, [], 'passed', $result);
+            return $this->answer($customer, $message, $lang, $intent ?? ChatIntent::OutOfScope, self::FIXED['unavailable'][$lang], false, [], 'passed', $result);
         }
 
         $out = $result->output;
         $intent ??= ChatIntent::tryFrom($out['intent']) ?? ChatIntent::OutOfScope;    // named by the model («auto»)
+        if ($intent === ChatIntent::Packages) {             // whatever the model wrote («199 ليرة تركية»): the pointer
+            return $this->plans($customer, $message, $lang, $out['answer'] === self::PLANS_GUIDANCE[self::plansLang($lang, $message)] ? 'passed' : 'replaced', $result);
+        }
         if ($intent === ChatIntent::OutOfScope) {           // its one sentence, in his language, if nothing in it is unsafe
             $said = $this->guard->passes($out['answer'], false, [], $amounts, false);
 
@@ -94,34 +109,47 @@ final class ChatAssistant
         }
         $ok = $this->guard->passes($out['answer'], $out['covered'], $out['sources'], $amounts, $intent === ChatIntent::Knowledge);
         if (! $ok) {
-            $text = $intent === ChatIntent::Packages ? $this->packagesText($packages, $lang) : self::FIXED['not_covered'][$lang];
-
-            return $this->answer($customer, $message, $lang, $intent, $text, false, [], 'replaced', $result);
+            return $this->answer($customer, $message, $lang, $intent, self::FIXED['not_covered'][$lang], false, [], 'replaced', $result);
         }
 
         return $this->answer($customer, $message, $lang, $intent, $out['answer'], $out['covered'], $out['sources'], 'passed', $result);
     }
 
-    /** @return array{0: list<array<string, mixed>>, 1: list<string>} the packages as facts, and every amount the chat may say */
-    private function packageFacts(): array
+    /**
+     * The pointer to the plans page, with its button (ACTIONS['packages']): no price said, the page shows today's.
+     *
+     * @return array{answer: string, covered: bool, sources: list<array<string, mixed>>, intent: string, lang: string, action: ?string, ai: array<string, mixed>}
+     */
+    private function plans(Customer $customer, string $message, string $lang, string $guard, ?AiResult $result): array
     {
-        $plans = Package::query()->where('is_active', true)->where('price_halalas', '>', 0)->orderBy('sort')->get();
-        $facts = $plans->map(fn (Package $p) => ['name' => $p->name, 'price' => (float) $p->price()->riyals(), 'period' => $p->period->value, 'features' => $p->features ?? []])->all();
-        $amounts = $plans->map(fn (Package $p) => $p->price()->riyals())->all();
-        foreach (BoostKind::cases() as $kind) {
-            $amounts[] = ApplyBoost::price($kind)->riyals();
-        }
-        array_push($amounts, Settings::money(Setting::AdLicenceFee)->riyals(), Settings::string(Setting::OwnerCommissionPercent), Settings::string(Setting::BrokerFreeSharePercent), '1060');
-
-        return [$facts, array_values(array_unique($amounts))];
+        return $this->answer($customer, $message, $lang, ChatIntent::Packages, self::PLANS_GUIDANCE[self::plansLang($lang, $message)], true, [], $guard, $result);
     }
 
-    /** @param list<array<string, mixed>> $packages */
-    private function packagesText(array $packages, string $lang): string
+    /** The pointer's language: the rules' (ar · en · ur), or another one's by its script, Turkish by its own letters or words, else English (agents: chat.guidance_lang). */
+    public static function plansLang(string $lang, string $message): string
     {
-        $lines = array_map(fn (array $p) => "• {$p['name']}: ".rtrim(rtrim(number_format((float) $p['price'], 2, '.', ''), '0'), '.').' ريال', $packages);
+        if ($lang !== 'xx') {
+            return $lang;
+        }
+        $lower = mb_strtolower($message);
 
-        return ($lang === 'ar' ? "الباقات الحالية في زون:\n" : "Zon plans:\n").implode("\n", $lines);
+        return match (true) {
+            preg_match('/\p{Cyrillic}/u', $message) === 1 => 'ru',
+            preg_match('/\p{Devanagari}/u', $message) === 1 => 'hi',
+            preg_match('/[ğışİĞŞ]|\b(?:paket\w*|fiyat\w*|ücret\w*|aylık|yıllık|kadar|nedir|nasıl|için|abonelik|üyelik)\b/u', $lower) === 1 => 'tr',
+            default => 'en',
+        };
+    }
+
+    /**
+     * Every amount the chat may say: the fees and shares of the platform — no plan's price and no boost's (owner,
+     * 21 Nov 2026: plan prices are the plans page's alone; an answer that says one is refused).
+     *
+     * @return list<string>
+     */
+    private function amounts(): array
+    {
+        return array_values(array_unique([Settings::money(Setting::AdLicenceFee)->riyals(), Settings::string(Setting::OwnerCommissionPercent), Settings::string(Setting::BrokerFreeSharePercent)]));
     }
 
     /**

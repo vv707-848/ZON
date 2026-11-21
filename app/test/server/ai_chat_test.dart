@@ -21,6 +21,11 @@ import '../support/test_env.dart';
 Map<String, Object?> recorded(String name) =>
     (jsonDecode(File('../docs/contracts/fixtures/api/$name.json').readAsStringSync()) as Map).cast<String, Object?>();
 
+String _guidance(String lang) {
+  final shared = jsonDecode(File('../docs/contracts/fixtures/chat/plans_guidance.json').readAsStringSync()) as Map;
+  return shared[lang]! as String;
+}
+
 String _path() {
   String? name;
   Nav.key.currentState!.popUntil((route) {
@@ -110,33 +115,29 @@ void main() {
       expect(find.text('«${source['quote_ar']}»'), findsNothing, reason: 'an Arabic answer is its own source text');
     });
 
-    testWidgets('an answer that leads somewhere opens it; a model\'s answer carries no «محاكاة»', (tester) async {
-      final plans = <String, Object?>{
-        ...reply,
-        'answer': 'باقات زون الحالية: الباحث — شهري بـ199 ريال.',
-        'sources': <Object?>[],
-        'intent': 'packages',
-        'action': '/account/plans',
-      };
-      await _open(
-        tester,
-        (s) => s.on(
-          'POST',
-          'ai/chat',
-          200,
-          ok(plans, <String, Object?>{
-            'ai': <String, Object?>{'status': 'ok'},
-          }),
-        ),
-      );
-      await _say(tester, 'كم سعر الباقة؟');
-      expect(find.text('باقات زون الحالية: الباحث — شهري بـ199 ريال.'), findsOneWidget);
-      expect(find.text(simulated), findsNothing);
-      expect(find.textContaining('المصدر:'), findsNothing);
-      await tapText(tester, 'افتح');
-      await _settle(tester);
-      expect(_path(), '/account/plans');
-    });
+    // Owner, 21 Nov 2026: no plan price in the chat. The server's pointer to the plans page, in the asker's language
+    // (docs/contracts/fixtures/chat/plans_guidance.json), and its button opens the page itself, with today's prices.
+    for (final lang in <String>['ar', 'tr']) {
+      testWidgets('a plan question: the pointer in his language, and its button opens the plans page ($lang)', (tester) async {
+        final guidance = _guidance(lang);
+        final plans = <String, Object?>{...reply, 'answer': guidance, 'sources': <Object?>[], 'intent': 'packages', 'action': '/account/plans'};
+        await _open(tester, (s) {
+          s.on('POST', 'ai/chat', 200, ok(plans, <String, Object?>{'ai': <String, Object?>{'status': 'skipped'}}));
+          s.on('GET', 'packages', 200, recorded('packages'));
+          s.on('GET', 'subscription', 200, recorded('subscription_free'));
+          s.on('GET', 'invoices', 200, ok(<Object?>[]));
+        });
+        await _say(tester, lang == 'ar' ? 'كم سعر الباقة؟' : 'Arayan paketi aylık ne kadar?');
+        expect(find.text(guidance), findsOneWidget);
+        expect(find.textContaining('199'), findsNothing, reason: 'no price said in the chat');
+        expect(find.text(simulated), findsNothing);
+        expect(find.textContaining('المصدر:'), findsNothing);
+        await tapText(tester, 'افتح');
+        await _settle(tester);
+        expect(_path(), '/account/plans');
+        expect(find.text('الباحث — شهري'), findsOneWidget, reason: 'the plans page itself, with the server\'s plans');
+      });
+    }
 
     testWidgets('not answered: the question goes back to the box with why; nothing is answered on the phone', (tester) async {
       final server = await _open(tester, (s) => s.offline('POST', 'ai/chat'));

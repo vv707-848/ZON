@@ -3,6 +3,8 @@
 namespace App\Ai\Retrieval;
 
 use App\Models\BuyerPreference;
+use App\Models\Listing;
+use App\Models\SearchRequest;
 use Illuminate\Support\Collection;
 
 /**
@@ -89,19 +91,37 @@ final readonly class Need
 
     /**
      * The fallback with no ranking (the agents down or out of time), as the agents' own (ranking._shortlist): only
-     * what keeps the wish (owner's rule, 21 Nov: two that keep it are two results), nearest the top of the budget
+     * what keeps the wish (owner's rule, 21 Nov: two that keep it are two results) — its budget and rooms ($keeps),
+     * and no condition it states outright said the opposite of ($said: Conditions) — nearest the top of the budget
      * first, then the lower id — never the order the database happened to return.
      *
      * @param  Collection<array-key, mixed>  $models
      * @param  callable(mixed): bool  $keeps
      * @param  callable(mixed): ?float  $price  what is compared with the top of the budget
+     * @param  callable(mixed): array{string, string, ?string}  $said  the conditions' text, the offer's text and its
+     *                                                                 type, as the agents read them (toAgent)
      * @return Collection<int, mixed>
      */
-    public function fallback(Collection $models, callable $keeps, callable $price, ?float $top): Collection
+    public function fallback(Collection $models, callable $keeps, callable $price, ?float $top, callable $said): Collection
     {
         $gap = fn ($m): float => ($p = $price($m)) !== null && $top !== null ? abs($p - $top) : INF;
 
-        return $models->filter($keeps)->sort(fn ($a, $b) => [$gap($a), data_get($a, 'id')] <=> [$gap($b), data_get($b, 'id')])->values();
+        return $models->filter($keeps)->reject(fn ($m) => Conditions::contradicts(...$said($m)))
+            ->sort(fn ($a, $b) => [$gap($a), data_get($a, 'id')] <=> [$gap($b), data_get($b, 'id')])->values();
+    }
+
+    /** @return array{string, string, ?string} a listing against this need: the need's text, the offer's text and type */
+    public function againstListing(Listing $listing): array
+    {
+        $offer = ListingCandidates::toAgent($listing);
+
+        return [$this->freeText, (string) $offer['desc'], (string) $offer['type']];
+    }
+
+    /** @return array{string, string, ?string} a request against the broker's offer (this need): its own text, the offer's */
+    public function againstRequest(SearchRequest $request): array
+    {
+        return [(string) RequestCandidates::toAgent($request)['desc'], $this->freeText, $this->types[0] ?? 'any'];
     }
 
     public function target(): ?string

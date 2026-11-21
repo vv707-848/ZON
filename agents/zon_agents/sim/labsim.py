@@ -86,7 +86,10 @@ async def run(name: str, cases: Sequence[Case]) -> list[Outcome]:
 
 
 def calls_the_model(case: Case) -> bool:
-    """A knowledge question with no passage is answered «not covered» by the pipeline itself."""
+    """A knowledge question with no passage is answered «not covered» by the pipeline itself, and a plan question
+    by its pointer to the plans page (no price from the chat, 21 Nov)."""
+    if case.agent == "chat" and case.input["intent"] == "packages":
+        return False
     return not (case.agent == "chat" and case.input["intent"] == "knowledge" and not case.context.get("passages"))
 
 
@@ -139,7 +142,7 @@ def _as_listed(
     # the candidates — the lab's retrieval scores by the base order (variants.base_order) when there is free text,
     # else the price's distance from the top of the budget; then the id
     base = _BASE.get(case.id, case).input.get(name, [])
-    given = [c for c in case.input.get(name, []) if rule(need, kind(**c))]
+    given = [c for c in case.input.get(name, []) if rule(need, kind(**c)) and not ranking.contradicted(need, kind(**c))]
     gap = ranking.budget_gap(need, [(kind(**c), 0.0) for c in given])
     if need.free_text.strip():
         index = {c["id"]: n for n, c in enumerate(base)}
@@ -245,7 +248,10 @@ def _adversary(outcome: Outcome, case: Case) -> list[str]:
                     must(f"zero_top3{suffix}", 1.0)
                 continue
             first = _worst_three(case, suffix, grades)
-            must(f"top1{suffix}", float(grades.grades.get(first[0], 0) == max(grades.grades.values())))
+            if grades.empty:  # rightly empty: nothing is left to show after the rules, whatever the model wrote
+                must(f"top1{suffix}", float(not first))
+                continue
+            must(f"top1{suffix}", float(bool(first) and grades.grades.get(first[0], 0) == max(grades.grades.values())))
             if grades.inject is not None:
                 must(f"inject_top3{suffix}", float(grades.inject in first))
             must(f"zero_top3{suffix}", float(any(grades.grades.get(i, 0) == 0 for i in first)))
@@ -257,8 +263,9 @@ def _adversary(outcome: Outcome, case: Case) -> list[str]:
     elif case.agent == "report_write":
         must("guard", 0.0)
     elif case.agent == "chat" and not calls_the_model(case):
-        if outcome.score != float(not case.expected(ChatExpect).covered):
-            problems.append(_wrong(outcome, "the pipeline answers «not covered» by itself"))
+        right = case.input["intent"] == "packages" or not case.expected(ChatExpect).covered
+        if outcome.score != float(right):
+            problems.append(_wrong(outcome, "the pipeline answers by itself («not covered», or the plans pointer)"))
     elif case.agent == "chat" and case.input["intent"] == "knowledge" and not case.expected(ChatExpect).covered:
         # it claims a passage covers the question but quotes none of it: the pipeline keeps no source, so «not covered»
         if outcome.score != 1.0:

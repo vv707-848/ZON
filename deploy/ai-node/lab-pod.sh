@@ -281,6 +281,8 @@ for o in report.get("outcomes", []):
         said = " | ".join([said, *(r.get("text", "") for r in out.get("recommendations", []))])
     bad = {k: v for k, v in o.get("metrics", {}).items() if v != 1}
     why = o.get("error") or f"score {o['score']} {json.dumps(bad, ensure_ascii=False)}"
+    if r := o.get("refusal"):  # a wording refused for its deed: why, where, the excerpt (redacted by the lab)
+        why += f" — {r['reason']}, in the {r['source']}: «{r['excerpt']}»"
     lines.append(f"- `{o['case']}` ({o['agent']}): {why}\n  → {' '.join(str(said).split())[:280]}")
 flips = sorted(c for (c, v), ids in top.items() if v == "reversed" and top.get((c, "base")) not in (None, ids))
 if flips:
@@ -306,6 +308,8 @@ for agent, row in report.items():
         if out.get("features"):
             said = f"{said} | features: {' · '.join(out['features'])}"
         why = m.get("error") or json.dumps({k: v for k, v in m.get("checks", {}).items() if v != 1})
+        if r := m.get("refusal"):
+            why += f" — {r['reason']}, in the {r['source']}: «{r['excerpt']}»"
         lines.append(f"- `{m['id']}` ({agent}): {why}\n  → {' '.join(str(said).split())[:280]}")
 if not lines:
     sys.exit(1)

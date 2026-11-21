@@ -282,13 +282,6 @@ def _chat(payload: dict[str, Any]) -> dict[str, Any]:
         if known["covered"]:
             return {**known, "intent": "knowledge"}
         return {"answer": _UNCOVERED[lang], "covered": False, "citations": [], "intent": "out_of_scope"}
-    if intent == "packages":
-        priced = [p for p in payload.get("packages", []) if p.get("price") is not None]
-        if not priced:
-            return {"answer": _UNCOVERED[lang], "covered": False, "citations": []}
-        listed = "، ".join(f"{p['name']} بـ{_number(float(p['price']))} ريال" for p in priced)
-        lead = {"ar": "باقات زون الحالية: ", "en": "Zon's current plans: ", "ur": "زون کے موجودہ پیکجز: "}[lang]
-        return {"answer": f"{lead}{listed}.", "covered": True, "citations": []}
     if intent in ("semantic_search", "matching") and payload.get("role") in ("broker", "owner"):
         return {"answer": _SEARCH_ONLY[lang], "covered": True, "citations": []}  # matching is the seekers'
     if intent != "knowledge":

@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Api;
 
+use App\Ai\Assistants\ChatAssistant;
 use App\Ai\Assistants\IntentClassifier;
+use App\Ai\Retrieval\Conditions;
 use App\Models\AiRequest;
 use App\Models\BuyerPreference;
 use App\Models\ChatMessage;
@@ -111,7 +113,7 @@ class AiTest extends TestCase
         Listing::factory()->published()->create(['neighborhood' => 'النرجس', 'property_type' => 'apartment']);
         $this->agent(['answer' => 'باقة الباحث 199 ريال شهرياً.', 'covered' => true, 'sources' => [], 'results' => []]);
 
-        $this->postJson('/api/v1/ai/chat', ['message' => 'أنا خالد المطيري، كم سعر الباقة؟'])->assertOk();
+        $this->postJson('/api/v1/ai/chat', ['message' => 'أنا خالد المطيري، كيف أطلع ترخيص فال؟'])->assertOk();
         $this->postJson('/api/v1/ai/search', ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'query' => 'لخالد وعائلته'])->assertOk();
         $this->postJson('/api/v1/ai/search', ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhood' => 'العليا', 'property_type' => 'villa', 'query' => 'أنا المطيري أبحث عن فيلا'])->assertOk();
 
@@ -295,13 +297,13 @@ class AiTest extends TestCase
     {
         $this->seeker();
         Http::fake(['agents.test/agents/chat' => Http::sequence()
-            ->push(['output' => ['answer' => 'باقة الباحث 199 ريال شهرياً.', 'covered' => true, 'sources' => []], 'degraded' => false, 'usage' => [], 'latency_ms' => 900])
             ->push(['output' => ['answer' => 'كلمنا على 0551234567', 'covered' => true, 'sources' => [['doc_id' => 1, 'title' => 'x']]], 'degraded' => false, 'usage' => [], 'latency_ms' => 900])
             ->push(['output' => ['answer' => 'الرسوم 75 ريال.', 'covered' => true, 'sources' => [['doc_id' => 1, 'title' => 'x']]], 'degraded' => false, 'usage' => [], 'latency_ms' => 900])]);
 
         $this->postJson('/api/v1/ai/chat', ['message' => 'وش رأيك بالمباراة؟'])->assertOk()->assertJsonPath('data.intent', 'out_of_scope')->assertJsonPath('meta.ai.status', 'skipped');
-        $this->postJson('/api/v1/ai/chat', ['message' => 'كم سعر الباقة؟'])->assertOk()->assertJsonPath('data.answer', 'باقة الباحث 199 ريال شهرياً.')->assertJsonPath('data.action', '/account/plans');
-        Http::assertSent(fn (Sent $r) => $r['intent'] === 'packages' && $r['role'] === 'seeker' && collect((array) $r['packages'])->contains('price', 199.0));
+        $this->postJson('/api/v1/ai/chat', ['message' => 'كم سعر الباقة؟'])->assertOk()->assertJsonPath('data.answer', ChatAssistant::PLANS_GUIDANCE['ar'])
+            ->assertJsonPath('data.action', '/account/plans')->assertJsonPath('meta.ai.status', 'skipped');
+        Http::assertNotSent(fn (Sent $r) => $r['intent'] === 'packages');
         $this->postJson('/api/v1/ai/chat', ['message' => 'كيف أطلع ترخيص فال؟'])->assertJsonPath('data.answer', 'لا أملك معلومة موثقة عن هذا. راجع الجهة الرسمية المختصة.');
         $this->postJson('/api/v1/ai/chat', ['message' => 'كم رسوم الترخيص؟'])->assertJsonPath('data.covered', false);
 
@@ -326,13 +328,55 @@ class AiTest extends TestCase
         $this->postJson('/api/v1/ai/chat', ['message' => 'Un étranger peut-il posséder un logement en Arabie saoudite ?'])->assertOk()
             ->assertJsonPath('data.lang', 'xx')->assertJsonPath('data.intent', 'knowledge')->assertJsonPath('data.answer', $knowledge['answer'])
             ->assertJsonPath('data.sources.0.quote_ar', 'يحق لغير السعودي المقيم');
-        Http::assertSent(fn (Sent $r) => $r['intent'] === 'auto' && $r['lang'] === 'xx' && $r['packages'] !== []);   // no rule read it: the model names the intent, with both contexts
+        Http::assertSent(fn (Sent $r) => $r['intent'] === 'auto' && $r['lang'] === 'xx' && ! array_key_exists('packages', $r->data()));   // no rule read it: the model names the intent; no plan price
         $this->postJson('/api/v1/ai/chat', ['message' => 'Qui va gagner le match ?'])->assertOk()
             ->assertJsonPath('data.intent', 'out_of_scope')->assertJsonPath('data.answer', 'Je suis l\'assistant immobilier de Zon.')->assertJsonPath('data.action', null);
-        $this->postJson('/api/v1/ai/chat', ['message' => 'Combien coûte le forfait ?'])->assertOk()
+        $this->postJson('/api/v1/ai/chat', ['message' => 'Un étranger peut-il louer un logement ?'])->assertOk()
             ->assertJsonPath('data.answer', 'I can’t answer right now — try again shortly or contact support from Settings.');
 
         $this->assertSame(['xx', 'xx', 'xx'], ChatMessage::query()->orderBy('id')->pluck('lang')->all());
+    }
+
+    /**
+     * Owner, 21 Nov 2026: no plan price from the chat. A plan question — Arabic by the rules, Turkish by its own
+     * words — is the pointer to the plans page in his language with its button, and asks no model; a plan answer a
+     * model wrote where it named the intent («199 ليرة تركية», A40) is replaced by it; and a price said in another
+     * answer is refused, since no plan price is among what the chat may say.
+     */
+    public function test_a_plan_question_is_the_pointer_to_the_plans_page_in_his_language_and_no_price_reaches_a_model(): void
+    {
+        $this->seeker();
+        Http::fake(['agents.test/agents/chat' => Http::sequence()
+            ->push(['output' => ['answer' => 'Arayan paketinin aylık ücreti 199 ليرة تركية.', 'covered' => true, 'sources' => [], 'intent' => 'packages'], 'degraded' => false, 'usage' => [], 'latency_ms' => 900])
+            ->push(['output' => ['answer' => 'ابحث في «البحث الدلالي»، وباقة الباحث بـ199 ريال.', 'covered' => true, 'sources' => []], 'degraded' => false, 'usage' => [], 'latency_ms' => 900])]);
+
+        foreach (['كم سعر الباقة؟' => 'ar', 'Arayan paketi aylık ne kadar?' => 'tr', 'Сколько стоит тариф?' => 'ru'] as $asked => $lang) {
+            $this->postJson('/api/v1/ai/chat', ['message' => $asked])->assertOk()
+                ->assertJsonPath('data.intent', 'packages')->assertJsonPath('data.answer', ChatAssistant::PLANS_GUIDANCE[$lang])
+                ->assertJsonPath('data.action', '/account/plans')->assertJsonPath('meta.ai.status', 'skipped');
+        }
+        Http::assertNothingSent();
+
+        // Turkish the rules cannot place: the model names it «packages», and its price goes
+        $this->postJson('/api/v1/ai/chat', ['message' => 'Arayan için her ay ne ödüyorum?'])->assertOk()
+            ->assertJsonPath('data.intent', 'packages')->assertJsonPath('data.answer', ChatAssistant::PLANS_GUIDANCE['tr'])
+            ->assertJsonPath('data.answer', fn (string $said) => ! str_contains($said, '199'))->assertJsonPath('data.action', '/account/plans');
+        $this->postJson('/api/v1/ai/chat', ['message' => 'ابي شقة في جدة'])->assertOk()
+            ->assertJsonPath('data.answer', 'لا أملك معلومة موثقة عن هذا. راجع الجهة الرسمية المختصة.');
+        Http::assertSent(fn (Sent $r) => ! array_key_exists('packages', $r->data()));
+
+        $this->assertSame(['passed', 'passed', 'passed', 'replaced', 'replaced'], ChatMessage::query()->orderBy('id')->pluck('guard_status')->all());
+        $this->assertSame(json_decode((string) file_get_contents(base_path('../docs/contracts/fixtures/chat/plans_guidance.json')), true), ChatAssistant::PLANS_GUIDANCE, 'the agents\' words');
+    }
+
+    public function test_a_plan_question_is_the_pointer_with_the_ai_down(): void
+    {
+        $this->seeker();
+        Http::fake(['agents.test/*' => Http::response(['detail' => 'down'], 503)]);
+
+        $this->postJson('/api/v1/ai/chat', ['message' => 'باقة الباحث تستاهل؟'])->assertOk()->assertJsonPath('data.answer', ChatAssistant::PLANS_GUIDANCE['ar'])->assertJsonPath('data.action', '/account/plans');
+        $this->postJson('/api/v1/ai/chat', ['message' => 'Abonelik ücreti nedir?'])->assertOk()->assertJsonPath('data.answer', ChatAssistant::PLANS_GUIDANCE['tr']);
+        Http::assertNothingSent();
     }
 
     public function test_a_price_to_judge_or_a_sale_to_decide_reaches_the_model_and_gets_options_not_a_verdict(): void
@@ -345,7 +389,7 @@ class AiTest extends TestCase
             $this->postJson('/api/v1/ai/chat', ['message' => $asked])->assertOk()
                 ->assertJsonPath('data.intent', 'decision')->assertJsonPath('data.answer', $options)->assertJsonPath('data.action', null);
         }
-        Http::assertSent(fn (Sent $r) => $r['intent'] === 'decision' && $r['packages'] === []);
+        Http::assertSent(fn (Sent $r) => $r['intent'] === 'decision' && ! array_key_exists('packages', $r->data()));
         $this->assertSame('decision', (new IntentClassifier)->classify('يا الغالي هل السعر مناسب؟')->value);   // «يا الغالي» is a greeting, not a price
     }
 
@@ -426,6 +470,38 @@ class AiTest extends TestCase
             ->assertOk()->json('data.results');
 
         $this->assertSame([$near->id, $same->id, $far->id], array_column(array_column($found, 'listing'), 'id'));
+    }
+
+    /**
+     * Owner, 21 Nov 2026: with no model, an offer that says the opposite of a condition the wish states outright is
+     * no result (Conditions, the agents' own rules): «دور أرضي أو بيت» — the second floor goes, a whole house of two
+     * floors and a ground floor stay, and two that keep it are two results; «أفضّل» takes nothing out.
+     */
+    public function test_with_the_agents_down_an_offer_that_says_the_opposite_of_a_stated_condition_is_no_result(): void
+    {
+        $offer = fn (string $type, int $price, string $desc) => Listing::factory()->published()->create(['property_type' => $type, 'price' => $price, 'bedrooms' => 3, 'desc_clean' => $desc, 'desc_raw' => $desc]);
+        $second = $offer('apartment', 990000, 'شقة في الدور الثاني مع مصعد');
+        $house = $offer('house', 900000, 'بيت كامل من دورين بدون مصعد');
+        $ground = $offer('apartment', 950000, 'شقة أرضية بمدخل خاص');
+        $this->agent([], 503);
+        BuyerPreference::query()->where('customer_id', $this->seeker()->id)
+            ->update(['notes' => 'ابي دور أرضي أو بيت، وأفضل يكون فيه مصعد', 'property_types' => ['apartment', 'house'], 'budget_max' => 1000000, 'bedrooms' => 3]);
+        $form = ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_types' => ['apartment', 'house'], 'budget_max' => 1000000];
+
+        $found = $this->postJson('/api/v1/ai/search', [...$form, 'query' => 'ابي دور أرضي أو بيت، وأفضل يكون فيه مصعد'])->assertOk()->json('data.results');
+        $matched = $this->postJson('/api/v1/ai/matching')->assertOk()->json('data.matched');
+        $preferred = $this->postJson('/api/v1/ai/search', [...$form, 'query' => 'أفضّل دور أرضي'])->assertOk()->json('data.results');
+
+        $this->assertSame([$ground->id, $house->id], array_column(array_column($found, 'listing'), 'id'), 'two that keep it: two results');
+        $this->assertSame([$ground->id, $house->id], array_column(array_column($matched, 'listing'), 'id'));
+        $this->assertContains($second->id, array_column(array_column($preferred, 'listing'), 'id'), '«أفضّل» orders, it never takes out');
+    }
+
+    public function test_laravel_reads_the_conditions_as_the_agents_do(): void
+    {
+        $cases = json_decode((string) file_get_contents(base_path('../docs/contracts/fixtures/conditions.json')), true);
+        $wrong = array_filter($cases, fn (array $c) => Conditions::contradicts($c['wish'], $c['offer'], $c['type']) !== $c['contradicts']);
+        $this->assertSame([], array_values(array_map(fn (array $c) => "{$c['wish']} | {$c['offer']}", $wrong)));
     }
 
     public function test_each_run_shows_the_developer_seekers_he_has_not_seen_and_never_one_who_rents(): void

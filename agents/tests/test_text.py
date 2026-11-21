@@ -139,3 +139,54 @@ def test_a_deed_he_said_is_not_there_is_never_written_as_there(client: TestClien
     field_no = {"type": "apartment", "text": "شقة بالنرجس 3 غرف", "fields": {"deed": False}}
     model.answers["clean_listing"] = {"desc_clean": "شقة بالنرجس 3 غرف، الصك غير جاهز", "features": []}
     assert call(client, "clean_listing", field_no)["output"]["desc_clean"].endswith("غير جاهز"), "the field says it"
+
+
+def test_the_lab_keeps_why_a_wording_was_refused_for_its_deed_redacted_and_production_keeps_nothing(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """Owner, 21 Nov 2026 (A40: real-ad-011 and real-ad-014 refused, and nothing said what was written): in the lab
+    only, the case, the reason, where the claim was (the description or a feature) and the fewest words that show
+    it — names, contacts and document numbers taken out first: the reports go to a public repository."""
+    import asyncio
+
+    from pydantic_ai.models.function import FunctionModel
+
+    from zon_agents.lab.cases import Case
+    from zon_agents.lab.runner import run_cases
+    from zon_agents.llm import LLM
+    from zon_agents.pipelines.text import DEED_REFUSALS, deed_refusal, redact
+    from zon_agents.profiles import load_profile
+
+    text = "أرض 750م للبيع، للتواصل المالك أبو فهد 0551234567"
+    model.answers["clean_listing"] = {
+        "desc_clean": "أرض 750 م² للبيع من المالك فهد صك جاهز",
+        "features": [],
+    }
+    refused = client.post("/agents/clean_listing", json={"type": "land", "text": text})
+    assert refused.status_code == 503 and DEED_REFUSALS.get() is None, "production: refused, and nothing kept"
+
+    llm = LLM(
+        FunctionModel(model),
+        model.prompts,
+        profile=load_profile("qwen3.8-27b-fp8"),
+        max_concurrency=2,
+        budget_seconds=5,
+    )
+    case = Case(id="real-ad-011", agent="clean_listing", tags=[], input={"type": "land", "text": text},
+                expect={"keep": [["750"]]})  # fmt: skip
+    [outcome] = asyncio.run(run_cases(llm, [case], with_variants=False))
+    assert outcome.error and "deed" in outcome.error
+    assert outcome.refusal == {
+        "reason": "a deed where the text says nothing of a deed",
+        "source": "desc",
+        "excerpt": "المالك [اسم] صك جاهز",
+    }
+
+    feature = deed_refusal("أرض للبيع", ["الصك جاهز"], "أرض للبيع بدون صك", None)
+    assert feature == {
+        "reason": "a deed where the text says the opposite",
+        "source": "features",
+        "excerpt": "الصك جاهز",
+    }
+    said = redact("تواصل مع أبو فهد على 0551234567 أو @zon_sa أو a@b.com، رقم الصك 310045218890، الرخصة 7200012345")
+    assert all(x not in said for x in ("فهد", "0551234567", "zon_sa", "a@b.com", "310045218890", "7200012345")), said

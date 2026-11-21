@@ -24,6 +24,17 @@ final class IntentClassifier
             'search', 'looking for', 'apartment', 'villa', 'land', 'rent', 'buy', 'فلیٹ', 'گھر', 'کرایہ'],
     ];
 
+    /** The plans in the languages the rules do not read (xx): Turkish · Russian · Hindi · French, German, Spanish. */
+    private const PLANS_ELSEWHERE = ['paket', 'abonelik', 'üyelik', 'тариф', 'подписк', 'пакет', 'पैकेज', 'प्लान', 'सदस्यता', 'abonnement', 'forfait', 'suscripción', 'abo '];
+
+    /** A plan question in a language the rules do not read: answered with the plans pointer, no model (ChatAssistant). */
+    public static function asksPlans(string $message): bool
+    {
+        $lower = mb_strtolower($message.' ');
+
+        return array_filter(self::PLANS_ELSEWHERE, fn (string $w) => str_contains($lower, $w)) !== [];
+    }
+
     public function classify(string $message): ChatIntent
     {
         foreach (self::RULES as $intent => $phrases) {

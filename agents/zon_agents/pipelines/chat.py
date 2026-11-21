@@ -4,12 +4,15 @@ and answers in the asker's language. It never reads any user's data.
 Laravel already did steps 1–2 (block list, 500 characters, language, rule-based intent; «خارج النطاق» never comes
 here). For `knowledge` this pipeline retrieves the five closest passages across languages; under the minimum
 similarity it says the question is not covered — without calling the model. The model answers from the given
-passages (or the package facts Laravel sent) only, and cites the passages it used; the sources come from the
+passages only, and cites the passages it used; the sources come from the
 passages themselves, so a citation can never name a document that was not retrieved.
 
 A message in a language Laravel's rules do not read comes as intent «auto»: the passages are retrieved as for a
-knowledge question (bge-m3 matches across languages) and the packages sent, and the model names the intent itself;
+knowledge question (bge-m3 matches across languages), and the model names the intent itself;
 «out_of_scope» is one sentence saying what the assistant answers. The answer is in the message's own language.
+
+A plan question gets no price from here: a fixed pointer to the plans page in the asker's language (PLANS_GUIDANCE),
+with no model call — and when the model named the intent «packages» itself, its answer is replaced by it.
 
 A citation stands only with its quote: the sentence the model says it relied on must be in that passage word for
 word (diacritics and spacing aside). Otherwise it is dropped — a passage's first line is no evidence of an answer
@@ -67,6 +70,46 @@ def script(text: str) -> str:
     return best if counts[best] else ""
 
 
+# Plans (owner, 21 Nov 2026): the chat says no price. A plan question gets this short pointer in the asker's language,
+# and Laravel shows the button to /account/plans under it (ChatAssistant::ACTIONS) — the page shows the prices as
+# they are today. No model is asked for it, and a plan answer a model wrote («199 ليرة تركية», A40 21 Nov) is
+# replaced by it. The same texts as Laravel's (docs/contracts/fixtures/chat/plans_guidance.json).
+PLANS_GUIDANCE = {
+    "ar": "أسعار الباقات وتفاصيلها في صفحة «الباقات»: اضغط الزر تحت هذه الرسالة وتشوفها محدّثة.",
+    "en": "Plan prices and details are on the Plans page: tap the button below this message to see them up to date.",
+    "ur": "پیکجز کی قیمتیں اور تفصیل «پیکجز» کے صفحے پر ہیں: تازہ ترین دیکھنے کے لیے اس پیغام کے نیچے بٹن دبائیں۔",
+    "tr": "Paketlerin fiyatları ve ayrıntıları «Paketler» sayfasında: güncel hâlini görmek için bu mesajın altındaki "
+    "düğmeye dokunun.",
+    "ru": "Цены и условия тарифов — на странице «Тарифы»: нажмите кнопку под этим сообщением, чтобы увидеть "
+    "актуальные.",
+    "hi": "पैकेज की कीमतें और विवरण «पैकेज» पेज पर हैं: ताज़ा जानकारी के लिए इस संदेश के नीचे दिया बटन दबाएँ।",
+}
+# Turkish among the Latin-script languages: letters only it uses, or a word of its own («paketi», «aylık»)
+# (the letters without IGNORECASE: «ı» folds to «i» there, and every French «i» read as Turkish)
+_TURKISH = re.compile(
+    r"[ğĞışŞİ]|\b(?:paket\w*|fiyat\w*|ücret\w*|aylık|yıllık|kadar|nedir|nasıl|için|abonelik|üyelik)\b"
+)
+
+
+def guidance_lang(lang: str, message: str) -> str:
+    """The language of the plans pointer: Laravel's (ar · en · ur), or for another one its script, Turkish by its
+    letters and words, else English."""
+    if lang in ("ar", "en", "ur"):
+        return lang
+    written = script(message)
+    if written == "cyrillic":
+        return "ru"
+    if written == "devanagari":
+        return "hi"
+    return "tr" if written == "latin" and _TURKISH.search(message.lower()) else "en"
+
+
+def _plans(lang: str, message: str, log: dict[str, Any] | None = None, tokens: tuple[int, int] = (0, 0)) -> Result:
+    text = PLANS_GUIDANCE[guidance_lang(lang, message)]
+    output = {"answer": text, "covered": True, "sources": [], "intent": "packages"}
+    return Result(output, tokens_in=tokens[0], tokens_out=tokens[1], log=log or {"plans": "guidance"})
+
+
 _FIRST = re.compile(r"[^.!؟?\n]+[.!؟?]?")
 _ACCORDING = {
     "ar": "بحسب «{title}» ({date}): {quote}",
@@ -110,6 +153,8 @@ def _quote(chunk: KnowledgeChunk, quote: str) -> str | None:
 
 async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(ChatInput, data)
+    if req.intent == "packages":  # the pointer to the plans page, no model: the chat says no price
+        return _plans(req.lang, req.message)
     auto = req.intent == "auto"
     chunks: list[KnowledgeChunk] = []
     if req.intent == "knowledge" or auto:
@@ -130,7 +175,6 @@ async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
             {"n": n, "title": c.title, "effective_date": c.effective_date, "text": c.text}
             for n, c in enumerate(chunks, start=1)
         ],
-        "packages": [p.model_dump(exclude_none=True) for p in req.packages],
     }
     wanted = _expected(req.lang, req.message)
     payload["reply_in"] = _REPLY_IN.get(req.lang) or _REPLY_IN_SCRIPT.get(wanted, "the language of `message`")
@@ -164,6 +208,10 @@ async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
             {"doc_id": chunk.doc_id, "title": chunk.title, "effective_date": chunk.effective_date, "quote_ar": quote}
         )
     intent = (answer.output.intent or "out_of_scope") if auto else req.intent
+    if intent == "packages":  # named by the model («auto»): whatever it wrote, the pointer in his language
+        return _plans(
+            req.lang, req.message, {"passages": len(chunks), "plans": "replaced"}, (answer.tokens_in, answer.tokens_out)
+        )
     if intent == "out_of_scope":  # its one sentence on what it answers, in his language
         covered, text = False, scrub(answer.output.answer)
     else:

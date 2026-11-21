@@ -200,9 +200,6 @@ def test_the_chat_quotes_the_closest_passage_or_says_it_is_not_covered() -> None
     ]
     assert answer["answer"] == passages[1]["text"]
     assert rules.answer("chat", {**ask, "message": "كم درجة الحرارة غداً؟"})["covered"] is False
-    plans = [{"name": "الأساسية", "price": 199.0}, {"name": "المتقدمة", "price": 2300.0}]
-    priced = rules.answer("chat", {"lang": "ar", "intent": "packages", "message": "كم الباقة؟", "packages": plans})
-    assert priced["answer"] == "باقات زون الحالية: الأساسية بـ199 ريال، المتقدمة بـ2300 ريال."
 
 
 def test_the_rule_model_answers_every_agent_of_the_service() -> None:

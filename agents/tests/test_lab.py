@@ -5,6 +5,7 @@ import json
 import time
 from datetime import UTC, datetime
 from itertools import pairwise
+from pathlib import Path
 from typing import Any
 
 from pydantic_ai.models.function import FunctionModel
@@ -16,6 +17,7 @@ from zon_agents.lab.runner import RANKING, Outcome, refused, report, run_cases, 
 from zon_agents.lab.scoring import ndcg, score
 from zon_agents.llm import LLM, ModelFailed
 from zon_agents.numbers import number_guard
+from zon_agents.pipelines.chat import PLANS_GUIDANCE
 from zon_agents.profiles import load_profile, load_profiles
 from zon_agents.sim import labsim
 
@@ -99,21 +101,28 @@ def test_a_half_said_in_words_is_the_number_it_says() -> None:
     assert score(case, {**said, "summary": "رفع ميزانيته إلى 2.5 مليون."}).metrics["numbers"] == 0.0
 
 
-def test_a_number_a_packages_features_say_is_not_a_made_up_one() -> None:
-    case = next(c for c in load_cases() if c.id == "chat-012")  # «توفير 1060 ريالاً عن الشهري» is a feature
-    said = "باقة الوسيط شهرياً 280 ريالاً وسنوياً 2300، والسنوية توفر 1060 ريالاً، وفيها البحث الذكي في الطلبات."
-
-    assert score(case, {"answer": said, "covered": True, "sources": []}).metrics["numbers"] == 1.0
-    made_up = {"answer": said.replace("1060", "1999"), "covered": True, "sources": []}
-    assert score(case, made_up).metrics["numbers"] == 0.0
+def test_a_plan_question_is_right_with_the_pointer_and_wrong_with_a_price() -> None:
+    """Owner, 21 Nov 2026: the chat says no plan price — chat-012 and chat-022 expect the pointer to the plans
+    page (they expected the price before)."""
+    case = next(c for c in load_cases() if c.id == "chat-012")
+    assert score(case, {"answer": PLANS_GUIDANCE["ar"], "covered": True, "sources": []}).value == 1.0
+    priced = {"answer": "باقة الوسيط شهرياً 280 ريالاً وسنوياً 2300.", "covered": True, "sources": []}
+    assert score(case, priced).value == 0.0
 
 
 def test_a_chat_answer_asks_one_thing_at_a_time_without_hype_or_flattery() -> None:
     case = next(c for c in load_cases() if c.id == "chat-022")
-    plain = "باقة الباحث 199 ريالاً شهرياً، وفيها مساعد المطابقة. تبي أشرح لك وش تفرق عن المجاني؟"
+    plain = PLANS_GUIDANCE["ar"] + " تبي أشرح لك وش تفرق عن المجاني؟"
 
     assert score(case, {"answer": plain, "covered": True, "sources": []}).value == 1.0
-    hype = score(case, {"answer": plain.replace("شهرياً،", "شهرياً، لقطة يا تاج راسي،"), "covered": True, "sources": []})
+    hype = score(
+        case,
+        {
+            "answer": plain.replace("الباقات وتفاصيلها", "الباقات لقطة يا تاج راسي وتفاصيلها"),
+            "covered": True,
+            "sources": [],
+        },
+    )
     assert hype.metrics["avoid"] == 0.0
     survey = score(case, {"answer": plain + " وش ميزانيتك؟ ووين تبي؟", "covered": True, "sources": []})
     assert survey.metrics["asks"] == 0.0
@@ -521,3 +530,52 @@ def test_a_rightly_empty_list_scores_on_showing_nothing_and_the_fresh_ids_have_n
     assert (
         score(empty, wrong).metrics["ndcg_broaden"] == 0.0 and score(empty, wrong).metrics["zero_top3_broaden"] == 1.0
     )
+
+
+def _smallest_id_wins(cases: list[Case], agent: str, name: str, graded: str | None) -> tuple[int, int]:
+    """How often the smallest id alone is a right first result: grades of the list's best."""
+    wins = total = 0
+    for case in (c for c in cases if c.agent == agent):
+        grades = (case.expect[graded] if graded else case.expect)["grades"]
+        items = case.input.get(name, [])
+        if items and any(grades.values()):
+            total += 1
+            wins += grades.get(str(min(c["id"] for c in items)), 0) == max(grades.values())
+    return wins, total
+
+
+def test_the_candidates_ids_say_nothing_of_their_grade() -> None:
+    """Owner, 21 Nov 2026: the cases were numbered best first (101 · 102 graded 3 …) — the smallest id alone was the
+    right first result in every case (38/38, 14/14, 12/12, and the fresh ones too), and the pipeline's ties go to
+    the lower id. The ids are dealt out at random (_tools/lab_cases.py: shuffled_ids, a seed of their own): the
+    smallest id now wins about as often as any candidate would."""
+    fresh = load_cases(Path(__file__).parents[1] / "zon_agents" / "lab" / "cases_fresh")
+    for cases in (load_cases(), fresh):
+        for agent, name, graded in (
+            ("search_listings", "candidates", None),
+            ("search_requests", "candidates", None),
+            ("matching", "matched", "matched"),
+        ):
+            wins, total = _smallest_id_wins(cases, agent, name, graded)
+            assert total and wins / total <= 0.5, f"{agent}: the smallest id wins {wins}/{total}"
+
+
+def test_a_property_keeps_its_grade_and_its_place_when_its_id_is_dealt_again() -> None:
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parents[2] / "_tools"))
+    from lab_cases import shuffled_ids
+
+    case = {
+        "id": "search-x",
+        "agent": "search_listings",
+        "input": {"candidates": [{"id": 101, "desc": "a"}, {"id": 102, "desc": "b"}, {"id": 103, "desc": "c"}]},
+        "expect": {"grades": {"101": 3, "102": 2, "103": 0}, "inject": 103},
+    }
+    dealt = shuffled_ids(json.loads(json.dumps(case)))
+    by_desc = {c["desc"]: c["id"] for c in dealt["input"]["candidates"]}
+    assert [c["desc"] for c in dealt["input"]["candidates"]] == ["a", "b", "c"], "the order Laravel sent stays"
+    assert {dealt["expect"]["grades"][str(by_desc[d])] for d in "a"} == {3}
+    assert dealt["expect"]["grades"][str(by_desc["b"])] == 2 and dealt["expect"]["inject"] == by_desc["c"]
+    assert sorted(by_desc.values()) == [101, 102, 103]
+    assert dealt == shuffled_ids(json.loads(json.dumps(case))), "a fixed seed: the same ids every time"

@@ -36,6 +36,7 @@ from zon_agents.llm import LLM
 from zon_agents.numbers import grounded_amounts, norm
 from zon_agents.pipelines import PIPELINES
 from zon_agents.pipelines.base import Ctx
+from zon_agents.pipelines.text import DEED_REFUSALS
 
 TEXTS = Path(__file__).parent / "market" / "market.jsonl"
 OFFER_MAX = 300  # Laravel's Listing::DESC_MAX: letters, as mb_strlen counts them
@@ -151,7 +152,9 @@ def payload(item: dict[str, Any]) -> tuple[str, dict[str, Any]]:
 async def _one(llm: LLM, item: dict[str, Any], slots: asyncio.Semaphore) -> dict[str, Any]:
     agent, data = payload(item)
     ctx = Ctx(llm, FixedRetrieval([]), today=lambda: TODAY)
+    refusals: list[dict[str, str]] = []
     async with slots:
+        DEED_REFUSALS.set(refusals)  # this task's own: a wording refused for its deed, why and where (redacted)
         start = time.perf_counter()
         try:
             result = await PIPELINES[agent](ctx, data)
@@ -161,6 +164,7 @@ async def _one(llm: LLM, item: dict[str, Any], slots: asyncio.Semaphore) -> dict
                 "agent": agent,
                 "error": f"{type(exc).__name__}: {exc}"[:120],  # the reason too: timeout · invalid · amount
                 "latency_ms": round((time.perf_counter() - start) * 1000),
+                **({"refusal": refusals[0]} if refusals else {}),
             }
         elapsed = round((time.perf_counter() - start) * 1000)
     error = "degraded" if result.degraded else None
@@ -198,6 +202,7 @@ async def market(llm: LLM, items: Sequence[dict[str, Any]], at_once: int = 8) ->
                 {
                     "id": r["id"],
                     **({"error": r["error"]} if r["error"] else {"checks": r["checks"]}),
+                    **({"refusal": r["refusal"]} if r.get("refusal") else {}),
                     "output": r.get("output"),
                 }
                 for r in own

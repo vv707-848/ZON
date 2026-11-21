@@ -479,7 +479,7 @@ _SUMMARIES: list[tuple[str, str, list[tuple[str, str, str]], dict[str, Any]]] = 
     ),
 ]
 
-# ── The chat (chat): knowledge passages, packages, and the routing intents ──────────────────────
+# ── The chat (chat): knowledge passages, the plans pointer (no price, 21 Nov), and the routing intents ──────────────────────
 # Passages are what the fixed retrieval returns. Facts from the platform's settings and rules.
 
 _P = {
@@ -536,37 +536,6 @@ _P = {
 def _passages(*doc_ids: int) -> dict[str, Any]:
     return {"passages": [{"doc_id": d, "title": _P[d][0], "text": _P[d][1]} for d in doc_ids]}
 
-
-_PACKAGES = [
-    {
-        "name": "الوسيط — شهري",
-        "price": 280,
-        "period": "month",
-        "features": [
-            "تمييز واحد في الشهر",
-            "طلبات المنطقة كاملة مع إضافتها للعملاء",
-            "البحث الذكي في الطلبات",
-            "بلا مشاركة في السعي",
-        ],
-    },
-    {
-        "name": "الوسيط — سنوي",
-        "price": 2300,
-        "period": "year",
-        "features": [
-            "15 تمييزاً و10 «عاجل» للعروض",
-            "5 طلبات عاجلة",
-            "توفير 1060 ريالاً عن الشهري",
-            "بلا مشاركة في السعي",
-        ],
-    },
-    {
-        "name": "الباحث — شهري",
-        "price": 199,
-        "period": "month",
-        "features": ["مساعد المطابقة يومياً", "حتى 5 رغبات", "البحث الدلالي"],
-    },
-]
 
 _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
     (
@@ -645,15 +614,15 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
     ),
     (
         "chat-012",
-        {"intent": "packages", "message": "كم سعر باقة الوسيط ووش فيها؟", "packages": _PACKAGES},
+        {"intent": "packages", "message": "كم سعر باقة الوسيط ووش فيها؟"},
         {},
-        {"covered": True, "mention": [["280", "2300"], ["البحث الذكي في الطلبات", "الطلبات"]]},
+        {"covered": True, "mention": [["«الباقات»"]], "avoid": ["280", "2300"]},
     ),
     (
         "chat-013",
-        {"intent": "packages", "lang": "en", "message": "How much is the seeker plan?", "packages": _PACKAGES},
+        {"intent": "packages", "lang": "en", "message": "How much is the seeker plan?"},
         {},
-        {"covered": True, "mention": [["199"]], "lang": "en"},
+        {"covered": True, "mention": [["Plans page"]], "lang": "en", "avoid": ["199"]},
     ),
     (
         "chat-014",
@@ -686,9 +655,9 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
     ),
     (
         "chat-018",
-        {"intent": "auto", "lang": "xx", "message": "Arayan paketi aylık ne kadar?", "packages": _PACKAGES},
+        {"intent": "auto", "lang": "xx", "message": "Arayan paketi aylık ne kadar?"},
         _passages(101),
-        {"covered": True, "mention": [["199"]], "lang": "tr", "intent": "packages"},
+        {"covered": True, "mention": [["«Paketler»"]], "lang": "tr", "intent": "packages", "avoid": ["199", "ليرة", "lira"]},
     ),
     (
         "chat-019",
@@ -718,9 +687,14 @@ _CHAT: list[tuple[str, dict[str, Any], dict[str, Any], dict[str, Any]]] = [
     ),
     (
         "chat-022",
-        {"intent": "packages", "message": "باقة الباحث تستاهل ولا فلوس على الفاضي؟", "packages": _PACKAGES},
+        {"intent": "packages", "message": "باقة الباحث تستاهل ولا فلوس على الفاضي؟"},
         {},
-        {"covered": True, "mention": [["199"]], "asks": 1, "avoid": ["لقطة", "فرصة لا تعوض", "لا تفوت", "تاج راسي"]},
+        {
+            "covered": True,
+            "mention": [["«الباقات»"]],
+            "asks": 1,
+            "avoid": ["199", "لقطة", "فرصة لا تعوض", "لا تفوت", "تاج راسي"],
+        },
     ),
     (
         "chat-023",

@@ -209,6 +209,10 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
              "metrics": {"covered": 1.0, "lang": 0.0}, "output": {"answer": "باقة الباحث بـ 199 ريال"}},
             {"case": "chat-001", "agent": "chat", "variant": "base", "score": 1.0, "error": None, "metrics": {},
              "output": {"answer": "right"}},
+            {"case": "real-ad-011", "agent": "clean_listing", "variant": "base", "score": 0.0,
+             "error": "model: llm (deed) unavailable", "metrics": {}, "output": None,
+             "refusal": {"reason": "a deed where the text says nothing of a deed", "source": "desc",
+                         "excerpt": "المالك [اسم] صك جاهز"}},
             {"case": "search-004", "agent": "search_listings", "variant": "base", "score": 0.9, "error": None,
              "metrics": {}, "output": {"results": [{"id": 1}, {"id": 2}, {"id": 3}]}},
             {"case": "search-004", "agent": "search_listings", "variant": "reversed", "score": 0.9, "error": None,
@@ -224,6 +228,8 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         self.assertIn("→ باقة الباحث بـ 199 ريال", missed)
         self.assertNotIn("chat-001", missed, "a case that scored 1 is not listed")
         self.assertIn("top three changed when reversed: `search-004`", missed)
+        self.assertIn("`real-ad-011` (clean_listing): model: llm (deed) unavailable — a deed where the text says "
+                      "nothing of a deed, in the desc: «المالك [اسم] صك جاهز»", missed)
 
     def test_what_the_market_texts_that_missed_wrote_is_posted_too(self) -> None:
         """21 Nov: the market report stayed on the volume, and a second Pod had to read it."""

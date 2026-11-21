@@ -61,11 +61,12 @@ final class MatchingAssistant
             $byId = $models->keyBy('id');
             $ranked = $result->output[$list] ?? null;
 
-            // with no ranking: only what keeps the wish's rooms and budget, in a fixed order (Need::fallback); «عروض
+            // with no ranking: only what keeps the wish's rooms and budget, and says nothing against a condition it
+            // states (Conditions), in a fixed order (Need::fallback); «عروض
             // أخرى» are already within the top of the budget and its rooms (ListingCandidates::broaden)
             $keeps = fn ($m): bool => $list === 'units' || $need->keptBy($m->bedrooms, $m->price === null ? null : (float) $m->price);
             $top = $need->budgetMax === null ? null : (float) $need->budgetMax;
-            $kept = $list === 'units' ? $models : $need->fallback($models, $keeps, fn ($m) => $m->price === null ? null : (float) $m->price, $top);
+            $kept = $list === 'units' ? $models : $need->fallback($models, $keeps, fn ($m) => $m->price === null ? null : (float) $m->price, $top, $need->againstListing(...));
 
             return $ranked === null
                 ? $kept->take($list === 'units' ? 30 : $limit)->map(fn ($m) => ['model' => $m, 'score' => null])->values()->all()

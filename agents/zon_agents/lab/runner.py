@@ -25,6 +25,7 @@ from zon_agents.lab.variants import base_order, variants
 from zon_agents.llm import LLM, LlmResult, ModelFailed
 from zon_agents.pipelines import PIPELINES
 from zon_agents.pipelines.base import Ctx, Result
+from zon_agents.pipelines.text import DEED_REFUSALS
 from zon_agents.profiles import Use
 from zon_agents.store import Hit, KnowledgeChunk
 
@@ -106,6 +107,8 @@ class Outcome:
     tokens_in: int
     tokens_out: int
     output: dict[str, Any] | None
+    # a wording refused for its deed: why, where, and the excerpt — redacted (pipelines.text.deed_refusal)
+    refusal: dict[str, str] | None = None
 
 
 def refused(error: str | None) -> bool:
@@ -160,10 +163,13 @@ async def _one(
 ) -> Outcome:
     ctx = Ctx(llm, FixedRetrieval(_passages(case), order), today=lambda: TODAY)
 
+    refusals: list[dict[str, str]] = []
+
     def outcome(
         error: str | None, elapsed: int, result: Result | None = None, value: float = 0.0, metrics: Any = None
     ) -> Outcome:
         return Outcome(
+            refusal=refusals[0] if refusals else None,
             case=case.id,
             agent=case.agent,
             variant=variant,
@@ -181,6 +187,7 @@ async def _one(
         if pace is not None:
             await pace.before()
         CURRENT.set(case)  # this task's own context: concurrent cases do not see one another's
+        DEED_REFUSALS.set(refusals)
         start = time.perf_counter()
         try:
             result = await PIPELINES[case.agent](ctx, dict(case.input))

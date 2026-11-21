@@ -1,13 +1,19 @@
 """The chat answers from retrieved passages only, and its sources come from those passages."""
 
+import json
+from pathlib import Path
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import ScriptedModel, call, index
 from zon_agents.config import Settings
+from zon_agents.pipelines.chat import PLANS_GUIDANCE, guidance_lang
 from zon_agents.profiles import load_profile
 from zon_agents.tools.retrieval import Retrieval
+
+ROOT = Path(__file__).resolve().parents[2]
 
 OWNERSHIP = (
     "يحق لغير السعودي المقيم إقامة نظامية تملك عقار لسكنه الخاص بعد الحصول على موافقة الجهات المختصة. "
@@ -102,7 +108,7 @@ def test_covered_without_any_source_is_not_trusted(client: TestClient, model: Sc
     assert "مطلقاً" not in output["answer"]
 
 
-@pytest.mark.parametrize("intent", ["semantic_search", "matching", "search_request", "decision", "packages"])
+@pytest.mark.parametrize("intent", ["semantic_search", "matching", "search_request", "decision"])
 def test_only_a_knowledge_answer_can_be_not_covered(client: TestClient, model: ScriptedModel, intent: str) -> None:
     """With no passage to quote, a 2-bit model says `covered: false` for a service it rightly points to (#119: four
     of the chat's eighteen answers): the pipeline then put «not in the library» over the right answer."""
@@ -114,19 +120,58 @@ def test_only_a_knowledge_answer_can_be_not_covered(client: TestClient, model: S
     assert output == {"answer": said, "covered": True, "sources": [], "intent": intent}
 
 
-def test_package_questions_get_the_platforms_own_figures(client: TestClient, model: ScriptedModel) -> None:
-    model.answers["chat"] = {"answer": "باقة الوسيط السنوية بـ 2300 ريال.", "covered": True}
-    packages = [{"name": "الوسيط السنوية", "price": 2300, "period": "سنوي", "features": ["15 تمييزاً"]}]
+def test_a_plan_question_is_a_pointer_to_the_plans_page_in_his_language_with_no_model(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """Owner, 21 Nov 2026: no plan price from the chat. A plan question gets the pointer (the button under it opens
+    /account/plans, Laravel's action), and no model is asked — so no price can reach one."""
+    model.answers["chat"] = {"answer": "باقة الباحث 199 ريال.", "covered": True}
 
-    output = call(client, "chat", {"intent": "packages", "message": "كم الاشتراك؟", "packages": packages})["output"]
+    arabic = call(client, "chat", {"intent": "packages", "message": "كم سعر الباقة؟"})["output"]
+    english = call(client, "chat", {"lang": "en", "intent": "packages", "message": "How much is the plan?"})["output"]
 
-    assert output == {
-        "answer": "باقة الوسيط السنوية بـ 2300 ريال.",
+    assert arabic == {"answer": PLANS_GUIDANCE["ar"], "covered": True, "sources": [], "intent": "packages"}
+    assert english["answer"] == PLANS_GUIDANCE["en"]
+    assert model.calls_of("chat") == [], "no model is asked"
+
+
+def test_a_plan_answer_the_model_wrote_is_replaced_by_the_pointer_in_turkish(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """A40, 21 Nov (chat-018): «Arayan paketinin aylık ücreti 199 TL'dir» — a price, in liras. Named «packages» by
+    the model, the answer is the pointer in Turkish, whatever it wrote; and no plan reaches the model."""
+    model.answers["chat"] = {
+        "answer": "Arayan paketinin aylık ücreti 199 ليرة تركية.",
         "covered": True,
-        "sources": [],
         "intent": "packages",
     }
-    assert model.calls_of("chat")[0][1]["packages"] == packages
+
+    output = call(client, "chat", {"lang": "xx", "intent": "auto", "message": "Arayan paketi aylık ne kadar?"})[
+        "output"
+    ]
+
+    assert output == {"answer": PLANS_GUIDANCE["tr"], "covered": True, "sources": [], "intent": "packages"}
+    assert "199" not in output["answer"]
+    assert "packages" not in model.calls_of("chat")[0][1], "no plan, no price in what the model reads"
+
+
+@pytest.mark.parametrize(
+    ("message", "lang"),
+    [
+        ("Arayan paketi aylık ne kadar?", "tr"),
+        ("Abonelik ücreti nedir?", "tr"),
+        ("Сколько стоит тариф?", "ru"),
+        ("पैकेज की कीमत क्या है?", "hi"),
+        ("Combien coûte l'abonnement ?", "en"),
+    ],
+)
+def test_the_pointer_s_language_for_one_no_rule_reads(message: str, lang: str) -> None:
+    assert guidance_lang("xx", message) == lang
+
+
+def test_laravel_and_the_agents_point_with_the_same_words() -> None:
+    shared = json.loads((ROOT / "docs/contracts/fixtures/chat/plans_guidance.json").read_text(encoding="utf-8"))
+    assert shared == PLANS_GUIDANCE
 
 
 def test_the_model_knows_the_askers_role_for_the_services_he_has(client: TestClient, model: ScriptedModel) -> None:
@@ -155,14 +200,14 @@ def test_a_language_no_rule_reads_is_answered_in_it_and_the_model_names_the_inte
     }
     asked = {"lang": "xx", "intent": "auto", "message": "Un étranger peut-il posséder un bien en Arabie ?"}
 
-    output = call(client, "chat", {**asked, "packages": [{"name": "الباحث", "price": 199}]})["output"]
+    output = call(client, "chat", asked)["output"]
 
     assert output["intent"] == "knowledge" and output["covered"] is True
     assert output["answer"].startswith("Oui") and output["sources"][0]["quote_ar"] == quoted, (
         "the Arabic source under it"
     )
     sent = model.calls_of("chat")[0][1]
-    assert sent["passages"] and sent["packages"], "both, for the model to choose from"
+    assert sent["passages"] and "packages" not in sent, "the passages, and no plan price"
 
     model.answers["chat"] = {
         "answer": "Je suis l'assistant immobilier de Zon.",
@@ -190,7 +235,7 @@ def test_a_language_no_rule_reads_is_answered_in_it_and_the_model_names_the_inte
 def test_when_the_model_is_down_laravel_answers_on_its_own(client: TestClient, model: ScriptedModel) -> None:
     model.answers["chat"] = httpx.ConnectError("down")
 
-    response = client.post("/agents/chat", json={"intent": "packages", "message": "كم الاشتراك؟"})
+    response = client.post("/agents/chat", json={"intent": "decision", "message": "السعر مبالغ فيه؟"})
 
     assert response.status_code == 503
 
@@ -200,25 +245,22 @@ def test_an_answer_in_another_script_than_the_message_is_asked_once_more_in_its_
 ) -> None:
     """A40, 21 Nov: English, Turkish and Russian questions answered in Arabic. The model is told the language
     (`reply_in`), and an answer in another script is asked once more; one in the right script is kept as it is."""
-    arabic = {"answer": "باقة الباحث بـ 199 ريال شهرياً.", "covered": True}
-    english = {"answer": "The seeker plan is 199 riyals a month.", "covered": True}
+    arabic = {"answer": "عندك «البحث الدلالي».", "covered": True}
+    english = {"answer": "Use Semantic Search.", "covered": True}
     model.answers["chat"] = [arabic, english]
-    asked = {"lang": "en", "intent": "packages", "message": "How much is the seeker plan?"}
+    asked = {"lang": "en", "intent": "semantic_search", "message": "I am looking for a flat"}
 
-    output = call(client, "chat", {**asked, "packages": [{"name": "الباحث", "price": 199}]})["output"]
+    output = call(client, "chat", asked)["output"]
 
     assert output["answer"] == english["answer"]
     first, second = (c[1] for c in model.calls_of("chat"))
     assert first["reply_in"] == "English" and "another language" in second["reply_in"]
 
-    model.answers["chat"] = [{"answer": "Тариф стоит 199 риалов.", "covered": True, "intent": "packages"}]
-    russian = {
-        "lang": "xx",
-        "intent": "auto",
-        "message": "Сколько стоит тариф?",
-        "packages": [{"name": "x", "price": 199}],
-    }
-    assert call(client, "chat", russian)["output"]["answer"].startswith("Тариф"), "the right script: one call"
+    model.answers["chat"] = [
+        {"answer": "Ищите в «Семантическом поиске».", "covered": True, "intent": "semantic_search"}
+    ]
+    russian = {"lang": "xx", "intent": "auto", "message": "Ищу квартиру в Эр-Рияде"}
+    assert call(client, "chat", russian)["output"]["answer"].startswith("Ищите"), "the right script: one call"
     assert model.calls_of("chat")[-1][1]["reply_in"] == "русский" and len(model.calls_of("chat")) == 3
 
 
