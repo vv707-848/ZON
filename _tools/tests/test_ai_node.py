@@ -306,6 +306,16 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         self.assertIn("the run passed ZON_MAX_SECONDS", GitHub.comments[-1]["body"])
         self.assertEqual(self.stops(), ["pod remove pod123"])
 
+    def test_the_embedding_server_gets_a_transformers_that_flagembedding_imports(self) -> None:
+        """21 Nov: FlagEmbedding 1.4.2 with transformers 5 does not import (modeling_attn_mask_utils is gone)."""
+        install = (NODE / "install.sh").read_text(encoding="utf-8")
+        line = re.search(r"venv-embed/bin/pip install FlagEmbedding(?:[^\n]*\\\n)*[^\n]*", install)[0]
+        pins = dict(re.findall(r"([A-Za-z_-]+)==([0-9.]+)", line))
+        self.assertEqual(pins.get("FlagEmbedding"), "1.4.2")
+        self.assertTrue(pins.get("transformers", "5").startswith("4."), "transformers pinned below 5")
+        for package in ("sentence-transformers", "datasets", "huggingface_hub"):
+            self.assertIn(package, pins, f"{package} pinned with it: a newer one pulls transformers 5's hub")
+
     def test_e2e_serves_with_its_workers_and_refuses_a_single_one(self) -> None:
         """21 Nov: without --no-reload `artisan serve` ignores PHP_CLI_SERVER_WORKERS (one request at a time)."""
         e2e = (NODE / "e2e.sh").read_text(encoding="utf-8")

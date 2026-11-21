@@ -117,12 +117,13 @@ finish() {
 }
 trap finish EXIT
 trap 'exit 124' TERM                                 # the watchdog's: finish() runs, posts what is done, deletes the Pod
-# the watchdog: a foreground step is stopped first (bash runs a trap only between commands), then the script
+# the watchdog: the script is told first, then its steps are stopped — bash runs the trap as soon as the step it
+# waits on ends, before a next command could read a stopped engine as a failure of its own
 ( sleep "${ZON_MAX_SECONDS:-7200}"; echo "the run passed ZON_MAX_SECONDS" >&2
+  kill -TERM $$
   for child in $(pgrep -P $$); do
     [ "$child" != "$BASHPID" ] && [ "$(ps -o comm= -p "$child")" != tee ] && kill -TERM "$child" 2>/dev/null
-  done
-  kill -TERM $$ ) &
+  done ) &
 WATCHDOG=$!
 # the settings are checked with the exit in place: a Pod missing one posts why and goes, it never just ends (RunPod
 # would start the command again)

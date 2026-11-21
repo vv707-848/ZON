@@ -26,7 +26,10 @@ mkdir -p /workspace/embed /workspace/profiles /workspace/models /workspace/keys 
 /workspace/venv-tools/bin/pip install -U pip "huggingface_hub[cli]" uv
 "$PY" -m venv /workspace/venv-embed
 /workspace/venv-embed/bin/pip install "torch==2.9.*" --index-url https://download.pytorch.org/whl/cu128
-/workspace/venv-embed/bin/pip install FlagEmbedding==1.4.2 fastapi uvicorn
+# FlagEmbedding 1.4.2 imports transformers.modeling_attn_mask_utils, gone in transformers 5: unpinned, pip took
+# 5.24 and the server did not start (A40, 21 Nov 2026). The set below started and embedded there, `pip check` clean
+/workspace/venv-embed/bin/pip install FlagEmbedding==1.4.2 transformers==4.57.6 sentence-transformers==5.7.0 \
+  datasets==4.8.5 huggingface_hub==0.36.2 fastapi uvicorn
 /workspace/venv-embed/bin/pip freeze > /workspace/venv-embed.lock
 /workspace/venv-tools/bin/hf download BAAI/bge-m3 --local-dir /workspace/models/bge-m3 --exclude "onnx/*"
 
