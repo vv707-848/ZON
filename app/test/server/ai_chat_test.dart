@@ -120,9 +120,11 @@ void main() {
     for (final lang in <String>['ar', 'tr']) {
       testWidgets('a plan question: the pointer in his language, and its button opens the plans page ($lang)', (tester) async {
         final guidance = _guidance(lang);
-        final plans = <String, Object?>{...reply, 'answer': guidance, 'sources': <Object?>[], 'intent': 'packages', 'action': '/account/plans'};
+        const noSource = <Object?>[];
+        const skipped = <String, Object?>{'status': 'skipped'};
+        final plans = <String, Object?>{...reply, 'answer': guidance, 'sources': noSource, 'intent': 'packages', 'action': '/account/plans'};
         await _open(tester, (s) {
-          s.on('POST', 'ai/chat', 200, ok(plans, <String, Object?>{'ai': <String, Object?>{'status': 'skipped'}}));
+          s.on('POST', 'ai/chat', 200, ok(plans, <String, Object?>{'ai': skipped}));
           s.on('GET', 'packages', 200, recorded('packages'));
           s.on('GET', 'subscription', 200, recorded('subscription_free'));
           s.on('GET', 'invoices', 200, ok(<Object?>[]));
