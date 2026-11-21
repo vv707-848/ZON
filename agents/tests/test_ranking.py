@@ -93,8 +93,16 @@ def test_without_the_model_the_hybrid_order_answers_without_reasons(client: Test
 
 def test_a_broken_answer_is_tried_once_more_at_a_low_temperature(client: TestClient, model: ScriptedModel) -> None:
     _indexed(client)
-    broken, right = {"results": "not a list"}, {"results": [{"id": 2, "score": 0.5}]}
-    model.answers["search_listings"] = [broken, broken, right, right]  # both orders, each tried once more
+    seen: set[str] = set()
+
+    def broken_first(payload: dict[str, Any]) -> dict[str, Any]:  # each order's first attempt breaks the schema
+        order = str([c["id"] for c in payload["candidates"]])
+        if order in seen:
+            return {"results": [{"id": 2, "score": 0.5}]}
+        seen.add(order)
+        return {"results": "not a list"}
+
+    model.answers["search_listings"] = broken_first  # both orders, asked at once, each tried once more
 
     body = call(client, "search_listings", {"need": NEED, "candidates": _candidates(1, 2)})
 

@@ -5,10 +5,11 @@ These have no degraded answer: when the model fails the call fails (503) and Lar
 - a cleaning job waits in its queue and runs again when the AI node is back, so no listing is lost.
 """
 
+import re
 from typing import Any
 
 from zon_agents.llm import ModelFailed, model_unavailable
-from zon_agents.numbers import grounded_amounts
+from zon_agents.numbers import grounded_amounts, norm, swapped
 from zon_agents.pipelines.base import Ctx, Result, parse, scrub
 from zon_agents.schemas.agents import (
     CleanListingAnswer,
@@ -52,7 +53,61 @@ async def clean_listing(ctx: Ctx, data: dict[str, Any]) -> Result:
     # publishes his text as he wrote it, so no amount he did not write reaches a buyer
     if not grounded_amounts(desc, req.text, req.fields):
         raise model_unavailable(ModelFailed("amount"))
+    # …or puts an amount in another's place (the price as the area), or a deed he did not state: a buyer relies on both
+    if swapped(desc, req.text, req.fields):
+        raise model_unavailable(ModelFailed("role"))
+    if not _deed_kept(desc, features, req.text, req.fields.get("deed")):
+        raise model_unavailable(ModelFailed("deed"))
     return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
+
+
+_DEED = re.compile(r"(?<!\w)(?:و|ب|وب|ل|فب)?(?:ال)?صك(?:وك)?(?!\w)")
+# what says a deed is not there: before it («بدون صك»، «لا يوجد صك»، «ما فيه صك») or after it («الصك غير جاهز»)
+_BEFORE = {
+    "بدون",
+    "بلا",
+    "لا",
+    "ما",
+    "مافي",
+    "مافيه",
+    "ليس",
+    "ليست",
+    "غير",
+    "يوجد",
+    "فيه",
+    "فيها",
+    "عليه",
+    "عليها",
+    "مو",
+}
+_NOT_BEFORE = {"بدون", "بلا", "لا", "ما", "مافي", "مافيه", "ليس", "ليست", "مو"}
+_NOT_AFTER = {"غير", "مافي", "ما", "لا", "مو"}
+_BETWEEN = {"يوجد", "فيه", "فيها", "عليه", "عليها", "له", "لها"}
+
+
+def _deeds(text: str) -> set[bool]:
+    """What [text] says of a deed, each time it names one: True (there is one), False (there is none)."""
+    words = re.findall(r"\w+", norm(text))
+    said: set[bool] = set()
+    for n, word in enumerate(words):
+        if not _DEED.fullmatch(word):
+            continue
+        one = words[n - 1] if n else ""
+        two = words[n - 2] if n > 1 else ""
+        # «بدون صك»، or «لا يوجد صك» · «ما فيه صك» — never a «بدون» of something else before it («بدون مصعد، الصك جاهز»)
+        before = one in _NOT_BEFORE or (one in _BETWEEN and two in _NOT_BEFORE)
+        after = words[n + 1] if n + 1 < len(words) else ""
+        said.add(not (before or after in _NOT_AFTER))
+    return said
+
+
+def _deed_kept(desc: str, features: list[str], text: str, field: object) -> bool:
+    """A deed the wording or the features name — that there is one, or that there is none — is one the advertiser's
+    text or the deed field says the same way. «صك» as a feature says there is one."""
+    claims = _deeds(desc) | {True for f in features if _DEED.search(norm(f)) and False not in _deeds(f)}
+    claims |= {False for f in features if False in _deeds(f)}
+    stated = _deeds(text) | ({field} if isinstance(field, bool) else set())
+    return claims <= stated
 
 
 async def clean_project(ctx: Ctx, data: dict[str, Any]) -> Result:
