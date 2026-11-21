@@ -73,3 +73,28 @@ def test_every_text_is_asked_and_what_missed_is_kept_with_what_it_wrote(model: S
     assert found["clean_listing"]["checks"] == {"arabic": 1.0, "grounded": 0.0, "numbers": 1.0}
     assert [m["id"] for m in found["clean_listing"]["missed"]] == ["a"]
     assert found["chat"]["checks"]["routes"] == 1.0 and found["chat"]["missed"] == []
+
+
+def test_an_offer_longer_than_the_app_accepts_is_not_asked_and_amounts_are_read_as_written(
+    model: ScriptedModel,
+) -> None:
+    """The app refuses a text over 300 letters until he shortens it (Listing::DESC_MAX): the lab does not shorten it
+    for him. And an amount said in digits and words is one amount, however the answer writes it."""
+    model.answers["clean_listing"] = {"desc_clean": "فيلا للبيع", "features": []}
+    llm = LLM(
+        FunctionModel(model),
+        model.prompts,
+        profile=load_profile("qwen3.8-27b-fp8"),
+        max_concurrency=4,
+        budget_seconds=5,
+    )
+    items = [
+        {"id": "short", "kind": "offer", "type": "villa", "text": "للبيع فيلا " + "ب" * 289},
+        {"id": "long", "kind": "offer", "type": "villa", "text": "للبيع فيلا " + "ب" * 290},
+    ]
+    found = asyncio.run(market.market(llm, items))
+    assert found["clean_listing"]["asked"] == 1 and found["clean_listing"]["over_limit"] == 1
+
+    offer = {"kind": "offer", "text": "للبيع فيلا المطلوب 2 مليون و 200 الف والمساحه 39 الف و 412"}
+    assert market.checks(offer, {"desc_clean": "فيلا بسعر 2.2 مليون ومساحة 39412", "features": []})["numbers"] == 1.0
+    assert market.checks(offer, {"desc_clean": "فيلا بسعر 2200200", "features": []})["numbers"] == 0.0

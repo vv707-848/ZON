@@ -17,7 +17,7 @@ final class ChatGuard
     public function passes(string $answer, bool $covered, array $sources, array $allowedAmounts, bool $needsSources): bool
     {
         $text = ArabicText::asciiDigits($answer);
-        if (preg_match('~(https?://|www\.)|\b\S+\.(com|sa|net|org)\b~iu', $text) === 1) {
+        if (preg_match('~(https?:/+|www\.)|\b\S+\.(com|sa|net|org)\b~iu', $text) === 1) {
             return false;
         }
         if (preg_match('~(?:\+?966|\b0)5\d{8}\b|\b05\d[\s-]?\d{3}[\s-]?\d{4}\b|\b9200\d{5}\b~', $text) === 1) {

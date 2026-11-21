@@ -147,7 +147,8 @@ class ModelLabTest extends AdminTestCase
         $this->assertSame([], LabLimits::unmet($run('oracle')), 'the right answer on every case passes every limit');
 
         $adversary = implode("\n", LabLimits::unmet($run('adversary')));
-        foreach (['search_listings: عرض يكسر', 'clean_listing: أضاف ما لم يقله', 'report_write: NumberGuard', 'search_listings: درجته 0.571 لا تتجاوز الترتيب بلا نموذج (0.804)',
+        // its invented price is refused by the cleaning pipeline itself (agents: numbers.grounded_amounts): failed
+        foreach (['search_listings: عرض يكسر', 'ردود فاشلة في: clean_listing', 'report_write: NumberGuard', 'search_listings: درجته 0.571 لا تتجاوز الترتيب بلا نموذج (0.804)',
             'search_requests: درجته 0.598 لا تتجاوز', 'matching: درجته 0.716 لا تتجاوز'] as $reason) {
             $this->assertStringContainsString($reason, $adversary);
         }
@@ -156,10 +157,11 @@ class ModelLabTest extends AdminTestCase
         foreach (['سطر محقون', 'matching: عرض يكسر'] as $kept_out) {
             $this->assertStringNotContainsString($kept_out, $adversary);
         }
+        // asked in both orders (agents: ranking.both_orders), a model that ranks positions gives the same answer to a
+        // list and its reversal: the stability limit no longer names it, its score does where it is low
         $positional = implode("\n", LabLimits::unmet($run('positional')));
-        foreach (['search_listings: يتغير ترتيبه إذا انعكس ترتيب المرشحين (الثبات 2%)', 'matching: يتغير ترتيبه', 'search_listings: درجته 0.804 لا تتجاوز الترتيب بلا نموذج (0.804)'] as $reason) {
-            $this->assertStringContainsString($reason, $positional);
-        }
+        $this->assertStringNotContainsString('يتغير ترتيبه', $positional);
+        $this->assertStringContainsString('search_requests: درجته 0.72 لا تتجاوز الترتيب بلا نموذج (0.81)', $positional);
         $this->assertStringContainsString('ردود فاشلة في: chat، clean_listing', implode("\n", LabLimits::unmet($run('broken'))));
     }
 

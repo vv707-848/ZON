@@ -316,8 +316,10 @@ def score_report_write(case: Case, output: dict[str, Any]) -> Score:
     rows = [row for part in parts for row in part["rows"]]
     params = {f"{i}.{name}": value for i, part in enumerate(parts) for name, value in part.get("params", {}).items()}
     params |= {f"{i}.row_count": part["row_count"] for i, part in enumerate(parts)}  # «3 أحياء»: how many rows it read
-    if not number_guard(text, rows, params):
-        return Score(0.0, {"guard": 0.0})  # Laravel drops this analysis: the panel shows the rows alone
+    # Laravel drops an analysis its NumberGuard rejects, and an empty one (SuperAgent::write): the panel shows the
+    # rows alone. Empty is what is left when every sentence carried a number the rows do not hold (report_write)
+    if not str(output.get("analysis", "")).strip() or not number_guard(text, rows, params):
+        return Score(0.0, {"guard": 0.0})
     mention = recall(text, expect.mention)
     action = float(any(r.get("action") in expect.actions for r in recommendations)) if expect.actions else None
     measured = [m for m in (mention, action) if m is not None]

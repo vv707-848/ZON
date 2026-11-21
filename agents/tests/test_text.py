@@ -64,3 +64,22 @@ def test_cleaning_waits_for_the_model_instead_of_inventing_a_text(client: TestCl
     response = client.post("/agents/clean_project", json={"type": "apartment", "text": "مشروع قريب من الخدمات"})
 
     assert response.status_code == 503
+
+
+def test_a_wording_that_changes_an_amount_is_refused_and_the_same_amount_in_another_form_kept(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """A40, 21 Nov: «2 مليون و200 الف» came back 2200200. The advertiser's text is then published as he wrote it
+    (Laravel, on 503), so no amount he did not write reaches a buyer."""
+    text = "فيلا للبيع المطلوب 2 مليون و 200 الف قابل التفاوض والمساحه 39 الف و 412 متر"
+    model.answers["clean_listing"] = {"desc_clean": "فيلا للبيع بسعر 2200200 ريال", "features": []}
+    refused = client.post("/agents/clean_listing", json={"type": "villa", "text": text})
+    assert refused.status_code == 503 and "amount" in refused.text
+
+    for same in ("بسعر 2.2 مليون ريال ومساحة 39412 م", "بسعر 2,200,000 ريال", "بسعر 2 مليون و200 ألف"):
+        model.answers["clean_listing"] = {"desc_clean": f"فيلا للبيع {same}", "features": []}
+        assert call(client, "clean_listing", {"type": "villa", "text": text})["output"]["desc_clean"].endswith(same)
+
+    model.answers["clean_listing"] = {"desc_clean": "شقة بسعر 880,000 ريال", "features": []}
+    sent = {"type": "apartment", "text": "شقة للبيع", "fields": {"price": 880000}}
+    assert call(client, "clean_listing", sent)["output"]["desc_clean"] == "شقة بسعر 880,000 ريال", "the fields count"

@@ -426,7 +426,8 @@ class _ListingFormState extends State<ListingForm> {
     return (title.trim().isEmpty ? 'اكتب عنوان العرض' : null) ??
         (p == null ? 'أدخل السعر بالأرقام' : null) ??
         (p != null && p < 0 ? 'السعر لا يكون سالبًا' : null) ??
-        (desc.trim().isEmpty ? 'اكتب وصف العرض' : null);
+        (desc.trim().isEmpty ? 'اكتب وصف العرض' : null) ??
+        descTooLong(desc);
   }
 
   /// «تحقق» with a server: REGA's answer, not the number's length.
@@ -1143,13 +1144,14 @@ class _ListingFormState extends State<ListingForm> {
           icon: Lu.fileCheck,
           label: 'الوصف',
           textarea: true,
-          count: '${desc.length}/500',
+          count: descCount(desc),
+          countOver: descTooLong(desc) != null,
+          hint: 'السعر والمساحة والغرف والصك لها خاناتها: اكتب هنا ما لا تقوله.',
           child: projTextarea(
             value: desc,
-            maxLength: 500,
             placeholder: 'أضف وصفًا للعقار',
             onChanged: (v) => setState(() {
-              desc = v.length > 500 ? v.substring(0, 500) : v;
+              desc = v;
               aiReady = false;
             }),
           ),

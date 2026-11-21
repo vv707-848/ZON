@@ -130,6 +130,8 @@ def _lab_market(args: argparse.Namespace) -> int:
     for agent, row in found.items():
         shares = " · ".join(f"{name} {share}" for name, share in row["checks"].items())
         print(f"{agent:14} {row['asked']:5} {row['failed']:6} {row['p50_ms']:7} {row['p95_ms']:7}  {shares}")
+    if over := found.get("clean_listing", {}).get("over_limit"):
+        print(f"{over} offers over {market_texts.OFFER_MAX} letters not asked: the app refuses them until shortened")
     out = args.out or Path(f"market-{args.profile}-{datetime.now(UTC):%Y%m%d-%H%M}.json")
     out.write_text(json.dumps(found, ensure_ascii=False, indent=1), encoding="utf-8")
     return 0

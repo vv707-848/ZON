@@ -106,7 +106,9 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
               'case "$*" in *--sample*) echo "overall 0.5 → warm" ;; esac\n'
               'if [ "$1 $2" = "lab run" ] && [ -n "${FAKE_REPORT:-}" ]; then prev=""; for a in "$@"; do\n'
               '  [ "$prev" = "--out" ] && out="$a"; prev="$a"; done\n'
-              '  case "$*" in *--sample*) ;; *) cp "$FAKE_REPORT" "$out" ;; esac; fi\n', True)
+              '  case "$*" in *--sample*) ;; *) cp "$FAKE_REPORT" "$out" ;; esac; fi\n'
+              'if [ "$1 $2" = "lab market" ] && [ -n "${FAKE_MARKET:-}" ]; then prev=""; for a in "$@"; do\n'
+              '  [ "$prev" = "--out" ] && out="$a"; prev="$a"; done; cp "$FAKE_MARKET" "$out"; fi\n', True)
         self.env = {
             "PATH": f"{bin_}:{os.environ['PATH']}", "HOME": str(self.dir), "TEST_DIR": str(self.dir),
             "ZON_WORKSPACE": str(w), "ZON_GITHUB_API": f"http://127.0.0.1:{self.server.server_port}",
@@ -188,6 +190,21 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         self.assertIn("→ باقة الباحث بـ 199 ريال", missed)
         self.assertNotIn("chat-001", missed, "a case that scored 1 is not listed")
         self.assertIn("top three changed when reversed: `search-004`", missed)
+
+    def test_what_the_market_texts_that_missed_wrote_is_posted_too(self) -> None:
+        """21 Nov: the market report stayed on the volume, and a second Pod had to read it."""
+        market = self.dir / "market.json"
+        missed = [{"id": "market-009", "error": "DependencyUnavailable: llm (amount) unavailable", "output": None},
+                  {"id": "market-012", "checks": {"grounded": 0.0, "numbers": 1.0},
+                   "output": {"desc_clean": "أرض للبيع", "features": ["مساحة 6200 متر"]}}]
+        market.write_text(json.dumps({"clean_listing": {"missed": missed}}, ensure_ascii=False), encoding="utf-8")
+        result = self.run_lab(FAKE_MARKET=str(market))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        body = GitHub.comments[-1]["body"]
+        self.assertIn("**what the market texts that missed wrote** (lab market)", body)
+        self.assertIn("`market-009` (clean_listing): DependencyUnavailable: llm (amount) unavailable", body)
+        self.assertIn('{"grounded": 0.0}', body)
+        self.assertIn("→ أرض للبيع | features: مساحة 6200 متر", body)
 
     def test_an_engine_that_dies_is_reported_with_its_step_and_the_pod_stops(self) -> None:
         result = self.run_lab(ENGINE_DIES="1")

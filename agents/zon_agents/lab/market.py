@@ -5,17 +5,21 @@ could be fitted to. What is checked is what any right answer must satisfy, read 
 
 - an offer (`clean_listing`, as an advertiser's description reaches it):
   - `grounded`: each feature it keeps is said in the text (its words, as Laravel's CleanListingText::said reads them);
-  - `numbers`: each number in the cleaned description is one the text wrote in digits (a number the text wrote in
-    words, «بمليون وست ميه», counts against it: read it as the share written as the advertiser wrote them);
+  - `numbers`: each amount the cleaned description states is one the text states, in digits, words or both
+    («2 مليون و200 الف» is 2,200,000 however it is written — `numbers.grounded_amounts`, the agent's own guard);
   - `arabic`: the description is Arabic.
 - a wish («مطلوب …», `chat` as a seeker's message reaches it, intent `semantic_search`):
   - `routes`: it points to «البحث الدلالي» or «مساعد المطابقة» (the prompt's own rule for a seeker);
-  - `numbers`: no number the message did not hold (the prompt: no price of its own);
+  - `numbers`: no amount the message did not state (the prompt: no price of its own);
   - `asks`: no question back (the prompt: it guides, it does not interrogate);
   - `arabic`: the answer is Arabic.
 
 Phone numbers, links and e-mails are masked as Laravel masks them before any agent (AiMasking) — the repository is
-public, and production's agents never see them either. The texts came as one stream: [build] splits it where an
+public, and production's agents never see them either.
+
+An offer longer than the app accepts (`OFFER_MAX`, Laravel's Listing::DESC_MAX, owner's decision 21 Nov) is not
+asked: the advertiser shortens it himself before it is sent, and the lab does not shorten it for him. The report
+counts them (`over_limit`). The texts came as one stream: [build] splits it where an
 offer («للبيع»، «للإيجار») or a wish («مطلوب» and a property) is announced, and drops the repeats.
 """
 
@@ -29,11 +33,12 @@ from typing import Any
 
 from zon_agents.lab.runner import TODAY, FixedRetrieval, _percentile
 from zon_agents.llm import LLM
-from zon_agents.numbers import norm
+from zon_agents.numbers import grounded_amounts, norm
 from zon_agents.pipelines import PIPELINES
 from zon_agents.pipelines.base import Ctx
 
 TEXTS = Path(__file__).parent / "market" / "market.jsonl"
+OFFER_MAX = 300  # Laravel's Listing::DESC_MAX: letters, as mb_strlen counts them
 
 # AiMasking's patterns and placeholders (backend/app/Ai/Masking/AiMasking.php), in its order
 _SEP = r"[\s.\-()]{0,2}"
@@ -105,10 +110,6 @@ def load() -> list[dict[str, Any]]:
     return [json.loads(line) for line in TEXTS.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-def _numbers(text: str) -> set[str]:
-    return {n.replace(",", "").rstrip(".") for n in re.findall(r"\d[\d,]*(?:\.\d+)?", text.translate(_DIGITS))}
-
-
 def _bare(word: str) -> str:
     return re.sub(r"^(?:و?ب?ال|و)(?=\w{2})", "", word)
 
@@ -129,13 +130,13 @@ def checks(item: dict[str, Any], output: dict[str, Any]) -> dict[str, float]:
         desc, features = str(output.get("desc_clean", "")), list(output.get("features", []))
         return {
             "grounded": float(all(_said(f, text) for f in features)),
-            "numbers": float(_numbers(desc) <= _numbers(text)),
+            "numbers": float(grounded_amounts(desc, text)),
             "arabic": float(_arabic(desc)),
         }
     answer = str(output.get("answer", ""))
     return {
         "routes": float(any(term in norm(answer) for term in (norm("البحث الدلالي"), norm("مساعد المطابقة")))),
-        "numbers": float(_numbers(answer) <= _numbers(text)),
+        "numbers": float(grounded_amounts(answer, text)),
         "asks": float("؟" not in answer and "?" not in answer),
         "arabic": float(_arabic(answer)),
     }
@@ -158,7 +159,7 @@ async def _one(llm: LLM, item: dict[str, Any], slots: asyncio.Semaphore) -> dict
             return {
                 "id": item["id"],
                 "agent": agent,
-                "error": type(exc).__name__,
+                "error": f"{type(exc).__name__}: {exc}"[:120],  # the reason too: timeout · invalid · amount
                 "latency_ms": round((time.perf_counter() - start) * 1000),
             }
         elapsed = round((time.perf_counter() - start) * 1000)
@@ -176,7 +177,8 @@ async def _one(llm: LLM, item: dict[str, Any], slots: asyncio.Semaphore) -> dict
 async def market(llm: LLM, items: Sequence[dict[str, Any]], at_once: int = 8) -> dict[str, Any]:
     """Every text, [at_once] at a time; per agent: asked, failed, p50 · p95, and each check's share."""
     slots = asyncio.Semaphore(at_once)
-    rows = await asyncio.gather(*(_one(llm, item, slots) for item in items))
+    asked = [i for i in items if i["kind"] != "offer" or len(i["text"]) <= OFFER_MAX]
+    rows = await asyncio.gather(*(_one(llm, item, slots) for item in asked))
     report: dict[str, Any] = {}
     for agent in ("clean_listing", "chat"):
         own = [r for r in rows if r["agent"] == agent]
@@ -187,6 +189,7 @@ async def market(llm: LLM, items: Sequence[dict[str, Any]], at_once: int = 8) ->
         latencies = sorted(r["latency_ms"] for r in answered) or [0]
         report[agent] = {
             "asked": len(own),
+            **({"over_limit": len(items) - len(asked)} if agent == "clean_listing" else {}),
             "failed": len(own) - len(answered),
             "p50_ms": _percentile(latencies, 50),
             "p95_ms": _percentile(latencies, 95),

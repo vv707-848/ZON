@@ -69,9 +69,11 @@ def test_the_answer_each_limit_exists_to_catch_trips_it(runs: dict[str, Any]) ->
     assert agents["search_listings"]["metrics"]["zero_top3"] > 0.05  # a wish only the text states: the model's
     assert agents["matching"]["metrics"]["top1_matched"] == 0.0
     assert agents["match_searchers"]["metrics"]["zero_top3"] > 0.05
-    assert agents["clean_listing"]["metrics"]["invented"] == 0.0
     assert agents["report_write"]["metrics"]["guard"] == 0.0
-    assert all(entry["failed"] == 0 for entry in agents.values())  # wrong, never failing: the score must say it
+    # an invented price is refused by the cleaning pipeline itself (numbers.grounded_amounts): failed, not scored
+    assert agents["clean_listing"]["failed"] == agents["clean_listing"]["cases"]
+    others = (entry for agent, entry in agents.items() if agent != "clean_listing")
+    assert all(entry["failed"] == 0 for entry in others)  # wrong, never failing: the score must say it
 
 
 def test_a_model_that_never_answers_is_counted_failed_not_scored(runs: dict[str, Any]) -> None:
@@ -85,8 +87,10 @@ def test_a_model_that_never_answers_is_counted_failed_not_scored(runs: dict[str,
 def test_the_floor_is_what_an_order_nobody_chose_scores(runs: dict[str, Any], floor: dict[str, float]) -> None:
     positional = labsim.summary("positional", runs["positional"][0], CASES, floor)["agents"]
     for agent in ("search_listings", "search_requests", "matching"):  # their shortlist keeps the order it was given
-        assert positional[agent]["floor"] == positional[agent]["score"]
-        assert positional[agent]["variants"]["reversed"]["stability"] < 0.8
+        # asked in both orders, a model that ranks positions gets the same two answers either way (ranking.py):
+        # what it ranks wrong is in its score, never again in the order the candidates came
+        assert positional[agent]["variants"]["reversed"]["stability"] == 1.0
+        assert positional[agent]["score"] < 1.0
     assert set(floor) == {"search_listings", "search_requests", "matching", "match_searchers"}
     assert all(0.5 < value < 1.0 for value in floor.values())  # high with no model at all: why it must be reported
 
@@ -273,7 +277,7 @@ def test_the_service_ranks_through_the_node_and_says_it_is_a_simulation(stack: t
     assert (health["model"], health["simulated"], health["llm"], health["embed"]) == ("sim-rules", True, True, True)
 
     seen = sim.get("/sim/seen").json()
-    assert [c["agent"] for c in seen["llm"]] == ["search_listings"]
+    assert [c["agent"] for c in seen["llm"]] == ["search_listings"] * 2, "asked in both orders (ranking.both_orders)"
     assert seen["llm"][0]["payload"]["need"]["free_text"] == "مدخل خاص"  # what reached the node, as it reached it
     assert "مدخل خاص" in seen["embed"][-1]
 

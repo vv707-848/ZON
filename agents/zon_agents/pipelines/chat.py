@@ -18,10 +18,12 @@ at the profile's `summary` sampling (cooler than the conversation's).
 """
 
 import re
+import time
 from typing import Any
 
 from zon_agents.llm import ModelFailed, model_unavailable
 from zon_agents.pipelines.base import Ctx, Result, parse, scrub
+from zon_agents.profiles import Use
 from zon_agents.schemas.agents import ChatAnswer, ChatInput
 from zon_agents.store import KnowledgeChunk
 
@@ -33,6 +35,44 @@ NOT_COVERED = {
     "سرکاری جواب کے لیے رئیل اسٹیٹ جنرل اتھارٹی سے رجوع کریں۔",
 }
 NOT_COVERED["xx"] = NOT_COVERED["en"]  # another language: the fixed text in the most widely read one
+# …or in its own, where its script says which it is
+_NOT_COVERED_SCRIPT = {
+    "cyrillic": "Библиотека Zon пока не охватывает этот вопрос. За официальным ответом обратитесь в Главное "
+    "управление по недвижимости (REGA) или в компетентный орган.",
+    "devanagari": "ज़ोन की लाइब्रेरी अभी इस सवाल को कवर नहीं करती। आधिकारिक जवाब के लिए रियल एस्टेट जनरल अथॉरिटी "
+    "(REGA) या संबंधित विभाग से संपर्क करें।",
+}
+
+# The script a text is written in, by its letters: what the answer's language can be checked by without a model.
+_SCRIPTS = {
+    "arabic": re.compile(r"[\u0600-\u06FF\u0750-\u077F]"),
+    "latin": re.compile(r"[A-Za-z\u00C0-\u024F]"),
+    "cyrillic": re.compile(r"[\u0400-\u04FF]"),
+    "devanagari": re.compile(r"[\u0900-\u097F]"),
+}
+# What `reply_in` says: Laravel's language, or for another one («xx») the script the message is written in
+_REPLY_IN = {"ar": "العربية", "en": "English", "ur": "اردو"}
+_REPLY_IN_SCRIPT = {
+    "latin": "the language of `message` (not Arabic)",
+    "cyrillic": "русский",
+    "devanagari": "हिन्दी",
+    "arabic": "لغة `message`",
+}
+
+
+def script(text: str) -> str:
+    """The script most of [text]'s letters are in ("" without letters)."""
+    counts = {name: len(pattern.findall(text)) for name, pattern in _SCRIPTS.items()}
+    best = max(counts, key=lambda name: counts[name])
+    return best if counts[best] else ""
+
+
+def _not_covered(lang: str, message: str) -> str:
+    return _NOT_COVERED_SCRIPT.get(script(message), NOT_COVERED[lang]) if lang == "xx" else NOT_COVERED[lang]
+
+
+def _expected(lang: str, message: str) -> str:
+    return {"ar": "arabic", "ur": "arabic", "en": "latin"}.get(lang) or script(message)
 
 
 _MARKS = re.compile(r"[\u064B-\u0652\u0640]")  # tashkeel and tatweel
@@ -56,7 +96,7 @@ async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
         chunks = await ctx.retrieval.knowledge(req.message, ctx.today())
         if not chunks and not auto:
             return Result(
-                {"answer": NOT_COVERED[req.lang], "covered": False, "sources": [], "intent": "knowledge"},
+                {"answer": _not_covered(req.lang, req.message), "covered": False, "sources": [], "intent": "knowledge"},
                 log={"passages": 0},
             )
 
@@ -72,9 +112,21 @@ async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
         ],
         "packages": [p.model_dump(exclude_none=True) for p in req.packages],
     }
+    wanted = _expected(req.lang, req.message)
+    payload["reply_in"] = _REPLY_IN.get(req.lang) or _REPLY_IN_SCRIPT.get(wanted, "the language of `message`")
+    cool = req.intent == "knowledge" or auto
+    use: Use = "summary" if cool else "chat"
+    started = time.monotonic()
     try:
-        cool = req.intent == "knowledge" or auto
-        answer = await ctx.llm.run("chat", payload, ChatAnswer, "summary" if cool else "chat")
+        answer = await ctx.llm.run("chat", payload, ChatAnswer, use)
+        # an answer in another script than the message's is asked once more, when the first came quickly enough that
+        # a second still fits the budget (A40, 21 Nov: English, Turkish and Russian answered in Arabic)
+        written = script(answer.output.answer)
+        if wanted and written and written != wanted and time.monotonic() - started < ctx.llm.budget_seconds / 2:
+            again = {**payload, "reply_in": f"{payload['reply_in']} — your last answer was in another language"}
+            retry = await ctx.llm.run("chat", again, ChatAnswer, use)
+            if script(retry.output.answer) == wanted:
+                answer = retry
     except ModelFailed as exc:
         raise model_unavailable(exc) from exc
 
@@ -96,7 +148,7 @@ async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
         # only a knowledge answer is «not covered» (by the passages it quotes): any other intent's answer is the
         # service it points to, and a model that said otherwise would put «not in the library» over a right answer
         covered = intent != "knowledge" or (answer.output.covered and bool(sources))
-        text = scrub(answer.output.answer) if covered else NOT_COVERED[req.lang]
+        text = scrub(answer.output.answer) if covered else _not_covered(req.lang, req.message)
     return Result(
         {"answer": text, "covered": covered, "sources": sources if covered else [], "intent": intent},
         tokens_in=answer.tokens_in,

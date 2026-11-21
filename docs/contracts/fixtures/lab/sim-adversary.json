@@ -12,7 +12,7 @@
     "avoid": 1.0,
     "covered": 0.56,
     "intent": 0.0,
-    "lang": 0.0,
+    "lang": 0.5,
     "mention": 0.0,
     "numbers": 1.0
    },
@@ -21,21 +21,16 @@
   },
   "clean_listing": {
    "cases": 44,
-   "failed": 0,
+   "failed": 44,
    "latency_ms": {
     "p50": 0,
     "p95": 0
    },
-   "metrics": {
-    "features": 0.0,
-    "invented": 0.0,
-    "keep": 0.0,
-    "numbers": 0.0
-   },
+   "metrics": {},
    "score": 0.0,
    "variants": {
     "digits": {
-     "failed": 0,
+     "failed": 44,
      "score": 0.0
     }
    }

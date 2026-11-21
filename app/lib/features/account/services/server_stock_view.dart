@@ -25,6 +25,7 @@ import 'package:zon/data/server/server_desk.dart';
 import 'package:zon/data/server/server_my_listings.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/inventory_view.dart' show StockPhoto;
+import 'package:zon/features/add/add_helpers.dart' show descCount, descTooLong, kListingDescMax;
 import 'package:zon/features/account/services/widgets/desk.dart';
 import 'package:zon/features/account/services/widgets/service_form.dart';
 
@@ -493,7 +494,9 @@ class _PublishCardState extends State<_PublishCard> {
 
   StockItem get item => widget.item;
   bool get _needsPrice => item.price == null;
-  bool get _needsDesc => (item.description ?? '').trim().length < 10;
+  // a stock note longer than a listing's text (300) is asked again, prefilled, to be shortened by him
+  bool get _needsDesc => !_descFits(item.description ?? '');
+  static bool _descFits(String t) => t.trim().length >= 10 && descTooLong(t) == null;
   String get _number => toAsciiDigits(_licence.text).trim();
 
   @override
@@ -564,7 +567,7 @@ class _PublishCardState extends State<_PublishCard> {
   @override
   Widget build(BuildContext context) {
     final checked = _checkedUntil != null && _checkedFor == _number;
-    final ready = checked && (!_needsPrice || _price.text.trim().isNotEmpty) && (!_needsDesc || _desc.text.trim().length >= 10) && !_busy;
+    final ready = checked && (!_needsPrice || _price.text.trim().isNotEmpty) && (!_needsDesc || _descFits(_desc.text)) && !_busy;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(22), boxShadow: AppShadows.card),
@@ -608,7 +611,7 @@ class _PublishCardState extends State<_PublishCard> {
           if (_needsDesc) ...<Widget>[
             const SizedBox(height: 12),
             SvcField(
-              label: 'الوصف (10 أحرف فأكثر)',
+              label: 'الوصف (10 إلى $kListingDescMax حرف)',
               child: FieldBox(
                 controller: _desc,
                 style: ts(15, lh: 21.5, c: AppColors.deep),
@@ -617,6 +620,16 @@ class _PublishCardState extends State<_PublishCard> {
                 decoration: kSelDeco,
                 multiline: true,
               ),
+            ),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _desc,
+              builder: (context, v, _) {
+                final over = descTooLong(v.text) != null;
+                return Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: Tx(descCount(v.text), style: ts(12, w: over ? 700 : 500, lh: 18, c: over ? AppColors.danger : AppColors.muted)),
+                );
+              },
             ),
           ],
           if (_error case final String e) ...<Widget>[const SizedBox(height: 10), FormError(e)],

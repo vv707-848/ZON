@@ -17,6 +17,7 @@ enforces both). The model writes null for a parameter it does not set; one the c
 dropped.
 """
 
+import re
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, create_model
@@ -129,24 +130,30 @@ async def report_explore(ctx: Ctx, data: dict[str, Any]) -> Result:
     )
 
 
+# a sentence ends at «.» «!» «؟» «?» or a line break; «1.2 مليون» has no space after its point
+_SENTENCE = re.compile(r"(?<=[.!؟?])\s+|\n+")
+
+
 async def report_write(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(ReportWriteInput, data)
     declared = {entry.action: entry.params for entry in req.proposals}
     answer = await _answer(ctx, "report_write", req, _written_model(declared), "report")
     written = answer.output.model_dump()
-    # each recommendation stands alone: one with a number the rows do not hold is dropped, so it cannot take the
-    # whole analysis with it at Laravel's NumberGuard (#119: 0.82 on the A40). The analysis is judged whole there
     rows = [row for part in req.parts for row in part.rows]
     params = {f"{i}.{k}": v for i, part in enumerate(req.parts) for k, v in part.params.items()}
     params |= {f"{i}.row_count": part.row_count for i, part in enumerate(req.parts)}
+    # each sentence and each recommendation stands alone: one with a number the rows do not hold — a sum or a
+    # difference the model worked out (A40, 21 Nov: «إجمالي الطلبات 110»، «بزيادة 47000») — is dropped, so it cannot
+    # take the whole analysis with it at Laravel's NumberGuard. Laravel still judges what is left whole, as strictly
+    kept = [s for s in _SENTENCE.split(scrub(written["analysis"])) if s.strip() and number_guard(s, rows, params)]
     recommendations = []
     for item in written["recommendations"]:
         text = scrub(item["text"])
         if text and number_guard(text, rows, params):
             action = item["action"]
-            params = _declared(item["params"], declared[action]) if action else {}
-            recommendations.append({"text": text, "action": action, "params": params})
-    output = {"analysis": scrub(written["analysis"]), "recommendations": recommendations}
+            chosen = _declared(item["params"], declared[action]) if action else {}
+            recommendations.append({"text": text, "action": action, "params": chosen})
+    output = {"analysis": " ".join(s.strip() for s in kept), "recommendations": recommendations}
     return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
 
 

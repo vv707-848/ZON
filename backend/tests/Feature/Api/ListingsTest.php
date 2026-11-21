@@ -115,6 +115,17 @@ class ListingsTest extends TestCase
         $this->postJson('/api/v1/listings', $this->form(['neighborhood' => 'الشاطئ']))->assertStatus(422)->assertJsonPath('error.details.fields.neighborhood.0', 'الحي غير موجود في المدينة المختارة.');
     }
 
+    public function test_the_free_text_is_three_hundred_letters_at_most(): void
+    {
+        $this->agentAnswers(['desc_clean' => 'شقة واسعة.', 'features' => []]);
+        $this->signIn(Customer::factory()->broker()->create());
+
+        // letters, not bytes: 300 Arabic letters are 600 bytes
+        $this->postJson('/api/v1/listings', $this->form(['description' => str_repeat('ب', 301)]))
+            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['fields' => ['description']]]]);
+        $this->postJson('/api/v1/listings', $this->form(['description' => str_repeat('ب', 300)]))->assertCreated();
+    }
+
     public function test_the_feed_shows_public_listings_only_and_respects_blocks(): void
     {
         $visible = Listing::factory()->published()->create(['price' => 900000]);

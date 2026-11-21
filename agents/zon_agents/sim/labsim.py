@@ -5,7 +5,7 @@ every known result checked — before a GPU is paid for.
 |---|---|---|
 | `oracle` | the right answer | every case and every variant scores its ceiling (below), no limit is touched |
 | `adversary` | what each limit exists to catch | each limit trips on every case that can trip it |
-| `positional` | the candidates as they came | the top three do not survive the opposite order |
+| `positional` | the candidates as they came | asked in both orders (ranking.py), its top three survive the reversal |
 | `broken` | never an answer of the schema | every call the model takes fails, and is recorded as failed |
 | `rules` | the rule model (rules.py) | it always answers, and twice the same |
 
@@ -146,7 +146,11 @@ def _as_listed(
     asked = min(limit, writes)
     by_id = {candidate["id"]: kind(**candidate) for candidate in read}
     gap = ranking.budget_gap(need, [(c, 0.0) for c in by_id.values()])
-    written = ranking.canonical(build(grades, read, asked), gap)
+    # asked in both orders, each candidate at its mean score (ranking.both_orders · mean_of)
+    keepers = [c for c in read if not breaks(c)]
+    other = [*keepers[::-1], *[c for c in read if breaks(c)][::-1]]  # ranking.flipped
+    each = [build(grades, read, asked), build(grades, other, asked)]
+    written = ranking.canonical(ranking.mean_of(each), gap)[: max(len(w) for w in each)]
     if name == "broaden":  # what breaks the wish's rooms or budget is not «what the budget buys» at all, and once
         # the model's own of those are dropped the list goes on with what keeps them (ranking.matching)
         serving = [c for c in read if not ranking.breaks(need, by_id[c["id"]])]
@@ -229,6 +233,9 @@ def _oracle(outcome: Outcome, case: Case) -> list[str]:
 
 
 def _adversary(outcome: Outcome, case: Case) -> list[str]:
+    if case.agent == "clean_listing":  # its invented price is refused by the pipeline itself (grounded_amounts)
+        refused = outcome.error is not None and "amount" in outcome.error
+        return [] if refused else [_wrong(outcome, "an amount the text does not state must be refused (amount)")]
     if outcome.error is not None:
         return [_wrong(outcome, outcome.error)]
     metrics, problems = outcome.metrics, []
@@ -251,10 +258,6 @@ def _adversary(outcome: Outcome, case: Case) -> list[str]:
             must(f"zero_top3{suffix}", float(any(grades.grades.get(i, 0) == 0 for i in first)))
         if "unit" in metrics:  # 0 for what it wrote; the rest of the list has each searcher's nearest model
             must("unit", round(_worst_units(case), 4))
-    elif case.agent == "clean_listing":
-        must("numbers", 0.0)
-        if "invented" in metrics:
-            must("invented", 0.0)
     elif case.agent == "summarize":
         must("numbers", 0.0)
         must("confidence", 0.0)
@@ -286,10 +289,15 @@ def _answered(outcome: Outcome, case: Case) -> list[str]:
 
 
 def _swapped_top(case: Case) -> float:
-    """How much of the top three a positional answer keeps when the candidates come in the opposite order."""
+    """How much of the top three a positional answer keeps when the candidates come in the opposite order: asked in
+    both orders (ranking.both_orders), the two answers are the same two whichever order came, so all of it."""
     name = "matched" if case.agent == "matching" else "candidates"
-    given = [{"id": c["id"], "score": 0.0} for c in case.input[name]][: int(case.input.get("limit", 10))]
-    first, last = set(_first_three(case, name, given)), set(_first_three(case, name, given[::-1]))
+
+    def listed(of: Case) -> list[int]:
+        given = _as_listed(of, name, Grades(grades={}), lambda _, read, asked: oracle.as_given(read, asked))
+        return [r["id"] for r in given]
+
+    first, last = set(listed(case)[:TOP]), set(listed(dict(variants(case))["reversed"])[:TOP])
     return len(first & last) / max(len(first), len(last), 1)
 
 
@@ -304,10 +312,8 @@ def _positional(outcomes: Sequence[Outcome], cases: Sequence[Case]) -> list[str]
         measured = summary["agents"][agent]["variants"]["reversed"]["stability"]
         base = [by_id[o.case] for o in outcomes if o.agent == agent and o.variant == "reversed"]
         known = round(sum(_swapped_top(case) for case in base) / len(base), 4)
-        if measured != known or known >= 0.8:
-            problems.append(
-                f"{agent}: stability of a positional answer is {measured}, known {known} (the limit is 0.8)"
-            )
+        if measured != known:
+            problems.append(f"{agent}: stability of a positional answer is {measured}, known {known}")
     return problems
 
 

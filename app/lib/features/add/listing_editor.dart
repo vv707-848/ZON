@@ -161,6 +161,8 @@ class _ListingEditorState extends State<ListingEditor> {
     if (p == null) return 'أدخل السعر بالأرقام';
     if (p < 0) return 'السعر لا يكون سالبًا';
     if (_desc.text.trim().isEmpty) return 'اكتب وصف العرض';
+    final long = descTooLong(_desc.text);
+    if (long != null) return long;
     if (photos.isEmpty) return 'أضف صورة واحدة على الأقل';
     return null;
   }
@@ -418,6 +420,16 @@ class _ListingEditorState extends State<ListingEditor> {
           decoration: kSelDeco,
           multiline: true,
         ),
+      ),
+      ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _desc,
+        builder: (context, v, _) {
+          final over = descTooLong(v.text) != null;
+          return Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: Tx(descCount(v.text), style: ts(12, w: over ? 700 : 500, lh: 18, c: over ? AppColors.danger : AppColors.muted)),
+          );
+        },
       ),
       if (error.isNotEmpty) FormError(error),
       AppButton(label: _sending ? 'جارٍ الحفظ…' : 'حفظ وتحديث العرض', onTap: _sending ? null : _save),
