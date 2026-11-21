@@ -163,9 +163,7 @@ class ProjField extends StatelessWidget {
               PositionedDirectional(
                 end: 14,
                 bottom: 8,
-                child: IgnorePointer(
-                  child: Tx(count!, style: countStyle, softWrap: false),
-                ),
+                child: IgnorePointer(child: Tx(count!, style: countStyle, softWrap: false)),
               ),
             ],
           );

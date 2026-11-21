@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:zon/core/theme/theme.dart';
-import 'package:zon/core/widgets/widgets.dart';
 import 'package:zon/features/add/add_helpers.dart';
 
 /// The letters of [controller]'s text against the limit, in the danger colour when over it.
@@ -36,6 +35,9 @@ class _DescCounterState extends State<DescCounter> {
     final text = widget.controller.text;
     final over = descTooLong(text) != null;
     final style = over ? ts(12, w: 700, lh: 18, c: AppColors.danger) : ts(12, w: 500, lh: 18, c: AppColors.muted);
-    return Align(alignment: AlignmentDirectional.centerEnd, child: Tx(descCount(text), style: style));
+    return Align(
+      alignment: AlignmentDirectional.centerEnd,
+      child: Tx(descCount(text), style: style),
+    );
   }
 }
