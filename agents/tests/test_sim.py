@@ -271,7 +271,8 @@ def test_the_service_ranks_through_the_node_and_says_it_is_a_simulation(stack: t
     for n, desc in ((1, "شقة بمدخل خاص"), (2, "شقة بمدخل خاص"), (3, "شقة واسعة")):
         assert index(agents, "listing", n, listing(desc=desc)) == "indexed"  # embedded by the node, into Qdrant
     answer = call(agents, "search_listings", SEARCH)
-    assert [(r["id"], r["score"]) for r in answer["output"]["results"]] == [(1, 0.95), (3, 0.45), (2, 0.05)]
+    # 2 (2M) breaks the budget: not a result at all (owner's rule, 21 Nov), not last
+    assert [(r["id"], r["score"]) for r in answer["output"]["results"]] == [(1, 0.95), (3, 0.45)]
     assert answer["simulated"] is True and answer["degraded"] is False and answer["usage"]["tokens_in"] > 0
     health = agents.get("/agents/health").json()
     assert (health["model"], health["simulated"], health["llm"], health["embed"]) == ("sim-rules", True, True, True)
@@ -292,7 +293,7 @@ def test_a_failing_node_gives_what_a_failing_model_gives(stack: tuple[TestClient
     ):
         assert sim.post("/sim/mode", json=mode).status_code == 200
         ranked = call(agents, "search_listings", SEARCH)  # a ranking agent degrades: the order it was given,
-        assert ranked["degraded"] is True and [r["id"] for r in ranked["output"]["results"]] == [3, 1, 2]  # 2M last
+        assert ranked["degraded"] is True and [r["id"] for r in ranked["output"]["results"]] == [1, 3]  # 2M out
         refused = agents.post("/agents/clean_listing", json=clean)  # a writing agent has nothing to fall back on
         assert (refused.status_code, refused.json()["detail"]) == (503, f"llm ({reason}) unavailable")
     sim.post("/sim/reset")

@@ -68,14 +68,15 @@ final class SemanticSearch
             customer: $customer, known: [$customer->name]);
 
         $ranked = $result->output['results'] ?? null;
-        // with no ranking, what keeps the stated rooms and budget comes first before the cut (agents: ranking.breaks;
-        // a request is read the other way round: its own budget and rooms against the broker's offer)
+        // with no ranking: only what keeps the stated rooms and budget (agents: ranking.fits; a request is read the
+        // other way round: its own budget and rooms against the broker's offer), in a fixed order (Need::fallback)
         $keeps = fn ($m): bool => $m instanceof SearchRequest
             ? (new Need($need->city, [], [], budgetMax: $m->budget_max === null ? null : (string) $m->budget_max, bedrooms: $m->rooms_min))
                 ->keptBy($need->bedrooms ?? $m->rooms_min, $need->budgetMax === null ? null : (float) $need->budgetMax)
             : $need->keptBy($m->bedrooms, $m->price === null ? null : (float) $m->price);
         $rows = $ranked === null
-            ? $candidates->sortBy(fn ($m) => $keeps($m) ? 0 : 1)->take((int) config('zon.ai.results'))->map(fn ($m) => ['model' => $m, 'score' => null])->values()->all()
+            ? $need->fallback($candidates, $keeps, fn ($m) => $m instanceof SearchRequest ? ($m->budget_max === null ? null : (float) $m->budget_max) : ($m->price === null ? null : (float) $m->price), $need->budgetMax === null ? null : (float) $need->budgetMax)
+                ->take((int) config('zon.ai.results'))->map(fn ($m) => ['model' => $m, 'score' => null])->values()->all()
             : array_map(fn (array $r) => ['model' => $byId[$r['id']], 'score' => $r['score']], $ranked);
 
         return ['results' => $rows, 'ai' => $result->meta()];

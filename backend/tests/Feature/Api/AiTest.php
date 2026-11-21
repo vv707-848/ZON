@@ -408,10 +408,24 @@ class AiTest extends TestCase
         $found = $this->postJson('/api/v1/ai/search', ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 1000000, 'bedrooms' => 4])
             ->assertOk()->json('data.results');
 
-        $this->assertSame($four->id, $found[0]['listing']['id'], 'review of 21 Nov: it was the eleventh, and cut');
-        $this->assertCount(10, $found);
+        $this->assertSame([$four->id], array_column(array_column($found, 'listing'), 'id'), 'one keeps the wish: one result (owner, 21 Nov), never ten that break it');
         $this->assertNotContains($short->id, array_column(array_column($found, 'listing'), 'id'));
         $this->assertNotEmpty($two);
+    }
+
+    public function test_with_the_agents_down_the_order_is_the_candidates_own_not_the_database_s(): void
+    {
+        // owner, 21 Nov: the fallback's order is fixed — nearest the top of the budget, then the lower id
+        $far = Listing::factory()->published()->create(['price' => 700000, 'bedrooms' => 3]);
+        $near = Listing::factory()->published()->create(['price' => 990000, 'bedrooms' => 3]);
+        $same = Listing::factory()->published()->create(['price' => 1010000, 'bedrooms' => 3]);
+        $this->agent([], 503);
+        $this->seeker();
+
+        $found = $this->postJson('/api/v1/ai/search', ['purpose' => 'sale', 'city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_type' => 'apartment', 'budget_max' => 1000000, 'bedrooms' => 3])
+            ->assertOk()->json('data.results');
+
+        $this->assertSame([$near->id, $same->id, $far->id], array_column(array_column($found, 'listing'), 'id'));
     }
 
     public function test_each_run_shows_the_developer_seekers_he_has_not_seen_and_never_one_who_rents(): void

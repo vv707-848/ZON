@@ -3,6 +3,7 @@
 namespace App\Ai\Retrieval;
 
 use App\Models\BuyerPreference;
+use Illuminate\Support\Collection;
 
 /**
  * What someone looks for (§10 «الاسترجاع»). City, neighbourhood(s) and type(s) are hard filters in SQL; the
@@ -84,6 +85,23 @@ final readonly class Need
         }
 
         return $this->budgetMax === null || $price === null || $price <= (float) $this->budgetMax * 1.10;
+    }
+
+    /**
+     * The fallback with no ranking (the agents down or out of time), as the agents' own (ranking._shortlist): only
+     * what keeps the wish (owner's rule, 21 Nov: two that keep it are two results), nearest the top of the budget
+     * first, then the lower id — never the order the database happened to return.
+     *
+     * @param  Collection<array-key, mixed>  $models
+     * @param  callable(mixed): bool  $keeps
+     * @param  callable(mixed): ?float  $price  what is compared with the top of the budget
+     * @return Collection<int, mixed>
+     */
+    public function fallback(Collection $models, callable $keeps, callable $price, ?float $top): Collection
+    {
+        $gap = fn ($m): float => ($p = $price($m)) !== null && $top !== null ? abs($p - $top) : INF;
+
+        return $models->filter($keeps)->sort(fn ($a, $b) => [$gap($a), data_get($a, 'id')] <=> [$gap($b), data_get($b, 'id')])->values();
     }
 
     public function target(): ?string

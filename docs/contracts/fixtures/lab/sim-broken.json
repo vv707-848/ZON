@@ -40,6 +40,13 @@
    "variants": {
     "reversed": {
      "failed": 8,
+     "metrics": {},
+     "score": 0.0,
+     "stability": 0.0
+    },
+    "shuffled": {
+     "failed": 8,
+     "metrics": {},
      "score": 0.0,
      "stability": 0.0
     }
@@ -58,8 +65,17 @@
    "variants": {
     "reversed": {
      "failed": 12,
+     "metrics": {},
      "score": 0.0,
-     "stability": 0.0
+     "stability": 0.0,
+     "stability_broaden": 0.0
+    },
+    "shuffled": {
+     "failed": 12,
+     "metrics": {},
+     "score": 0.0,
+     "stability": 0.0,
+     "stability_broaden": 0.0
     }
    }
   },
@@ -109,6 +125,13 @@
    "variants": {
     "reversed": {
      "failed": 38,
+     "metrics": {},
+     "score": 0.0,
+     "stability": 0.0
+    },
+    "shuffled": {
+     "failed": 38,
+     "metrics": {},
      "score": 0.0,
      "stability": 0.0
     }
@@ -127,6 +150,13 @@
    "variants": {
     "reversed": {
      "failed": 14,
+     "metrics": {},
+     "score": 0.0,
+     "stability": 0.0
+    },
+    "shuffled": {
+     "failed": 14,
+     "metrics": {},
      "score": 0.0,
      "stability": 0.0
     }

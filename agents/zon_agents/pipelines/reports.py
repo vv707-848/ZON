@@ -23,7 +23,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, Field, create_model
 
 from zon_agents.llm import LlmResult, ModelFailed, model_unavailable
-from zon_agents.numbers import number_guard
+from zon_agents.numbers import derived, derived_rows, number_guard
 from zon_agents.pipelines.base import Ctx, Result, parse, scrub
 from zon_agents.profiles import Use
 from zon_agents.schemas.agents import (
@@ -100,7 +100,9 @@ def _declared(params: dict[str, Any], declared: dict[str, Any]) -> dict[str, Any
     return {name: value for name, value in params.items() if name in declared and value is not None}
 
 
-async def _answer(ctx: Ctx, agent: str, req: BaseModel, output: type[BaseModel], use: Use) -> LlmResult[BaseModel]:
+async def _answer(
+    ctx: Ctx, agent: str, req: BaseModel | dict[str, Any], output: type[BaseModel], use: Use
+) -> LlmResult[BaseModel]:
     try:
         return await ctx.llm.run(agent, req, output, use)
     except ModelFailed as exc:
@@ -137,9 +139,13 @@ _SENTENCE = re.compile(r"(?<=[.!؟?])\s+|\n+")
 async def report_write(ctx: Ctx, data: dict[str, Any]) -> Result:
     req = parse(ReportWriteInput, data)
     declared = {entry.action: entry.params for entry in req.proposals}
-    answer = await _answer(ctx, "report_write", req, _written_model(declared), "report")
+    # the totals and the differences between rows, worked out here: what the analysis may say beyond the rows
+    payload = req.model_dump(exclude_none=True)
+    for part, given in zip(payload["parts"], req.parts, strict=True):
+        part["computed"] = derived(given.rows)
+    answer = await _answer(ctx, "report_write", payload, _written_model(declared), "report")
     written = answer.output.model_dump()
-    rows = [row for part in req.parts for row in part.rows]
+    rows = [row for part in req.parts for row in [*part.rows, *derived_rows(part.rows)]]
     params = {f"{i}.{k}": v for i, part in enumerate(req.parts) for k, v in part.params.items()}
     params |= {f"{i}.row_count": part.row_count for i, part in enumerate(req.parts)}
     # each sentence and each recommendation stands alone: one with a number the rows do not hold — a sum or a

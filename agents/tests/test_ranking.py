@@ -93,8 +93,16 @@ def test_without_the_model_the_hybrid_order_answers_without_reasons(client: Test
 
 def test_a_broken_answer_is_tried_once_more_at_a_low_temperature(client: TestClient, model: ScriptedModel) -> None:
     _indexed(client)
-    broken, right = {"results": "not a list"}, {"results": [{"id": 2, "score": 0.5}]}
-    model.answers["search_listings"] = [broken, broken, right, right]  # both orders, each tried once more
+    seen: set[str] = set()
+
+    def broken_first(payload: dict[str, Any]) -> dict[str, Any]:  # each order's first attempt breaks the schema
+        order = str([c["id"] for c in payload["candidates"]])
+        if order in seen:
+            return {"results": [{"id": 2, "score": 0.5}]}
+        seen.add(order)
+        return {"results": "not a list"}
+
+    model.answers["search_listings"] = broken_first  # both orders, each tried once more
 
     body = call(client, "search_listings", {"need": NEED, "candidates": _candidates(1, 2)})
 
@@ -204,9 +212,12 @@ def test_brokers_search_requests_in_their_own_collection(client: TestClient, mod
     assert output["results"][0]["id"] == 77
 
 
-def test_what_breaks_a_stated_condition_comes_after_what_does_not_whatever_the_model_said(
+def test_what_breaks_a_stated_condition_is_no_result_whatever_the_model_said(
     client: TestClient, model: ScriptedModel
 ) -> None:
+    """Owner's rule (21 Nov): the budget (a tenth over its top at most) and the rooms are conditions of a result,
+    not of its place: what breaks them is never shown — with the model, without it, when it times out. Two that keep
+    them are two results; the list is never filled with what breaks them."""
     need = {**NEED, "budget_max": 900_000, "bedrooms": 3, "free_text": "مدخل خاص"}
     flat = {"type": "apartment", "neighborhood": "النرجس", "desc": "شقة بمدخل خاص"}
     candidates = [
@@ -223,8 +234,7 @@ def test_what_breaks_a_stated_condition_comes_after_what_does_not_whatever_the_m
     found = call(client, "search_listings", {"need": need, "candidates": candidates})["output"]["results"]
     matched = call(client, "matching", {"need": need, "matched": candidates})["output"]["matched"]
 
-    assert [r["id"] for r in found] == [3, 5, 1, 2, 4], "none removed; each group in the model's order"
-    assert [r["score"] for r in found] == [0.7, 0.5, 0.5, 0.5, 0.5], "moved down: not a score above the ones before"
+    assert [r["id"] for r in found] == [3, 5], "two keep the wish: two results"
     assert matched == found
 
     open_need = {**NEED, "budget_max": None, "free_text": "مدخل خاص"}  # no number stated: nothing to break
@@ -232,12 +242,12 @@ def test_what_breaks_a_stated_condition_comes_after_what_does_not_whatever_the_m
     assert [r["id"] for r in kept] == [1, 2, 3, 4, 5]
     model.answers["search_listings"] = httpx.ConnectError("tunnel down")
     plain = call(client, "search_listings", {"need": need, "candidates": candidates})
-    assert plain["degraded"] is True and [r["id"] for r in plain["output"]["results"]][:2] == [3, 5], (
+    assert plain["degraded"] is True and sorted(r["id"] for r in plain["output"]["results"]) == [3, 5], (
         "with no model too"
     )
 
 
-def test_a_request_whose_own_budget_or_rooms_the_offer_breaks_comes_last(
+def test_a_request_whose_own_budget_or_rooms_the_offer_breaks_is_not_shown(
     client: TestClient, model: ScriptedModel
 ) -> None:
     offer = {**NEED, "budget_max": 600_000, "bedrooms": 4, "free_text": "شقة بمطبخ راكب وواجهة شمالية"}
@@ -252,7 +262,7 @@ def test_a_request_whose_own_budget_or_rooms_the_offer_breaks_comes_last(
 
     found = call(client, "search_requests", {"need": offer, "candidates": requests})["output"]["results"]
 
-    assert [r["id"] for r in found] == [3, 4, 2, 1], "equal scores: the closest budget first, then what breaks last"
+    assert [r["id"] for r in found] == [3, 4], "equal scores: the closest budget first; what breaks it is not shown"
 
 
 def test_the_model_reads_at_most_15_search_and_8_matching_candidates_each_cut_at_400(
@@ -279,7 +289,8 @@ def test_the_model_reads_at_most_15_search_and_8_matching_candidates_each_cut_at
     assert [len(matching["matched"]), len(matching["broaden"])] == [8, 8]
     shown = [*search["candidates"], *brokers["candidates"], *matching["matched"], *matching["broaden"]]
     assert {len(c["desc"]) for c in shown} == {400} and all(long.startswith(c["desc"]) for c in shown)
-    assert search["candidates"][0]["area"] == 180 and search["candidates"][0]["price"] == 800001, "fields stay"
+    nearest = next(c for c in search["candidates"] if c["id"] == 40)  # the 15 nearest the top of the budget
+    assert nearest["area"] == 180 and nearest["price"] == 800040, "fields stay"
 
 
 def test_clean_listing_reads_the_whole_text(client: TestClient, model: ScriptedModel) -> None:
@@ -309,11 +320,14 @@ def test_the_model_writes_its_best_five_and_the_list_goes_on_in_the_retrieval_or
 
     (_, sent, _), _ = model.calls_of("search_listings")
     assert sent["limit"] == 5 and len(sent["candidates"]) == 12, "asked for five, reading every candidate"
-    assert [r["id"] for r in found] == [9, 12, 3, 7, 1, 2, 4, 5, 6, 8], "then the retrieval's order, to ten"
+    # no free text: the shortlist's order is the price's distance from the top of the budget, then the id
+    assert [r["id"] for r in found] == [9, 12, 3, 7, 1, 11, 10, 8, 6, 5], "then the shortlist's order, to ten"
     tail = [r["score"] for r in found[4:]]
     assert tail == sorted(tail, reverse=True) and max(tail[1:]) <= 0.6, "none above the result before it"
     assert model.calls_of("matching")[0][1]["limit"] == 5
-    assert [r["id"] for r in pairs["matched"]] == [8, 6, 3, 7, 1, 2, 4, 5], "eight read: then the rest of them"
+    # the eight read are the eight nearest the top of the budget (12 … 5): 3 and 1 are not among them, so three of
+    # the five it wrote are candidates — fewer than asked: what it found, nothing added
+    assert [r["id"] for r in pairs["matched"]] == [8, 6, 7]
     assert [r["id"] for r in pairs["broaden"]] == [101], "fewer than asked: nothing added"
 
 
@@ -379,7 +393,7 @@ def test_broaden_shows_no_offer_that_breaks_the_wish_s_rooms_or_budget(
 ) -> None:
     """«توسيع الإدراك» is what the budget buys that serves the wish. The A40 put an offer a room short in its first
     three in 2 of 12 cases, lists of three (zero_top3_broaden 16.7%): it is no option at all, so it is not shown.
-    «مطابق» keeps it, last — nothing of the seeker's own type and neighbourhood is hidden."""
+    Nor in «مطابق» (owner's rule, 21 Nov): there, the tenth over the budget still forgives."""
     need = {**NEED, "budget_max": 770_000, "bedrooms": 4}
     floor = {"type": "floor", "neighborhood": "اليرموك", "desc": "دور مستقل"}
     broaden = [
@@ -395,7 +409,7 @@ def test_broaden_shows_no_offer_that_breaks_the_wish_s_rooms_or_budget(
 
     output = call(client, "matching", {"need": need, "matched": matched, "broaden": broaden})["output"]
     assert [r["id"] for r in output["broaden"]] == [32]
-    assert [r["id"] for r in output["matched"]] == [1]
+    assert output["matched"] == [], "a room short of the wish: no result"
 
     model.answers["matching"] = httpx.ConnectError("down")
     degraded = call(client, "matching", {"need": need, "matched": matched, "broaden": broaden})["output"]
@@ -434,8 +448,8 @@ def test_the_one_offer_that_fits_is_never_cut_for_ten_that_break_the_wish(
         },
     )
 
-    assert found[0]["id"] == 99 and len(found) == 10
-    assert pairs["output"]["matched"][0]["id"] == 99, "read among matching's eight"
+    assert [r["id"] for r in found] == [99], "one keeps the wish: one result, never ten that break it"
+    assert [r["id"] for r in pairs["output"]["matched"]] == [99]
     assert [r["id"] for r in pairs["output"]["broaden"]] == [98]
 
 
@@ -458,9 +472,17 @@ def test_a_model_that_ranks_positions_gives_the_same_list_whichever_order_came(
     back = call(client, "search_listings", {"need": NEED, "candidates": [*given[-2::-1], over]})["output"]["results"]
 
     assert [r["id"] for r in ahead[:3]] == [r["id"] for r in back[:3]]
-    (_, first, _), (_, other, _) = model.calls_of("search_listings")[:2]
-    assert [c["id"] for c in other["candidates"]] == [7, 6, 5, 4, 3, 2, 1, 9], "reversed, what breaks it still last"
-    assert [c["id"] for c in first["candidates"]] == [1, 2, 3, 4, 5, 6, 7, 9]
+    # the two calls of the first search, as they reached the model (in either order: they are asked at once)
+    first, other = sorted((c[1] for c in model.calls_of("search_listings")[:2]), key=lambda p: p["candidates"][0]["id"])
+    # the order the model reads is the candidates' own (no free text: nearest the top of the budget first), whatever
+    # order they came in; 9 (over the budget) is not read at all
+    assert [c["id"] for c in other["candidates"]] == [7, 6, 5, 4, 3, 2, 1]
+    assert [c["id"] for c in first["candidates"]] == [1, 2, 3, 4, 5, 6, 7], "and the other order of the two"
+    third, fourth = (c[1]["candidates"] for c in model.calls_of("search_listings")[2:4])
+    assert {str([c["id"] for c in third]), str([c["id"] for c in fourth])} == {
+        str(list(range(7, 0, -1))),
+        str(list(range(1, 8))),
+    }
 
 
 def test_one_order_failing_leaves_the_other_to_answer_alone(client: TestClient, model: ScriptedModel) -> None:
@@ -469,3 +491,26 @@ def test_one_order_failing_leaves_the_other_to_answer_alone(client: TestClient, 
     body = call(client, "search_listings", {"need": NEED, "candidates": _candidates(1, 2)})
 
     assert body["degraded"] is False and [r["id"] for r in body["output"]["results"]] == [2]
+
+
+def test_the_compact_mode_asks_once_with_short_descriptions_and_the_whole_need(
+    client: TestClient, model: ScriptedModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ZON_RANK_MODE=compact (A40, 21 Nov: both orders doubled the calls, search p95 10.2 s): one call per search
+    and per matching, each description cut at 160 — and the searcher's conditions sent whole, free text included."""
+    from zon_agents.pipelines import ranking
+
+    monkeypatch.setattr(ranking, "RANK_MODE", "compact")
+    long = "شقة واسعة قريبة من الخدمات " * 30
+    need = {**NEED, "bedrooms": 3, "purpose": "sale", "free_text": "أبي " + "مدخل خاص وحوش " * 40}
+    many = [{**c, "desc": long, "bedrooms": 3} for c in _candidates(*range(1, 9))]
+    model.answers["search_listings"] = {"results": [{"id": 2, "score": 0.9}]}
+    model.answers["matching"] = {"matched": [{"id": 2, "score": 0.9}], "broaden": []}
+
+    call(client, "search_listings", {"need": need, "candidates": many})
+    call(client, "matching", {"need": need, "matched": many, "broaden": []})
+
+    ((_, search, _),) = model.calls_of("search_listings")
+    ((_, matching, _),) = model.calls_of("matching")
+    assert {len(c["desc"]) for c in [*search["candidates"], *matching["matched"]]} == {160}
+    assert search["need"] == need and matching["need"] == need, "the conditions whole"

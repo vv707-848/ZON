@@ -4,6 +4,7 @@ data it was written from. The lab scores reports with it, and report_write keeps
 import re
 from collections.abc import Sequence
 from decimal import ROUND_HALF_UP, Decimal
+from itertools import pairwise
 from typing import Any
 
 _MARKS = re.compile(r"[ً-ْٰـ]")  # short vowels, shadda, sukun, dagger alef, tatweel
@@ -164,59 +165,110 @@ def _bare_word(word: str) -> str:
     return re.sub(r"^(?:و|ب|وب)(?=\w{2})", "", word)
 
 
+_TENS = {"عشرين": 20, "ثلاثين": 30, "اربعين": 40, "خمسين": 50, "ستين": 60, "سبعين": 70, "ثمانين": 80, "تسعين": 90}
+_HUNDREDS = {
+    "ميه": 100, "مئه": 100, "مائه": 100, "ميتين": 200, "مئتين": 200, "مائتين": 200, "ميتان": 200,
+    **{f"{unit}{hundred}": n * 100 for unit, n in (("ثلاث", 3), ("ثلث", 3), ("اربع", 4), ("خمس", 5), ("ست", 6),
+                                                      ("سبع", 7), ("ثمان", 8), ("تسع", 9))
+       for hundred in ("ميه", "مئه", "مائه")},
+}  # fmt: skip
+_HUNDRED = {"ميه", "مئه", "مائه"}
+
+
+def _small_number(word: str) -> float | None:
+    for table in (_WORD_NUMBERS, _TENS, _HUNDREDS):
+        if word in table:
+            return float(table[word])
+    return None
+
+
+def _dual_noun(word: str) -> bool:
+    """«حمامين»، «غرفتين»، «شارعين»: two of something (read on the advertiser's side only: it only allows)."""
+    return len(word) >= 5 and word.endswith(("ين", "تين")) and _small_number(word) is None and word not in _DUAL
+
+
+def _tens_after(small: set[float], values: set[float], joined: bool) -> bool:
+    """«ست ميه وخمسين»: hundreds then tens or units joined by «و» are one number."""
+    return joined and all(s % 100 == 0 and s >= 100 for s in small) and all(v < 100 for v in values)
+
+
 def stated(text: str, *, figures: bool = True) -> set[float]:
-    """Every value [text] states: each figure as written, at the scale a word after it gives («175 الف»), a dual or a
-    scale word alone («مليونين»، «مليون»), a fraction of the scale before it («مليون ونص»), small numbers in words
-    («خمس غرف»), and the sum of a larger part and a smaller one joined by «و» («2 مليون و200 الف»، «مليون و800»)."""
+    """Every value [text] states, read the way the market writes amounts: figures and words together
+    («2 مليون و200 الف»، «39 الف و412»، «مليون ونص»، «ميتين الف»، «بمليون وست ميه وخمسين»), a bare figure after
+    a million in thousands («مليون و800»), and Saudi «مليون 200» with no «و» (1,200,000).
+
+    [figures] (the advertiser's side): each figure alone too, the «مليون 200» reading beside the two figures, and
+    two for a dual noun («حمامين») — what his text may be cited as. Without it (a cleaned description's side), each
+    amount once, as it reads in full: what it must have said."""
     tokens = _TOKEN.findall(norm(text))
     out: set[float] = set()
-    parts: list[tuple[float, float]] = []  # (value, its scale) of the amount being read, largest first
-    i, join = 0, False
-    while i < len(tokens):
-        tok, word = tokens[i], _bare_word(tokens[i])
-        if tok == "و":  # «و 200»: the next figure joins the amount
-            join = True
-            i += 1
+    big: set[float] = set()  # the amount read so far at its larger scales
+    small: set[float] = set()  # ... and the part below the scale being read
+    last_scale = 0.0
+    joined = False  # a «و» since the last part
+
+    def close() -> None:
+        nonlocal big, small, last_scale
+        if big or small:
+            for b in big or {0.0}:
+                for v in small or {0.0}:
+                    # «مليون و800»: a bare part under a thousand after a million is in thousands
+                    part = v * 1e3 if last_scale >= 1e6 and 0 < v < 1000 else v
+                    out.add(b + part)
+        big, small, last_scale = set(), set(), 0.0
+
+    for tok in tokens:
+        word = _bare_word(tok)
+        if tok == "و":
+            joined = True
             continue
-        joined = join or (tok.startswith("و") and len(tok) > 1 and not tok[0].isdigit())
-        join = False
-        values: set[float] = set()
-        scale = 1.0
+        if tok.startswith("و") and len(tok) > 1 and not tok[0].isdigit():
+            joined = True
+        values: set[float] | None = None
         if tok[0].isdigit():
             values = _figures(tok)
-            nxt = _bare_word(tokens[i + 1]) if i + 1 < len(tokens) else ""
-            if nxt in _SCALE_WORDS:
-                scale = _SCALE_WORDS[nxt]
-                if figures:  # the text's «175» of «175 الف» may be cited alone; a description's is 175,000
-                    out |= values
-                values = {v * scale for v in values}
-                i += 1
-        elif word in _DUAL:
-            values, scale = {_DUAL[word]}, _DUAL[word] / 2
-        elif word in _SCALE_WORDS:
-            values, scale = {_SCALE_WORDS[word]}, _SCALE_WORDS[word]
-        elif word in _FRACTION and joined and parts:
-            values, scale = {_FRACTION[word] * parts[-1][1]}, 0.0
-        elif word in _WORD_NUMBERS:
-            values = {float(_WORD_NUMBERS[word])}
-        else:
-            parts = []
-            i += 1
+        elif (number := _small_number(word)) is not None:
+            values = {number}
+        if values is not None:
+            if figures:
+                out |= values
+            if word in _HUNDRED and small and not joined:  # «ست ميه»: six hundred
+                small = {v * 100 for v in small if v < 10} or small
+            elif small and (not joined or not big) and not _tens_after(small, values, joined):
+                # two figures in a row, or «60 و20» with no scale: two amounts («وست ميه وخمسين» is one)
+                close()
+                small = values
+            elif (big and not joined) and not figures:  # «2 مليون، 3 غرف»: not one amount on the cleaned side
+                close()
+                small = values
+            elif big and not joined:  # «مليون 200»: read joined (the advertiser's side), and the parts stay
+                out |= {b for b in big}
+                small = {s + v for s in small for v in values} if small else values
+            else:
+                small = {s + v for s in small for v in values} if small else values
+            joined = False
             continue
-        out |= values
-        if joined and parts:
-            big, big_scale = parts[-1]
-            for v in values:
-                small = v
-                # «مليون و800»: a bare smaller figure after a million is in thousands
-                if scale == 1.0 and big_scale >= 1e6 and v < 1000:
-                    small = v * 1e3
-                if small < big_scale or scale < big_scale:
-                    out.add(big + small)
-            parts = [(big + min(values), big_scale)]
-        else:
-            parts = [(min(values), scale if scale > 1 else 1.0)]
-        i += 1
+        scale = _SCALE_WORDS.get(word) or (_DUAL[word] / 2 if word in _DUAL else None)
+        if scale is not None:
+            multiplier = {2.0} if word in _DUAL else (small or {1.0})
+            if figures and small:
+                out |= small
+            if last_scale and scale >= last_scale:  # «الف الف»: a new amount
+                close()
+            big = {b + m * scale for b in big or {0.0} for m in multiplier}
+            if figures:  # «2 مليون» of «2 مليون و200 الف» may be cited alone
+                out |= {m * scale for m in multiplier}
+            small, last_scale, joined = set(), scale, False
+            continue
+        if word in _FRACTION and joined and last_scale:
+            big = {b + _FRACTION[word] * last_scale for b in big}
+            joined = False
+            continue
+        if figures and _dual_noun(word):
+            out.add(2.0)
+        close()
+        joined = False
+    close()
     return out
 
 
@@ -232,3 +284,102 @@ def grounded_amounts(desc: str, text: str, fields: dict[str, Any] | None = None)
         if (number := _numeric(value)) is not None:
             allowed |= {number, abs(number)}
     return all(_close(v, allowed) for v in stated(desc, figures=False))
+
+
+# ------------------------------------------------------------------ what each amount is said to be
+# «مساحتها 150 م بسعر 880 الف» written «مساحتها 880,000 م بسعر 150 ريال»: both values are the advertiser's, each in
+# the other's place. An amount is a price or an area by the unit after it or the word before it.
+
+_AREA_UNITS = {"م", "م2", "م²", "متر", "مترا", "امتار", "مربع", "مترمربع"}
+_PRICE_UNITS = {"ريال", "ريالا", "رس", "sar"}
+_AREA_WORDS = {"مساحه", "مساحتها", "مساحته", "بمساحه", "المساحه", "مسطح", "مسطحات"}
+_PRICE_WORDS = {"سعر", "بسعر", "السعر", "سعرها", "سعره", "المطلوب", "مطلوب", "السوم", "سوم", "ايجار", "الايجار",
+                "بايجار", "بقيمه", "قيمه", "القيمه"}  # fmt: skip
+
+
+def _amount_word(tok: str) -> bool:
+    word = _bare_word(tok)
+    return bool(tok[0].isdigit() or tok == "و" or word in _SCALE_WORDS or word in _DUAL or word in _FRACTION
+                or word in _HUNDREDS)  # fmt: skip
+
+
+def roles(text: str) -> list[tuple[float, str | None]]:
+    """Each amount of [text] (its full value) with what it is said to be: "price", "area", or None."""
+    tokens = _TOKEN.findall(norm(text).replace("²", "2"))
+    found: list[tuple[float, str | None]] = []
+    i = 0
+    while i < len(tokens):
+        if not (tokens[i][0].isdigit() or _bare_word(tokens[i]) in {**_DUAL, **_HUNDREDS, **_SCALE_WORDS}):
+            i += 1
+            continue
+        j = i
+        while j < len(tokens) and _amount_word(tokens[j]):
+            j += 1
+        while j > i + 1 and tokens[j - 1] == "و":
+            j -= 1
+        values = stated(" ".join(tokens[i:j]), figures=False)
+        after = _bare_word(tokens[j]) if j < len(tokens) else ""
+        before = {_bare_word(t) for t in tokens[max(0, i - 3) : i]} | set(tokens[max(0, i - 3) : i])
+        role: str | None = None
+        if after in _AREA_UNITS or after.rstrip("2") == "م":
+            role = "area"
+        elif after in _PRICE_UNITS:
+            role = "price"
+        elif before & _AREA_WORDS:
+            role = "area"
+        elif before & _PRICE_WORDS or any(_bare_word(t) in _SCALE_WORDS for t in tokens[i:j]):
+            role = "price"
+        if values:
+            found.append((max(values), role))
+        i = max(j, i + 1)
+    return found
+
+
+_FIELD_ROLE = {"price": "price", "area": "area", "area_built": "area", "area_land": "area"}
+
+
+def swapped(desc: str, text: str, fields: dict[str, Any] | None = None) -> bool:
+    """An amount of [desc] said to be one thing (a price) that the text or fields say only as the other (an area)."""
+    said: dict[float, set[str | None]] = {}
+    for value, role in roles(text):
+        said.setdefault(value, set()).add(role)
+    for name, value in (fields or {}).items():
+        if name in _FIELD_ROLE and (number := _numeric(value)) is not None:
+            said.setdefault(number, set()).add(_FIELD_ROLE[name])
+    for value, role in roles(desc):
+        known = next((r for v, r in said.items() if _close(value, {v})), None)
+        if role is not None and known and None not in known and role not in known:
+            return True
+    return False
+
+
+# ------------------------------------------------------------------ values worked out from the rows, by code
+# A report's analysis may say a total or a difference (A40, 21 Nov: «إجمالي الطلبات 110»، «بزيادة 47000») — not as
+# the model works it out, but as this code does from the rows it read: App\SuperAgent\NumberGuard::derived, the same.
+
+
+def derived(rows: Sequence[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Per numeric column of [rows] (numeric in two rows or more): its total, and the difference between each row
+    and the next — what an analysis may cite, and the guard then allows."""
+    columns: dict[str, list[float | None]] = {}
+    for row in rows:
+        for key in row:
+            columns.setdefault(key, [])
+    for key in columns:
+        columns[key] = [_numeric(row.get(key)) for row in rows]
+    totals: dict[str, float] = {}
+    steps: dict[str, list[float]] = {}
+    for key, values in columns.items():
+        known = [v for v in values if v is not None]
+        if len(known) < 2:
+            continue
+        totals[key] = round(sum(known), 2)
+        steps[key] = [round(abs(a - b), 2) for a, b in pairwise(values) if a is not None and b is not None]
+    return {"totals": totals, "differences": steps}
+
+
+def derived_rows(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """[derived] as rows the guard reads: one value each."""
+    found = derived(rows)
+    values = [*found["totals"].values(), *(d for steps in found["differences"].values() for d in steps)]
+    return [{"derived": v} for v in values]

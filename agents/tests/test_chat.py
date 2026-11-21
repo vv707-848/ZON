@@ -34,11 +34,7 @@ def test_a_covered_question_cites_the_real_passage(client: TestClient, model: Sc
     model.answers["chat"] = {
         "answer": "Residents can own a home for themselves. Details: https://example.com",
         "covered": True,
-        "citations": [
-            {"passage": 1, "quote_ar": "نص لم يرد في المقطع"},
-            {"passage": 9, "quote_ar": "مقطع غير موجود"},
-            {"passage": 1, "quote_ar": quoted},
-        ],
+        "citations": [{"passage": 9, "quote_ar": "مقطع غير موجود"}, {"passage": 1, "quote_ar": quoted}],
     }
 
     output = call(client, "chat", {"lang": "en", "intent": "knowledge", "message": "يحق لغير السعودي تملك عقار؟"})[
@@ -232,3 +228,37 @@ def test_not_covered_in_a_language_no_rule_reads_is_said_in_its_script_when_know
     model.answers["chat"] = {"answer": "Да", "covered": False, "citations": [], "intent": "knowledge"}
     output = call(client, "chat", {"lang": "xx", "intent": "auto", "message": "Можно ли удалить аккаунт?"})["output"]
     assert output["covered"] is False and output["answer"].startswith("Библиотека Zon")
+
+
+def test_a_knowledge_answer_cites_two_passages_at_most_each_with_a_short_quote(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """A40, 21 Nov: both chat timeouts were knowledge answers, whose slowest part is the quotes copied letter by
+    letter. The schema the engine decodes to holds them to two, of 200 letters."""
+    _document(client)
+    model.answers["chat"] = {"answer": "نعم.", "covered": False, "citations": []}
+    call(client, "chat", {"lang": "ar", "intent": "knowledge", "message": "يحق لغير السعودي تملك عقار؟"})
+    citations = model.schemas["chat"]["properties"]["citations"]
+    assert citations["maxItems"] == 2
+    quote = (
+        model.schemas["chat"]["$defs"]["Citation"]["properties"]["quote_ar"]
+        if "$defs" in model.schemas["chat"]
+        else (citations["items"]["properties"]["quote_ar"])
+    )
+    assert quote["maxLength"] == 200
+
+
+def test_a_knowledge_question_out_of_time_is_answered_by_the_documented_excerpt_and_counted_as_failed(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """The owner (21 Nov): the documented excerpt is the basis of the answer. With the model out of time, the
+    closest passage's first sentence word for word with its source — degraded, so the lab counts it a failure."""
+    _document(client)
+    model.answers["chat"] = httpx.ReadTimeout("slow")
+    body = call(client, "chat", {"lang": "ar", "intent": "knowledge", "message": "يحق لغير السعودي تملك عقار؟"})
+
+    assert body["degraded"] is True
+    output = body["output"]
+    quote = output["sources"][0]["quote_ar"]
+    assert output["covered"] is True and output["answer"].startswith("بحسب «") and output["answer"].endswith(quote)
+    assert quote and quote in " ".join(OWNERSHIP.split()), "word for word"

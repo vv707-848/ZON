@@ -212,3 +212,22 @@ def test_a_sentence_the_model_worked_out_is_dropped_alone_and_the_rest_stands(
 
     assert output["analysis"] == "النرجس الأعلى طلباً بـ38 طلباً. يليه الملقا بـ31."
     assert [r["text"] for r in output["recommendations"]] == ["دعوة وسطاء الرياض", "مراجعة الطلب بعد 30 يوماً"]
+
+
+def test_a_total_or_a_difference_worked_out_by_code_may_be_said(client: TestClient, model: ScriptedModel) -> None:
+    """The owner (21 Nov): the values worked out from the data are the basis — the model is sent each part's totals
+    and the difference between each row and the next (`computed`), and the guard allows them; a sum it works out
+    itself that is not one of them is still dropped."""
+    model.answers["report_write"] = {
+        "analysis": "النرجس الأعلى بـ38 طلباً. إجمالي الطلبات في الأحياء 69 طلباً. بفارق 7 عن الملقا. وقرابة 70 طلباً.",
+        "recommendations": [],
+    }
+    second = {
+        **DEMAND,
+        "rows": [{"neighborhood": "النرجس", "requests": 38}, {"neighborhood": "الملقا", "requests": 31}],
+    }
+    output = call(client, "report_write", {"question": "الطلب", "parts": [second], "proposals": PROPOSALS})["output"]
+
+    assert output["analysis"] == "النرجس الأعلى بـ38 طلباً. إجمالي الطلبات في الأحياء 69 طلباً. بفارق 7 عن الملقا."
+    (_, sent, _) = model.calls_of("report_write")[0]
+    assert sent["parts"][0]["computed"] == {"totals": {"requests": 69.0}, "differences": {"requests": [7.0]}}

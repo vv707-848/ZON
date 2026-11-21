@@ -147,6 +147,18 @@ class SuperAgentTest extends AdminTestCase
         $this->assertNotEmpty($report->parts[0]['rows']);
     }
 
+    public function test_a_total_or_a_difference_worked_out_from_the_rows_is_data_and_one_the_model_made_is_not(): void
+    {
+        // the owner (21 Nov): the values worked out from the data are the basis (agents: numbers.derived, the same)
+        $rows = [['neighborhood' => 'النرجس', 'requests' => 38, 'price' => 952000], ['neighborhood' => 'الملقا', 'requests' => 31, 'price' => 905000]];
+        $this->assertSame([['derived' => 69.0], ['derived' => 1857000.0], ['derived' => 7.0], ['derived' => 47000.0]], NumberGuard::derived($rows));
+        $guard = new NumberGuard;
+        $with = [...$rows, ...NumberGuard::derived($rows)];
+        $this->assertTrue($guard->passes('إجمالي الطلبات 69، والنرجس يزيد 7 طلبات وبفارق 47,000 في السعر.', $with, []));
+        $this->assertFalse($guard->passes('إجمالي الطلبات 70.', $with, []), 'a total the rows do not make');
+        $this->assertFalse($guard->passes('إجمالي الطلبات 69.', $rows, []), 'without them, as before');
+    }
+
     public function test_a_small_number_is_checked_too_and_a_count_of_rows_is_data(): void
     {
         $guard = new NumberGuard;

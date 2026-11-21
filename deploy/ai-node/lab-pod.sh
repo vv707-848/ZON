@@ -15,6 +15,13 @@
 #   LAB_ISSUE        optional — the issue the tables are posted to (with GH_TOKEN)
 #   STOP_WHEN_DONE   1 (default) stops the Pod at the end; 0 keeps it for a look at /workspace/logs
 #   DELETE_WHEN_DONE 1 deletes the Pod instead of stopping it (the network volume stays); a delete that fails stops it
+#   ZON_RANK_MODES   optional — "both compact": the lab, the fresh cases and lab load once per ranking mode
+#   ZON_E2E          1: then search and matching through Laravel's API, MySQL, Redis, Qdrant and the agents on this
+#                    Pod (e2e.sh, `php artisan zon:lab-e2e`), with ZON_RANK_MODE (default compact) in the agents
+#   ZON_MAX_SECONDS  the whole run at most (default 7200): past it the Pod posts what is done and deletes itself
+#
+# Reports: each stage's JSON goes out of the Pod as soon as it is written, to an issue of its own («lab reports …»,
+# deploy/ai-node/reports.py): the disk goes with the Pod, and a run that fails keeps what it finished.
 #
 # Before the lab, one quick request (smoke): Arabic, the seconds it takes, and no <think> in the answer — the
 # server is started with thinking off (THINK=0 for Escha). An answer that fails it is posted, and the lab is not run.
@@ -40,6 +47,20 @@ exec > >(tee -a "$LOG") 2>&1
 
 # A comment on the issue: its body from the file given (nothing without GH_TOKEN and LAB_ISSUE). Fails quietly:
 # a comment never stops the Pod from stopping.
+# the repository's raw files and git: with GH_TOKEN when one is given (a private repository needs «Contents: read»)
+fetch() { if [ -n "${GH_TOKEN:-}" ]; then curl -fsSL --retry 3 -H "Authorization: Bearer $GH_TOKEN" "$@"; else curl -fsSL --retry 3 "$@"; fi; }
+
+# a stage's reports out of the Pod at once, to this run's reports issue (opened at the start); quietly as post()
+REPORTS=""
+upload() {
+  [ -n "$REPORTS" ] || return 0
+  local files=()
+  for f in "$@"; do [ -f "$f" ] && ! grep -qxF "$f" "$W/logs/uploaded-$STAMP" 2>/dev/null && files+=("$f"); done
+  [ ${#files[@]} -gt 0 ] || return 0
+  python3 "$W/zon/deploy/ai-node/reports.py" put "$REPORTS" "${files[@]}" && printf '%s\n' "${files[@]}" >> "$W/logs/uploaded-$STAMP" \
+    || echo "the reports were not posted: ${files[*]}" >&2
+}
+
 post() {
   [ -n "${GH_TOKEN:-}" ] && [ -n "${LAB_ISSUE:-}" ] || return 0
   python3 - "$1" "$API" <<'PY' || echo "the comment was not posted" >&2
@@ -68,7 +89,10 @@ finish() {
   local code=$?
   set +e
   trap - EXIT
+  trap '' PIPE TERM                                  # a write to a log that is gone never stops the deletion
   [ -n "$ENGINE" ] && kill "$ENGINE" 2>/dev/null
+  [ -n "${WATCHDOG:-}" ] && { pkill -P "$WATCHDOG" 2>/dev/null; kill "$WATCHDOG" 2>/dev/null; }   # and its sleep
+  upload "$W"/reports/*.json                         # what was done, before the disk goes
   if [ "$code" != 0 ]; then
     local note="$W/logs/failed-$STAMP.md"
     {
@@ -92,6 +116,14 @@ finish() {
   exit "$code"
 }
 trap finish EXIT
+trap 'exit 124' TERM                                 # the watchdog's: finish() runs, posts what is done, deletes the Pod
+# the watchdog: a foreground step is stopped first (bash runs a trap only between commands), then the script
+( sleep "${ZON_MAX_SECONDS:-7200}"; echo "the run passed ZON_MAX_SECONDS" >&2
+  for child in $(pgrep -P $$); do
+    [ "$child" != "$BASHPID" ] && [ "$(ps -o comm= -p "$child")" != tee ] && kill -TERM "$child" 2>/dev/null
+  done
+  kill -TERM $$ ) &
+WATCHDOG=$!
 # the settings are checked with the exit in place: a Pod missing one posts why and goes, it never just ends (RunPod
 # would start the command again)
 STEP="settings"
@@ -101,8 +133,15 @@ STEP="settings"
 # ①–③ the repository at ZON_REF, the node's files, the profile installed once (prepare.sh — production's too).
 # Downloaded to a file first: a script read from a failed or cut download would run empty, or half
 STEP="prepare"
-curl -fsSL --retry 3 "$RAW/$REF/deploy/ai-node/prepare.sh" -o "$W/prepare.sh"
+fetch "$RAW/$REF/deploy/ai-node/prepare.sh" -o "$W/prepare.sh"
 ZON_PROFILE="$PROFILE" bash "$W/prepare.sh"
+# the run's reports issue, and a first word on the issue: the script began (the creator's side watches for it)
+if [ -n "${GH_TOKEN:-}" ] && [ -n "${LAB_ISSUE:-}" ]; then
+  REPORTS=$(python3 "$W/zon/deploy/ai-node/reports.py" open "lab reports $STAMP · $PROFILE · $(git -C "$W/zon" rev-parse --short HEAD)" 2>/dev/null || true)
+  printf '**%s** on **%s** · %s — started at `%s`, rank modes «%s», e2e %s; reports in #%s\n' "$PROFILE" "$GPU" "$STAMP" \
+    "$(git -C "$W/zon" rev-parse HEAD)" "${ZON_RANK_MODES:-default}" "${ZON_E2E:-0}" "${REPORTS:-?}" > "$W/logs/started-$STAMP.md"
+  post "$W/logs/started-$STAMP.md"
+fi
 
 # ④ the engine, as production serves it: zon-ai on 127.0.0.1:30000 with the key. The first start compiles kernels
 # and captures CUDA graphs — up to 30 minutes are allowed before giving up
@@ -151,17 +190,50 @@ cd "$W/zon/agents"
 "$W/venv-tools/bin/uv" sync --locked --no-dev
 .venv/bin/zon-agents lab run --profile "$PROFILE" --sample 2 --no-variants --notes "warm-up $STAMP, not scored" \
   --out "$W/reports/warmup-$PROFILE-$STAMP.json" > "$W/logs/warmup-$STAMP.txt" 2>&1 || true
+upload "$W/reports/warmup-$PROFILE-$STAMP.json"
 
 # ⑤ the model lab, then production's sizes — the same commands as at the terminal (docs/model-lab.md, step 5)
 STEP="lab"
 # a failed run is still posted: its table says what failed
-.venv/bin/zon-agents lab run --profile "$PROFILE" --gpu "$GPU" --notes "lab-pod $STAMP · $(git rev-parse --short HEAD)" \
-  --out "$W/reports/lab-$PROFILE-$STAMP.json" 2>&1 | tee "$W/logs/lab-table-$STAMP.txt" || true
-.venv/bin/zon-agents lab load --profile "$PROFILE" --out "$W/reports/load-$PROFILE-$STAMP.json" 2>&1 \
-  | tee "$W/logs/load-table-$STAMP.txt" || true
+if [ -z "${ZON_RANK_MODES:-}" ]; then
+  .venv/bin/zon-agents lab run --profile "$PROFILE" --gpu "$GPU" --notes "lab-pod $STAMP · $(git rev-parse --short HEAD)" \
+    --out "$W/reports/lab-$PROFILE-$STAMP.json" 2>&1 | tee "$W/logs/lab-table-$STAMP.txt" || true
+  .venv/bin/zon-agents lab load --profile "$PROFILE" --out "$W/reports/load-$PROFILE-$STAMP.json" 2>&1 \
+    | tee "$W/logs/load-table-$STAMP.txt" || true
+else
+  # two ways of asking the ranking model, on the same card one after the other (ranking.RANK_MODE): every case,
+  # the fresh cases no one tuned on (lab/cases_fresh), and production's sizes — each mode's own tables
+  for MODE in $ZON_RANK_MODES; do
+    {
+      printf '### rank %s — the cases\n' "$MODE"
+      .venv/bin/zon-agents lab run --profile "$PROFILE" --gpu "$GPU" --rank-mode "$MODE" \
+        --notes "lab-pod $STAMP · $(git rev-parse --short HEAD)" --out "$W/reports/lab-$PROFILE-$STAMP-$MODE.json" 2>&1 || true
+      printf '### rank %s — the fresh cases\n' "$MODE"
+      .venv/bin/zon-agents lab run --profile "$PROFILE" --gpu "$GPU" --rank-mode "$MODE" --cases zon_agents/lab/cases_fresh \
+        --notes "lab-pod $STAMP fresh" --out "$W/reports/fresh-$PROFILE-$STAMP-$MODE.json" 2>&1 || true
+    } | tee -a "$W/logs/lab-table-$STAMP.txt"
+    upload "$W/reports/lab-$PROFILE-$STAMP-$MODE.json" "$W/reports/fresh-$PROFILE-$STAMP-$MODE.json"
+    { printf '### rank %s\n' "$MODE"
+      .venv/bin/zon-agents lab load --profile "$PROFILE" --rank-mode "$MODE" --out "$W/reports/load-$PROFILE-$STAMP-$MODE.json" 2>&1 || true
+    } | tee -a "$W/logs/load-table-$STAMP.txt"
+    upload "$W/reports/load-$PROFILE-$STAMP-$MODE.json"
+  done
+  # what missed is read from the first mode's run of every case
+  cp "$W/reports/lab-$PROFILE-$STAMP-${ZON_RANK_MODES%% *}.json" "$W/reports/lab-$PROFILE-$STAMP.json" 2>/dev/null || true
+fi
 # texts from the market as the owner collected them, with no expected answer: measured, never a gate (lab/market.py)
 .venv/bin/zon-agents lab market --profile "$PROFILE" --out "$W/reports/market-$PROFILE-$STAMP.json" 2>&1 \
   | tee "$W/logs/market-table-$STAMP.txt" || true
+upload "$W"/reports/lab-*.json "$W"/reports/load-*.json "$W/reports/market-$PROFILE-$STAMP.json"
+
+# ⑤½ search and matching through Laravel's API and Qdrant, eight at once (e2e.sh): a failure is recorded, and the run
+# goes on to post what it has
+if [ "${ZON_E2E:-0}" = "1" ]; then
+  STEP="e2e"
+  ZON_RANK_MODE="${ZON_RANK_MODE:-compact}" bash "$W/zon/deploy/ai-node/e2e.sh" "$W/reports/e2e-$PROFILE-$STAMP.json" 2>&1 \
+    | tee "$W/logs/e2e-table-$STAMP.txt" || echo "e2e: stopped — see the log above" | tee -a "$W/logs/e2e-table-$STAMP.txt"
+  upload "$W/reports/e2e-$PROFILE-$STAMP.json"
+fi
 
 # ⑥ the two tables to the issue: what the connector cannot read from the Pod, GitHub shows. The JSON reports stay
 # on /workspace/reports, for the panel's «مختبر النماذج»
@@ -177,7 +249,11 @@ STEP="report"
   tail -c 30000 "$W/logs/load-table-$STAMP.txt"
   printf '\n```\n**lab market** (texts from the market, no expected answer: not a gate)\n```\n'
   tail -c 3000 "$W/logs/market-table-$STAMP.txt"
-  printf '\n```\nReports on the volume: `/workspace/reports/lab-%s-%s.json` · `load-%s-%s.json` · `market-%s-%s.json`\n' "$PROFILE" "$STAMP" "$PROFILE" "$STAMP" "$PROFILE" "$STAMP"
+  if [ -f "$W/logs/e2e-table-$STAMP.txt" ]; then
+    printf '\n```\n**e2e** (Laravel → agents → Qdrant → the model, 8 at once, rank %s)\n```\n' "${ZON_RANK_MODE:-compact}"
+    grep -E "^\||^within|^misses|^== e2e|stopped|did not come up|^PHP" "$W/logs/e2e-table-$STAMP.txt" | tail -40
+  fi
+  printf '\n```\nReports out of the Pod: #%s (`python3 deploy/ai-node/reports.py get %s <dir>`)\n' "${REPORTS:-?}" "${REPORTS:-?}"
 } > "$W/logs/tables-$STAMP.md"
 post "$W/logs/tables-$STAMP.md"
 

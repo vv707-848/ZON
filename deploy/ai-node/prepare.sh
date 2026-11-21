@@ -11,12 +11,17 @@ REF=${ZON_REF:-main}
 # On a Pod without a card (ZON_NO_GPU=1, or no nvidia-smi) it installs and stops there: everything lands on the
 # network volume, and the card's Pod then starts in seconds. On the card it also runs gpu-check.sh.
 
-# ① the repository — public, read over HTTPS
+# ① the repository over HTTPS — with GH_TOKEN when one is given (a private repository needs «Contents: read»); the
+# token goes in a header for this command only, never into the clone's config or a log
+GIT=(git)
+if [ -n "${GH_TOKEN:-}" ]; then
+  GIT=(git -c "http.https://github.com/.extraHeader=Authorization: Basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)")
+fi
 if [ -d /workspace/zon/.git ]; then
-  git -C /workspace/zon fetch -q origin "$REF"
+  "${GIT[@]}" -C /workspace/zon fetch -q origin "$REF"
   git -C /workspace/zon checkout -q FETCH_HEAD
 else
-  git clone -q https://github.com/vv707-848/ZON.git /workspace/zon
+  "${GIT[@]}" clone -q https://github.com/vv707-848/ZON.git /workspace/zon
   git -C /workspace/zon checkout -q "$REF"
 fi
 echo "repository at $(git -C /workspace/zon rev-parse --short HEAD)"

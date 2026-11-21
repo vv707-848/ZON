@@ -59,7 +59,20 @@
    "variants": {
     "reversed": {
      "failed": 0,
+     "metrics": {
+      "ndcg": 0.9911,
+      "top1": 1.0
+     },
      "score": 0.9955,
+     "stability": 1.0
+    },
+    "shuffled": {
+     "failed": 0,
+     "metrics": {
+      "ndcg": 0.9913,
+      "top1": 1.0
+     },
+     "score": 0.9956,
      "stability": 1.0
     }
    }
@@ -84,8 +97,27 @@
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.9991,
-     "stability": 1.0
+     "metrics": {
+      "ndcg_broaden": 1.0,
+      "ndcg_matched": 0.9969,
+      "top1_broaden": 1.0,
+      "top1_matched": 1.0
+     },
+     "score": 0.9985,
+     "stability": 1.0,
+     "stability_broaden": 1.0
+    },
+    "shuffled": {
+     "failed": 0,
+     "metrics": {
+      "ndcg_broaden": 1.0,
+      "ndcg_matched": 0.9969,
+      "top1_broaden": 1.0,
+      "top1_matched": 1.0
+     },
+     "score": 0.9985,
+     "stability": 1.0,
+     "stability_broaden": 1.0
     }
    }
   },
@@ -149,7 +181,20 @@
    "variants": {
     "reversed": {
      "failed": 0,
-     "score": 0.9627,
+     "metrics": {
+      "ndcg": 0.9625,
+      "top1": 0.8947
+     },
+     "score": 0.9625,
+     "stability": 1.0
+    },
+    "shuffled": {
+     "failed": 0,
+     "metrics": {
+      "ndcg": 0.9625,
+      "top1": 0.8947
+     },
+     "score": 0.9625,
      "stability": 1.0
     }
    }
@@ -172,6 +217,19 @@
    "variants": {
     "reversed": {
      "failed": 0,
+     "metrics": {
+      "ndcg": 0.9777,
+      "top1": 0.9286
+     },
+     "score": 0.9777,
+     "stability": 1.0
+    },
+    "shuffled": {
+     "failed": 0,
+     "metrics": {
+      "ndcg": 0.9777,
+      "top1": 0.9286
+     },
      "score": 0.9777,
      "stability": 1.0
     }

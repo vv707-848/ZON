@@ -61,12 +61,14 @@ final class MatchingAssistant
             $byId = $models->keyBy('id');
             $ranked = $result->output[$list] ?? null;
 
-            // with no ranking, what keeps the wish's rooms and budget comes first before the cut, as the agents order it
-            // (ranking._shortlist): ten that break it never push out the one that fits (review of 21 Nov)
-            $keeps = fn ($m): bool => $list === 'units' || $need->keptBy($m->bedrooms, (float) $m->price);
+            // with no ranking: only what keeps the wish's rooms and budget, in a fixed order (Need::fallback); «عروض
+            // أخرى» are already within the top of the budget and its rooms (ListingCandidates::broaden)
+            $keeps = fn ($m): bool => $list === 'units' || $need->keptBy($m->bedrooms, $m->price === null ? null : (float) $m->price);
+            $top = $need->budgetMax === null ? null : (float) $need->budgetMax;
+            $kept = $list === 'units' ? $models : $need->fallback($models, $keeps, fn ($m) => $m->price === null ? null : (float) $m->price, $top);
 
             return $ranked === null
-                ? $models->sortBy(fn ($m) => $keeps($m) ? 0 : 1)->take($list === 'units' ? 30 : $limit)->map(fn ($m) => ['model' => $m, 'score' => null])->values()->all()
+                ? $kept->take($list === 'units' ? 30 : $limit)->map(fn ($m) => ['model' => $m, 'score' => null])->values()->all()
                 : array_map(fn (array $r) => ['model' => $byId[$r['id']], 'score' => $r['score']], $ranked);
         };
 

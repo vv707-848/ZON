@@ -465,3 +465,48 @@ def test_a_report_chosen_with_a_filter_the_question_did_not_ask_is_not_exact() -
 
     assert score(case, {"reports": [right]}).metrics["params"] == 1.0
     assert score(case, {"reports": [narrower]}).metrics["params"] == 0.0
+
+
+def test_the_fresh_cases_are_new_cases_of_the_same_rules_and_each_list_is_shuffled_too() -> None:
+    """lab/cases_fresh (21 Nov): search and matching from another seed, to compare two ways of asking the model on
+    cases neither was shaped by. And an order no one chose (`shuffled`), seeded by the case, beside the reversal."""
+    from pathlib import Path
+
+    from zon_agents.lab.cases import check, load_cases
+    from zon_agents.lab.variants import variants
+
+    fresh = load_cases(Path(__file__).parents[1] / "zon_agents" / "lab" / "cases_fresh")
+    golden = load_cases()
+    assert check(fresh) == [] and {c.agent for c in fresh} == {"search_listings", "search_requests", "matching"}
+    assert not {c.id for c in fresh} & {c.id for c in golden}
+    seen = {str(c.input.get("need")) for c in golden}
+    assert all(str(c.input["need"]) not in seen for c in fresh), "no need of the golden cases again"
+
+    case = next(c for c in fresh if c.agent == "matching")
+    made = dict(variants(case))
+    for name in ("matched", "broaden"):
+        given, mixed = case.input[name], made["shuffled"].input[name]
+        assert sorted(c["id"] for c in mixed) == sorted(c["id"] for c in given) and mixed != given
+    assert dict(variants(case))["shuffled"].input == made["shuffled"].input, "the same order every run"
+
+
+def test_a_rightly_empty_list_scores_on_showing_nothing_and_the_fresh_ids_have_no_gap() -> None:
+    """21 Nov: fresh-matching-007's «عروض أخرى» are all a room short — rightly empty under Zon's rule, not a case
+    to leave out (which left the numbering a gap). Its score is whether the list stayed empty."""
+    from pathlib import Path
+
+    from zon_agents.lab.cases import load_cases
+    from zon_agents.lab.scoring import score
+
+    fresh = load_cases(Path(__file__).parents[1] / "zon_agents" / "lab" / "cases_fresh")
+    for agent in ("matching", "search_listings", "search_requests"):
+        numbers = sorted(int(c.id.rsplit("-", 1)[1]) for c in fresh if c.agent == agent)
+        assert numbers == list(range(1, len(numbers) + 1)), agent
+    empty = next(c for c in fresh if c.id == "fresh-matching-007")
+    best = max(empty.expect["matched"]["grades"], key=lambda i: empty.expect["matched"]["grades"][i])
+    shown = {"matched": [{"id": best, "score": 0.9}], "broaden": []}
+    assert score(empty, shown).metrics["ndcg_broaden"] == 1.0
+    wrong = {**shown, "broaden": [{"id": next(iter(empty.expect["broaden"]["grades"])), "score": 0.5}]}
+    assert (
+        score(empty, wrong).metrics["ndcg_broaden"] == 0.0 and score(empty, wrong).metrics["zero_top3_broaden"] == 1.0
+    )

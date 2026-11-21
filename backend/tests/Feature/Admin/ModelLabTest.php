@@ -147,9 +147,10 @@ class ModelLabTest extends AdminTestCase
         $this->assertSame([], LabLimits::unmet($run('oracle')), 'the right answer on every case passes every limit');
 
         $adversary = implode("\n", LabLimits::unmet($run('adversary')));
-        // its invented price is refused by the cleaning pipeline itself (agents: numbers.grounded_amounts): failed
-        foreach (['search_listings: عرض يكسر', 'ردود فاشلة في: clean_listing', 'report_write: NumberGuard', 'search_listings: درجته 0.571 لا تتجاوز الترتيب بلا نموذج (0.804)',
-            'search_requests: درجته 0.598 لا تتجاوز', 'matching: درجته 0.716 لا تتجاوز'] as $reason) {
+        // its invented price is refused by the cleaning pipeline itself (agents: numbers.grounded_amounts): failed; its
+        // scores rose with the shortlist that holds only what keeps the wish (21 Nov), still under the plain order
+        foreach (['search_listings: عرض يكسر', 'ردود فاشلة في: clean_listing', 'report_write: NumberGuard', 'search_listings: درجته 0.636 لا تتجاوز الترتيب بلا نموذج (0.804)',
+            'search_requests: درجته 0.661 لا تتجاوز', 'matching: درجته 0.716 لا تتجاوز'] as $reason) {
             $this->assertStringContainsString($reason, $adversary);
         }
         // the service itself puts what breaks a stated budget or room count last (agents: pipelines/ranking.py), so the

@@ -150,8 +150,7 @@ class AiChainTest extends TestCase
             [$o['half']->id, 0.7],       // «بدون مصعد» is no lift: one wish of two
             [$o['over']->id, 0.7],       // both wishes, over the budget within 10%: one step down
             [$o['none']->id, 0.45],
-            [$o['small']->id, 0.05],     // fewer rooms than asked
-            [$o['far']->id, 0.05],       // over the budget by more than 10%
+            // fewer rooms than asked, or over the budget by more than 10%: not shown (owner, 21 Nov 2026)
         ], $this->ranked($response, 'data.results', 'listing'));
 
         $reached = json_encode($this->seen(), JSON_UNESCAPED_UNICODE);
@@ -172,7 +171,8 @@ class AiChainTest extends TestCase
         foreach (['invalid', 'down'] as $failure) {
             Http::post("{$this->sim}/sim/mode", ['llm' => $failure])->throw();
             $response = $this->postJson('/api/v1/ai/search', $search)->assertOk()->assertJsonPath('meta.ai.status', 'degraded')->assertHeader('X-AI-Remaining', '30');
-            $this->assertEqualsCanonicalizing(array_map(fn (Listing $l) => $l->id, array_values($o)), $ids($response), "{$failure}: every offer still shown");
+            $kept = array_map(fn (Listing $l) => $l->id, array_values(array_diff_key($o, ['far' => true])));
+            $this->assertEqualsCanonicalizing($kept, $ids($response), "{$failure}: every offer that keeps the budget still shown, the one far over it not");
             $this->assertNotSame($o['all']->id, $ids($response)[0], "{$failure}: not the model's order");
         }
 
@@ -193,8 +193,8 @@ class AiChainTest extends TestCase
             ->assertJsonPath('data.suggest_request', false)->assertHeader('X-AI-Remaining', '29');
         $this->apiContract('ai_matching', $response);
 
-        $this->assertSame([[$o['all']->id, 0.95], [$o['half']->id, 0.7], [$o['over']->id, 0.7], [$o['none']->id, 0.45], [$o['small']->id, 0.05], [$o['far']->id, 0.05]],
-            $this->ranked($response, 'data.matched', 'listing'));
+        $this->assertSame([[$o['all']->id, 0.95], [$o['half']->id, 0.7], [$o['over']->id, 0.7], [$o['none']->id, 0.45]],
+            $this->ranked($response, 'data.matched', 'listing'), 'fewer rooms or far over the budget: not shown');
         $this->assertSame([[$villa->id, 0.95]], $this->ranked($response, 'data.broaden', 'listing'), 'another type that meets the wish, within the budget');
         $this->assertSame([$project->id, $unit->id], [$response->json('data.projects.0.project.id'), $response->json('data.projects.0.units.0.unit.id')]);
         $this->assertStringNotContainsString(self::PHONE, json_encode($this->seen(), JSON_UNESCAPED_UNICODE));

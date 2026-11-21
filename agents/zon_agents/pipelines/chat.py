@@ -67,6 +67,26 @@ def script(text: str) -> str:
     return best if counts[best] else ""
 
 
+_FIRST = re.compile(r"[^.!؟?\n]+[.!؟?]?")
+_ACCORDING = {
+    "ar": "بحسب «{title}» ({date}): {quote}",
+    "ur": "«{title}» ({date}) کے مطابق، سرکاری عربی متن: {quote}",
+    "en": "According to «{title}» ({date}), in its official Arabic text: {quote}",
+}
+
+
+def _excerpt(lang: str, chunk: KnowledgeChunk, reason: str) -> Result:
+    """The model out of time on a knowledge question (both chat timeouts of 21 Nov, A40, were): the closest
+    passage's first sentence word for word, with its source — the documented excerpt, no wording of a model's.
+    Degraded: the lab counts it among the failures, and Laravel's guard judges it as any knowledge answer."""
+    first = _FIRST.match(chunk.text.strip())
+    quote = (first.group(0) if first else chunk.text).strip()[:200]
+    text = _ACCORDING.get(lang, _ACCORDING["en"]).format(title=chunk.title, date=chunk.effective_date, quote=quote)
+    source = {"doc_id": chunk.doc_id, "title": chunk.title, "effective_date": chunk.effective_date, "quote_ar": quote}
+    output = {"answer": text, "covered": True, "sources": [source], "intent": "knowledge"}
+    return Result(output, degraded=True, log={"llm": reason, "passages": 1})
+
+
 def _not_covered(lang: str, message: str) -> str:
     return _NOT_COVERED_SCRIPT.get(script(message), NOT_COVERED[lang]) if lang == "xx" else NOT_COVERED[lang]
 
@@ -128,6 +148,8 @@ async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
             if script(retry.output.answer) == wanted:
                 answer = retry
     except ModelFailed as exc:
+        if req.intent == "knowledge" and chunks:  # out of time: the documented excerpt itself, said to be degraded
+            return _excerpt(req.lang, chunks[0], exc.reason)
         raise model_unavailable(exc) from exc
 
     sources: list[dict[str, Any]] = []

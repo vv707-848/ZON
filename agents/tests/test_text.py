@@ -83,3 +83,59 @@ def test_a_wording_that_changes_an_amount_is_refused_and_the_same_amount_in_anot
     model.answers["clean_listing"] = {"desc_clean": "شقة بسعر 880,000 ريال", "features": []}
     sent = {"type": "apartment", "text": "شقة للبيع", "fields": {"price": 880000}}
     assert call(client, "clean_listing", sent)["output"]["desc_clean"] == "شقة بسعر 880,000 ريال", "the fields count"
+
+
+def test_a_wording_that_swaps_the_price_and_the_area_is_refused(client: TestClient, model: ScriptedModel) -> None:
+    """Each number is one the advertiser wrote, in the other's place: 880,000 m² at 150 riyals. The amounts guard
+    alone passes it (both values are stated); what each is said to be must be what the text or fields say."""
+    text = "شقة للبيع مساحتها 150 م بسعر 880 الف في النرجس"
+    sent = {"type": "apartment", "text": text, "fields": {"price": 880000, "area_built": 150}}
+    model.answers["clean_listing"] = {"desc_clean": "شقة مساحتها 880,000 م بسعر 150 ريال", "features": []}
+    refused = client.post("/agents/clean_listing", json=sent)
+    assert refused.status_code == 503 and "role" in refused.text
+
+    model.answers["clean_listing"] = {"desc_clean": "شقة مساحتها 150 م² بسعر 880 ألف ريال", "features": []}
+    assert call(client, "clean_listing", sent)["output"]["desc_clean"].startswith("شقة مساحتها 150")
+
+
+def test_a_deed_the_advertiser_did_not_state_is_refused(client: TestClient, model: ScriptedModel) -> None:
+    """«صك» is a claim a buyer relies on: in the wording or the features, only when his text or the deed field says
+    it (a «بدون صك» he wrote may stay as he wrote it)."""
+    sent = {"type": "apartment", "text": "شقة للبيع في النرجس 3 غرف وصالة"}
+    for answer in (
+        {"desc_clean": "شقة 3 غرف وصالة، الصك جاهز", "features": []},
+        {"desc_clean": "شقة 3 غرف وصالة", "features": ["صك إلكتروني"]},
+    ):
+        model.answers["clean_listing"] = answer
+        refused = client.post("/agents/clean_listing", json=sent)
+        assert refused.status_code == 503 and "deed" in refused.text, answer
+
+    model.answers["clean_listing"] = {"desc_clean": "شقة 3 غرف وصالة، الصك جاهز", "features": ["صك"]}
+    with_deed = {**sent, "fields": {"deed": True}}
+    assert call(client, "clean_listing", with_deed)["output"]["features"] == ["صك"], "the field says it"
+    model.answers["clean_listing"] = {"desc_clean": "شقة 3 غرف بدون صك", "features": []}
+    said = {**sent, "text": "شقة للبيع 3 غرف بدون صك"}
+    assert call(client, "clean_listing", said)["output"]["desc_clean"] == "شقة 3 غرف بدون صك", "as he wrote it"
+
+
+def test_a_deed_he_said_is_not_there_is_never_written_as_there(client: TestClient, model: ScriptedModel) -> None:
+    """«بدون صك» is the opposite claim: a wording or a feature that says there is a deed is refused, and so is one
+    that says there is none when he said there is (or the field does)."""
+    none = {"type": "land", "text": "أرض للبيع بدون صك في الدرعية 600 م"}
+    for answer in (
+        {"desc_clean": "أرض بالدرعية 600 م، الصك جاهز", "features": []},
+        {"desc_clean": "أرض بالدرعية 600 م", "features": ["صك"]},
+    ):
+        model.answers["clean_listing"] = answer
+        refused = client.post("/agents/clean_listing", json=none)
+        assert refused.status_code == 503 and "deed" in refused.text, answer
+    model.answers["clean_listing"] = {"desc_clean": "أرض بالدرعية 600 م بدون صك", "features": []}
+    assert call(client, "clean_listing", none)["output"]["desc_clean"].endswith("بدون صك"), "as he said it"
+
+    model.answers["clean_listing"] = {"desc_clean": "شقة بالنرجس، لا يوجد صك", "features": []}
+    deed = {"type": "apartment", "text": "شقة بالنرجس صك الكتروني جاهز"}
+    refused = client.post("/agents/clean_listing", json=deed)
+    assert refused.status_code == 503 and "deed" in refused.text, "none where he said there is one"
+    field_no = {"type": "apartment", "text": "شقة بالنرجس 3 غرف", "fields": {"deed": False}}
+    model.answers["clean_listing"] = {"desc_clean": "شقة بالنرجس 3 غرف، الصك غير جاهز", "features": []}
+    assert call(client, "clean_listing", field_no)["output"]["desc_clean"].endswith("غير جاهز"), "the field says it"
