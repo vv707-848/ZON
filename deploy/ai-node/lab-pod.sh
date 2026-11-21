@@ -159,6 +159,9 @@ STEP="lab"
   --out "$W/reports/lab-$PROFILE-$STAMP.json" 2>&1 | tee "$W/logs/lab-table-$STAMP.txt" || true
 .venv/bin/zon-agents lab load --profile "$PROFILE" --out "$W/reports/load-$PROFILE-$STAMP.json" 2>&1 \
   | tee "$W/logs/load-table-$STAMP.txt" || true
+# texts from the market as the owner collected them, with no expected answer: measured, never a gate (lab/market.py)
+.venv/bin/zon-agents lab market --profile "$PROFILE" --out "$W/reports/market-$PROFILE-$STAMP.json" 2>&1 \
+  | tee "$W/logs/market-table-$STAMP.txt" || true
 
 # ⑥ the two tables to the issue: what the connector cannot read from the Pod, GitHub shows. The JSON reports stay
 # on /workspace/reports, for the panel's «مختبر النماذج»
@@ -172,6 +175,8 @@ STEP="report"
   tail -c 30000 "$W/logs/lab-table-$STAMP.txt"
   printf '\n```\n**lab load** (production sizes, 8 at once)\n```\n'
   tail -c 30000 "$W/logs/load-table-$STAMP.txt"
+  printf '\n```\n**lab market** (texts from the market, no expected answer: not a gate)\n```\n'
+  tail -c 3000 "$W/logs/market-table-$STAMP.txt"
   printf '\n```\nReports on the volume: `/workspace/reports/lab-%s-%s.json` · `load-%s-%s.json`\n' "$PROFILE" "$STAMP" "$PROFILE" "$STAMP"
 } > "$W/logs/tables-$STAMP.md"
 post "$W/logs/tables-$STAMP.md"

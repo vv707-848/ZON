@@ -112,6 +112,29 @@ def _lab_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _lab_market(args: argparse.Namespace) -> int:
+    """Texts from the market, measured with no expected answer (lab/market.py); never a gate, so it exits 0."""
+    from zon_agents.lab import market as market_texts
+
+    key = os.environ.get("LLM_API_KEY", "")
+    model = openai_model(args.base_url, key, args.model, args.budget)
+    llm = LLM(
+        model,
+        load_prompts(),
+        profile=load_profile(args.profile),
+        max_concurrency=args.at_once,
+        budget_seconds=args.budget,
+    )
+    found = asyncio.run(market_texts.market(llm, market_texts.load(), at_once=args.at_once))
+    print(f"{'agent':14} {'asked':>5} {'failed':>6} {'p50 ms':>7} {'p95 ms':>7}  checks")
+    for agent, row in found.items():
+        shares = " · ".join(f"{name} {share}" for name, share in row["checks"].items())
+        print(f"{agent:14} {row['asked']:5} {row['failed']:6} {row['p50_ms']:7} {row['p95_ms']:7}  {shares}")
+    out = args.out or Path(f"market-{args.profile}-{datetime.now(UTC):%Y%m%d-%H%M}.json")
+    out.write_text(json.dumps(found, ensure_ascii=False, indent=1), encoding="utf-8")
+    return 0
+
+
 def _lab_load(args: argparse.Namespace) -> int:
     key = os.environ.get("LLM_API_KEY", "")
     model = openai_model(args.base_url, key, args.model, args.budget)
@@ -263,6 +286,13 @@ def main() -> None:
     heavy.add_argument("--rounds", type=int, default=3)
     heavy.add_argument("--budget", type=float, default=DEFAULTS["request_budget_seconds"].default, help="seconds")
     heavy.add_argument("--out", type=Path, help="the report file (default load-<profile>-<time>.json)")
+    texts = lab_commands.add_parser("market", help="texts from the market, no expected answer (key in LLM_API_KEY)")
+    texts.add_argument("--profile", required=True, help="zon_agents/models/<profile>.toml: the model it serves")
+    texts.add_argument("--base-url", default=DEFAULTS["llm_base_url"].default)
+    texts.add_argument("--model", default=DEFAULTS["llm_model"].default, help="the name the engine serves it under")
+    texts.add_argument("--at-once", type=int, default=DEFAULTS["llm_max_concurrency"].default, help="asked together")
+    texts.add_argument("--budget", type=float, default=DEFAULTS["request_budget_seconds"].default, help="seconds")
+    texts.add_argument("--out", type=Path, help="the report file (default market-<profile>-<time>.json)")
     known = lab_commands.add_parser("sim", help="the cases against the simulation: every known result checked")
     known.add_argument("--runs", help=f"only these, comma-separated (default {','.join(labsim.RUNS)})")
     known.add_argument("--out", type=Path, help="a folder for each run's summary (sim-<run>.json)")
@@ -271,7 +301,11 @@ def main() -> None:
     if args.command == "lab":
         if args.lab == "check":
             sys.exit(_lab_check())
-        sys.exit({"run": _lab_run, "plan": _lab_plan, "sim": _lab_sim, "load": _lab_load}[args.lab](args))
+        sys.exit(
+            {"run": _lab_run, "plan": _lab_plan, "sim": _lab_sim, "load": _lab_load, "market": _lab_market}[args.lab](
+                args
+            )
+        )
     if args.command == "sim":
         uvicorn.run(create_sim_app(), host=args.host, port=args.port, log_level="warning")
         return
