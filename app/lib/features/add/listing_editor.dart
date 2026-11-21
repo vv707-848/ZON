@@ -36,6 +36,7 @@ import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/widgets/service_form.dart';
 import 'package:zon/features/add/add_helpers.dart';
 import 'package:zon/features/add/widgets/add_kit.dart';
+import 'package:zon/features/add/widgets/desc_counter.dart';
 
 /// The listing editor.
 class ListingEditor extends StatefulWidget {
@@ -421,16 +422,7 @@ class _ListingEditorState extends State<ListingEditor> {
           multiline: true,
         ),
       ),
-      ValueListenableBuilder<TextEditingValue>(
-        valueListenable: _desc,
-        builder: (context, v, _) {
-          final over = descTooLong(v.text) != null;
-          return Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: Tx(descCount(v.text), style: ts(12, w: over ? 700 : 500, lh: 18, c: over ? AppColors.danger : AppColors.muted)),
-          );
-        },
-      ),
+      DescCounter(_desc),
       if (error.isNotEmpty) FormError(error),
       AppButton(label: _sending ? 'جارٍ الحفظ…' : 'حفظ وتحديث العرض', onTap: _sending ? null : _save),
       AppButton(label: 'إلغاء', tone: ButtonTone.ghost, onTap: _leave),

@@ -154,6 +154,7 @@ class ProjField extends StatelessWidget {
             hint!,
             style: textarea ? ts(12, w: 500, lh: 17, c: kAddHintTa) : ts(13, w: 500, lh: 18, c: kAddPh),
           );
+    final countStyle = countOver ? ts(12, w: 700, lh: 18, c: AppColors.danger) : ts(12, w: 500, lh: 18, c: kAddPh);
     final control = count == null
         ? child
         : Stack(
@@ -163,7 +164,7 @@ class ProjField extends StatelessWidget {
                 end: 14,
                 bottom: 8,
                 child: IgnorePointer(
-                  child: Tx(count!, style: ts(12, w: countOver ? 700 : 500, lh: 18, c: countOver ? AppColors.danger : kAddPh), softWrap: false),
+                  child: Tx(count!, style: countStyle, softWrap: false),
                 ),
               ),
             ],

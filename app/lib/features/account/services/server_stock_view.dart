@@ -25,9 +25,10 @@ import 'package:zon/data/server/server_desk.dart';
 import 'package:zon/data/server/server_my_listings.dart';
 import 'package:zon/data/store.dart';
 import 'package:zon/features/account/services/inventory_view.dart' show StockPhoto;
-import 'package:zon/features/add/add_helpers.dart' show descCount, descTooLong, kListingDescMax;
 import 'package:zon/features/account/services/widgets/desk.dart';
 import 'package:zon/features/account/services/widgets/service_form.dart';
+import 'package:zon/features/add/add_helpers.dart' show descTooLong, kListingDescMax;
+import 'package:zon/features/add/widgets/desc_counter.dart';
 
 class ServerStockView extends StatefulWidget {
   const ServerStockView({super.key});
@@ -621,16 +622,7 @@ class _PublishCardState extends State<_PublishCard> {
                 multiline: true,
               ),
             ),
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: _desc,
-              builder: (context, v, _) {
-                final over = descTooLong(v.text) != null;
-                return Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: Tx(descCount(v.text), style: ts(12, w: over ? 700 : 500, lh: 18, c: over ? AppColors.danger : AppColors.muted)),
-                );
-              },
-            ),
+            DescCounter(_desc),
           ],
           if (_error case final String e) ...<Widget>[const SizedBox(height: 10), FormError(e)],
           const SizedBox(height: 12),
