@@ -1,6 +1,10 @@
 """Summaries and intake cleaning: no contact details out, units never mixed, failures left to Laravel."""
 
+import json
+from pathlib import Path
+
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import ScriptedModel, call
@@ -141,27 +145,25 @@ def test_a_deed_he_said_is_not_there_is_never_written_as_there(client: TestClien
     assert call(client, "clean_listing", field_no)["output"]["desc_clean"].endswith("غير جاهز"), "the field says it"
 
 
-def test_the_lab_keeps_why_a_wording_was_refused_for_its_deed_redacted_and_production_keeps_nothing(
-    client: TestClient, model: ScriptedModel
+def test_the_lab_reports_why_a_wording_was_refused_for_its_deed_and_no_word_of_it(
+    client: TestClient, model: ScriptedModel, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Owner, 21 Nov 2026 (A40: real-ad-011 and real-ad-014 refused, and nothing said what was written): in the lab
-    only, the case, the reason, where the claim was (the description or a feature) and the fewest words that show
-    it — names, contacts and document numbers taken out first: the reports go to a public repository."""
+    """Owner, 21 Nov 2026: the reports go to a public repository — of a deed refusal they keep the case, where the
+    claim was (the description or the features), why, and whether it affirmed or denied a deed. The two words around
+    «صك», cut before the names were masked, kept a whole name; the wording now goes only to a private file
+    (ZON_PRIVATE_REPORTS), redacted before it is cut. Production keeps nothing."""
     import asyncio
 
     from pydantic_ai.models.function import FunctionModel
 
     from zon_agents.lab.cases import Case
-    from zon_agents.lab.runner import run_cases
+    from zon_agents.lab.runner import report, run_cases
     from zon_agents.llm import LLM
     from zon_agents.pipelines.text import DEED_REFUSALS, deed_refusal, redact
     from zon_agents.profiles import load_profile
 
-    text = "أرض 750م للبيع، للتواصل المالك أبو فهد 0551234567"
-    model.answers["clean_listing"] = {
-        "desc_clean": "أرض 750 م² للبيع من المالك فهد صك جاهز",
-        "features": [],
-    }
+    text = "أرض 750م للبيع، للتواصل 0551234567"
+    model.answers["clean_listing"] = {"desc_clean": "أرض 750 م² للبيع، المالك محمد العتيبي صك جاهز", "features": []}
     refused = client.post("/agents/clean_listing", json={"type": "land", "text": text})
     assert refused.status_code == 503 and DEED_REFUSALS.get() is None, "production: refused, and nothing kept"
 
@@ -174,19 +176,30 @@ def test_the_lab_keeps_why_a_wording_was_refused_for_its_deed_redacted_and_produ
     )
     case = Case(id="real-ad-011", agent="clean_listing", tags=[], input={"type": "land", "text": text},
                 expect={"keep": [["750"]]})  # fmt: skip
-    [outcome] = asyncio.run(run_cases(llm, [case], with_variants=False))
+    private = tmp_path / "private"
+    monkeypatch.setenv("ZON_PRIVATE_REPORTS", str(private))
+    outcomes = asyncio.run(run_cases(llm, [case], with_variants=False))
+    [outcome] = outcomes
     assert outcome.error and "deed" in outcome.error
-    assert outcome.refusal == {
-        "reason": "a deed where the text says nothing of a deed",
-        "source": "desc",
-        "excerpt": "المالك [اسم] صك جاهز",
-    }
+    assert outcome.refusal == {"source": "desc", "reason": "the text says nothing of a deed", "claim": "affirmed"}
 
-    feature = deed_refusal("أرض للبيع", ["الصك جاهز"], "أرض للبيع بدون صك", None)
-    assert feature == {
-        "reason": "a deed where the text says the opposite",
+    from datetime import UTC, datetime
+
+    published = json.dumps(
+        report(outcomes, [case], llm, started=datetime.now(UTC), seconds=1.0, gpu="A40", notes=None),
+        ensure_ascii=False,
+        default=str,
+    )
+    for word in ("محمد", "العتيبي", "المالك", "صك جاهز", "0551234567"):
+        assert word not in published, f"«{word}» in the public report"
+    [kept] = [json.loads(line) for line in (private / "deed-wordings.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert kept["case"] == "real-ad-011" and "محمد" not in kept["wording"] and "العتيبي" not in kept["wording"]
+    assert "صك جاهز" in kept["wording"], "the private diagnosis keeps what was said of the deed"
+
+    assert deed_refusal("أرض للبيع", ["لا يوجد صك"], "أرض للبيع، الصك جاهز", None) == {
         "source": "features",
-        "excerpt": "الصك جاهز",
+        "reason": "the text says the opposite",
+        "claim": "denied",
     }
     said = redact("تواصل مع أبو فهد على 0551234567 أو @zon_sa أو a@b.com، رقم الصك 310045218890، الرخصة 7200012345")
     assert all(x not in said for x in ("فهد", "0551234567", "zon_sa", "a@b.com", "310045218890", "7200012345")), said

@@ -59,7 +59,13 @@ async def clean_listing(ctx: Ctx, data: dict[str, Any]) -> Result:
         raise model_unavailable(ModelFailed("role"))
     if not _deed_kept(desc, features, req.text, req.fields.get("deed")):
         if (kept := DEED_REFUSALS.get()) is not None:  # the lab's record of why (never set in production)
-            kept.append(deed_refusal(desc, features, req.text, req.fields.get("deed")))
+            deed = req.fields.get("deed")
+            kept.append(
+                {
+                    **deed_refusal(desc, features, req.text, deed),
+                    "wording": deed_wording(desc, features, req.text, deed),
+                }
+            )
         raise model_unavailable(ModelFailed("deed"))
     return Result(output, tokens_in=answer.tokens_in, tokens_out=answer.tokens_out)
 
@@ -115,11 +121,13 @@ def _deed_kept(desc: str, features: list[str], text: str, field: object) -> bool
 
 # ── why a wording was refused for its deed: the lab's record only (owner, 21 Nov 2026) ───────────────
 # The lab sets DEED_REFUSALS for the case it runs; production never does, so nothing of a refused wording is kept
-# there. The reports go to a public repository: the excerpt is the fewest words that show what was said of the deed,
-# with names, contacts and document numbers taken out first (redact).
+# there. What the lab keeps in its reports — they go to a public repository — is the case, where the claim was
+# (the description or the features), why, and whether it affirmed or denied a deed: no word of the wording. The
+# wording itself (redacted first, then cut) goes only to a private file when ZON_PRIVATE_REPORTS names a folder
+# (deed_wording); lab-pod.sh never uploads it.
 DEED_REFUSALS: ContextVar[list[dict[str, str]] | None] = ContextVar("deed_refusals", default=None)
 
-_AROUND = 2  # words on each side of «صك»: its negation is the word next to it (_deeds)
+_AROUND = 2  # words on each side of «صك» in the private excerpt: its negation is the word next to it (_deeds)
 _NAME_AFTER = re.compile(
     r"(?<!\w)(?:الاسم|اسمي|اسم|المالك|المسوق|الوسيط|الوكيل|المكتب|مكتب|مؤسسة|شركة|أبو|ابو|أم|ام|أخوك|اخوك|معك)"
     r"[\s:：-]+(?:[^\s\d،,.؛]+)(?:\s+(?!صك|الصك)[^\s\d،,.؛]+)?"
@@ -130,7 +138,7 @@ _DOCUMENT = re.compile(r"\d[\d\s\-/]{4,}\d|\d{5,}")  # a deed, licence or ID num
 
 def redact(text: str) -> str:
     """Names, contacts and document numbers out of a text the lab keeps: «[اسم]» · «[رابط]» · «[بريد]» · «[حساب]» ·
-    «[رقم]»."""
+    «[رقم]». On the whole text, before any cut: a cut first can leave a name without the word that marks it."""
     for pattern, mark in (
         (_URL, "[رابط]"),
         (_EMAIL, "[بريد]"),
@@ -144,7 +152,7 @@ def redact(text: str) -> str:
 
 
 def _deed_excerpt(text: str) -> str:
-    """The fewest words of [text] around its first «صك»: what was said of the deed."""
+    """The fewest words of [text] around its first «صك»."""
     words = text.split()
     for n, word in enumerate(words):
         if _DEED.fullmatch(re.sub(r"[^\w]", "", norm(word))):
@@ -152,9 +160,7 @@ def _deed_excerpt(text: str) -> str:
     return " ".join(words[: 2 * _AROUND + 1])
 
 
-def deed_refusal(desc: str, features: list[str], text: str, field: object) -> dict[str, str]:
-    """Why a wording was refused for its deed: where («desc» or «features»), what it claimed against what the text
-    and the field say, and the excerpt — redacted."""
+def _refused(desc: str, features: list[str], text: str, field: object) -> tuple[str, str, bool, str]:
     stated = _deeds(text) | ({field} if isinstance(field, bool) else set())
     said = [("desc", desc, _deeds(desc))] + [
         ("features", f, {False} if False in _deeds(f) else {True}) for f in features if _DEED.search(norm(f))
@@ -162,9 +168,21 @@ def deed_refusal(desc: str, features: list[str], text: str, field: object) -> di
     for source, where, claims in said:
         for claim in sorted(claims - stated):
             against = "the text says the opposite" if (not claim) in stated else "the text says nothing of a deed"
-            reason = f"{'a deed' if claim else 'no deed'} where {against}"
-            return {"reason": reason, "source": source, "excerpt": redact(_deed_excerpt(where))}
-    return {"reason": "deed", "source": "desc", "excerpt": redact(_deed_excerpt(desc))}
+            return source, against, claim, where
+    return "desc", "deed", True, desc
+
+
+def deed_refusal(desc: str, features: list[str], text: str, field: object) -> dict[str, str]:
+    """Why a wording was refused for its deed, for a public report: where («desc» or «features»), why, and
+    whether it affirmed or denied a deed — no word of what was written."""
+    source, reason, claim, _ = _refused(desc, features, text, field)
+    return {"source": source, "reason": reason, "claim": "affirmed" if claim else "denied"}
+
+
+def deed_wording(desc: str, features: list[str], text: str, field: object) -> str:
+    """The private diagnosis only (ZON_PRIVATE_REPORTS): the words around «صك», redacted before the cut."""
+    *_, where = _refused(desc, features, text, field)
+    return _deed_excerpt(redact(where))
 
 
 async def clean_project(ctx: Ctx, data: dict[str, Any]) -> Result:

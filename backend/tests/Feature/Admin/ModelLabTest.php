@@ -150,7 +150,7 @@ class ModelLabTest extends AdminTestCase
         // its invented price is refused by the cleaning pipeline itself (agents: numbers.grounded_amounts): failed; its
         // scores rose with the shortlist that holds only what keeps the wish and its stated conditions (21 Nov), and
         // the ids dealt at random; still under the plain order
-        foreach (['search_listings: عرض يكسر', 'ردود فاشلة في: clean_listing', 'report_write: NumberGuard', 'search_listings: درجته 0.659 لا تتجاوز الترتيب بلا نموذج (0.814)',
+        foreach (['search_listings: عرض يكسر', 'ردود فاشلة في: clean_listing', 'report_write: NumberGuard', 'search_listings: درجته 0.663 لا تتجاوز الترتيب بلا نموذج (0.814)',
             'search_requests: درجته 0.671 لا تتجاوز', 'matching: درجته 0.726 لا تتجاوز'] as $reason) {
             $this->assertStringContainsString($reason, $adversary);
         }

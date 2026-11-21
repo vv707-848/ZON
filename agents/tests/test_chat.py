@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from tests.conftest import ScriptedModel, call, index
 from zon_agents.config import Settings
-from zon_agents.pipelines.chat import PLANS_GUIDANCE, guidance_lang
+from zon_agents.pipelines.chat import PLANS_GUIDANCE, guidance_lang, plan_price
 from zon_agents.profiles import load_profile
 from zon_agents.tools.retrieval import Retrieval
 
@@ -153,6 +153,33 @@ def test_a_plan_answer_the_model_wrote_is_replaced_by_the_pointer_in_turkish(
     assert output == {"answer": PLANS_GUIDANCE["tr"], "covered": True, "sources": [], "intent": "packages"}
     assert "199" not in output["answer"]
     assert "packages" not in model.calls_of("chat")[0][1], "no plan, no price in what the model reads"
+
+
+def test_a_plan_price_under_another_intent_is_the_pointer_and_a_number_the_passages_give_stays(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """Owner, 21 Nov 2026: «الباقة بـ199 ليرة تركية» to a knowledge question, «199 TL» to a search — the pointer,
+    as Laravel's PlanPrice; a number the passages give, beside a plan word, stays."""
+    _document(client)
+    quoted = "يحقُّ لغير السعودي المقيم  إقامة نظامية تملك عقار لسكنه الخاص"
+    model.answers["chat"] = [
+        {"answer": "الباقة بـ199 ليرة تركية، ويحق للمقيم التملك.", "covered": True,
+         "citations": [{"passage": 1, "quote_ar": quoted}]},
+        {"answer": "عندك «البحث الدلالي»، والاشتراك 199 TL.", "covered": True},
+        {"answer": "ابحث في «البحث الدلالي» عن شقة 3 غرف.", "covered": True},
+    ]  # fmt: skip
+
+    knowledge = call(client, "chat", {"lang": "ar", "intent": "knowledge", "message": "يحق لغير السعودي تملك عقار؟"})
+    search = call(client, "chat", {"intent": "semantic_search", "message": "ابي شقة في جدة"})
+    days = call(client, "chat", {"intent": "semantic_search", "message": "ابي شقة في جدة"})
+
+    assert knowledge["output"] == {"answer": PLANS_GUIDANCE["ar"], "covered": True, "sources": [], "intent": "packages"}
+    assert search["output"]["answer"] == PLANS_GUIDANCE["ar"]
+    assert days["output"]["answer"].startswith("ابحث"), "a number with no plan word beside it stays"
+    assert plan_price("رسوم الترخيص الإعلاني 100 ريال، أو من رصيد الباقة", {100.0}) is False, "a documented fee"
+    assert (
+        plan_price("الباقة 199 ريال", set()) is True and plan_price("كم سعر المتر في الحوية؟ 4500 ريال", set()) is False
+    )
 
 
 @pytest.mark.parametrize(

@@ -194,12 +194,15 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         result = self.run_lab(ZON_RANK_MODES="both compact")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         runs = [line for line in (self.dir / "lab").read_text().splitlines() if "--sample" not in line]
-        modes = [(line.split()[1], line.split("--rank-mode ")[1].split()[0], "cases_fresh" in line)
+        which = lambda line: "fresh" if "cases_fresh" in line else "accept" if "cases_accept" in line else ""  # noqa: E731
+        modes = [(line.split()[1], line.split("--rank-mode ")[1].split()[0], which(line))
                  for line in runs if "--rank-mode" in line]
-        self.assertEqual(modes, [("run", "both", False), ("run", "both", True), ("load", "both", False),
-                                 ("run", "compact", False), ("run", "compact", True), ("load", "compact", False)])
+        self.assertEqual(modes, [("run", "both", ""), ("run", "both", "fresh"), ("run", "both", "accept"),
+                                 ("load", "both", ""), ("run", "compact", ""), ("run", "compact", "fresh"),
+                                 ("run", "compact", "accept"), ("load", "compact", "")])
         body = GitHub.comments[0]["body"]
-        for header in ("### rank both — the cases", "### rank both — the fresh cases", "### rank compact — the cases"):
+        for header in ("### rank both — the cases", "### rank both — the fresh cases", "### rank compact — the cases",
+                       "### rank compact — the acceptance set (graded by hand)"):
             self.assertIn(header, body)
 
     def test_what_the_missed_cases_wrote_is_posted_after_the_tables(self) -> None:
@@ -211,8 +214,7 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
              "output": {"answer": "right"}},
             {"case": "real-ad-011", "agent": "clean_listing", "variant": "base", "score": 0.0,
              "error": "model: llm (deed) unavailable", "metrics": {}, "output": None,
-             "refusal": {"reason": "a deed where the text says nothing of a deed", "source": "desc",
-                         "excerpt": "المالك [اسم] صك جاهز"}},
+             "refusal": {"source": "desc", "reason": "the text says nothing of a deed", "claim": "affirmed"}},
             {"case": "search-004", "agent": "search_listings", "variant": "base", "score": 0.9, "error": None,
              "metrics": {}, "output": {"results": [{"id": 1}, {"id": 2}, {"id": 3}]}},
             {"case": "search-004", "agent": "search_listings", "variant": "reversed", "score": 0.9, "error": None,
@@ -228,8 +230,9 @@ pathlib.Path(os.environ["TEST_DIR"], "ready").touch(); time.sleep(60)
         self.assertIn("→ باقة الباحث بـ 199 ريال", missed)
         self.assertNotIn("chat-001", missed, "a case that scored 1 is not listed")
         self.assertIn("top three changed when reversed: `search-004`", missed)
-        self.assertIn("`real-ad-011` (clean_listing): model: llm (deed) unavailable — a deed where the text says "
-                      "nothing of a deed, in the desc: «المالك [اسم] صك جاهز»", missed)
+        self.assertIn("`real-ad-011` (clean_listing): model: llm (deed) unavailable — affirmed a deed in the desc: "
+                      "the text says nothing of a deed", missed)
+        self.assertNotIn("صك", missed.split("real-ad-011")[1].split("\n")[0], "no word of the wording on GitHub")
 
     def test_what_the_market_texts_that_missed_wrote_is_posted_too(self) -> None:
         """21 Nov: the market report stayed on the volume, and a second Pod had to read it."""

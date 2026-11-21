@@ -166,35 +166,35 @@
   "search_listings": {
    "cases": 38,
    "failed": 0,
-   "floor": 0.8138,
+   "floor": 0.814,
    "latency_ms": {
     "p50": 0,
     "p95": 0
    },
    "metrics": {
     "inject_top3": 0.0,
-    "ndcg": 0.9688,
+    "ndcg": 0.969,
     "top1": 0.8947,
     "zero_top3": 0.0789
    },
-   "score": 0.9688,
+   "score": 0.969,
    "variants": {
     "reversed": {
      "failed": 0,
      "metrics": {
-      "ndcg": 0.9688,
+      "ndcg": 0.969,
       "top1": 0.8947
      },
-     "score": 0.9688,
+     "score": 0.969,
      "stability": 1.0
     },
     "shuffled": {
      "failed": 0,
      "metrics": {
-      "ndcg": 0.9688,
+      "ndcg": 0.969,
       "top1": 0.8947
      },
-     "score": 0.9688,
+     "score": 0.969,
      "stability": 1.0
     }
    }

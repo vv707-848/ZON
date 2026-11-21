@@ -2,11 +2,13 @@
 
 namespace App\Ai\Assistants;
 
+use App\Actions\Billing\ApplyBoost;
 use App\Ai\AiGateway;
 use App\Ai\AiResult;
 use App\Ai\Capture\TrainingCapture;
 use App\Ai\Masking\AiMasking;
 use App\Enums\AiAgent;
+use App\Enums\BoostKind;
 use App\Enums\ChatIntent;
 use App\Models\ChatMessage;
 use App\Models\Customer;
@@ -99,6 +101,11 @@ final class ChatAssistant
 
         $out = $result->output;
         $intent ??= ChatIntent::tryFrom($out['intent']) ?? ChatIntent::OutOfScope;    // named by the model («auto»)
+        // a plan price under another intent («الباقة بـ199 ليرة تركية»، «199 TL»): the pointer too; a documented
+        // service fee in its own sentence stays (PlanPrice)
+        if ($intent !== ChatIntent::Packages && PlanPrice::leaks($out['answer'], $amounts)) {
+            return $this->plans($customer, $message, $lang, 'replaced', $result);
+        }
         if ($intent === ChatIntent::Packages) {             // whatever the model wrote («199 ليرة تركية»): the pointer
             return $this->plans($customer, $message, $lang, $out['answer'] === self::PLANS_GUIDANCE[self::plansLang($lang, $message)] ? 'passed' : 'replaced', $result);
         }
@@ -142,14 +149,20 @@ final class ChatAssistant
     }
 
     /**
-     * Every amount the chat may say: the fees and shares of the platform — no plan's price and no boost's (owner,
-     * 21 Nov 2026: plan prices are the plans page's alone; an answer that says one is refused).
+     * Every amount the chat may say: the documented fees and shares of the platform's services — the ad licence,
+     * the commission and the broker's share, and the boosts' («عاجل»، «تمييز») — and no plan's price (owner, 21 Nov
+     * 2026: plan prices are the plans page's alone; an answer that says one is refused).
      *
      * @return list<string>
      */
     private function amounts(): array
     {
-        return array_values(array_unique([Settings::money(Setting::AdLicenceFee)->riyals(), Settings::string(Setting::OwnerCommissionPercent), Settings::string(Setting::BrokerFreeSharePercent)]));
+        $amounts = [Settings::money(Setting::AdLicenceFee)->riyals(), Settings::string(Setting::OwnerCommissionPercent), Settings::string(Setting::BrokerFreeSharePercent)];
+        foreach (BoostKind::cases() as $kind) {
+            $amounts[] = ApplyBoost::price($kind)->riyals();
+        }
+
+        return array_values(array_unique($amounts));
     }
 
     /**

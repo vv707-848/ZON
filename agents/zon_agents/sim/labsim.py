@@ -86,10 +86,17 @@ async def run(name: str, cases: Sequence[Case]) -> list[Outcome]:
 
 
 def calls_the_model(case: Case) -> bool:
-    """A knowledge question with no passage is answered «not covered» by the pipeline itself, and a plan question
-    by its pointer to the plans page (no price from the chat, 21 Nov)."""
+    """A knowledge question with no passage is answered «not covered» by the pipeline itself, a plan question by its
+    pointer to the plans page (no price from the chat, 21 Nov), and a search whose every candidate the rules take out
+    by an empty list."""
     if case.agent == "chat" and case.input["intent"] == "packages":
         return False
+    if case.agent in ("search_listings", "search_requests"):  # nothing left after the rules: no call (rightly empty)
+        need = Need(**case.input["need"])
+        kind = RequestCandidate if case.agent == "search_requests" else ListingCandidate
+        kept = [c for c in case.input.get("candidates", []) if ranking.fits(need, kind(**c))]
+        if not any(not ranking.contradicted(need, kind(**c)) for c in kept):
+            return False
     return not (case.agent == "chat" and case.input["intent"] == "knowledge" and not case.context.get("passages"))
 
 

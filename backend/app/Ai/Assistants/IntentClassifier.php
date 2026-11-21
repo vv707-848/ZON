@@ -13,7 +13,8 @@ final class IntentClassifier
 {
     /** @var array<string, list<string>> intent => phrases (Arabic, English, Urdu) */
     private const RULES = [
-        'packages' => ['باقة', 'باقات', 'الباقه', 'اشتراك', 'الاشتراك', 'رصيد', 'تمييز', 'مميز', 'سعر الباقة', 'كم السعر', 'كم سعر', 'تكلفة', 'package', 'subscription', 'plan', 'pricing', 'پیکج', 'قیمت'],
+        // plan words only: «كم سعر المتر في الحوية» is no plan question (owner, 21 Nov 2026)
+        'packages' => ['باقة', 'باقات', 'الباقه', 'باقتي', 'باقتك', 'اشتراك', 'الاشتراك', 'رصيد', 'تمييز', 'مميز', 'سعر الباقة', 'package', 'subscription', 'plan', 'پیکج'],
         'search_request' => ['طلب بحث', 'اضيف طلب', 'أضيف طلب', 'انشر طلب', 'طلب عاجل', 'اسوي طلب', 'post a request', 'add a request', 'درخواست'],
         'matching' => ['مطابقة', 'رغبتي', 'رغبة', 'يطابق', 'المطابق', 'match', 'matching', 'my wish'],
         'decision' => ['السعر زين', 'سعره زين', 'السعر مناسب', 'سعره مناسب', 'مبالغ فيه', 'سعر مبالغ', 'يستاهل السعر', 'يسوى', 'اتفاوض', 'التفاوض', 'محتار', 'متردد', 'ابيع ولا', 'اشتري ولا', 'ولا انتظر',

@@ -203,7 +203,8 @@ if [ -z "${ZON_RANK_MODES:-}" ]; then
     | tee "$W/logs/load-table-$STAMP.txt" || true
 else
   # two ways of asking the ranking model, on the same card one after the other (ranking.RANK_MODE): every case,
-  # the fresh cases no one tuned on (lab/cases_fresh), and production's sizes — each mode's own tables
+  # the fresh cases no one tuned on (lab/cases_fresh), the acceptance set graded by hand (lab/cases_accept), and
+  # production's sizes — each mode's own tables
   for MODE in $ZON_RANK_MODES; do
     {
       printf '### rank %s — the cases\n' "$MODE"
@@ -212,8 +213,13 @@ else
       printf '### rank %s — the fresh cases\n' "$MODE"
       .venv/bin/zon-agents lab run --profile "$PROFILE" --gpu "$GPU" --rank-mode "$MODE" --cases zon_agents/lab/cases_fresh \
         --notes "lab-pod $STAMP fresh" --out "$W/reports/fresh-$PROFILE-$STAMP-$MODE.json" 2>&1 || true
+      # the acceptance set: graded by hand, not by the conditions the generated cases' grades call — its own table
+      printf '### rank %s — the acceptance set (graded by hand)\n' "$MODE"
+      .venv/bin/zon-agents lab run --profile "$PROFILE" --gpu "$GPU" --rank-mode "$MODE" --cases zon_agents/lab/cases_accept \
+        --notes "lab-pod $STAMP accept" --out "$W/reports/accept-$PROFILE-$STAMP-$MODE.json" 2>&1 || true
     } | tee -a "$W/logs/lab-table-$STAMP.txt"
-    upload "$W/reports/lab-$PROFILE-$STAMP-$MODE.json" "$W/reports/fresh-$PROFILE-$STAMP-$MODE.json"
+    upload "$W/reports/lab-$PROFILE-$STAMP-$MODE.json" "$W/reports/fresh-$PROFILE-$STAMP-$MODE.json" \
+      "$W/reports/accept-$PROFILE-$STAMP-$MODE.json"
     { printf '### rank %s\n' "$MODE"
       .venv/bin/zon-agents lab load --profile "$PROFILE" --rank-mode "$MODE" --out "$W/reports/load-$PROFILE-$STAMP-$MODE.json" 2>&1 || true
     } | tee -a "$W/logs/load-table-$STAMP.txt"
@@ -281,8 +287,8 @@ for o in report.get("outcomes", []):
         said = " | ".join([said, *(r.get("text", "") for r in out.get("recommendations", []))])
     bad = {k: v for k, v in o.get("metrics", {}).items() if v != 1}
     why = o.get("error") or f"score {o['score']} {json.dumps(bad, ensure_ascii=False)}"
-    if r := o.get("refusal"):  # a wording refused for its deed: why, where, the excerpt (redacted by the lab)
-        why += f" — {r['reason']}, in the {r['source']}: «{r['excerpt']}»"
+    if r := o.get("refusal"):  # a wording refused for its deed: where, why, affirmed or denied — no word of it
+        why += f" — {r['claim']} a deed in the {r['source']}: {r['reason']}"
     lines.append(f"- `{o['case']}` ({o['agent']}): {why}\n  → {' '.join(str(said).split())[:280]}")
 flips = sorted(c for (c, v), ids in top.items() if v == "reversed" and top.get((c, "base")) not in (None, ids))
 if flips:
@@ -309,7 +315,7 @@ for agent, row in report.items():
             said = f"{said} | features: {' · '.join(out['features'])}"
         why = m.get("error") or json.dumps({k: v for k, v in m.get("checks", {}).items() if v != 1})
         if r := m.get("refusal"):
-            why += f" — {r['reason']}, in the {r['source']}: «{r['excerpt']}»"
+            why += f" — {r['claim']} a deed in the {r['source']}: {r['reason']}"
         lines.append(f"- `{m['id']}` ({agent}): {why}\n  → {' '.join(str(said).split())[:280]}")
 if not lines:
     sys.exit(1)

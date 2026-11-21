@@ -25,6 +25,7 @@ import time
 from typing import Any
 
 from zon_agents.llm import ModelFailed, model_unavailable
+from zon_agents.numbers import norm
 from zon_agents.pipelines.base import Ctx, Result, parse, scrub
 from zon_agents.profiles import Use
 from zon_agents.schemas.agents import ChatAnswer, ChatInput
@@ -102,6 +103,29 @@ def guidance_lang(lang: str, message: str) -> str:
     if written == "devanagari":
         return "hi"
     return "tr" if written == "latin" and _TURKISH.search(message.lower()) else "en"
+
+
+# a plan's price under another intent («الباقة بـ199 ليرة تركية»، «199 TL», owner 21 Nov 2026): Laravel's PlanPrice,
+# line for line — another currency than the riyal is never ours; a number within three words of a plan word is a
+# plan price unless it is one the passages give (a documented service fee in its own sentence stays)
+_FOREIGN = re.compile(r"\d[\d,.]*\s?(?:tl|₺|ليره|ليرات|lira|liras|دولار|usd|\$|€|يورو|eur)(?![^\W\d_])|(?:₺|\$|€)\s?\d")
+_PLAN_WORDS = ("باقه", "باقات", "باقت", "اشتراك", "package", "plan", "subscription", "paket", "abonelik", "üyelik",
+               "тариф", "подписк", "пакет", "पैकेज", "پیکج")  # fmt: skip
+_A_NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+def plan_price(answer: str, documented: set[float]) -> bool:
+    said = norm(answer)
+    if _FOREIGN.search(said):
+        return True
+    words = said.split()
+    for i, word in enumerate(words):
+        number = _A_NUMBER.search(word)
+        if number is None or float(number[0].replace(",", "")) in documented:
+            continue
+        if any(plan in near for near in words[max(0, i - 3) : i + 4] for plan in _PLAN_WORDS):
+            return True
+    return False
 
 
 def _plans(lang: str, message: str, log: dict[str, Any] | None = None, tokens: tuple[int, int] = (0, 0)) -> Result:
@@ -208,6 +232,11 @@ async def chat(ctx: Ctx, data: dict[str, Any]) -> Result:
             {"doc_id": chunk.doc_id, "title": chunk.title, "effective_date": chunk.effective_date, "quote_ar": quote}
         )
     intent = (answer.output.intent or "out_of_scope") if auto else req.intent
+    documented = {float(n[0].replace(",", "")) for c in chunks for n in _A_NUMBER.finditer(norm(c.text))}
+    if intent != "packages" and plan_price(answer.output.answer, documented):  # a plan price under another intent
+        return _plans(
+            req.lang, req.message, {"passages": len(chunks), "plans": "price"}, (answer.tokens_in, answer.tokens_out)
+        )
     if intent == "packages":  # named by the model («auto»): whatever it wrote, the pointer in his language
         return _plans(
             req.lang, req.message, {"passages": len(chunks), "plans": "replaced"}, (answer.tokens_in, answer.tokens_out)

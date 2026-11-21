@@ -7,12 +7,15 @@ once, as many as the engine takes (MAXREQ), so each latency is one request's, no
 """
 
 import asyncio
+import json
+import os
 import time
 from collections import defaultdict
 from collections.abc import Callable, Sequence
 from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
@@ -107,8 +110,21 @@ class Outcome:
     tokens_in: int
     tokens_out: int
     output: dict[str, Any] | None
-    # a wording refused for its deed: why, where, and the excerpt — redacted (pipelines.text.deed_refusal)
+    # a wording refused for its deed: where, why, affirmed or denied — no word of it (pipelines.text.deed_refusal)
     refusal: dict[str, str] | None = None
+
+
+def kept_refusal(case_id: str, refusals: list[dict[str, str]]) -> dict[str, str] | None:
+    """A deed refusal as a public report keeps it: where, why, affirmed or denied. Its wording (redacted) only into
+    ZON_PRIVATE_REPORTS/deed-wordings.jsonl, a folder of the operator's own — never the reports lab-pod.sh posts."""
+    if not refusals:
+        return None
+    first = refusals[0]
+    if folder := os.environ.get("ZON_PRIVATE_REPORTS"):
+        Path(folder).mkdir(parents=True, exist_ok=True)
+        with (Path(folder) / "deed-wordings.jsonl").open("a", encoding="utf-8") as private:
+            private.write(json.dumps({"case": case_id, **first}, ensure_ascii=False) + "\n")
+    return {k: first[k] for k in ("source", "reason", "claim")}
 
 
 def refused(error: str | None) -> bool:
@@ -169,7 +185,7 @@ async def _one(
         error: str | None, elapsed: int, result: Result | None = None, value: float = 0.0, metrics: Any = None
     ) -> Outcome:
         return Outcome(
-            refusal=refusals[0] if refusals else None,
+            refusal=kept_refusal(case.id, refusals),
             case=case.id,
             agent=case.agent,
             variant=variant,

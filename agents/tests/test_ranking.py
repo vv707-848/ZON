@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from tests.conftest import FakeEmbedder, ScriptedModel, call, index, listing
 from zon_agents.conditions import contradicts
+from zon_agents.pipelines import ranking
 
 NEED = {"city": "الرياض", "neighborhood": "النرجس", "property_type": "apartment", "budget_max": 950000}
 
@@ -318,6 +319,53 @@ def test_a_request_s_own_condition_against_the_brokers_offer(client: TestClient,
     found = call(client, "search_requests", {"need": offer, "candidates": requests})["output"]["results"]
 
     assert [r["id"] for r in found] == [2]
+
+
+def test_a_category_turned_away_floors_joined_by_or_and_a_must_after_prefer_even_with_the_model_down(
+    client: TestClient, model: ScriptedModel
+) -> None:
+    """Owner, 21 Nov 2026 (on eac29d6): «لا تقبل العزاب» went for a family too; «أرضي أو أول» kept the third floor;
+    «أفضّل حي الشفا ولازم مصعد» dropped the lift. The fallback with no model applies the same rules."""
+    model.answers["search_listings"] = httpx.ConnectError("tunnel down")
+    flats = lambda *descs: [  # noqa: E731
+        {"id": i, "type": "apartment", "neighborhood": "الشفا", "price": 36_000, "bedrooms": 2, "desc": d}
+        for i, d in enumerate(descs, 1)
+    ]
+
+    def found(text: str, candidates: list[dict[str, Any]]) -> list[int]:
+        need = {**NEED, "purpose": "rent", "budget_max": 40_000, "bedrooms": 2, "free_text": text}
+        out = call(client, "search_listings", {"need": need, "candidates": candidates})
+        assert out["degraded"] is True
+        return sorted(r["id"] for r in out["output"]["results"])
+
+    turned_away = flats("شقة غرفتين، لا تقبل العزاب", "شقة غرفتين وصالة")
+    assert found("ابغى شقة عزاب", turned_away) == [2]
+    assert found("شقة لي ولعائلتي", turned_away) == [1, 2], "not taken out for a family by that phrase"
+    floors = flats("شقة في الدور الثالث", "شقة في الدور الأول", "شقة في الدور الأرضي", "شقة نظيفة")
+    assert found("ابي الدور الأرضي أو الأول", floors) == [2, 3, 4], "either floor; never the third; silent stays"
+    lift = flats("شقة في الدور الثالث بدون مصعد", "شقة مع مصعد", "شقة غرفتين")
+    assert found("أفضّل حي الشفا ولازم مصعد", lift) == [2, 3]
+
+
+def test_the_acceptance_set_graded_by_hand_is_kept_as_graded() -> None:
+    """zon_agents/lab/cases_accept: grades fixed by hand before the fix (62d8c00), not by conditions.py — the
+    generated cases' grades call the rule they measure. On eac29d6 the rule was right in 3 lists of 10."""
+    from zon_agents.lab.cases import load_cases
+    from zon_agents.schemas.agents import ListingCandidate, Need, RequestCandidate
+
+    wrong = []
+    for case in load_cases(Path(__file__).resolve().parents[1] / "zon_agents/lab/cases_accept"):
+        need = Need(**case.input["need"])
+        kind = RequestCandidate if case.agent == "search_requests" else ListingCandidate
+        for name, key in (("candidates", None), ("matched", "matched"), ("broaden", "broaden")):
+            if not (items := case.input.get(name)):
+                continue
+            grades = (case.expect[key] if key else case.expect)["grades"]
+            rule = ranking.fits_broaden if name == "broaden" else ranking.fits
+            kept = {c["id"] for c in items if rule(need, kind(**c)) and not ranking.contradicted(need, kind(**c))}
+            if kept != {int(i) for i, g in grades.items() if g > 0}:
+                wrong.append(f"{case.id} {name}")
+    assert wrong == []
 
 
 def test_the_conditions_read_as_laravel_reads_them() -> None:

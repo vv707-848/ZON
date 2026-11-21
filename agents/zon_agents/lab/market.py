@@ -31,7 +31,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from zon_agents.lab.runner import TODAY, FixedRetrieval, _percentile
+from zon_agents.lab.runner import TODAY, FixedRetrieval, _percentile, kept_refusal
 from zon_agents.llm import LLM
 from zon_agents.numbers import grounded_amounts, norm
 from zon_agents.pipelines import PIPELINES
@@ -154,7 +154,7 @@ async def _one(llm: LLM, item: dict[str, Any], slots: asyncio.Semaphore) -> dict
     ctx = Ctx(llm, FixedRetrieval([]), today=lambda: TODAY)
     refusals: list[dict[str, str]] = []
     async with slots:
-        DEED_REFUSALS.set(refusals)  # this task's own: a wording refused for its deed, why and where (redacted)
+        DEED_REFUSALS.set(refusals)  # this task's own: a wording refused for its deed (runner.kept_refusal)
         start = time.perf_counter()
         try:
             result = await PIPELINES[agent](ctx, data)
@@ -164,7 +164,7 @@ async def _one(llm: LLM, item: dict[str, Any], slots: asyncio.Semaphore) -> dict
                 "agent": agent,
                 "error": f"{type(exc).__name__}: {exc}"[:120],  # the reason too: timeout · invalid · amount
                 "latency_ms": round((time.perf_counter() - start) * 1000),
-                **({"refusal": refusals[0]} if refusals else {}),
+                **({"refusal": kept_refusal(item["id"], refusals)} if refusals else {}),
             }
         elapsed = round((time.perf_counter() - start) * 1000)
     error = "degraded" if result.degraded else None

@@ -122,7 +122,7 @@
   "search_listings": {
    "cases": 38,
    "failed": 38,
-   "floor": 0.8138,
+   "floor": 0.814,
    "latency_ms": {
     "p50": 0,
     "p95": 0

@@ -313,3 +313,14 @@ def test_the_node_refuses_what_is_not_an_agents_call(node: Any) -> None:
 def test_a_real_profile_is_not_a_simulation(client: TestClient) -> None:
     assert load_profile(Settings.model_fields["llm_profile"].default).simulated is False
     assert client.get("/agents/health").json()["simulated"] is False
+
+
+def test_every_result_on_the_fresh_and_the_acceptance_sets_is_known_too() -> None:
+    """The acceptance set (lab/cases_accept, graded by hand) and the fresh cases: every simulated run as known."""
+    from pathlib import Path
+
+    from zon_agents.lab.cases import load_cases
+
+    for folder in ("cases_fresh", "cases_accept"):
+        cases = load_cases(Path(labsim.__file__).parents[1] / "lab" / folder)
+        assert {run: unknown for run, (_, unknown) in labsim.run_all(cases).items() if unknown} == {}, folder

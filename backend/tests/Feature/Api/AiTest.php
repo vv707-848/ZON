@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Api;
 
+use App\Actions\Billing\ApplyBoost;
 use App\Ai\Assistants\ChatAssistant;
 use App\Ai\Assistants\IntentClassifier;
 use App\Ai\Retrieval\Conditions;
+use App\Enums\BoostKind;
 use App\Models\AiRequest;
 use App\Models\BuyerPreference;
 use App\Models\ChatMessage;
@@ -361,12 +363,41 @@ class AiTest extends TestCase
         $this->postJson('/api/v1/ai/chat', ['message' => 'Arayan için her ay ne ödüyorum?'])->assertOk()
             ->assertJsonPath('data.intent', 'packages')->assertJsonPath('data.answer', ChatAssistant::PLANS_GUIDANCE['tr'])
             ->assertJsonPath('data.answer', fn (string $said) => ! str_contains($said, '199'))->assertJsonPath('data.action', '/account/plans');
-        $this->postJson('/api/v1/ai/chat', ['message' => 'ابي شقة في جدة'])->assertOk()
-            ->assertJsonPath('data.answer', 'لا أملك معلومة موثقة عن هذا. راجع الجهة الرسمية المختصة.');
+        $this->postJson('/api/v1/ai/chat', ['message' => 'ابي شقة في جدة'])->assertOk()   // a plan price under another intent: the pointer
+            ->assertJsonPath('data.answer', ChatAssistant::PLANS_GUIDANCE['ar'])->assertJsonPath('data.action', '/account/plans');
         Http::assertSent(fn (Sent $r) => ! array_key_exists('packages', $r->data()));
 
         $this->assertSame(['passed', 'passed', 'passed', 'replaced', 'replaced'], ChatMessage::query()->orderBy('id')->pluck('guard_status')->all());
         $this->assertSame(json_decode((string) file_get_contents(base_path('../docs/contracts/fixtures/chat/plans_guidance.json')), true), ChatAssistant::PLANS_GUIDANCE, 'the agents\' words');
+    }
+
+    /**
+     * Owner, 21 Nov 2026: a plan price that comes back under another intent («الباقة بـ199 ليرة تركية» to a licence
+     * question, «199 TL» to a search) reaches the user as the pointer — from the agents' reply to Laravel's answer;
+     * a documented service fee in its own sentence stays; and «كم سعر المتر» opens no plans page.
+     */
+    public function test_a_plan_price_under_another_intent_is_the_pointer_and_a_documented_fee_stays(): void
+    {
+        $this->seeker();
+        $urgent = ApplyBoost::price(BoostKind::UrgentRequest)->riyals();
+        $reply = fn (string $answer) => ['output' => ['answer' => $answer, 'covered' => true, 'sources' => []], 'degraded' => false, 'usage' => [], 'latency_ms' => 900];
+        Http::fake(['agents.test/agents/chat' => Http::sequence()
+            ->push($reply('الباقة بـ199 ليرة تركية، وترخيص فال من الهيئة.'))
+            ->push($reply('عندك «البحث الدلالي»، والاشتراك 199 TL.'))
+            ->push($reply("الطلب العاجل بـ{$urgent} ريال، أو من رصيد باقتك إن كان فيها."))
+            ->push($reply('ما عندي سعر موثق للمتر في الحوية.'))]);
+
+        foreach (['كيف أطلع ترخيص فال؟', 'ابي شقة في جدة'] as $asked) {
+            $this->postJson('/api/v1/ai/chat', ['message' => $asked])->assertOk()
+                ->assertJsonPath('data.answer', ChatAssistant::PLANS_GUIDANCE['ar'])->assertJsonPath('data.action', '/account/plans')
+                ->assertJsonPath('data.answer', fn (string $said) => ! str_contains($said, '199'));
+        }
+        $this->postJson('/api/v1/ai/chat', ['message' => 'كيف أسوي طلب عاجل؟'])->assertOk()
+            ->assertJsonPath('data.answer', "الطلب العاجل بـ{$urgent} ريال، أو من رصيد باقتك إن كان فيها.");
+        $metre = $this->postJson('/api/v1/ai/chat', ['message' => 'كم سعر المتر في الحوية؟'])->assertOk();
+        $this->assertNotSame('packages', $metre->json('data.intent'));
+        $this->assertNotSame('/account/plans', $metre->json('data.action'));
+        $this->assertSame(['replaced', 'replaced'], ChatMessage::query()->orderBy('id')->limit(2)->pluck('guard_status')->all());
     }
 
     public function test_a_plan_question_is_the_pointer_with_the_ai_down(): void
@@ -495,6 +526,31 @@ class AiTest extends TestCase
         $this->assertSame([$ground->id, $house->id], array_column(array_column($found, 'listing'), 'id'), 'two that keep it: two results');
         $this->assertSame([$ground->id, $house->id], array_column(array_column($matched, 'listing'), 'id'));
         $this->assertContains($second->id, array_column(array_column($preferred, 'listing'), 'id'), '«أفضّل» orders, it never takes out');
+    }
+
+    /**
+     * Owner, 21 Nov 2026 (on eac29d6): «لا تقبل العزاب» went for a family too, «أرضي أو أول» kept the third floor, and
+     * «أفضّل … ولازم مصعد» dropped the lift — with no model, Need::fallback reads them as the agents now do.
+     */
+    public function test_with_the_agents_down_a_category_turned_away_floors_joined_by_or_and_a_must_after_prefer(): void
+    {
+        $offer = fn (int $price, string $desc) => Listing::factory()->published()->create(['property_type' => 'apartment', 'purpose' => 'rent', 'price' => $price, 'bedrooms' => 2, 'desc_clean' => $desc, 'desc_raw' => $desc]);
+        $this->agent([], 503);
+        $this->seeker();
+        $ids = fn (string $query) => array_column(array_column($this->postJson('/api/v1/ai/search', ['purpose' => 'rent', 'city' => 'الرياض', 'neighborhood' => 'النرجس', 'property_types' => ['apartment'], 'budget_max' => 40000, 'bedrooms' => 2, 'query' => $query])->assertOk()->json('data.results'), 'listing'), 'id');
+
+        $away = $offer(36000, 'شقة غرفتين، لا تقبل العزاب');
+        $plain = $offer(37000, 'شقة غرفتين وصالة');
+        $this->assertEqualsCanonicalizing([$plain->id], $ids('ابغى شقة عزاب'));
+        $this->assertEqualsCanonicalizing([$away->id, $plain->id], $ids('شقة لي ولعائلتي'), 'not taken out for a family by that phrase');
+
+        Listing::query()->delete();
+        $third = $offer(36000, 'شقة في الدور الثالث بدون مصعد');
+        $first = $offer(36500, 'شقة في الدور الأول مع مصعد');
+        $ground = $offer(37000, 'شقة في الدور الأرضي');
+        $this->assertEqualsCanonicalizing([$first->id, $ground->id], $ids('ابي الدور الأرضي أو الأول'), 'either floor, never the third');
+        $this->assertEqualsCanonicalizing([$first->id, $ground->id], $ids('أفضّل حي الشفا ولازم مصعد'), '«بدون مصعد» goes; the silent one stays');
+        $this->assertNotContains($third->id, $ids('أفضّل حي الشفا ولازم مصعد'));
     }
 
     public function test_laravel_reads_the_conditions_as_the_agents_do(): void
